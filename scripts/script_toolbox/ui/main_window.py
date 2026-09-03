@@ -6,6 +6,7 @@ from ..compat import QtGui
 from ..compat import cmds
 from ..compat import maya_main_window
 from ..compat import shift_pressed
+from ..constants import PLUGIN_VERSION
 from ..constants import WINDOW_OBJECT_NAME
 from ..core.config import load_config
 from ..core.config import save_config
@@ -18,6 +19,8 @@ from ..pycompat import text_type
 from ..style import STYLE
 from ..style import toolbar_icon
 from .runtime import build_folder_widgets
+from .update_ui import UpdateCheckThread
+from .update_ui import UpdateInstallThread
 
 
 _TOOLBOX = None
@@ -56,6 +59,10 @@ class ScriptToolbox(QtGui.QMainWindow):
         self.field_widgets = {}
         self._selection_signature = None
 
+        self.update_info = None
+        self.update_check_thread = None
+        self.update_install_thread = None
+
         self.build_ui()
         self.rebuild()
 
@@ -69,6 +76,12 @@ class ScriptToolbox(QtGui.QMainWindow):
             self.refresh_selection_fields
         )
         self.selection_timer.start()
+
+        # Check once per Maya session/window without blocking the UI thread.
+        QtCore.QTimer.singleShot(
+            1200,
+            self.check_for_updates
+        )
 
     # ------------------------------------------------------------------
     # UI
@@ -120,12 +133,48 @@ class ScriptToolbox(QtGui.QMainWindow):
         title.setObjectName(
             "ToolboxTitle"
         )
+        title.setToolTip(
+            "Script Toolbox {0}".format(
+                PLUGIN_VERSION
+            )
+        )
 
         top_layout.addWidget(
             title
         )
         top_layout.addStretch(
             1
+        )
+
+        self.update_button = QtGui.QToolButton()
+        self.update_button.setObjectName(
+            "UpdateButton"
+        )
+        self.update_button.setIcon(
+            toolbar_icon(
+                "update"
+            )
+        )
+        self.update_button.setIconSize(
+            QtCore.QSize(
+                16,
+                16
+            )
+        )
+        self.update_button.setToolButtonStyle(
+            QtCore.Qt.ToolButtonTextBesideIcon
+        )
+        self.update_button.setText(
+            "UPDATE"
+        )
+        self.update_button.setToolTip(
+            "Install the latest Script Toolbox release"
+        )
+        self.update_button.setVisible(
+            False
+        )
+        self.update_button.clicked.connect(
+            self.install_available_update
         )
 
         reload_button = QtGui.QToolButton()
@@ -180,6 +229,9 @@ class ScriptToolbox(QtGui.QMainWindow):
             self.open_interface_editor
         )
 
+        top_layout.addWidget(
+            self.update_button
+        )
         top_layout.addWidget(
             reload_button
         )
@@ -620,6 +672,181 @@ class ScriptToolbox(QtGui.QMainWindow):
                 ),
                 2500
             )
+
+    # ------------------------------------------------------------------
+    # Updater
+    # ------------------------------------------------------------------
+
+    def check_for_updates(self):
+        if (
+            self.update_check_thread is not None and
+            self.update_check_thread.isRunning()
+        ):
+            return
+
+        self.update_check_thread = UpdateCheckThread(
+            self
+        )
+        self.update_check_thread.completed.connect(
+            self.update_check_finished
+        )
+        self.update_check_thread.start()
+
+    def update_check_finished(
+        self,
+        result
+    ):
+        self.update_info = result
+
+        if not result.get(
+            "available",
+            False
+        ):
+            self.update_button.setVisible(
+                False
+            )
+            return
+
+        latest = result.get(
+            "latest_version"
+        ) or ""
+
+        self.update_button.setText(
+            "UPDATE {0}".format(
+                latest
+            )
+        )
+        self.update_button.setToolTip(
+            "Script Toolbox {0} is available. Current version: {1}".format(
+                latest,
+                PLUGIN_VERSION
+            )
+        )
+        self.update_button.setVisible(
+            True
+        )
+
+    def install_available_update(self):
+        if not self.update_info:
+            return
+
+        release = self.update_info.get(
+            "release"
+        )
+
+        if not release:
+            return
+
+        latest = self.update_info.get(
+            "latest_version",
+            ""
+        )
+
+        answer = QtGui.QMessageBox.question(
+            self,
+            "Update Script Toolbox",
+            (
+                "Install Script Toolbox {0}?\n\n"
+                "Your toolbox configuration is stored separately and "
+                "will not be replaced. Maya must be restarted after "
+                "the update."
+            ).format(
+                latest
+            ),
+            QtGui.QMessageBox.Yes |
+            QtGui.QMessageBox.No,
+            QtGui.QMessageBox.Yes
+        )
+
+        if answer != QtGui.QMessageBox.Yes:
+            return
+
+        self.update_button.setEnabled(
+            False
+        )
+        self.update_button.setText(
+            "UPDATING..."
+        )
+        self.statusBar().showMessage(
+            "Installing Script Toolbox {0}...".format(
+                latest
+            )
+        )
+
+        self.update_install_thread = UpdateInstallThread(
+            release,
+            self
+        )
+        self.update_install_thread.completed.connect(
+            self.update_install_finished
+        )
+        self.update_install_thread.start()
+
+    def update_install_finished(
+        self,
+        result
+    ):
+        if not result.get(
+            "installed",
+            False
+        ):
+            self.update_button.setEnabled(
+                True
+            )
+
+            latest = (
+                self.update_info.get(
+                    "latest_version",
+                    ""
+                )
+                if self.update_info
+                else ""
+            )
+
+            self.update_button.setText(
+                "UPDATE {0}".format(
+                    latest
+                ).strip()
+            )
+
+            QtGui.QMessageBox.critical(
+                self,
+                "Update Failed",
+                result.get(
+                    "error",
+                    "Unknown update error."
+                )
+            )
+            return
+
+        version = result.get(
+            "version",
+            ""
+        )
+
+        self.update_button.setText(
+            "RESTART MAYA"
+        )
+        self.update_button.setEnabled(
+            False
+        )
+
+        self.statusBar().showMessage(
+            "Script Toolbox {0} installed. Restart Maya.".format(
+                version
+            )
+        )
+
+        QtGui.QMessageBox.information(
+            self,
+            "Update Installed",
+            (
+                "Script Toolbox {0} was installed successfully.\n\n"
+                "Restart Maya to load the new version."
+            ).format(
+                version
+            )
+        )
 
     # ------------------------------------------------------------------
     # Editor / reload

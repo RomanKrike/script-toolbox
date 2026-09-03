@@ -8,6 +8,7 @@ WINDOW_OBJECT_NAME = "MayaScriptToolbox"
 EDITOR_OBJECT_NAME = "MayaScriptToolboxInterfaceEditor"
 
 CONFIG_FILENAME = "maya_script_toolbox.json"
+CONFIG_PATH_ENV = "SCRIPT_TOOLBOX_CONFIG_PATH"
 CONFIG_VERSION = 15
 
 GITHUB_REPOSITORY = "RomanKrike/script-toolbox"

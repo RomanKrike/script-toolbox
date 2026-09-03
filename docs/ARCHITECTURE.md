@@ -33,8 +33,8 @@ core/config -> hosts
 core/executor -> hosts
 model -> pycompat (pure Python)
 hosts/base -> Python stdlib only
-hosts/maya -> maya.cmds / maya.mel
-hosts/nuke -> nuke / nukescripts
+hosts/maya_host -> maya.cmds / maya.mel
+hosts/nuke_host -> nuke / nukescripts
 ```
 
 The model layer must remain importable without Maya. Maya/PySide imports live behind `compat.py` and UI/core integration modules.

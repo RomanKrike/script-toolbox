@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.6
+
+Section header cleanup release.
+
+### Changed
+
+- Remove the divider line from Simple Section headers, including nested Simple Sections.
+- Replace Collapsible Folder QToolButton headers with QPushButton headers for reliable left alignment in Maya 2015.
+- Remove the yellow/orange left accent from Collapsible Folder headers.
+- Keep the compact text chevron and outlined card hierarchy.
+
 ## 0.3.5
 
 Runtime spacing polish release.

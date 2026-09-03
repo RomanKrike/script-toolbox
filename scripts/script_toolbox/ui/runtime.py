@@ -214,12 +214,9 @@ class RuntimeFolder(QtGui.QFrame):
                     label
                 )
 
-                self.header_button = QtGui.QToolButton()
+                self.header_button = QtGui.QPushButton()
                 self.header_button.setObjectName(
                     "RuntimeFolderHeader"
-                )
-                self.header_button.setToolButtonStyle(
-                    QtCore.Qt.ToolButtonTextOnly
                 )
                 self.header_button.setSizePolicy(
                     QtGui.QSizePolicy.Expanding,
@@ -229,7 +226,9 @@ class RuntimeFolder(QtGui.QFrame):
                     QtCore.Qt.NoFocus
                 )
                 self.header_button.setStyleSheet(
+                    "QPushButton#RuntimeFolderHeader {"
                     "text-align: left;"
+                    "}"
                 )
                 self.header_button.setToolTip(
                     section.get(

@@ -141,50 +141,45 @@ QStackedWidget#PropertyStack {
 /* ---------------------------------------------------------------
    Folder headers in runtime toolbox
    --------------------------------------------------------------- */
-QToolButton#RuntimeFolderHeader {
+QPushButton#RuntimeFolderHeader {
     background-color: #323436;
     color: #e2e2e2;
     border: 0px;
-    border-left: 2px solid #9a673e;
     border-radius: 3px;
     min-height: 18px;
-    padding: 2px 6px;
+    padding: 2px 7px;
     font-weight: bold;
     text-align: left;
 }
 
-QToolButton#RuntimeFolderHeader:hover {
+QPushButton#RuntimeFolderHeader:hover {
     background-color: #393c3f;
     color: #f1f1f1;
-    border-left-color: #c17b46;
 }
 
-QToolButton#RuntimeFolderHeader:pressed {
+QPushButton#RuntimeFolderHeader:pressed {
     background-color: #2c2e30;
 }
 
-QToolButton#RuntimeFolderHeader[collapsed="true"] {
+QPushButton#RuntimeFolderHeader[collapsed="true"] {
     background-color: #2e3032;
     color: #c5c5c5;
-    border-left-color: #6d5948;
 }
 
 /* Nested cards are deliberately quieter than primary sections. */
-QFrame#RuntimeFolder[nested="true"] QToolButton#RuntimeFolderHeader {
+QFrame#RuntimeFolder[nested="true"] QPushButton#RuntimeFolderHeader {
     background-color: #2d2f30;
     color: #d7d7d7;
-    border-left-color: #71563f;
     min-height: 17px;
-    padding: 2px 6px;
+    padding: 2px 7px;
 }
 
-QFrame#RuntimeFolder[nested="true"] QToolButton#RuntimeFolderHeader:hover {
+QFrame#RuntimeFolder[nested="true"] QPushButton#RuntimeFolderHeader:hover {
     background-color: #343637;
     color: #eeeeee;
-    border-left-color: #936846;
 }
 
-QFrame#RuntimeFolder[nested="true"] QToolButton#RuntimeFolderHeader[collapsed="true"] {
+QFrame#RuntimeFolder[nested="true"] QPushButton#RuntimeFolderHeader[collapsed="true"] {
     background-color: #2b2d2e;
     color: #bdbdbd;
 }
@@ -192,13 +187,11 @@ QFrame#RuntimeFolder[nested="true"] QToolButton#RuntimeFolderHeader[collapsed="t
 QFrame#SimpleSectionHeader {
     background-color: transparent;
     border: 0px;
-    border-bottom: 1px solid #3a3a3a;
 }
 
 QFrame#RuntimeFolder[nested="true"] QFrame#SimpleSectionHeader {
     background-color: #2e3031;
     border: 0px;
-    border-bottom: 1px solid #393b3d;
     border-radius: 2px;
 }
 

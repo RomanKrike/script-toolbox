@@ -228,6 +228,9 @@ class RuntimeFolder(QtGui.QFrame):
                 self.header_button.setFocusPolicy(
                     QtCore.Qt.NoFocus
                 )
+                self.header_button.setStyleSheet(
+                    "text-align: left;"
+                )
                 self.header_button.setToolTip(
                     section.get(
                         "tooltip",
@@ -850,6 +853,80 @@ class RuntimeFolder(QtGui.QFrame):
 
         return container
 
+    def _separator_widget(
+        self,
+        compact=False
+    ):
+        container = QtGui.QWidget()
+        container.setObjectName(
+            "RuntimeSeparatorContainer"
+        )
+
+        if compact:
+            layout = QtGui.QHBoxLayout(
+                container
+            )
+            layout.setContentsMargins(
+                4,
+                0,
+                4,
+                0
+            )
+
+            line = QtGui.QFrame(
+                container
+            )
+            line.setObjectName(
+                "RuntimeSeparatorLineVertical"
+            )
+            line.setFrameShape(
+                QtGui.QFrame.NoFrame
+            )
+            line.setFixedWidth(
+                1
+            )
+            line.setSizePolicy(
+                QtGui.QSizePolicy.Fixed,
+                QtGui.QSizePolicy.Expanding
+            )
+
+        else:
+            layout = QtGui.QVBoxLayout(
+                container
+            )
+            layout.setContentsMargins(
+                0,
+                4,
+                0,
+                4
+            )
+
+            line = QtGui.QFrame(
+                container
+            )
+            line.setObjectName(
+                "RuntimeSeparatorLine"
+            )
+            line.setFrameShape(
+                QtGui.QFrame.NoFrame
+            )
+            line.setFixedHeight(
+                1
+            )
+            line.setSizePolicy(
+                QtGui.QSizePolicy.Expanding,
+                QtGui.QSizePolicy.Fixed
+            )
+
+        layout.setSpacing(
+            0
+        )
+        layout.addWidget(
+            line
+        )
+
+        return container
+
     def _row_widget(
         self,
         item
@@ -986,18 +1063,9 @@ class RuntimeFolder(QtGui.QFrame):
             return label
 
         if kind == "separator":
-            line = QtGui.QFrame()
-
-            line.setFrameShape(
-                QtGui.QFrame.VLine
-                if compact
-                else QtGui.QFrame.HLine
+            return self._separator_widget(
+                compact=compact
             )
-            line.setFrameShadow(
-                QtGui.QFrame.Sunken
-            )
-
-            return line
 
         if kind in (
             "string",

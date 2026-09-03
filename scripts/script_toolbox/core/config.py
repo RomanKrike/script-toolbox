@@ -8,10 +8,21 @@ import os
 from ..compat import cmds
 from ..compat import text_type
 from ..constants import CONFIG_FILENAME
+from ..constants import CONFIG_PATH_ENV
 from ..model import normalize_document
 
 
 def config_path():
+    override = os.environ.get(
+        CONFIG_PATH_ENV,
+        ""
+    ).strip()
+
+    if override:
+        return os.path.normpath(
+            override
+        )
+
     try:
         folder = cmds.internalVar(
             userPrefDir=True

@@ -6,13 +6,13 @@ from .base import BaseHost
 
 def _detect_host():
     try:
-        from .maya import MayaHost
+        from .maya_host import MayaHost
         return MayaHost()
     except Exception:
         pass
 
     try:
-        from .nuke import NukeHost
+        from .nuke_host import NukeHost
         return NukeHost()
     except Exception:
         pass

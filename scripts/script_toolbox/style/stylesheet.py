@@ -182,6 +182,30 @@ QToolButton#IconButton:pressed {
     border-color: #171717;
 }
 
+QToolButton#UpdateButton {
+    background-color: #925426;
+    color: #ffffff;
+    border: 1px solid #b36b34;
+    border-radius: 3px;
+    padding: 3px 7px;
+    font-weight: bold;
+}
+
+QToolButton#UpdateButton:hover {
+    background-color: #a7622d;
+    border-color: #cc7b3c;
+}
+
+QToolButton#UpdateButton:pressed {
+    background-color: #7f4720;
+}
+
+QToolButton#UpdateButton:disabled {
+    background-color: #4a4038;
+    color: #8b827a;
+    border-color: #55483e;
+}
+
 QPushButton#AcceptButton {
     background-color: #9a5826;
     border-color: #ba7139;

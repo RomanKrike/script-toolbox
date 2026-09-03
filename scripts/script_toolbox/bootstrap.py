@@ -81,9 +81,19 @@ def _close_live_ui():
 
     if QtGui is not None:
         try:
+            from .constants import WINDOW_OBJECT_NAME
+
             application = QtGui.QApplication.instance()
 
             if application is not None:
+                for widget in application.allWidgets():
+                    try:
+                        if widget.objectName() == WINDOW_OBJECT_NAME:
+                            widget.close()
+                            widget.deleteLater()
+                    except Exception:
+                        pass
+
                 application.processEvents()
         except Exception:
             pass
@@ -91,7 +101,7 @@ def _close_live_ui():
 
 def hot_reload_toolbox():
     """
-    Reload an installed update without restarting Maya.
+    Reload an installed update without restarting the active DCC host.
 
     This is intentionally different from the development reload below:
     installed files may have been replaced with a different version, so all
@@ -134,7 +144,7 @@ def hot_reload_toolbox():
 
 def reload_toolbox():
     """
-    Development reload for Maya 2015.
+    Development reload for the active DCC host.
 
     Close the live window first, then reload child modules from deepest names
     to shallowest names so UI classes do not keep stale module references.

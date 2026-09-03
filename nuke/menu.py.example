@@ -1,0 +1,27 @@
+# Script Toolbox - Nuke startup example
+#
+# Copy/adapt these lines into ~/.nuke/menu.py and point ROOT at the extracted
+# Script Toolbox release directory.
+
+import os
+import sys
+
+ROOT = r"C:\path\to\script-toolbox"
+
+scripts_path = os.path.join(
+    ROOT,
+    "scripts"
+)
+
+if scripts_path not in sys.path:
+    sys.path.insert(
+        0,
+        scripts_path
+    )
+
+import script_toolbox
+
+script_toolbox.register_nuke_menu()
+
+# Optional: register the dockable pane immediately.
+# script_toolbox.register_nuke_panel()

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ...compat import HOST
 from ...compat import QtGui
 from ...model.items import safe_color
 from ...pycompat import text_type
@@ -22,10 +23,16 @@ class ButtonPropertyEditor(PropertyEditorBase):
         )
 
         self.language = QtGui.QComboBox()
-        self.language.addItems([
-            "Python",
-            "MEL"
-        ])
+        self.languages = list(
+            HOST.available_languages()
+        )
+
+        for language in self.languages:
+            self.language.addItem(
+                language.upper()
+                if language == "mel"
+                else language.title()
+            )
 
         self.color = [
             0.25,
@@ -85,11 +92,19 @@ class ButtonPropertyEditor(PropertyEditorBase):
 
 
     def current_language(self):
-        return (
-            "mel"
-            if self.language.currentIndex() == 1
-            else "python"
-        )
+        index = self.language.currentIndex()
+
+        if (
+            index < 0 or
+            index >= len(
+                self.languages
+            )
+        ):
+            return "python"
+
+        return self.languages[
+            index
+        ]
 
     def _language_changed(
         self,
@@ -114,10 +129,21 @@ class ButtonPropertyEditor(PropertyEditorBase):
             "python"
         )
 
+        if language not in self.languages:
+            self.languages.append(
+                language
+            )
+            self.language.addItem(
+                "{0} (Unavailable in {1})".format(
+                    language.upper(),
+                    HOST.display_name
+                )
+            )
+
         self.language.setCurrentIndex(
-            1
-            if language == "mel"
-            else 0
+            self.languages.index(
+                language
+            )
         )
 
         self.color = safe_color(

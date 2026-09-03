@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ...compat import HOST
 from ...compat import QtGui
 from ...pycompat import text_type
 from .base import PropertyEditorBase
@@ -31,13 +32,15 @@ class FieldPropertyEditor(PropertyEditorBase):
             "Selectable text"
         )
         self.select_scene = QtGui.QCheckBox(
-            "Select Maya objects on double-click"
+            "Select {0} on double-click".format(
+                HOST.selection_noun
+            )
         )
         self.multiple = QtGui.QCheckBox(
-            "Allow multiple selected objects"
+            "Allow multiple selected items"
         )
         self.long_names = QtGui.QCheckBox(
-            "Use full DAG paths"
+            "Use full paths / names"
         )
 
         self.form.addRow("Source", self.source)

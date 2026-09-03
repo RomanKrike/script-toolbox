@@ -144,9 +144,11 @@ def validate_archive(
 
     required = set([
         root + "MayaScriptToolbox.mod",
+        root + "nuke/menu.py.example",
         root + "scripts/script_toolbox/__init__.py",
         root + "scripts/script_toolbox/constants.py",
         root + "scripts/script_toolbox/core/updater.py",
+        root + "scripts/script_toolbox/hosts/nuke_host.py",
     ])
 
     with zipfile.ZipFile(
@@ -242,6 +244,22 @@ def build_release(
             os.path.join(
                 staging_root,
                 "README.md"
+            )
+        )
+
+    nuke_path = os.path.join(
+        root,
+        "nuke"
+    )
+
+    if os.path.isdir(
+        nuke_path
+    ):
+        _copy_tree(
+            nuke_path,
+            os.path.join(
+                staging_root,
+                "nuke"
             )
         )
 

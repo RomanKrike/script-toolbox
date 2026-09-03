@@ -7,11 +7,12 @@ Script Toolbox uses GitHub Releases as the update channel.
 1. The main window starts an update check in a background QThread.
 2. If the latest GitHub Release is newer than `PLUGIN_VERSION`, the top bar shows `UPDATE <version>`.
 3. The user explicitly confirms installation.
-4. The release ZIP is downloaded to a temporary directory.
-5. The current `scripts/script_toolbox` package is renamed to a temporary backup.
-6. The new package is copied into place.
-7. If copying fails, the old package is restored.
-8. Maya restart is required after a successful update.
+4. The updater prefers the packaged `script-toolbox-<version>.zip` release asset.
+5. If a SHA-256 asset is present, the downloaded ZIP is verified before extraction.
+6. The current `scripts/script_toolbox` package is renamed to a temporary backup.
+7. The new package is copied into place.
+8. If copying fails, the old package is restored.
+9. Maya restart is required after a successful update.
 
 The Maya preferences config is outside the package and is not replaced.
 
@@ -23,13 +24,11 @@ The Maya preferences config is outside the package and is not replaced.
 PLUGIN_VERSION = "0.2.0"
 ```
 
-Create a matching Git tag:
+No manual tag is required.
 
-```text
-v0.2.0
-```
+After the stable version reaches `main`, the `Python checks` workflow runs first. If it succeeds, `.github/workflows/release.yml` automatically builds and validates the package, creates the matching `v0.2.0` tag when needed, and publishes the GitHub Release.
 
-The `.github/workflows/release.yml` workflow validates that the tag matches `PLUGIN_VERSION` and creates the GitHub Release.
+Versions containing a prerelease suffix such as `-dev` are skipped.
 
 ## Private repository
 

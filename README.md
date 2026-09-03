@@ -23,7 +23,7 @@ The modular implementation lives under:
 scripts/script_toolbox/
 ```
 
-The runtime has now been extracted and can load existing configs, render nested Folders/Rows, execute buttons and persist parameter values. The Interface Editor is still being extracted, so the gear button in the modular branch currently reports that the editor is not available yet.
+The runtime and the first modular Interface Editor are now extracted. Existing configs can be loaded, nested Folders/Rows are rendered, buttons execute, parameter values persist, and interface changes remain staged until Apply/Accept.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the dependency rules and migration plan.
 
@@ -69,3 +69,24 @@ The repository contains `MayaScriptToolbox.mod` for module-based installation.
 - code editor
 - runtime renderer/widgets
 - runtime main window
+
+## Updates
+
+Script Toolbox checks GitHub Releases in a background thread when the window opens.
+
+If a newer release exists, an **UPDATE x.y.z** button appears in the top bar. The updater downloads the release archive, replaces only the installed plugin package, preserves the Maya user configuration, and then asks for a Maya restart.
+
+Releases are created from tags matching the plugin version:
+
+```text
+v0.2.0
+```
+
+The repository is currently private. For private-repository update checks Maya needs a GitHub token in the environment:
+
+```text
+SCRIPT_TOOLBOX_GITHUB_TOKEN
+```
+
+No token is stored in the toolbox config. If the repository becomes public, no token is required.
+

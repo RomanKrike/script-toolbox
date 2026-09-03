@@ -106,6 +106,35 @@ def _is_windows():
     return os.name == "nt"
 
 
+def _hidden_process_kwargs():
+    if not _is_windows():
+        return {}
+
+    kwargs = {
+        # CREATE_NO_WINDOW. Use the numeric value for Python 2.7 builds
+        # where subprocess may not expose the named constant.
+        "creationflags": 0x08000000,
+    }
+
+    try:
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+        try:
+            startupinfo.wShowWindow = 0
+        except Exception:
+            pass
+
+        kwargs[
+            "startupinfo"
+        ] = startupinfo
+
+    except Exception:
+        pass
+
+    return kwargs
+
+
 def _powershell_executable():
     if not _is_windows():
         return None
@@ -222,6 +251,8 @@ def _download_with_powershell(
         script
     )
 
+    process_kwargs = _hidden_process_kwargs()
+
     process = subprocess.Popen(
         [
             executable,
@@ -233,7 +264,8 @@ def _download_with_powershell(
             command,
         ],
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        stderr=subprocess.PIPE,
+        **process_kwargs
     )
 
     stdout_value, stderr_value = process.communicate()
@@ -1019,6 +1051,7 @@ __all__ = [
     "latest_release",
     "package_directory",
     "_download_with_powershell",
+    "_hidden_process_kwargs",
     "_powershell_executable",
     "_read_checksum",
     "_sha256_file",

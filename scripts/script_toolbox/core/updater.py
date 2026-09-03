@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+import hashlib
 import json
 import os
 import shutil
@@ -103,10 +104,11 @@ def _github_token(token=None):
 def _request(
     url,
     token=None,
-    timeout=8
+    timeout=8,
+    accept="application/vnd.github+json"
 ):
     headers = {
-        "Accept": "application/vnd.github+json",
+        "Accept": accept,
         "User-Agent": USER_AGENT,
     }
 
@@ -140,7 +142,8 @@ def _read_json(
     response = _request(
         url,
         token=token,
-        timeout=timeout
+        timeout=timeout,
+        accept="application/vnd.github+json"
     )
 
     try:
@@ -194,13 +197,69 @@ def latest_release(
             "Latest GitHub release has no tag."
         )
 
+    version = (
+        tag[1:]
+        if tag.lower().startswith("v")
+        else tag
+    )
+
+    package_asset_name = (
+        "script-toolbox-{0}.zip"
+    ).format(
+        version
+    )
+    checksum_asset_name = (
+        package_asset_name +
+        ".sha256"
+    )
+
+    package_asset = None
+    checksum_asset = None
+
+    for asset in data.get(
+        "assets",
+        []
+    ) or []:
+        name = text_type(
+            asset.get(
+                "name",
+                ""
+            )
+        )
+
+        if name == package_asset_name:
+            package_asset = asset
+
+        elif name == checksum_asset_name:
+            checksum_asset = asset
+
+    # Prefer our packaged release asset. Fall back to GitHub's source archive
+    # so older releases remain installable.
+    download_url = text_type(
+        (
+            package_asset or {}
+        ).get(
+            "url",
+            ""
+        ) or
+        data.get(
+            "zipball_url",
+            ""
+        )
+    )
+
+    checksum_url = text_type(
+        (
+            checksum_asset or {}
+        ).get(
+            "url",
+            ""
+        )
+    )
+
     return {
         "tag": tag,
-        "version": (
-            tag[1:]
-            if tag.lower().startswith("v")
-            else tag
-        ),
+        "version": version,
         "name": text_type(
             data.get(
                 "name",
@@ -213,11 +272,12 @@ def latest_release(
                 ""
             )
         ),
-        "download_url": text_type(
-            data.get(
-                "zipball_url",
-                ""
-            )
+        "download_url": download_url,
+        "checksum_url": checksum_url,
+        "asset_name": (
+            package_asset_name
+            if package_asset is not None
+            else ""
         ),
         "published_at": text_type(
             data.get(
@@ -232,6 +292,7 @@ def latest_release(
             )
         ),
     }
+
 
 
 def check_for_update(
@@ -325,7 +386,8 @@ def _download_file(
     response = _request(
         url,
         token=token,
-        timeout=timeout
+        timeout=timeout,
+        accept="application/octet-stream"
     )
 
     try:
@@ -349,6 +411,89 @@ def _download_file(
             response.close()
         except Exception:
             pass
+
+
+def _sha256_file(
+    path
+):
+    digest = hashlib.sha256()
+
+    with open(
+        path,
+        "rb"
+    ) as handle:
+        while True:
+            chunk = handle.read(
+                1024 * 256
+            )
+
+            if not chunk:
+                break
+
+            digest.update(
+                chunk
+            )
+
+    return digest.hexdigest()
+
+
+def _read_checksum(
+    path
+):
+    with open(
+        path,
+        "rb"
+    ) as handle:
+        value = handle.read()
+
+    if not isinstance(
+        value,
+        text_type
+    ):
+        value = value.decode(
+            "utf-8"
+        )
+
+    value = value.strip()
+
+    if not value:
+        raise UpdateError(
+            "Release checksum file is empty."
+        )
+
+    checksum = value.split()[0].strip().lower()
+
+    if (
+        len(checksum) != 64 or
+        any(
+            character not in "0123456789abcdef"
+            for character in checksum
+        )
+    ):
+        raise UpdateError(
+            "Release checksum has an invalid SHA-256 value."
+        )
+
+    return checksum
+
+
+def _verify_checksum(
+    archive_path,
+    checksum_path
+):
+    expected = _read_checksum(
+        checksum_path
+    )
+    actual = _sha256_file(
+        archive_path
+    )
+
+    if actual.lower() != expected.lower():
+        raise UpdateError(
+            "Release checksum verification failed."
+        )
+
+    return True
 
 
 def _safe_extract(
@@ -454,6 +599,10 @@ def install_release(
         work_directory,
         "release.zip"
     )
+    checksum_path = os.path.join(
+        work_directory,
+        "release.zip.sha256"
+    )
     extracted_path = os.path.join(
         work_directory,
         "extracted"
@@ -471,6 +620,25 @@ def install_release(
             token=token,
             timeout=timeout
         )
+
+        checksum_url = text_type(
+            release.get(
+                "checksum_url",
+                ""
+            )
+        ).strip()
+
+        if checksum_url:
+            _download_file(
+                checksum_url,
+                checksum_path,
+                token=token,
+                timeout=timeout
+            )
+            _verify_checksum(
+                archive_path,
+                checksum_path
+            )
 
         os.makedirs(
             extracted_path
@@ -590,5 +758,8 @@ __all__ = [
     "is_newer_version",
     "latest_release",
     "package_directory",
+    "_read_checksum",
+    "_sha256_file",
+    "_verify_checksum",
     "repository_root",
 ]

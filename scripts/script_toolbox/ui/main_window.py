@@ -950,11 +950,10 @@ class ScriptToolbox(QtGui.QMainWindow):
                 (
                     "The update was installed, but Script Toolbox "
                     "could not reload itself.\n\n"
-                    "Restart {0} to load the new version.\n\n".format(
-                        HOST.display_name
-                    )
-                    "{0}"
+                    "Restart {0} to load the new version.\n\n"
+                    "{1}"
                 ).format(
+                    HOST.display_name,
                     text_type(
                         exc
                     )

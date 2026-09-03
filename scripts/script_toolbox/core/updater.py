@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 import tempfile
 import zipfile
 
@@ -101,6 +102,168 @@ def _github_token(token=None):
     ).strip()
 
 
+def _powershell_executable():
+    if os.name != "nt":
+        return None
+
+    candidates = [
+        os.path.join(
+            os.environ.get(
+                "SystemRoot",
+                r"C:\Windows"
+            ),
+            "System32",
+            "WindowsPowerShell",
+            "v1.0",
+            "powershell.exe"
+        ),
+        "powershell.exe",
+    ]
+
+    for candidate in candidates:
+        if os.path.isfile(
+            candidate
+        ):
+            return candidate
+
+        if candidate == "powershell.exe":
+            return candidate
+
+    return None
+
+
+def _powershell_quote(
+    value
+):
+    return text_type(
+        value or ""
+    ).replace(
+        "'",
+        "''"
+    )
+
+
+def _download_with_powershell(
+    url,
+    destination,
+    token=None,
+    timeout=30,
+    accept="application/octet-stream"
+):
+    executable = _powershell_executable()
+
+    if not executable:
+        raise UpdateError(
+            "PowerShell fallback is not available."
+        )
+
+    timeout_ms = max(
+        1000,
+        int(
+            float(timeout) *
+            1000.0
+        )
+    )
+
+    token = _github_token(
+        token
+    )
+
+    script = [
+        "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12",
+        "$request = [System.Net.HttpWebRequest]::Create('{0}')".format(
+            _powershell_quote(
+                url
+            )
+        ),
+        "$request.UserAgent = '{0}'".format(
+            _powershell_quote(
+                USER_AGENT
+            )
+        ),
+        "$request.Accept = '{0}'".format(
+            _powershell_quote(
+                accept
+            )
+        ),
+        "$request.Timeout = {0}".format(
+            timeout_ms
+        ),
+        "$request.ReadWriteTimeout = {0}".format(
+            timeout_ms
+        ),
+    ]
+
+    if token:
+        script.append(
+            "$request.Headers['Authorization'] = 'token {0}'".format(
+                _powershell_quote(
+                    token
+                )
+            )
+        )
+
+    script.extend([
+        "$response = $request.GetResponse()",
+        "$input = $response.GetResponseStream()",
+        "$output = [System.IO.File]::Open('{0}', [System.IO.FileMode]::Create)".format(
+            _powershell_quote(
+                destination
+            )
+        ),
+        "try { $input.CopyTo($output) } finally { $output.Close(); $input.Close(); $response.Close() }",
+    ])
+
+    command = "; ".join(
+        script
+    )
+
+    process = subprocess.Popen(
+        [
+            executable,
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            command,
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+
+    stdout_value, stderr_value = process.communicate()
+
+    if process.returncode != 0:
+        try:
+            error_text = stderr_value.decode(
+                "utf-8",
+                "replace"
+            )
+        except Exception:
+            error_text = text_type(
+                stderr_value
+            )
+
+        raise UpdateError(
+            "PowerShell download failed: {0}".format(
+                error_text.strip() or
+                "exit code {0}".format(
+                    process.returncode
+                )
+            )
+        )
+
+    if not os.path.isfile(
+        destination
+    ):
+        raise UpdateError(
+            "PowerShell download did not create the destination file."
+        )
+
+    return destination
+
+
 def _request(
     url,
     token=None,
@@ -139,20 +302,73 @@ def _read_json(
     token=None,
     timeout=8
 ):
-    response = _request(
-        url,
-        token=token,
-        timeout=timeout,
-        accept="application/vnd.github+json"
-    )
+    urllib_error = None
 
     try:
-        payload = response.read()
-    finally:
+        response = _request(
+            url,
+            token=token,
+            timeout=timeout,
+            accept="application/vnd.github+json"
+        )
+
         try:
-            response.close()
-        except Exception:
-            pass
+            payload = response.read()
+        finally:
+            try:
+                response.close()
+            except Exception:
+                pass
+
+    except Exception as exc:
+        urllib_error = exc
+
+        if os.name != "nt":
+            raise
+
+        temp_directory = tempfile.mkdtemp(
+            prefix="script_toolbox_http_"
+        )
+        temp_path = os.path.join(
+            temp_directory,
+            "response.json"
+        )
+
+        try:
+            _download_with_powershell(
+                url,
+                temp_path,
+                token=token,
+                timeout=timeout,
+                accept="application/vnd.github+json"
+            )
+
+            with open(
+                temp_path,
+                "rb"
+            ) as handle:
+                payload = handle.read()
+
+        except Exception as fallback_exc:
+            raise UpdateError(
+                "GitHub request failed with Python urllib ({0}); "
+                "PowerShell TLS fallback also failed ({1}).".format(
+                    text_type(
+                        urllib_error
+                    ),
+                    text_type(
+                        fallback_exc
+                    )
+                )
+            )
+
+        finally:
+            try:
+                shutil.rmtree(
+                    temp_directory
+                )
+            except Exception:
+                pass
 
     if not isinstance(
         payload,
@@ -239,6 +455,12 @@ def latest_release(
         (
             package_asset or {}
         ).get(
+            "browser_download_url",
+            ""
+        ) or
+        (
+            package_asset or {}
+        ).get(
             "url",
             ""
         ) or
@@ -249,6 +471,12 @@ def latest_release(
     )
 
     checksum_url = text_type(
+        (
+            checksum_asset or {}
+        ).get(
+            "browser_download_url",
+            ""
+        ) or
         (
             checksum_asset or {}
         ).get(
@@ -383,34 +611,62 @@ def _download_file(
     token=None,
     timeout=30
 ):
-    response = _request(
-        url,
-        token=token,
-        timeout=timeout,
-        accept="application/octet-stream"
-    )
-
     try:
-        with open(
-            destination,
-            "wb"
-        ) as handle:
-            while True:
-                chunk = response.read(
-                    1024 * 256
-                )
+        response = _request(
+            url,
+            token=token,
+            timeout=timeout,
+            accept="application/octet-stream"
+        )
 
-                if not chunk:
-                    break
-
-                handle.write(
-                    chunk
-                )
-    finally:
         try:
-            response.close()
-        except Exception:
-            pass
+            with open(
+                destination,
+                "wb"
+            ) as handle:
+                while True:
+                    chunk = response.read(
+                        1024 * 256
+                    )
+
+                    if not chunk:
+                        break
+
+                    handle.write(
+                        chunk
+                    )
+        finally:
+            try:
+                response.close()
+            except Exception:
+                pass
+
+        return destination
+
+    except Exception as urllib_error:
+        if os.name != "nt":
+            raise
+
+        try:
+            return _download_with_powershell(
+                url,
+                destination,
+                token=token,
+                timeout=timeout,
+                accept="application/octet-stream"
+            )
+        except Exception as fallback_exc:
+            raise UpdateError(
+                "Download failed with Python urllib ({0}); "
+                "PowerShell TLS fallback also failed ({1}).".format(
+                    text_type(
+                        urllib_error
+                    ),
+                    text_type(
+                        fallback_exc
+                    )
+                )
+            )
 
 
 def _sha256_file(
@@ -758,6 +1014,8 @@ __all__ = [
     "is_newer_version",
     "latest_release",
     "package_directory",
+    "_download_with_powershell",
+    "_powershell_executable",
     "_read_checksum",
     "_sha256_file",
     "_verify_checksum",

@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.3.0-dev
+## 0.3.0
 
-Multi-DCC development branch.
+First multi-DCC release.
 
 ### Added
 

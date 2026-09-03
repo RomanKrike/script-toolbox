@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.5
+
+Runtime spacing polish release.
+
+### Changed
+
+- Remove the divider line between an open Collapsible Folder header and its content.
+- Force Collapsible Folder titles to align to the left in Maya and Nuke.
+- Replace native separator frames with dedicated separator widgets.
+- Give horizontal separators equal top and bottom spacing.
+- Give compact vertical separators equal left and right spacing.
+
 ## 0.3.4
 
 Collapsible card hierarchy release.

@@ -1,2 +1,2 @@
-+ MayaScriptToolbox 0.3.4 .
++ MayaScriptToolbox 0.3.5 .
 PYTHONPATH +:= scripts

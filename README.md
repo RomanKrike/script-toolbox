@@ -75,7 +75,9 @@ The repository contains `MayaScriptToolbox.mod` for module-based installation.
 
 Script Toolbox checks GitHub Releases in a background thread when the window opens.
 
-If a newer release exists, an **UPDATE x.y.z** button appears in the top bar. The updater downloads the release archive, replaces only the installed plugin package, preserves the Maya user configuration, and then asks for a Maya restart.
+If a newer release exists, an **UPDATE x.y.z** button appears in the top bar. The updater downloads and verifies the release archive, replaces only the installed plugin package, preserves the Maya user configuration, then hot-reloads Script Toolbox and reopens it from the new files. A Maya restart is only the fallback if hot reload fails.
+
+On Maya 2015 for Windows, if Python 2.7 cannot negotiate GitHub HTTPS correctly, the updater transparently uses a hidden PowerShell/.NET TLS 1.2 fallback.
 
 Releases are created from tags matching the plugin version:
 
@@ -83,13 +85,7 @@ Releases are created from tags matching the plugin version:
 v0.2.0
 ```
 
-The repository is currently private. For private-repository update checks Maya needs a GitHub token in the environment:
-
-```text
-SCRIPT_TOOLBOX_GITHUB_TOKEN
-```
-
-No token is stored in the toolbox config. If the repository becomes public, no token is required.
+The repository is public, so normal update checks do not require credentials. `SCRIPT_TOOLBOX_GITHUB_TOKEN` remains supported for private forks and is never stored in the toolbox configuration.
 
 
 ## Continuous integration

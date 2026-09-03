@@ -64,6 +64,7 @@ class ScriptToolbox(QtGui.QMainWindow):
         self.update_info = None
         self.update_check_thread = None
         self.update_install_thread = None
+        self._manual_update_check = False
 
         self.build_ui()
         self.rebuild()
@@ -181,6 +182,32 @@ class ScriptToolbox(QtGui.QMainWindow):
             self.install_available_update
         )
 
+        check_updates_button = QtGui.QToolButton()
+        check_updates_button.setObjectName(
+            "IconButton"
+        )
+        check_updates_button.setIcon(
+            toolbar_icon(
+                "update"
+            )
+        )
+        check_updates_button.setIconSize(
+            QtCore.QSize(
+                18,
+                18
+            )
+        )
+        check_updates_button.setFixedSize(
+            28,
+            28
+        )
+        check_updates_button.setToolTip(
+            "Check for Script Toolbox updates"
+        )
+        check_updates_button.clicked.connect(
+            self.manual_check_for_updates
+        )
+
         reload_button = QtGui.QToolButton()
         reload_button.setObjectName(
             "IconButton"
@@ -235,6 +262,9 @@ class ScriptToolbox(QtGui.QMainWindow):
 
         top_layout.addWidget(
             self.update_button
+        )
+        top_layout.addWidget(
+            check_updates_button
         )
         top_layout.addWidget(
             reload_button
@@ -681,12 +711,29 @@ class ScriptToolbox(QtGui.QMainWindow):
     # Updater
     # ------------------------------------------------------------------
 
-    def check_for_updates(self):
+    def manual_check_for_updates(self):
+        self.check_for_updates(
+            manual=True
+        )
+
+    def check_for_updates(
+        self,
+        manual=False
+    ):
         if (
             self.update_check_thread is not None and
             self.update_check_thread.isRunning()
         ):
             return
+
+        self._manual_update_check = bool(
+            manual
+        )
+
+        if manual:
+            self.statusBar().showMessage(
+                "Checking for Script Toolbox updates..."
+            )
 
         self.update_check_thread = UpdateCheckThread(
             self
@@ -702,6 +749,23 @@ class ScriptToolbox(QtGui.QMainWindow):
     ):
         self.update_info = result
 
+        error = result.get(
+            "error"
+        )
+
+        if error:
+            self.update_button.setVisible(
+                False
+            )
+            self.statusBar().showMessage(
+                "Update check failed: {0}".format(
+                    error
+                ),
+                12000
+            )
+            self._manual_update_check = False
+            return
+
         if not result.get(
             "available",
             False
@@ -709,6 +773,16 @@ class ScriptToolbox(QtGui.QMainWindow):
             self.update_button.setVisible(
                 False
             )
+
+            if self._manual_update_check:
+                self.statusBar().showMessage(
+                    "Script Toolbox {0} is up to date.".format(
+                        PLUGIN_VERSION
+                    ),
+                    5000
+                )
+
+            self._manual_update_check = False
             return
 
         latest = result.get(
@@ -729,6 +803,14 @@ class ScriptToolbox(QtGui.QMainWindow):
         self.update_button.setVisible(
             True
         )
+        self.statusBar().showMessage(
+            "Script Toolbox {0} is available.".format(
+                latest
+            ),
+            7000
+        )
+        self._manual_update_check = False
+
 
     def install_available_update(self):
         if not self.update_info:

@@ -7,6 +7,10 @@ import maya.mel as mel
 from PySide import QtCore
 from PySide import QtGui
 
+from .pycompat import StringIO
+from .pycompat import integer_type
+from .pycompat import text_type
+
 try:
     import shiboken
 except ImportError:
@@ -16,21 +20,6 @@ try:
     from maya import OpenMayaUI as omui
 except ImportError:
     omui = None
-
-try:
-    text_type = unicode
-except NameError:
-    text_type = str
-
-try:
-    integer_type = long
-except NameError:
-    integer_type = int
-
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
 
 
 def maya_main_window():
@@ -56,3 +45,16 @@ def shift_pressed():
         return bool(cmds.getModifiers() & 1)
     except Exception:
         return False
+
+
+__all__ = [
+    "cmds",
+    "mel",
+    "QtCore",
+    "QtGui",
+    "StringIO",
+    "text_type",
+    "integer_type",
+    "maya_main_window",
+    "shift_pressed",
+]

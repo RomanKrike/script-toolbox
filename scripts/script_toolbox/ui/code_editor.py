@@ -291,7 +291,7 @@ class ScriptHighlighter(QtGui.QSyntaxHighlighter):
         number_fmt = self._fmt(
             "#79a8d7"
         )
-        maya_fmt = self._fmt(
+        host_fmt = self._fmt(
             "#69b5b5"
         )
 
@@ -343,6 +343,9 @@ class ScriptHighlighter(QtGui.QSyntaxHighlighter):
             for word in (
                 "cmds",
                 "mel",
+                "nuke",
+                "nukescripts",
+                "host",
                 "toolbox"
             ):
                 self.rules.append((
@@ -351,7 +354,7 @@ class ScriptHighlighter(QtGui.QSyntaxHighlighter):
                             word
                         )
                     ),
-                    maya_fmt
+                    host_fmt
                 ))
 
         self.rules.append((

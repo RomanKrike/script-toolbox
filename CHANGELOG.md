@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.3.2-dev
+## 0.3.2
 
-Interface polish development release.
+Interface polish release.
 
 ### Changed
 

@@ -8,8 +8,8 @@ from .base import PropertyEditorBase
 class FolderPropertyEditor(PropertyEditorBase):
 
     TYPES = (
-        ("Collapsible", "collapsible"),
-        ("Simple", "simple"),
+        ("Collapsible Section", "collapsible"),
+        ("Simple Section", "simple"),
         ("Tabs", "tabs"),
         ("Radio Buttons", "radio"),
     )
@@ -47,6 +47,7 @@ class FolderPropertyEditor(PropertyEditorBase):
         )
 
         note = QtGui.QLabel(
+            "Collapsible = clickable section header. Simple = always open. "
             "Tabs and Radio Buttons group consecutive sibling Folders "
             "of the same type."
         )

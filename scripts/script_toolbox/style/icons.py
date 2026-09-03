@@ -308,6 +308,24 @@ def toolbar_icon(kind, size=18):
             ])
         )
 
+    elif kind == "update":
+        painter.drawLine(
+            QtCore.QPointF(w * 0.50, h * 0.18),
+            QtCore.QPointF(w * 0.50, h * 0.62)
+        )
+        painter.drawLine(
+            QtCore.QPointF(w * 0.32, h * 0.45),
+            QtCore.QPointF(w * 0.50, h * 0.63)
+        )
+        painter.drawLine(
+            QtCore.QPointF(w * 0.68, h * 0.45),
+            QtCore.QPointF(w * 0.50, h * 0.63)
+        )
+        painter.drawLine(
+            QtCore.QPointF(w * 0.22, h * 0.78),
+            QtCore.QPointF(w * 0.78, h * 0.78)
+        )
+
     elif kind == "import":
         painter.drawRect(
             QtCore.QRectF(

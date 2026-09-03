@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.5
+
+Hot-update verification release.
+
+### Changed
+
+- Version bump used to verify the complete in-place updater flow from 0.2.4 to 0.2.5 without restarting Maya.
+- No functional config changes; existing Toolbox settings remain compatible.
+
 ## 0.2.4
 
 Hot-reload updater release.

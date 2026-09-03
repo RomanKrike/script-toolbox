@@ -53,6 +53,7 @@ scripts/script_toolbox/
   ui/
     __init__.py
     code_editor.py
+    script_editor.py
     runtime.py
     interface_tree.py
     interface_editor.py
@@ -79,6 +80,7 @@ scripts/script_toolbox/
 - stylesheet
 - programmatic icons
 - code editor and syntax highlighter
+- reusable advanced script editor toolbar/output widget
 - runtime widgets and nested Folder renderer
 - modular runtime main window
 - modular Interface Editor orchestration
@@ -89,12 +91,11 @@ The modular runtime can now open and execute existing toolbox configurations.
 
 ## Still to finish
 
-1. Restore the advanced code-editor toolbar actions from the legacy editor.
-2. Add explicit version-by-version legacy config migrations.
-3. Add Maya/PySide1 integration testing on a real Maya 2015 environment.
-4. Harden updater rollback/install behavior on Windows permission failures.
-5. Expand editor/tree regression coverage.
-6. Remove the legacy implementation only after verified feature parity.
+1. Add explicit version-by-version legacy config migrations.
+2. Add Maya/PySide1 integration testing on a real Maya 2015 environment.
+3. Harden updater rollback/install behavior on Windows permission failures.
+4. Expand editor/tree regression coverage.
+5. Remove the legacy implementation only after verified feature parity.
 
 ## Rules
 

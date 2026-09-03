@@ -192,6 +192,9 @@ class RuntimeFolder(QtGui.QFrame):
                     QtGui.QSizePolicy.Expanding,
                     QtGui.QSizePolicy.Preferred
                 )
+                self.header_button.setFocusPolicy(
+                    QtCore.Qt.NoFocus
+                )
                 self.header_button.setToolTip(
                     section.get(
                         "tooltip",
@@ -253,10 +256,10 @@ class RuntimeFolder(QtGui.QFrame):
             self.content
         )
         self.content_layout.setContentsMargins(
+            9,
             4,
-            2,
-            4,
-            2
+            5,
+            3
         )
         self.content_layout.setSpacing(
             3

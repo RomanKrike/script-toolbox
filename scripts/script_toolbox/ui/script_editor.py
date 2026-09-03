@@ -7,8 +7,7 @@ import traceback
 from ..compat import QtCore
 from ..compat import QtGui
 from ..compat import StringIO
-from ..compat import cmds
-from ..compat import mel
+from ..compat import HOST
 from ..core.text_transform import comment_line
 from ..core.text_transform import indent_line
 from ..core.text_transform import uncomment_line
@@ -705,8 +704,8 @@ class ScriptEditorWidget(QtGui.QWidget):
             )
             return True
 
-        if self.language() == "mel":
-            return self._run_mel(
+        if self.language() != "python":
+            return self._run_native(
                 code
             )
 
@@ -714,12 +713,13 @@ class ScriptEditorWidget(QtGui.QWidget):
             code
         )
 
-    def _run_mel(
+    def _run_native(
         self,
         code
     ):
         try:
-            result = mel.eval(
+            result = HOST.execute_native(
+                self.language(),
                 code
             )
 
@@ -764,11 +764,12 @@ class ScriptEditorWidget(QtGui.QWidget):
         stderr_buffer = StringIO()
 
         namespace = {
-            "__name__": "__maya_script_toolbox_editor__",
-            "cmds": cmds,
-            "mel": mel,
+            "__name__": "__script_toolbox_editor__",
             "toolbox": self.toolbox,
         }
+        namespace.update(
+            HOST.script_namespace()
+        )
 
         success = True
 
@@ -778,7 +779,7 @@ class ScriptEditorWidget(QtGui.QWidget):
 
             compiled = compile(
                 code,
-                "<Maya Script Toolbox Editor>",
+                "<Script Toolbox Editor>",
                 "exec"
             )
 

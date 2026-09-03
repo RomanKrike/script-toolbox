@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-__version__ = "0.2.0-dev"
+from .constants import PLUGIN_VERSION
+
+__version__ = PLUGIN_VERSION
 
 
 def show():

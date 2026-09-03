@@ -5,8 +5,8 @@ import io
 import json
 import os
 
-from ..compat import HOST
-from ..compat import text_type
+from ..hosts import HOST
+from ..pycompat import text_type
 from ..constants import CONFIG_FILENAME
 from ..constants import CONFIG_PATH_ENV
 from ..model import normalize_document

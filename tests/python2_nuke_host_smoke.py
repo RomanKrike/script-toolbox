@@ -44,7 +44,7 @@ sys.modules[
 ] = fake_nukescripts
 
 
-from script_toolbox.hosts.nuke import NukeHost
+from script_toolbox.hosts.nuke_host import NukeHost
 
 
 host = NukeHost()

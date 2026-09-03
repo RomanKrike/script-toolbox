@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+Updater verification release.
+
+### Changed
+
+- Display the installed Script Toolbox version directly in the main window title and top bar.
+- Used as the first end-to-end update test from 0.2.0 to 0.2.1.
+
 ## 0.2.0
 
 First modular release of Script Toolbox for Autodesk Maya 2015.

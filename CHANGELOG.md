@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.7
+
+Separator visibility polish release.
+
+### Changed
+
+- Match horizontal and vertical separator color to the Collapsible Folder card border.
+- Keep separator spacing unchanged while making separators clearly visible in the dark runtime theme.
+
 ## 0.3.6
 
 Section header cleanup release.

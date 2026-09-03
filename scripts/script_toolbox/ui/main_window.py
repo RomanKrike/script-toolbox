@@ -41,7 +41,9 @@ class ScriptToolbox(QtGui.QMainWindow):
             WINDOW_OBJECT_NAME
         )
         self.setWindowTitle(
-            "Script Toolbox"
+            "Script Toolbox {0}".format(
+                PLUGIN_VERSION
+            )
         )
         self.resize(
             420,
@@ -128,7 +130,9 @@ class ScriptToolbox(QtGui.QMainWindow):
         )
 
         title = QtGui.QLabel(
-            "SCRIPT TOOLBOX"
+            "SCRIPT TOOLBOX  v{0}".format(
+                PLUGIN_VERSION
+            )
         )
         title.setObjectName(
             "ToolboxTitle"

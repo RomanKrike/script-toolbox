@@ -85,3 +85,58 @@ jobs:
         run: |
           python -m pip install pytest
           pytest -q tests/test_release_contract.py
+
+
+  test-build:
+    name: Build downloadable test package
+    needs:
+      - unit-tests
+      - maya-2015-python2-syntax
+      - release-contract
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Read plugin version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(python - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path("scripts/script_toolbox/constants.py").read_text(
+              encoding="utf-8"
+          )
+          match = re.search(
+              r'^PLUGIN_VERSION\s*=\s*"([^"]+)"',
+              text,
+              re.M,
+          )
+          if not match:
+              raise SystemExit("PLUGIN_VERSION not found")
+          print(match.group(1))
+          PY
+          )
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build test package
+        run: >
+          python tools/build_release.py
+          --output dist-test
+          --version "${{ steps.version.outputs.value }}"
+
+      - name: Upload test build
+        uses: actions/upload-artifact@v4
+        with:
+          name: script-toolbox-${{ steps.version.outputs.value }}-test
+          path: |
+            dist-test/script-toolbox-${{ steps.version.outputs.value }}.zip
+            dist-test/script-toolbox-${{ steps.version.outputs.value }}.zip.sha256
+          if-no-files-found: error
+          retention-days: 14

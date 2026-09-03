@@ -3,7 +3,7 @@ from __future__ import print_function
 
 import traceback
 
-from ..compat import HOST
+from ..hosts import HOST
 
 
 def execute_script(

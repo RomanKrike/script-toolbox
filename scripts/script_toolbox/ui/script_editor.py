@@ -8,6 +8,7 @@ from ..compat import QtCore
 from ..compat import QtGui
 from ..compat import StringIO
 from ..compat import HOST
+from ..core.source import prepare_python_source
 from ..core.text_transform import comment_line
 from ..core.text_transform import indent_line
 from ..core.text_transform import uncomment_line
@@ -778,7 +779,9 @@ class ScriptEditorWidget(QtGui.QWidget):
             sys.stderr = stderr_buffer
 
             compiled = compile(
-                code,
+                prepare_python_source(
+                    code
+                ),
                 "<Script Toolbox Editor>",
                 "exec"
             )

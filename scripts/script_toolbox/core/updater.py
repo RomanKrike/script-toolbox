@@ -23,6 +23,7 @@ except ImportError:
 from ..constants import GITHUB_REPOSITORY
 from ..constants import GITHUB_TOKEN_ENV
 from ..constants import PLUGIN_VERSION
+from ..hosts import HOST
 from ..pycompat import text_type
 
 
@@ -981,8 +982,11 @@ def install_release(
                 "MayaScriptToolbox.mod"
             )
 
-            if os.path.isfile(
-                source_mod
+            if (
+                HOST.key == "maya" and
+                os.path.isfile(
+                    source_mod
+                )
             ):
                 shutil.copy2(
                     source_mod,

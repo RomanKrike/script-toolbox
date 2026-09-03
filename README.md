@@ -67,6 +67,7 @@ The repository contains `MayaScriptToolbox.mod` for module-based installation.
 - value API
 - stylesheet and icons
 - code editor
+- advanced reusable script editor with Undo/Redo, Find, comment/uncomment, indent/unindent, Run and captured output
 - runtime renderer/widgets
 - runtime main window
 

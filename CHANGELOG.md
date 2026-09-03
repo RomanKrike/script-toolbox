@@ -14,6 +14,10 @@ Multi-DCC development branch.
 - Host-specific config locations while preserving the existing Maya config path.
 - Nuke startup example included in release packages.
 
+### Fixed
+
+- Avoid the Python 2 implicit-relative-import collision between the Nuke host adapter and Nuke's built-in `nuke` module by using `nuke_host.py` and an explicit validated Nuke API resolver.
+
 ### Changed
 
 - Core config and script execution no longer depend directly on Maya.

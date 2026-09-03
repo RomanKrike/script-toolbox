@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.3
+
+Runtime grouping polish release.
+
+### Changed
+
+- Tighten Collapsible Section headers so the native chevron and header bar are less visually heavy.
+- Draw nested Folders as subtle bordered group cards so subsection ownership is immediately visible.
+- Give nested Collapsible and Simple section headers a quieter visual treatment than top-level sections.
+- Make Runtime Folder content backgrounds transparent so nested group cards read as real containers.
+
 ## 0.3.2
 
 Interface polish release.

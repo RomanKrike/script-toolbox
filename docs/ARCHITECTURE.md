@@ -1,14 +1,22 @@
 # Architecture
 
-Script Toolbox is being migrated from the original single-file Maya 2015 tool to a modular package.
+Script Toolbox is a modular multi-DCC toolbox. The first implementation was migrated from the original single-file Maya 2015 tool; the same core now also targets Nuke.
 
-## Compatibility target
+## Compatibility targets
 
+### Maya
 - Autodesk Maya 2015
 - Python 2.7
 - PySide 1 / Qt 4
-- MEL and Python button scripts
+- Python and MEL button scripts
 - Existing `maya_script_toolbox.json` configurations
+
+### Nuke
+- Nuke 12
+- Python 2.7
+- PySide2 / Qt 5
+- Python button scripts
+- Host-specific `nuke_script_toolbox.json` configuration
 
 ## Dependency direction
 
@@ -19,9 +27,14 @@ ui/main_window -> ui/runtime -> core/values -> model
       |
       -> core/config
       -> core/executor
-      -> compat (Maya/PySide only)
+      -> compat -> hosts
 
+core/config -> hosts
+core/executor -> hosts
 model -> pycompat (pure Python)
+hosts/base -> Python stdlib only
+hosts/maya -> maya.cmds / maya.mel
+hosts/nuke -> nuke / nukescripts
 ```
 
 The model layer must remain importable without Maya. Maya/PySide imports live behind `compat.py` and UI/core integration modules.
@@ -35,6 +48,13 @@ scripts/script_toolbox/
   compat.py
   pycompat.py
   constants.py
+  nuke_integration.py
+
+  hosts/
+    __init__.py
+    base.py
+    maya.py
+    nuke.py
 
   core/
     config.py
@@ -86,21 +106,27 @@ scripts/script_toolbox/
 - modular Interface Editor orchestration
 - property-editor registry
 - GitHub Releases updater with background check/install workers
+- DCC host abstraction
+- Maya host adapter
+- Nuke host adapter
+- Nuke menu and dock-panel registration
 
 The modular runtime can now open and execute existing toolbox configurations.
 
 ## Still to finish
 
 1. Add explicit version-by-version legacy config migrations.
-2. Add Maya/PySide1 integration testing on a real Maya 2015 environment.
+2. Add automated host-integration harnesses around Maya/Nuke APIs.
 3. Harden updater rollback/install behavior on Windows permission failures.
 4. Expand editor/tree regression coverage.
-5. Remove the legacy implementation only after verified feature parity.
+5. Add optional per-item host visibility and host-specific script variants.
+6. Remove the legacy implementation only after verified feature parity.
 
 ## Rules
 
 - No circular imports.
-- No Maya UI code in `model`.
+- No DCC UI/API code in `model`.
+- Host-specific API access belongs in `hosts/` or host integration modules.
 - No JSON file I/O in `ui`.
 - New item types should register through model/renderer/property-editor registries instead of growing large cross-module `if/elif` chains.
 - Source remains Python 2.7 compatible until Maya 2015 support is intentionally dropped.

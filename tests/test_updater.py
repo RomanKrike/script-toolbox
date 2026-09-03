@@ -405,3 +405,31 @@ def test_non_windows_request_failure_is_not_hidden(
             "https://example.invalid/file.zip",
             destination
         )
+
+
+def test_hidden_process_kwargs_use_create_no_window_on_windows(
+    monkeypatch
+):
+    monkeypatch.setattr(
+        updater,
+        "_is_windows",
+        lambda: True
+    )
+
+    kwargs = updater._hidden_process_kwargs()
+
+    assert kwargs[
+        "creationflags"
+    ] == 0x08000000
+
+
+def test_hidden_process_kwargs_are_empty_off_windows(
+    monkeypatch
+):
+    monkeypatch.setattr(
+        updater,
+        "_is_windows",
+        lambda: False
+    )
+
+    assert updater._hidden_process_kwargs() == {}

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.1-dev
+
+Interface polish development release.
+
+### Changed
+
+- Redesign Collapsible Folder headers as full-width clickable section bars with native chevrons.
+- Improve folder content indentation and visual hierarchy.
+- Rename Folder types to clearer Collapsible Section / Simple Section labels.
+- Group Interface Editor parameters into Layout, Inputs, Actions and Display.
+- Add a parameter filter field to the Interface Editor.
+- Improve Folder and Row hierarchy styling in the Existing Parameters tree.
+
 ## 0.3.0
 
 First multi-DCC release.

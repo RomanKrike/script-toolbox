@@ -2,7 +2,6 @@
 from __future__ import print_function
 
 from ...compat import QtGui
-from ...core.executor import execute_script
 from ...model.items import safe_color
 from ...pycompat import text_type
 from ..script_editor import ScriptEditorWidget

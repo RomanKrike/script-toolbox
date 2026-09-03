@@ -1,0 +1,22 @@
+# Python
+*.pyc
+*.pyo
+__pycache__/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Maya local/runtime files
+maya_script_toolbox.json
+*.log
+
+# Build / packaging
+dist/
+build/
+*.egg-info/

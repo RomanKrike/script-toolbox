@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.3
+
+Updater UX fix for Windows.
+
+### Fixed
+
+- Run the PowerShell/.NET TLS fallback without opening a visible console window.
+- Keep update checks and downloads fully background-only from the user's perspective.
+
 ## 0.2.2
 
 Updater compatibility fix for Maya 2015 on Windows.

@@ -25,4 +25,4 @@ jobs:
         run: python -m pip install pytest
 
       - name: Run Maya-independent model tests
-        run: pytest -q tests/test_model_smoke.py
+        run: pytest -q tests

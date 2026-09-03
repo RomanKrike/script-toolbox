@@ -56,3 +56,29 @@ def test_package_init_exists():
     assert os.path.isfile(
         path
     )
+
+
+def test_nuke_startup_example_exists():
+    path = os.path.join(
+        ROOT,
+        "nuke",
+        "menu.py.example"
+    )
+
+    assert os.path.isfile(
+        path
+    )
+
+
+def test_nuke_host_adapter_exists():
+    path = os.path.join(
+        ROOT,
+        "scripts",
+        "script_toolbox",
+        "hosts",
+        "nuke.py"
+    )
+
+    assert os.path.isfile(
+        path
+    )

@@ -2,6 +2,7 @@
 
 from .code_editor import CodeEditor
 from .code_editor import ScriptHighlighter
+from .interface_editor import InterfaceEditor
 from .interface_tree import ExistingInterfaceTree
 from .main_window import ScriptToolbox
 from .runtime import DisplayField
@@ -12,6 +13,7 @@ from .runtime import RuntimeFolderTabs
 __all__ = [
     "CodeEditor",
     "ScriptHighlighter",
+    "InterfaceEditor",
     "ExistingInterfaceTree",
     "ScriptToolbox",
     "DisplayField",

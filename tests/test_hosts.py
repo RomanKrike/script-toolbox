@@ -173,3 +173,118 @@ def test_native_executor_routes_to_host(
             "native code",
         )
     ]
+
+
+def test_nuke_host_adapter_with_fake_nuke(
+    monkeypatch
+):
+    import importlib
+    import sys
+    import types
+
+    class FakeNode(object):
+
+        def __init__(
+            self,
+            name,
+            full_name
+        ):
+            self._name = name
+            self._full_name = full_name
+            self.selected = True
+
+        def name(self):
+            return self._name
+
+        def fullName(self):
+            return self._full_name
+
+        def setSelected(
+            self,
+            value
+        ):
+            self.selected = bool(
+                value
+            )
+
+    node_a = FakeNode(
+        "Read1",
+        "Group1.Read1"
+    )
+    node_b = FakeNode(
+        "Write1",
+        "Write1"
+    )
+
+    fake_nuke = types.ModuleType(
+        "nuke"
+    )
+    fake_nuke.NUKE_VERSION_STRING = "12.2v9"
+    fake_nuke.selectedNodes = lambda: [
+        node_a,
+        node_b,
+    ]
+    fake_nuke.toNode = lambda name: {
+        "Group1.Read1": node_a,
+        "Read1": node_a,
+        "Write1": node_b,
+    }.get(
+        name
+    )
+
+    fake_nukescripts = types.ModuleType(
+        "nukescripts"
+    )
+
+    monkeypatch.setitem(
+        sys.modules,
+        "nuke",
+        fake_nuke
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "nukescripts",
+        fake_nukescripts
+    )
+
+    sys.modules.pop(
+        "script_toolbox.hosts.nuke",
+        None
+    )
+
+    module = importlib.import_module(
+        "script_toolbox.hosts.nuke"
+    )
+    host = module.NukeHost()
+
+    assert host.app_version() == "12.2v9"
+    assert host.current_selection(
+        long_names=True
+    ) == [
+        "Group1.Read1",
+        "Write1",
+    ]
+    assert host.current_selection(
+        long_names=False
+    ) == [
+        "Read1",
+        "Write1",
+    ]
+    assert host.object_exists(
+        "Group1.Read1"
+    ) is True
+    assert host.object_exists(
+        "Missing"
+    ) is False
+    assert host.available_languages() == (
+        "python",
+    )
+
+    namespace = host.script_namespace()
+
+    assert namespace[
+        "nuke"
+    ] is fake_nuke
+    assert namespace[
+        "nukescripts"
+    ] is fake_nukescripts

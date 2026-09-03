@@ -64,10 +64,12 @@ def test_latest_release_prefers_packaged_asset(monkeypatch):
                 {
                     "name": "script-toolbox-1.2.3.zip",
                     "url": "https://api.example.invalid/package",
+                    "browser_download_url": "https://example.invalid/package.zip",
                 },
                 {
                     "name": "script-toolbox-1.2.3.zip.sha256",
                     "url": "https://api.example.invalid/checksum",
+                    "browser_download_url": "https://example.invalid/package.zip.sha256",
                 },
             ],
         }
@@ -84,10 +86,10 @@ def test_latest_release_prefers_packaged_asset(monkeypatch):
 
     assert release["version"] == "1.2.3"
     assert release["download_url"] == (
-        "https://api.example.invalid/package"
+        "https://example.invalid/package.zip"
     )
     assert release["checksum_url"] == (
-        "https://api.example.invalid/checksum"
+        "https://example.invalid/package.zip.sha256"
     )
     assert release["asset_name"] == (
         "script-toolbox-1.2.3.zip"
@@ -258,3 +260,148 @@ def test_safe_extract_allows_normal_archive(tmp_path):
             "__init__.py"
         )
     )
+
+
+def test_read_json_uses_powershell_fallback_on_windows(
+    monkeypatch,
+    tmp_path
+):
+    from script_toolbox.core.updater import _read_json
+
+    monkeypatch.setattr(
+        updater,
+        "_is_windows",
+        lambda: True
+    )
+
+    def fail_request(*args, **kwargs):
+        raise updater.URLError(
+            "timed out"
+        )
+
+    monkeypatch.setattr(
+        updater,
+        "_request",
+        fail_request
+    )
+
+    def fake_download(
+        url,
+        destination,
+        token=None,
+        timeout=30,
+        accept="application/octet-stream"
+    ):
+        with open(
+            destination,
+            "wb"
+        ) as handle:
+            handle.write(
+                b'{"tag_name": "v9.9.9"}'
+            )
+
+        return destination
+
+    monkeypatch.setattr(
+        updater,
+        "_download_with_powershell",
+        fake_download
+    )
+
+    result = _read_json(
+        "https://example.invalid/releases/latest"
+    )
+
+    assert result["tag_name"] == "v9.9.9"
+
+
+def test_binary_download_uses_powershell_fallback_on_windows(
+    monkeypatch,
+    tmp_path
+):
+    destination = str(
+        tmp_path / "download.bin"
+    )
+
+    monkeypatch.setattr(
+        updater,
+        "_is_windows",
+        lambda: True
+    )
+
+    monkeypatch.setattr(
+        updater,
+        "_request",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            updater.URLError(
+                "timed out"
+            )
+        )
+    )
+
+    def fake_download(
+        url,
+        destination,
+        token=None,
+        timeout=30,
+        accept="application/octet-stream"
+    ):
+        with open(
+            destination,
+            "wb"
+        ) as handle:
+            handle.write(
+                b"ok"
+            )
+
+        return destination
+
+    monkeypatch.setattr(
+        updater,
+        "_download_with_powershell",
+        fake_download
+    )
+
+    result = updater._download_file(
+        "https://example.invalid/file.zip",
+        destination
+    )
+
+    assert result == destination
+    assert open(
+        destination,
+        "rb"
+    ).read() == b"ok"
+
+
+def test_non_windows_request_failure_is_not_hidden(
+    monkeypatch,
+    tmp_path
+):
+    destination = str(
+        tmp_path / "download.bin"
+    )
+
+    monkeypatch.setattr(
+        updater,
+        "_is_windows",
+        lambda: False
+    )
+
+    monkeypatch.setattr(
+        updater,
+        "_request",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            updater.URLError(
+                "timed out"
+            )
+        )
+    )
+
+    with pytest.raises(
+        updater.URLError
+    ):
+        updater._download_file(
+            "https://example.invalid/file.zip",
+            destination
+        )

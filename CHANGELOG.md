@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.4
+
+Collapsible card hierarchy release.
+
+### Changed
+
+- Draw every Collapsible Folder as one outlined card, including top-level sections.
+- Visually attach the Collapsible header to the card outline with a subtle divider.
+- Replace Maya's oversized native disclosure arrow with compact text chevrons.
+- Keep nested Collapsible cards quieter than top-level sections while preserving clear ownership.
+- Increase content padding inside Collapsible cards so controls do not sit directly on the outline.
+
 ## 0.3.3
 
 Runtime grouping polish release.

@@ -143,22 +143,54 @@ class RuntimeFolder(QtGui.QFrame):
             "collapsible"
         )
 
+        self.is_nested = False
+
+        try:
+            self.is_nested = (
+                parent is not None and
+                parent.objectName() == "RuntimeFolderContent"
+            )
+        except Exception:
+            self.is_nested = False
+
+        self.setProperty(
+            "folderType",
+            self.folder_type
+        )
+        self.setProperty(
+            "nested",
+            self.is_nested
+        )
+
         root = QtGui.QVBoxLayout(
             self
         )
-        root.setContentsMargins(
-            0,
-            0,
-            0,
-            4
-        )
-        root.setSpacing(
-            3
-        )
+
+        if self.folder_type == "collapsible":
+            root.setContentsMargins(
+                0,
+                0,
+                0,
+                0
+            )
+            root.setSpacing(
+                0
+            )
+        else:
+            root.setContentsMargins(
+                0,
+                0,
+                0,
+                4
+            )
+            root.setSpacing(
+                3
+            )
 
         self.arrow = None
         self.header = None
         self.header_button = None
+        self.header_label = ""
 
         # Tabs / Radio pages are embedded and do not draw another header.
         if not self.embedded:
@@ -175,18 +207,19 @@ class RuntimeFolder(QtGui.QFrame):
             )
 
             if self.folder_type == "collapsible":
-                # Use one full-width clickable header instead of a tiny
-                # arrow button plus a separate label. This is easier to scan
-                # and behaves consistently in Maya Qt4 and Nuke Qt5.
+                # The full header remains clickable, but the disclosure
+                # marker is text instead of the host-native QToolButton arrow.
+                # Maya 2015 renders the native arrow disproportionately large.
+                self.header_label = text_type(
+                    label
+                )
+
                 self.header_button = QtGui.QToolButton()
                 self.header_button.setObjectName(
                     "RuntimeFolderHeader"
                 )
-                self.header_button.setText(
-                    label
-                )
                 self.header_button.setToolButtonStyle(
-                    QtCore.Qt.ToolButtonTextBesideIcon
+                    QtCore.Qt.ToolButtonTextOnly
                 )
                 self.header_button.setSizePolicy(
                     QtGui.QSizePolicy.Expanding,
@@ -255,12 +288,20 @@ class RuntimeFolder(QtGui.QFrame):
         self.content_layout = QtGui.QVBoxLayout(
             self.content
         )
-        self.content_layout.setContentsMargins(
-            9,
-            4,
-            5,
-            3
-        )
+        if self.folder_type == "collapsible":
+            self.content_layout.setContentsMargins(
+                9,
+                6,
+                7,
+                7
+            )
+        else:
+            self.content_layout.setContentsMargins(
+                9,
+                4,
+                5,
+                3
+            )
         self.content_layout.setSpacing(
             3
         )
@@ -1011,11 +1052,23 @@ class RuntimeFolder(QtGui.QFrame):
             not collapsed
         )
 
+        self.setProperty(
+            "collapsed",
+            collapsed
+        )
+
         if self.header_button is not None:
-            self.header_button.setArrowType(
-                QtCore.Qt.RightArrow
+            marker = (
+                u"\u25b8"
                 if collapsed
-                else QtCore.Qt.DownArrow
+                else u"\u25be"
+            )
+
+            self.header_button.setText(
+                u"{0}  {1}".format(
+                    marker,
+                    self.header_label
+                )
             )
 
             self.header_button.setProperty(
@@ -1023,9 +1076,16 @@ class RuntimeFolder(QtGui.QFrame):
                 collapsed
             )
 
-            # Re-polish so Qt4/Qt5 style sheets immediately see the dynamic
-            # property change.
+            # Re-polish so Qt4/Qt5 style sheets immediately see dynamic
+            # properties on both the card and its header.
             try:
+                self.style().unpolish(
+                    self
+                )
+                self.style().polish(
+                    self
+                )
+
                 self.header_button.style().unpolish(
                     self.header_button
                 )

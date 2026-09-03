@@ -4,6 +4,7 @@ from __future__ import print_function
 import copy
 import os
 
+from ..compat import HOST
 from ..compat import QtCore
 from ..compat import QtGui
 from ..constants import CONFIG_VERSION
@@ -65,7 +66,9 @@ class InterfaceEditor(QtGui.QDialog):
             EDITOR_OBJECT_NAME
         )
         self.setWindowTitle(
-            "Edit Parameter Interface"
+            "Edit Parameter Interface - {0}".format(
+                HOST.display_name
+            )
         )
         self.resize(
             1240,
@@ -101,7 +104,9 @@ class InterfaceEditor(QtGui.QDialog):
         )
 
         heading = QtGui.QLabel(
-            "Edit Parameter Interface  —  Script Toolbox"
+            "Edit Parameter Interface  —  Script Toolbox  —  {0}".format(
+                HOST.display_name
+            )
         )
         heading.setObjectName(
             "DialogHeading"
@@ -1318,7 +1323,9 @@ class InterfaceEditor(QtGui.QDialog):
             os.path.dirname(
                 config_path()
             ),
-            "maya_script_toolbox_export.json"
+            "{0}_script_toolbox_export.json".format(
+                HOST.key
+            )
         )
 
         result = QtGui.QFileDialog.getSaveFileName(

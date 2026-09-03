@@ -3,8 +3,7 @@ from __future__ import print_function
 
 import traceback
 
-from ..compat import cmds
-from ..compat import mel
+from ..compat import HOST
 
 
 def execute_script(
@@ -14,20 +13,22 @@ def execute_script(
     parent=None
 ):
     code = code or ""
+    language = (
+        language or "python"
+    ).lower()
 
     if not code.strip():
         return True
 
     try:
-        if language == "mel":
-            mel.eval(code)
-        else:
+        if language == "python":
             namespace = {
                 "__name__": "__script_toolbox_button__",
-                "cmds": cmds,
-                "mel": mel,
                 "toolbox": toolbox,
             }
+            namespace.update(
+                HOST.script_namespace()
+            )
 
             compiled = compile(
                 code,
@@ -38,6 +39,12 @@ def execute_script(
                 compiled,
                 namespace,
                 namespace
+            )
+
+        else:
+            HOST.execute_native(
+                language,
+                code
             )
 
         return True
@@ -51,7 +58,7 @@ def execute_script(
             QtGui.QMessageBox.critical(
                 parent,
                 "Script Toolbox",
-                "Script execution failed. See Script Editor for traceback."
+                "Script execution failed. See the host Script Editor / console for traceback."
             )
         except Exception:
             pass

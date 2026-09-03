@@ -158,40 +158,11 @@ class RuntimeFolder(QtGui.QFrame):
 
         self.arrow = None
         self.header = None
+        self.header_button = None
 
         # Tabs / Radio pages are embedded and do not draw another header.
         if not self.embedded:
-            self.header = QtGui.QFrame()
-            self.header.setObjectName(
-                "SectionHeader"
-            )
-
-            header_layout = QtGui.QHBoxLayout(
-                self.header
-            )
-            header_layout.setContentsMargins(
-                4,
-                2,
-                4,
-                2
-            )
-            header_layout.setSpacing(
-                3
-            )
-
-            if self.folder_type == "collapsible":
-                self.arrow = QtGui.QToolButton()
-                self.arrow.setFixedWidth(
-                    19
-                )
-                self.arrow.clicked.connect(
-                    self.toggle
-                )
-                header_layout.addWidget(
-                    self.arrow
-                )
-
-            title = QtGui.QLabel(
+            label = (
                 section.get(
                     "label",
                     section["name"]
@@ -202,21 +173,80 @@ class RuntimeFolder(QtGui.QFrame):
                 )
                 else ""
             )
-            title.setObjectName(
-                "SectionTitle"
-            )
 
-            header_layout.addWidget(
-                title
-            )
-            header_layout.addStretch(
-                1
-            )
+            if self.folder_type == "collapsible":
+                # Use one full-width clickable header instead of a tiny
+                # arrow button plus a separate label. This is easier to scan
+                # and behaves consistently in Maya Qt4 and Nuke Qt5.
+                self.header_button = QtGui.QToolButton()
+                self.header_button.setObjectName(
+                    "RuntimeFolderHeader"
+                )
+                self.header_button.setText(
+                    label
+                )
+                self.header_button.setToolButtonStyle(
+                    QtCore.Qt.ToolButtonTextBesideIcon
+                )
+                self.header_button.setSizePolicy(
+                    QtGui.QSizePolicy.Expanding,
+                    QtGui.QSizePolicy.Preferred
+                )
+                self.header_button.setFocusPolicy(
+                    QtCore.Qt.NoFocus
+                )
+                self.header_button.setToolTip(
+                    section.get(
+                        "tooltip",
+                        ""
+                    )
+                )
+                self.header_button.clicked.connect(
+                    self.toggle
+                )
 
-            # Simple folders keep a header but have no collapse arrow.
-            root.addWidget(
-                self.header
-            )
+                self.arrow = self.header_button
+
+                root.addWidget(
+                    self.header_button
+                )
+
+            else:
+                self.header = QtGui.QFrame()
+                self.header.setObjectName(
+                    "SimpleSectionHeader"
+                )
+
+                header_layout = QtGui.QHBoxLayout(
+                    self.header
+                )
+                header_layout.setContentsMargins(
+                    5,
+                    2,
+                    5,
+                    2
+                )
+                header_layout.setSpacing(
+                    4
+                )
+
+                title = QtGui.QLabel(
+                    label
+                )
+                title.setObjectName(
+                    "SectionTitle"
+                )
+
+                header_layout.addWidget(
+                    title
+                )
+                header_layout.addStretch(
+                    1
+                )
+
+                root.addWidget(
+                    self.header
+                )
 
         self.content = QtGui.QWidget()
         self.content.setObjectName(
@@ -226,10 +256,10 @@ class RuntimeFolder(QtGui.QFrame):
             self.content
         )
         self.content_layout.setContentsMargins(
+            9,
             4,
-            2,
-            4,
-            2
+            5,
+            3
         )
         self.content_layout.setSpacing(
             3
@@ -968,11 +998,6 @@ class RuntimeFolder(QtGui.QFrame):
             self.content.setVisible(
                 True
             )
-
-            if self.arrow is not None:
-                self.arrow.setText(
-                    "v"
-                )
             return
 
         collapsed = bool(
@@ -986,10 +1011,29 @@ class RuntimeFolder(QtGui.QFrame):
             not collapsed
         )
 
-        if self.arrow is not None:
-            self.arrow.setText(
-                ">" if collapsed else "v"
+        if self.header_button is not None:
+            self.header_button.setArrowType(
+                QtCore.Qt.RightArrow
+                if collapsed
+                else QtCore.Qt.DownArrow
             )
+
+            self.header_button.setProperty(
+                "collapsed",
+                collapsed
+            )
+
+            # Re-polish so Qt4/Qt5 style sheets immediately see the dynamic
+            # property change.
+            try:
+                self.header_button.style().unpolish(
+                    self.header_button
+                )
+                self.header_button.style().polish(
+                    self.header_button
+                )
+            except Exception:
+                pass
 
 
 class RuntimeFolderTabs(QtGui.QFrame):

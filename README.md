@@ -1,13 +1,11 @@
 # Script Toolbox
 
-Houdini-style configurable script toolbox for Autodesk Maya.
+Houdini-style configurable script toolbox for Maya and Nuke.
 
-Current compatibility target:
+Current compatibility targets:
 
-- Maya 2015
-- Python 2.7
-- PySide 1 / Qt 4
-- Python and MEL button scripts
+- Maya 2015 — Python 2.7, PySide 1 / Qt 4, Python + MEL
+- Nuke 12 — Python 2.7, PySide2 / Qt 5, Python
 
 ## Refactor status
 
@@ -43,7 +41,32 @@ import script_toolbox
 script_toolbox.reload_toolbox()
 ```
 
-The repository contains `MayaScriptToolbox.mod` for module-based installation.
+The repository contains `MayaScriptToolbox.mod` for Maya module-based installation.
+
+## Nuke entry point
+
+Inside Nuke:
+
+```python
+import script_toolbox
+script_toolbox.show()
+```
+
+Register the Nuke application menu:
+
+```python
+import script_toolbox
+script_toolbox.register_nuke_menu()
+```
+
+Register the dockable Nuke panel:
+
+```python
+import script_toolbox
+script_toolbox.register_nuke_panel()
+```
+
+See [docs/NUKE.md](docs/NUKE.md) and `nuke/menu.py.example` for installation.
 
 ## Current feature set in the legacy implementation
 

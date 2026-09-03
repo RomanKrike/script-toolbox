@@ -2,7 +2,7 @@
 
 PACKAGE_NAME = "script_toolbox"
 DISPLAY_NAME = "Script Toolbox"
-PLUGIN_VERSION = "0.3.0"
+PLUGIN_VERSION = "0.3.1"
 
 WINDOW_OBJECT_NAME = "MayaScriptToolbox"
 EDITOR_OBJECT_NAME = "MayaScriptToolboxInterfaceEditor"

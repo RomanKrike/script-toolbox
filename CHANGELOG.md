@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.0-dev
+
+Multi-DCC development branch.
+
+### Added
+
+- DCC host abstraction with Maya and Nuke adapters.
+- Nuke 12 / Python 2.7 / PySide2 runtime support.
+- Nuke selection-aware Fields.
+- Nuke Python button namespace with `nuke`, `nukescripts`, `host`, and `toolbox`.
+- Nuke application-menu registration and dock-panel registration.
+- Host-specific config locations while preserving the existing Maya config path.
+- Nuke startup example included in release packages.
+
+### Changed
+
+- Core config and script execution no longer depend directly on Maya.
+- Qt compatibility layer now supports PySide1/Qt4 in Maya and PySide2/Qt5 in Nuke.
+- Interface Editor and runtime labels identify the active DCC host.
+
 ## 0.2.5
 
 Hot-update verification release.

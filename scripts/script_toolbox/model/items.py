@@ -4,7 +4,7 @@ from __future__ import print_function
 import re
 import uuid
 
-from ..compat import text_type
+from ..pycompat import text_type
 from ..constants import CONFIG_VERSION
 from ..constants import FOLDER_TYPES
 

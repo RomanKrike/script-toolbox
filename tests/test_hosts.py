@@ -253,7 +253,7 @@ def test_nuke_host_adapter_with_fake_nuke(
     )
 
     module = importlib.import_module(
-        "script_toolbox.hosts.nuke"
+        "script_toolbox.hosts.nuke_host"
     )
     host = module.NukeHost()
 

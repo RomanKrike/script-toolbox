@@ -40,6 +40,7 @@ scripts/script_toolbox/
     config.py
     executor.py
     values.py
+    updater.py
 
   model/
     items.py
@@ -53,7 +54,19 @@ scripts/script_toolbox/
     __init__.py
     code_editor.py
     runtime.py
+    interface_tree.py
+    interface_editor.py
+    update_ui.py
     main_window.py
+
+    properties/
+      base.py
+      registry.py
+      folder.py
+      row.py
+      basic.py
+      field.py
+      button.py
 ```
 
 ## Extracted now
@@ -68,18 +81,20 @@ scripts/script_toolbox/
 - code editor and syntax highlighter
 - runtime widgets and nested Folder renderer
 - modular runtime main window
+- modular Interface Editor orchestration
+- property-editor registry
+- GitHub Releases updater with background check/install workers
 
 The modular runtime can now open and execute existing toolbox configurations.
 
-## Still to extract
+## Still to finish
 
-1. Interface tree / drag-drop editor.
-2. Property editors per item type.
-3. Interface Editor orchestration.
-4. Import/export editor actions.
-5. Legacy config migrations as explicit versioned steps.
-6. Full regression coverage.
-7. Remove the legacy implementation after feature parity.
+1. Restore the advanced code-editor toolbar actions from the legacy editor.
+2. Add explicit version-by-version legacy config migrations.
+3. Add Maya/PySide1 integration testing on a real Maya 2015 environment.
+4. Harden updater rollback/install behavior on Windows permission failures.
+5. Expand editor/tree regression coverage.
+6. Remove the legacy implementation only after verified feature parity.
 
 ## Rules
 

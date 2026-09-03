@@ -834,8 +834,8 @@ class ScriptToolbox(QtGui.QMainWindow):
             (
                 "Install Script Toolbox {0}?\n\n"
                 "Your toolbox configuration is stored separately and "
-                "will not be replaced. Maya must be restarted after "
-                "the update."
+                "will not be replaced. Script Toolbox will reload "
+                "automatically after the update."
             ).format(
                 latest
             ),
@@ -911,28 +911,63 @@ class ScriptToolbox(QtGui.QMainWindow):
         )
 
         self.update_button.setText(
-            "RESTART MAYA"
+            "RELOADING..."
         )
         self.update_button.setEnabled(
             False
         )
 
         self.statusBar().showMessage(
-            "Script Toolbox {0} installed. Restart Maya.".format(
+            "Script Toolbox {0} installed. Reloading...".format(
                 version
             )
         )
 
-        QtGui.QMessageBox.information(
-            self,
-            "Update Installed",
-            (
-                "Script Toolbox {0} was installed successfully.\n\n"
-                "Restart Maya to load the new version."
-            ).format(
-                version
-            )
+        # The worker emits its result immediately before QThread.run()
+        # returns. Wait briefly so the QThread object can be destroyed safely
+        # together with the old Toolbox window during hot reload.
+        try:
+            if self.update_install_thread is not None:
+                self.update_install_thread.wait(
+                    2000
+                )
+        except Exception:
+            pass
+
+        QtCore.QTimer.singleShot(
+            150,
+            self.hot_reload_after_update
         )
+
+    def hot_reload_after_update(self):
+        try:
+            from ..bootstrap import hot_reload_toolbox
+
+            hot_reload_toolbox()
+
+        except Exception as exc:
+            self.update_button.setText(
+                "RESTART MAYA"
+            )
+            self.update_button.setEnabled(
+                False
+            )
+
+            QtGui.QMessageBox.warning(
+                self,
+                "Update Installed",
+                (
+                    "The update was installed, but Script Toolbox "
+                    "could not reload itself.\n\n"
+                    "Restart Maya to load the new version.\n\n"
+                    "{0}"
+                ).format(
+                    text_type(
+                        exc
+                    )
+                )
+            )
+
 
     # ------------------------------------------------------------------
     # Editor / reload

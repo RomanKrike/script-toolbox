@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..compat import HOST
 from ..compat import QtCore
 from ..compat import QtGui
-from ..compat import cmds
-from ..compat import maya_main_window
+from ..compat import main_window
 from ..compat import shift_pressed
 from ..constants import PLUGIN_VERSION
 from ..constants import WINDOW_OBJECT_NAME
@@ -34,15 +34,16 @@ class ScriptToolbox(QtGui.QMainWindow):
     ):
         QtGui.QMainWindow.__init__(
             self,
-            parent or maya_main_window()
+            parent or main_window()
         )
 
         self.setObjectName(
             WINDOW_OBJECT_NAME
         )
         self.setWindowTitle(
-            "Script Toolbox {0}".format(
-                PLUGIN_VERSION
+            "Script Toolbox {0} - {1}".format(
+                PLUGIN_VERSION,
+                HOST.display_name
             )
         )
         self.resize(
@@ -80,7 +81,7 @@ class ScriptToolbox(QtGui.QMainWindow):
         )
         self.selection_timer.start()
 
-        # Check once per Maya session/window without blocking the UI thread.
+        # Check once per host session/window without blocking the UI thread.
         QtCore.QTimer.singleShot(
             1200,
             self.check_for_updates
@@ -131,16 +132,18 @@ class ScriptToolbox(QtGui.QMainWindow):
         )
 
         title = QtGui.QLabel(
-            "SCRIPT TOOLBOX  v{0}".format(
-                PLUGIN_VERSION
+            "SCRIPT TOOLBOX  v{0}  |  {1}".format(
+                PLUGIN_VERSION,
+                HOST.display_name.upper()
             )
         )
         title.setObjectName(
             "ToolboxTitle"
         )
         title.setToolTip(
-            "Script Toolbox {0}".format(
-                PLUGIN_VERSION
+            "Script Toolbox {0} - {1}".format(
+                PLUGIN_VERSION,
+                HOST.display_name
             )
         )
 
@@ -319,7 +322,9 @@ class ScriptToolbox(QtGui.QMainWindow):
         )
 
         self.statusBar().showMessage(
-            "Click = script | Shift+Click = alternate script | Name = script ID"
+            "{0} | Click = script | Shift+Click = alternate script | Name = script ID".format(
+                HOST.display_name
+            )
         )
 
     # ------------------------------------------------------------------
@@ -511,30 +516,21 @@ class ScriptToolbox(QtGui.QMainWindow):
             value = text_type(
                 value or ""
             )
-
-            if value and cmds.objExists(
+            normalized = (
                 value
-            ):
-                candidates = [
-                    value
-                ]
-            else:
-                normalized = (
-                    value
-                    .replace(";", "\n")
-                    .replace(",", "\n")
-                )
-
-                candidates = [
-                    part.strip()
-                    for part in normalized.splitlines()
-                    if part.strip()
-                ]
+                .replace(";", "\n")
+                .replace(",", "\n")
+            )
+            candidates = [
+                part.strip()
+                for part in normalized.splitlines()
+                if part.strip()
+            ]
 
         return [
             candidate
             for candidate in candidates
-            if cmds.objExists(
+            if HOST.object_exists(
                 candidate
             )
         ]
@@ -550,14 +546,11 @@ class ScriptToolbox(QtGui.QMainWindow):
         if not objects:
             return False
 
-        try:
-            cmds.select(
-                objects,
-                replace=True
+        return bool(
+            HOST.select_objects(
+                objects
             )
-            return True
-        except Exception:
-            return False
+        )
 
     def refresh_selection_fields(
         self,
@@ -576,9 +569,8 @@ class ScriptToolbox(QtGui.QMainWindow):
             return
 
         try:
-            raw_selection = cmds.ls(
-                selection=True,
-                long=True
+            raw_selection = HOST.current_selection(
+                long_names=True
             ) or []
         except Exception:
             raw_selection = []
@@ -597,18 +589,14 @@ class ScriptToolbox(QtGui.QMainWindow):
 
         for item in selection_fields:
             try:
-                if item.get(
-                    "long_names",
-                    False
-                ):
-                    values = list(
-                        raw_selection
+                values = HOST.current_selection(
+                    long_names=bool(
+                        item.get(
+                            "long_names",
+                            False
+                        )
                     )
-                else:
-                    values = cmds.ls(
-                        raw_selection,
-                        long=False
-                    ) or []
+                ) or []
 
                 if not item.get(
                     "multiple",
@@ -622,6 +610,7 @@ class ScriptToolbox(QtGui.QMainWindow):
                 )
             except Exception:
                 pass
+
 
     # ------------------------------------------------------------------
     # Runtime
@@ -947,7 +936,9 @@ class ScriptToolbox(QtGui.QMainWindow):
 
         except Exception as exc:
             self.update_button.setText(
-                "RESTART MAYA"
+                "RESTART {0}".format(
+                    HOST.display_name.upper()
+                )
             )
             self.update_button.setEnabled(
                 False
@@ -959,7 +950,9 @@ class ScriptToolbox(QtGui.QMainWindow):
                 (
                     "The update was installed, but Script Toolbox "
                     "could not reload itself.\n\n"
-                    "Restart Maya to load the new version.\n\n"
+                    "Restart {0} to load the new version.\n\n".format(
+                        HOST.display_name
+                    )
                     "{0}"
                 ).format(
                     text_type(
@@ -1033,7 +1026,7 @@ def show():
     close_toolbox()
 
     _TOOLBOX = ScriptToolbox(
-        parent=maya_main_window()
+        parent=main_window()
     )
     _TOOLBOX.show()
     _TOOLBOX.raise_()

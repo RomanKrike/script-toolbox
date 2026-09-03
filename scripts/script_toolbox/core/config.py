@@ -5,7 +5,7 @@ import io
 import json
 import os
 
-from ..compat import cmds
+from ..compat import HOST
 from ..compat import text_type
 from ..constants import CONFIG_FILENAME
 from ..constants import CONFIG_PATH_ENV
@@ -24,16 +24,19 @@ def config_path():
         )
 
     try:
-        folder = cmds.internalVar(
-            userPrefDir=True
-        )
+        folder = HOST.user_config_dir()
     except Exception:
         folder = os.path.expanduser("~")
+
+    try:
+        filename = HOST.config_filename()
+    except Exception:
+        filename = CONFIG_FILENAME
 
     return os.path.normpath(
         os.path.join(
             folder,
-            CONFIG_FILENAME
+            filename
         )
     )
 

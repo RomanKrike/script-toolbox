@@ -1,45 +1,221 @@
-name: Release
+name: Auto release
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_run:
+    workflows:
+      - "Python checks"
+    types:
+      - completed
+    branches:
+      - main
+
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: script-toolbox-release
+  cancel-in-progress: false
+
 jobs:
   release:
+    name: Build and publish plugin release
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
 
     steps:
+      - name: Resolve source revision
+        id: source
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.source.outputs.sha }}
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Validate package syntax
-        run: python -m compileall scripts/script_toolbox
-
-      - name: Validate tag matches plugin version
+      - name: Resolve plugin version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           VERSION=$(python - <<'PY'
           import re
-          text = open("scripts/script_toolbox/constants.py", "r", encoding="utf-8").read()
-          match = re.search(r'^PLUGIN_VERSION\s*=\s*"([^"]+)"', text, re.M)
+          from pathlib import Path
+
+          text = Path("scripts/script_toolbox/constants.py").read_text(
+              encoding="utf-8"
+          )
+          match = re.search(
+              r'^PLUGIN_VERSION\s*=\s*"([^"]+)"',
+              text,
+              re.M,
+          )
           if not match:
               raise SystemExit("PLUGIN_VERSION not found")
+
           print(match.group(1))
           PY
           )
-          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
-            echo "Tag $GITHUB_REF_NAME does not match PLUGIN_VERSION=$VERSION"
-            exit 1
+
+          TAG="v$VERSION"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          if [[ "$VERSION" == *-* ]]; then
+            echo "stable=false" >> "$GITHUB_OUTPUT"
+            echo "release_needed=false" >> "$GITHUB_OUTPUT"
+            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
+            echo "Development version $VERSION: release skipped."
+            exit 0
           fi
 
-      - name: Create GitHub release
+          echo "stable=true" >> "$GITHUB_OUTPUT"
+
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "tag_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release_needed=false" >> "$GITHUB_OUTPUT"
+            echo "Release $TAG already exists."
+          else
+            echo "release_needed=true" >> "$GITHUB_OUTPUT"
+            echo "Release $TAG will be created."
+          fi
+
+      - name: Build release package
+        if: steps.version.outputs.release_needed == 'true'
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PACKAGE="script-toolbox-$VERSION"
+          DIST="$PWD/dist"
+
+          rm -rf "$DIST"
+          mkdir -p "$DIST/$PACKAGE/scripts"
+
+          cp -R scripts/script_toolbox "$DIST/$PACKAGE/scripts/"
+          cp README.md "$DIST/$PACKAGE/"
+
+          if [ -d docs ]; then
+            cp -R docs "$DIST/$PACKAGE/"
+          fi
+
+          printf '+ MayaScriptToolbox %s .\nPYTHONPATH +:= scripts\n' \
+            "$VERSION" > "$DIST/$PACKAGE/MayaScriptToolbox.mod"
+
+          find "$DIST/$PACKAGE" \
+            -type d -name '__pycache__' -prune -exec rm -rf {} +
+          find "$DIST/$PACKAGE" \
+            -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+
+          (
+            cd "$DIST"
+            zip -qr "$PACKAGE.zip" "$PACKAGE"
+          )
+
+          (
+            cd "$DIST"
+            sha256sum "$PACKAGE.zip" > "$PACKAGE.zip.sha256"
+          )
+
+      - name: Validate release archive
+        if: steps.version.outputs.release_needed == 'true'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import zipfile
+
+          version = os.environ["VERSION"]
+          archive_path = os.path.join(
+              "dist",
+              "script-toolbox-%s.zip" % version,
+          )
+          root = "script-toolbox-%s/" % version
+
+          required = {
+              root + "MayaScriptToolbox.mod",
+              root + "scripts/script_toolbox/__init__.py",
+              root + "scripts/script_toolbox/constants.py",
+              root + "scripts/script_toolbox/core/updater.py",
+          }
+
+          with zipfile.ZipFile(archive_path, "r") as archive:
+              names = set(archive.namelist())
+
+          missing = sorted(required - names)
+
+          if missing:
+              raise SystemExit(
+                  "Release archive is missing: %s" % ", ".join(missing)
+              )
+
+          print("Release archive contract: OK")
+          PY
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+
+      - name: Create version tag
+        if: >
+          steps.version.outputs.release_needed == 'true' &&
+          steps.version.outputs.tag_exists != 'true'
+        shell: bash
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          SHA="${{ steps.source.outputs.sha }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "$TAG" "$SHA" -m "Script Toolbox $TAG"
+          git push origin "$TAG"
+
+      - name: Publish GitHub release
+        if: steps.version.outputs.release_needed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes --title "Script Toolbox $GITHUB_REF_NAME"
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          PACKAGE="script-toolbox-$VERSION"
+
+          gh release create "$TAG" \
+            "dist/$PACKAGE.zip" \
+            "dist/$PACKAGE.zip.sha256" \
+            --generate-notes \
+            --title "Script Toolbox $VERSION"
+
+      - name: Release summary
+        shell: bash
+        run: |
+          echo "### Script Toolbox release" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version: `${{ steps.version.outputs.version }}`" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ steps.version.outputs.release_needed }}" = "true" ]; then
+            echo "- Result: release published" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Tag: `${{ steps.version.outputs.tag }}`" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.version.outputs.stable }}" = "true" ]; then
+            echo "- Result: release already exists" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Result: development version, release skipped" >> "$GITHUB_STEP_SUMMARY"
+          fi

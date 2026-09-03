@@ -146,7 +146,6 @@ QToolButton#RuntimeFolderHeader {
     color: #e2e2e2;
     border: 0px;
     border-left: 2px solid #9a673e;
-    border-bottom: 1px solid #414346;
     border-radius: 3px;
     min-height: 18px;
     padding: 2px 6px;
@@ -158,7 +157,6 @@ QToolButton#RuntimeFolderHeader:hover {
     background-color: #393c3f;
     color: #f1f1f1;
     border-left-color: #c17b46;
-    border-bottom-color: #505255;
 }
 
 QToolButton#RuntimeFolderHeader:pressed {
@@ -169,7 +167,6 @@ QToolButton#RuntimeFolderHeader[collapsed="true"] {
     background-color: #2e3032;
     color: #c5c5c5;
     border-left-color: #6d5948;
-    border-bottom-color: transparent;
 }
 
 /* Nested cards are deliberately quieter than primary sections. */
@@ -177,7 +174,6 @@ QFrame#RuntimeFolder[nested="true"] QToolButton#RuntimeFolderHeader {
     background-color: #2d2f30;
     color: #d7d7d7;
     border-left-color: #71563f;
-    border-bottom-color: #393b3d;
     min-height: 17px;
     padding: 2px 6px;
 }
@@ -186,13 +182,11 @@ QFrame#RuntimeFolder[nested="true"] QToolButton#RuntimeFolderHeader:hover {
     background-color: #343637;
     color: #eeeeee;
     border-left-color: #936846;
-    border-bottom-color: #484a4c;
 }
 
 QFrame#RuntimeFolder[nested="true"] QToolButton#RuntimeFolderHeader[collapsed="true"] {
     background-color: #2b2d2e;
     color: #bdbdbd;
-    border-bottom-color: transparent;
 }
 
 QFrame#SimpleSectionHeader {
@@ -218,6 +212,20 @@ QLabel#SectionTitle {
 QFrame#RuntimeFolder[nested="true"] QLabel#SectionTitle {
     color: #d8d8d8;
     padding: 2px 4px 3px 4px;
+}
+
+QFrame#RuntimeSeparatorLine {
+    background-color: #3c3e40;
+    border: 0px;
+}
+
+QFrame#RuntimeSeparatorLineVertical {
+    background-color: #3c3e40;
+    border: 0px;
+}
+
+QWidget#RuntimeSeparatorContainer {
+    background-color: transparent;
 }
 
 /* ---------------------------------------------------------------

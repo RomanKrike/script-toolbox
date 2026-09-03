@@ -28,19 +28,39 @@ ROLE_ID = QtCore.Qt.UserRole + 1
 
 class InterfaceEditor(QtGui.QDialog):
 
-    PALETTE_ITEMS = (
-        ("Folder", "folder"),
-        ("Row", "row"),
-        ("Field", "field"),
-        ("String", "string"),
-        ("Integer", "integer"),
-        ("Float", "float"),
-        ("Checkbox", "checkbox"),
-        ("Menu", "menu"),
-        ("Color", "color"),
-        ("Button", "button"),
-        ("Label", "label"),
-        ("Separator", "separator"),
+    PALETTE_GROUPS = (
+        (
+            "LAYOUT",
+            (
+                ("Folder", "folder", "Container: Collapsible, Simple, Tabs or Radio."),
+                ("Row", "row", "Horizontal layout for compact controls and buttons."),
+            )
+        ),
+        (
+            "INPUTS",
+            (
+                ("Field", "field", "Manual value or live DCC selection."),
+                ("String", "string", "Editable text value."),
+                ("Integer", "integer", "Integer value with min, max and step."),
+                ("Float", "float", "Floating-point value with range and precision."),
+                ("Checkbox", "checkbox", "Boolean on/off value."),
+                ("Menu", "menu", "Choose one value from a list."),
+                ("Color", "color", "RGB color value."),
+            )
+        ),
+        (
+            "ACTIONS",
+            (
+                ("Button", "button", "Run Python or the active host native script language."),
+            )
+        ),
+        (
+            "DISPLAY",
+            (
+                ("Label", "label", "Static text for headings and notes."),
+                ("Separator", "separator", "Visual divider between parameter groups."),
+            )
+        ),
     )
 
     def __init__(
@@ -157,41 +177,107 @@ class InterfaceEditor(QtGui.QDialog):
             left_title
         )
 
-        self.palette = QtGui.QListWidget()
-        self.palette.setAlternatingRowColors(
+        self.palette_filter = QtGui.QLineEdit()
+        self.palette_filter.setObjectName(
+            "PaletteFilter"
+        )
+
+        try:
+            self.palette_filter.setPlaceholderText(
+                "Filter parameters..."
+            )
+        except Exception:
+            pass
+
+        left_layout.addWidget(
+            self.palette_filter
+        )
+
+        self.palette = QtGui.QTreeWidget()
+        self.palette.setObjectName(
+            "ParameterPalette"
+        )
+        self.palette.setHeaderHidden(
             True
         )
-        self.palette.setSpacing(
-            1
+        self.palette.setRootIsDecorated(
+            True
+        )
+        self.palette.setIndentation(
+            14
+        )
+        self.palette.setAlternatingRowColors(
+            False
         )
 
-        for label, kind in self.PALETTE_ITEMS:
-            item = QtGui.QListWidgetItem(
-                label
-            )
-            item.setData(
+        for group_label, entries in self.PALETTE_GROUPS:
+            group_item = QtGui.QTreeWidgetItem([
+                group_label
+            ])
+
+            group_item.setData(
+                0,
                 ROLE_KIND,
-                kind
+                ""
             )
 
-            if kind in (
-                "folder",
-                "row"
-            ):
-                font = item.font()
-                font.setBold(
-                    True
+            group_flags = group_item.flags()
+            group_flags &= ~QtCore.Qt.ItemIsSelectable
+            group_flags &= ~QtCore.Qt.ItemIsDragEnabled
+            group_flags &= ~QtCore.Qt.ItemIsDropEnabled
+            group_item.setFlags(
+                group_flags
+            )
+
+            group_font = group_item.font(
+                0
+            )
+            group_font.setBold(
+                True
+            )
+            group_item.setFont(
+                0,
+                group_font
+            )
+            group_item.setForeground(
+                0,
+                QtGui.QBrush(
+                    QtGui.QColor(
+                        "#bda88f"
+                    )
                 )
-                item.setFont(
-                    font
+            )
+
+            self.palette.addTopLevelItem(
+                group_item
+            )
+
+            for label, kind, tooltip in entries:
+                item = QtGui.QTreeWidgetItem([
+                    label
+                ])
+                item.setData(
+                    0,
+                    ROLE_KIND,
+                    kind
+                )
+                item.setToolTip(
+                    0,
+                    tooltip
+                )
+                group_item.addChild(
+                    item
                 )
 
-            self.palette.addItem(
-                item
+            group_item.setExpanded(
+                True
             )
 
         self.palette.itemDoubleClicked.connect(
             self.create_from_palette
+        )
+        self.palette_filter.textChanged.connect(
+            self.filter_palette
         )
 
         left_layout.addWidget(
@@ -200,8 +286,8 @@ class InterfaceEditor(QtGui.QDialog):
         )
 
         hint = QtGui.QLabel(
-            "Double-click to create. Drag items to reorder or nest.\n"
-            "Row = horizontal layout. Folder = nested parameter group."
+            "Double-click an item to create it. Drag existing items to reorder or nest.\n"
+            "Folders organize sections; Rows keep controls on one line."
         )
         hint.setObjectName(
             "HintText"
@@ -592,6 +678,42 @@ class InterfaceEditor(QtGui.QDialog):
             flags
         )
 
+        if kind == "folder":
+            for column in range(
+                3
+            ):
+                font = tree_item.font(
+                    column
+                )
+                font.setBold(
+                    True
+                )
+                tree_item.setFont(
+                    column,
+                    font
+                )
+                tree_item.setBackground(
+                    column,
+                    QtGui.QBrush(
+                        QtGui.QColor(
+                            "#302d2a"
+                        )
+                    )
+                )
+
+        elif kind == "row":
+            for column in range(
+                3
+            ):
+                tree_item.setForeground(
+                    column,
+                    QtGui.QBrush(
+                        QtGui.QColor(
+                            "#b6c4cf"
+                        )
+                    )
+                )
+
         if kind in (
             "folder",
             "row"
@@ -925,22 +1047,102 @@ class InterfaceEditor(QtGui.QDialog):
     # Create / move / delete
     # ------------------------------------------------------------------
 
-    def create_from_palette(
+    def palette_item_kind(
         self,
         palette_item
     ):
-        kind = palette_item.data(
-            ROLE_KIND
-        )
+        if palette_item is None:
+            return ""
+
+        try:
+            kind = palette_item.data(
+                0,
+                ROLE_KIND
+            )
+        except TypeError:
+            kind = palette_item.data(
+                ROLE_KIND
+            )
 
         try:
             kind = kind.toString()
         except Exception:
             pass
 
-        kind = text_type(
-            kind
+        return text_type(
+            kind or ""
         )
+
+    def filter_palette(
+        self,
+        value
+    ):
+        query = text_type(
+            value or ""
+        ).strip().lower()
+
+        for group_index in range(
+            self.palette.topLevelItemCount()
+        ):
+            group = self.palette.topLevelItem(
+                group_index
+            )
+            visible_children = 0
+
+            for child_index in range(
+                group.childCount()
+            ):
+                child = group.child(
+                    child_index
+                )
+                label = text_type(
+                    child.text(
+                        0
+                    )
+                ).lower()
+                tooltip = text_type(
+                    child.toolTip(
+                        0
+                    )
+                ).lower()
+                kind = self.palette_item_kind(
+                    child
+                ).lower()
+
+                visible = (
+                    not query or
+                    query in label or
+                    query in tooltip or
+                    query in kind
+                )
+
+                child.setHidden(
+                    not visible
+                )
+
+                if visible:
+                    visible_children += 1
+
+            group.setHidden(
+                visible_children == 0
+            )
+
+            if query and visible_children:
+                group.setExpanded(
+                    True
+                )
+
+    def create_from_palette(
+        self,
+        palette_item,
+        column=0
+    ):
+        kind = self.palette_item_kind(
+            palette_item
+        )
+
+        if not kind:
+            return
 
         data = create_item(
             kind

@@ -118,17 +118,45 @@ QStackedWidget#PropertyStack {
 /* ---------------------------------------------------------------
    Folder headers in runtime toolbox
    --------------------------------------------------------------- */
-QFrame#SectionHeader {
-    background-color: #343434;
-    border: 1px solid #202020;
+QToolButton#RuntimeFolderHeader {
+    background-color: #303235;
+    color: #e2e2e2;
+    border: 0px;
+    border-left: 3px solid #8b603d;
     border-radius: 2px;
+    min-height: 24px;
+    padding: 4px 8px;
+    font-weight: bold;
+    text-align: left;
+}
+
+QToolButton#RuntimeFolderHeader:hover {
+    background-color: #393c40;
+    color: #f0f0f0;
+    border-left-color: #b47543;
+}
+
+QToolButton#RuntimeFolderHeader:pressed {
+    background-color: #292b2e;
+}
+
+QToolButton#RuntimeFolderHeader[collapsed="true"] {
+    background-color: #2d2f31;
+    color: #bdbdbd;
+    border-left-color: #5f5147;
+}
+
+QFrame#SimpleSectionHeader {
+    background-color: transparent;
+    border: 0px;
+    border-bottom: 1px solid #3a3a3a;
 }
 
 QLabel#SectionTitle {
     background: transparent;
-    color: #dcdcdc;
+    color: #d2d2d2;
     font-weight: bold;
-    padding: 1px 2px;
+    padding: 2px 3px 3px 3px;
 }
 
 /* ---------------------------------------------------------------
@@ -248,6 +276,13 @@ QDoubleSpinBox {
     padding: 2px 5px;
 }
 
+QLineEdit#PaletteFilter {
+    background-color: #262626;
+    border-color: #191919;
+    min-height: 24px;
+    padding-left: 7px;
+}
+
 QLineEdit:focus,
 QComboBox:focus,
 QSpinBox:focus,
@@ -288,6 +323,11 @@ QTreeWidget {
     border-radius: 2px;
     outline: 0px;
     alternate-background-color: #282828;
+}
+
+QTreeWidget#ParameterPalette {
+    background-color: #262626;
+    border-color: #191919;
 }
 
 QListWidget::item,

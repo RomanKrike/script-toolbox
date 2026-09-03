@@ -102,8 +102,12 @@ def _github_token(token=None):
     ).strip()
 
 
+def _is_windows():
+    return os.name == "nt"
+
+
 def _powershell_executable():
-    if os.name != "nt":
+    if not _is_windows():
         return None
 
     candidates = [
@@ -323,7 +327,7 @@ def _read_json(
     except Exception as exc:
         urllib_error = exc
 
-        if os.name != "nt":
+        if not _is_windows():
             raise
 
         temp_directory = tempfile.mkdtemp(
@@ -644,7 +648,7 @@ def _download_file(
         return destination
 
     except Exception as urllib_error:
-        if os.name != "nt":
+        if not _is_windows():
             raise
 
         try:

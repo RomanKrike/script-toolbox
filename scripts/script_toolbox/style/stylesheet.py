@@ -208,12 +208,12 @@ QFrame#RuntimeFolder[nested="true"] QLabel#SectionTitle {
 }
 
 QFrame#RuntimeSeparatorLine {
-    background-color: #3c3e40;
+    background-color: #414346;
     border: 0px;
 }
 
 QFrame#RuntimeSeparatorLineVertical {
-    background-color: #3c3e40;
+    background-color: #414346;
     border: 0px;
 }
 

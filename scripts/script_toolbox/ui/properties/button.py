@@ -5,8 +5,7 @@ from ...compat import QtGui
 from ...core.executor import execute_script
 from ...model.items import safe_color
 from ...pycompat import text_type
-from ..code_editor import CodeEditor
-from ..code_editor import ScriptHighlighter
+from ..script_editor import ScriptEditorWidget
 from .base import PropertyEditorBase
 
 
@@ -49,53 +48,27 @@ class ButtonPropertyEditor(PropertyEditorBase):
 
         self.tabs = QtGui.QTabWidget()
 
-        self.click_editor = CodeEditor()
-        self.shift_editor = CodeEditor()
-
-        self.click_highlighter = ScriptHighlighter(
-            self.click_editor.document(),
-            "python"
+        self.click_editor = ScriptEditorWidget(
+            language="python",
+            toolbox=self.toolbox
         )
-        self.shift_highlighter = ScriptHighlighter(
-            self.shift_editor.document(),
-            "python"
+        self.shift_editor = ScriptEditorWidget(
+            language="python",
+            toolbox=self.toolbox
         )
 
         self.tabs.addTab(
             self.click_editor,
-            "Click"
+            "Click Script"
         )
         self.tabs.addTab(
             self.shift_editor,
-            "Shift+Click"
+            "Shift + Click"
         )
 
         self.root_layout.addWidget(
             self.tabs,
             1
-        )
-
-        actions = QtGui.QHBoxLayout()
-
-        run_click = QtGui.QPushButton(
-            "Run Click"
-        )
-        run_shift = QtGui.QPushButton(
-            "Run Shift"
-        )
-
-        actions.addWidget(
-            run_click
-        )
-        actions.addWidget(
-            run_shift
-        )
-        actions.addStretch(
-            1
-        )
-
-        self.root_layout.addLayout(
-            actions
         )
 
         self.language.currentIndexChanged.connect(
@@ -111,12 +84,6 @@ class ButtonPropertyEditor(PropertyEditorBase):
             self._control_changed
         )
 
-        run_click.clicked.connect(
-            self.run_click
-        )
-        run_shift.clicked.connect(
-            self.run_shift
-        )
 
     def current_language(self):
         return (
@@ -131,10 +98,10 @@ class ButtonPropertyEditor(PropertyEditorBase):
     ):
         language = self.current_language()
 
-        self.click_highlighter.set_language(
+        self.click_editor.set_language(
             language
         )
-        self.shift_highlighter.set_language(
+        self.shift_editor.set_language(
             language
         )
         self._control_changed()
@@ -178,10 +145,10 @@ class ButtonPropertyEditor(PropertyEditorBase):
             )
         )
 
-        self.click_highlighter.set_language(
+        self.click_editor.set_language(
             language
         )
-        self.shift_highlighter.set_language(
+        self.shift_editor.set_language(
             language
         )
 
@@ -241,41 +208,11 @@ class ButtonPropertyEditor(PropertyEditorBase):
 
     def run_click(self):
         self.write_to_item()
-
-        if self.item is None:
-            return
-
-        execute_script(
-            self.item.get(
-                "click_script",
-                ""
-            ),
-            self.item.get(
-                "language",
-                "python"
-            ),
-            parent=self,
-            toolbox=self.toolbox
-        )
+        return self.click_editor.run()
 
     def run_shift(self):
         self.write_to_item()
-
-        if self.item is None:
-            return
-
-        execute_script(
-            self.item.get(
-                "shift_script",
-                ""
-            ),
-            self.item.get(
-                "language",
-                "python"
-            ),
-            parent=self,
-            toolbox=self.toolbox
-        )
+        return self.shift_editor.run()
 
 
 __all__ = [

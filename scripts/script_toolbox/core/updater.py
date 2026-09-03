@@ -1018,7 +1018,8 @@ def install_release(
             "version": release.get(
                 "version"
             ),
-            "restart_required": True,
+            "restart_required": False,
+            "hot_reload_supported": True,
         }
 
     except Exception as exc:

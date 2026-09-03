@@ -76,7 +76,7 @@ def test_nuke_host_adapter_exists():
         "scripts",
         "script_toolbox",
         "hosts",
-        "nuke.py"
+        "nuke_host.py"
     )
 
     assert os.path.isfile(

@@ -14,8 +14,12 @@ SCRIPTS = os.path.join(
     "scripts"
 )
 
-if SCRIPTS not in sys.path:
-    sys.path.insert(
-        0,
-        SCRIPTS
-    )
+for path in (
+    ROOT,
+    SCRIPTS,
+):
+    if path not in sys.path:
+        sys.path.insert(
+            0,
+            path
+        )

@@ -4,6 +4,7 @@ from __future__ import print_function
 import traceback
 
 from ..hosts import HOST
+from .source import prepare_python_source
 
 
 def execute_script(
@@ -31,7 +32,9 @@ def execute_script(
             )
 
             compiled = compile(
-                code,
+                prepare_python_source(
+                    code
+                ),
                 "<Script Toolbox>",
                 "exec"
             )

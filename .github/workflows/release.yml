@@ -1,0 +1,158 @@
+name: Auto release
+
+on:
+  workflow_run:
+    workflows:
+      - "Python checks"
+    types:
+      - completed
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: script-toolbox-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish plugin release
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve source revision
+        id: source
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.source.outputs.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Resolve plugin version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          VERSION=$(python - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path("scripts/script_toolbox/constants.py").read_text(
+              encoding="utf-8"
+          )
+          match = re.search(
+              r'^PLUGIN_VERSION\s*=\s*"([^"]+)"',
+              text,
+              re.M,
+          )
+          if not match:
+              raise SystemExit("PLUGIN_VERSION not found")
+
+          print(match.group(1))
+          PY
+          )
+
+          TAG="v$VERSION"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          if [[ "$VERSION" == *-* ]]; then
+            echo "stable=false" >> "$GITHUB_OUTPUT"
+            echo "release_needed=false" >> "$GITHUB_OUTPUT"
+            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
+            echo "Development version $VERSION: release skipped."
+            exit 0
+          fi
+
+          echo "stable=true" >> "$GITHUB_OUTPUT"
+
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "tag_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release_needed=false" >> "$GITHUB_OUTPUT"
+            echo "Release $TAG already exists."
+          else
+            echo "release_needed=true" >> "$GITHUB_OUTPUT"
+            echo "Release $TAG will be created."
+          fi
+
+      - name: Build and validate release package
+        if: steps.version.outputs.release_needed == 'true'
+        shell: bash
+        run: |
+          python tools/build_release.py \
+            --output dist \
+            --version "${{ steps.version.outputs.version }}"
+
+          ls -lh dist/
+
+      - name: Create version tag
+        if: >
+          steps.version.outputs.release_needed == 'true' &&
+          steps.version.outputs.tag_exists != 'true'
+        shell: bash
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          SHA="${{ steps.source.outputs.sha }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "$TAG" "$SHA" -m "Script Toolbox $TAG"
+          git push origin "$TAG"
+
+      - name: Publish GitHub release
+        if: steps.version.outputs.release_needed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          PACKAGE="script-toolbox-$VERSION"
+
+          gh release create "$TAG" \
+            "dist/$PACKAGE.zip" \
+            "dist/$PACKAGE.zip.sha256" \
+            --generate-notes \
+            --title "Script Toolbox $VERSION"
+
+      - name: Release summary
+        shell: bash
+        run: |
+          echo "### Script Toolbox release" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version: `${{ steps.version.outputs.version }}`" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ steps.version.outputs.release_needed }}" = "true" ]; then
+            echo "- Result: release published" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Tag: `${{ steps.version.outputs.tag }}`" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.version.outputs.stable }}" = "true" ]; then
+            echo "- Result: release already exists" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Result: development version, release skipped" >> "$GITHUB_STEP_SUMMARY"
+          fi

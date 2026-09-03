@@ -1,0 +1,142 @@
+name: Python checks
+
+on:
+  push:
+    branches:
+      - main
+      - refactor/**
+  pull_request:
+
+concurrency:
+  group: python-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    name: Unit tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.8"
+          - "3.11"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest pytest-cov
+
+      - name: Compile modular package
+        run: python -m compileall -q scripts/script_toolbox
+
+      - name: Run unit tests with coverage
+        run: >
+          pytest -q tests
+          --cov=script_toolbox.model
+          --cov=script_toolbox.core.values
+          --cov=script_toolbox.core.text_transform
+          --cov=script_toolbox.core.updater
+          --cov-report=term-missing
+          --cov-report=xml
+          --cov-fail-under=60
+
+      - name: Upload coverage report
+        if: matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: error
+
+  maya-2015-python2-syntax:
+    name: Maya 2015 / Python 2.7 syntax
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile package with Python 2.7
+        run: >
+          docker run --rm
+          -v "$PWD:/work"
+          -w /work
+          python:2.7.18-slim-buster
+          python -m compileall -q scripts/script_toolbox
+
+  release-contract:
+    name: Release package contract
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run release contract tests
+        run: |
+          python -m pip install pytest
+          pytest -q tests/test_release_contract.py
+
+
+  test-build:
+    name: Build downloadable test package
+    needs:
+      - unit-tests
+      - maya-2015-python2-syntax
+      - release-contract
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Read plugin version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(python - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path("scripts/script_toolbox/constants.py").read_text(
+              encoding="utf-8"
+          )
+          match = re.search(
+              r'^PLUGIN_VERSION\s*=\s*"([^"]+)"',
+              text,
+              re.M,
+          )
+          if not match:
+              raise SystemExit("PLUGIN_VERSION not found")
+          print(match.group(1))
+          PY
+          )
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build test package
+        run: >
+          python tools/build_release.py
+          --output dist-test
+          --version "${{ steps.version.outputs.value }}"
+
+      - name: Upload test build
+        uses: actions/upload-artifact@v4
+        with:
+          name: script-toolbox-${{ steps.version.outputs.value }}-test
+          path: |
+            dist-test/script-toolbox-${{ steps.version.outputs.value }}.zip
+            dist-test/script-toolbox-${{ steps.version.outputs.value }}.zip.sha256
+          if-no-files-found: error
+          retention-days: 14

@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.3.2-dev
+
+Interface polish development release.
+
+### Changed
+
+- Redesign Collapsible Folder headers as full-width clickable section bars with native chevrons.
+- Make the complete Collapsible header clickable instead of only the arrow.
+- Improve folder content indentation and visual hierarchy.
+- Rename Folder types to clearer Collapsible Section / Simple Section labels.
+- Group Interface Editor parameters into Layout, Inputs, Actions and Display.
+- Add a parameter filter field to the Interface Editor.
+- Improve Folder and Row hierarchy styling in the Existing Parameters tree.
+
+## 0.3.1
+
+Python 2 script-source compatibility release.
+
+### Fixed
+
+- Normalize Unicode Python source before compile so encoding cookies do not fail in Maya/Nuke Python 2.
+- Apply the same source preparation in Button execution and the embedded Script Editor.
+- Add regression coverage for first-line and second-line encoding cookies.
+
 ## 0.3.0
 
 First multi-DCC release.

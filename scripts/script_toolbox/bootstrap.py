@@ -1,47 +1,63 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-"""
-Temporary bootstrap for the modular refactor branch.
-
-The model/config/executor layers are already extracted. Runtime UI and the
-interface editor will be moved next. Until that extraction is complete this
-module intentionally raises a clear error instead of silently falling back to
-the old monolith.
-"""
-
 import sys
+
+try:
+    reload
+except NameError:
+    from importlib import reload
 
 
 def show():
-    raise RuntimeError(
-        "The modular refactor is in progress. "
-        "Runtime UI has not been extracted yet."
-    )
+    from .ui.main_window import show as _show
+    return _show()
 
 
 def reload_toolbox():
+    """
+    Development reload for Maya 2015.
+
+    Close the live window first, then reload child modules from deepest names
+    to shallowest names so UI classes do not keep stale module references.
+    """
+    try:
+        from .ui.main_window import close_toolbox
+        close_toolbox()
+    except Exception:
+        pass
+
     prefix = "script_toolbox."
 
     names = [
         name
-        for name in sys.modules.keys()
-        if name.startswith(prefix)
+        for name in list(sys.modules.keys())
+        if (
+            name.startswith(prefix) and
+            name != __name__
+        )
     ]
 
     names.sort(
-        key=len,
+        key=lambda value: (
+            value.count("."),
+            len(value)
+        ),
         reverse=True
     )
 
     for name in names:
-        module = sys.modules.get(name)
+        module = sys.modules.get(
+            name
+        )
 
         if module is None:
             continue
 
         try:
-            reload(module)
+            reload(
+                module
+            )
         except Exception:
             pass
 

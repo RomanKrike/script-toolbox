@@ -91,3 +91,39 @@ SCRIPT_TOOLBOX_GITHUB_TOKEN
 
 No token is stored in the toolbox config. If the repository becomes public, no token is required.
 
+
+## Continuous integration
+
+Every push and pull request runs GitHub Actions checks:
+
+- unit tests on Python 3.8 and Python 3.11;
+- coverage for the Maya-independent model/core code, with a minimum threshold;
+- Python 2.7 compile check in a Docker image to catch Maya 2015 syntax incompatibilities;
+- release-package contract tests;
+- upload of the Python 3.11 coverage XML report as a workflow artifact.
+
+The tests cover the item model, nested Folder/Row normalization, legacy Toggle migration, value normalization, code-editor text transforms, updater version handling, release asset selection, ZIP path traversal protection, SHA-256 verification, and release package construction.
+
+## Automatic releases
+
+Releases are gated by the **Python checks** workflow.
+
+When a stable `PLUGIN_VERSION` such as:
+
+```python
+PLUGIN_VERSION = "0.2.0"
+```
+
+reaches `main` and all checks pass, GitHub Actions automatically:
+
+1. reads the plugin version;
+2. builds `script-toolbox-<version>.zip`;
+3. generates a SHA-256 checksum;
+4. validates the archive layout;
+5. creates the matching `v<version>` tag when needed;
+6. creates a GitHub Release with generated release notes;
+7. uploads the ZIP and checksum as release assets.
+
+Development versions such as `0.2.0-dev` are intentionally not released.
+
+Subsequent pushes with the same stable version do not create duplicate releases.

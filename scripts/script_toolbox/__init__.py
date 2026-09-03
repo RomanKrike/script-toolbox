@@ -14,3 +14,8 @@ def show():
 def reload_toolbox():
     from .bootstrap import reload_toolbox as _reload_toolbox
     return _reload_toolbox()
+
+
+def hot_reload_toolbox():
+    from .bootstrap import hot_reload_toolbox as _hot_reload_toolbox
+    return _hot_reload_toolbox()

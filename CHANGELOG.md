@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.2
+
+Updater compatibility fix for Maya 2015 on Windows.
+
+### Fixed
+
+- Fall back to Windows PowerShell/.NET TLS 1.2 when Maya 2015 Python 2.7 `urllib` cannot reach GitHub.
+- Prefer public GitHub release `browser_download_url` assets.
+- Show update-check failures in the Toolbox status bar instead of failing silently.
+- Add a manual Check for Updates button.
+
 ## 0.2.1
 
 Updater verification release.

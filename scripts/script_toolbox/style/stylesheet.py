@@ -27,10 +27,20 @@ QWidget#ToolboxContent {
 
 QFrame#RuntimeFolder {
     background-color: #2b2b2b;
+    border: 0px;
+}
+
+/* Nested folders are real visual groups. The border makes it immediately
+   obvious which controls belong to a subsection without making the whole
+   toolbox look like a stack of heavy group boxes. */
+QFrame#RuntimeFolder QFrame#RuntimeFolder {
+    background-color: #282a2b;
+    border: 1px solid #3b3d3f;
+    border-radius: 4px;
 }
 
 QWidget#RuntimeFolderContent {
-    background-color: #2b2b2b;
+    background-color: transparent;
 }
 
 /* Text labels should visually inherit the panel background. */
@@ -122,10 +132,10 @@ QToolButton#RuntimeFolderHeader {
     background-color: #303235;
     color: #e2e2e2;
     border: 0px;
-    border-left: 3px solid #8b603d;
+    border-left: 2px solid #8b603d;
     border-radius: 2px;
-    min-height: 24px;
-    padding: 4px 8px;
+    min-height: 20px;
+    padding: 2px 7px;
     font-weight: bold;
     text-align: left;
 }
@@ -146,10 +156,42 @@ QToolButton#RuntimeFolderHeader[collapsed="true"] {
     border-left-color: #5f5147;
 }
 
+/* Nested collapsible groups live inside a card, so their own header is
+   deliberately quieter than the top-level section header. */
+QFrame#RuntimeFolder QFrame#RuntimeFolder QToolButton#RuntimeFolderHeader {
+    background-color: #2e3031;
+    color: #d7d7d7;
+    border: 0px;
+    border-bottom: 1px solid #3b3d3f;
+    border-radius: 2px;
+    min-height: 18px;
+    padding: 2px 6px;
+}
+
+QFrame#RuntimeFolder QFrame#RuntimeFolder QToolButton#RuntimeFolderHeader:hover {
+    background-color: #353738;
+    color: #eeeeee;
+    border-bottom-color: #4a4c4e;
+}
+
+QFrame#RuntimeFolder QFrame#RuntimeFolder QToolButton#RuntimeFolderHeader[collapsed="true"] {
+    background-color: #2b2d2e;
+    color: #bdbdbd;
+    border-bottom-color: transparent;
+}
+
 QFrame#SimpleSectionHeader {
     background-color: transparent;
     border: 0px;
     border-bottom: 1px solid #3a3a3a;
+}
+
+/* Simple nested folders use the same card language as nested collapsibles. */
+QFrame#RuntimeFolder QFrame#RuntimeFolder QFrame#SimpleSectionHeader {
+    background-color: #2e3031;
+    border: 0px;
+    border-bottom: 1px solid #3b3d3f;
+    border-radius: 2px;
 }
 
 QLabel#SectionTitle {
@@ -157,6 +199,11 @@ QLabel#SectionTitle {
     color: #d2d2d2;
     font-weight: bold;
     padding: 2px 3px 3px 3px;
+}
+
+QFrame#RuntimeFolder QFrame#RuntimeFolder QLabel#SectionTitle {
+    color: #d8d8d8;
+    padding: 2px 4px 3px 4px;
 }
 
 /* ---------------------------------------------------------------

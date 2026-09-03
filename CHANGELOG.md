@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.4
+
+Hot-reload updater release.
+
+### Added
+
+- Reload Script Toolbox in-place after a successful Python package update.
+- Close the old Toolbox UI, unload all `script_toolbox.*` child modules, reload the package root in place, and reopen the Toolbox from the newly installed files.
+- Preserve existing external `import script_toolbox` references while refreshing `script_toolbox.__version__`.
+
+### Changed
+
+- Successful updates no longer require a Maya restart under the current pure-Python/PySide architecture.
+- If hot reload fails, the installed update is kept and the user is asked to restart Maya as a fallback.
+
 ## 0.2.3
 
 Updater UX fix for Windows.

@@ -148,7 +148,7 @@ def validate_archive(
         root + "scripts/script_toolbox/__init__.py",
         root + "scripts/script_toolbox/constants.py",
         root + "scripts/script_toolbox/core/updater.py",
-        root + "scripts/script_toolbox/hosts/nuke.py",
+        root + "scripts/script_toolbox/hosts/nuke_host.py",
     ])
 
     with zipfile.ZipFile(

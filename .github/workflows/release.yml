@@ -100,78 +100,15 @@ jobs:
             echo "Release $TAG will be created."
           fi
 
-      - name: Build release package
+      - name: Build and validate release package
         if: steps.version.outputs.release_needed == 'true'
         shell: bash
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          PACKAGE="script-toolbox-$VERSION"
-          DIST="$PWD/dist"
+          python tools/build_release.py \
+            --output dist \
+            --version "${{ steps.version.outputs.version }}"
 
-          rm -rf "$DIST"
-          mkdir -p "$DIST/$PACKAGE/scripts"
-
-          cp -R scripts/script_toolbox "$DIST/$PACKAGE/scripts/"
-          cp README.md "$DIST/$PACKAGE/"
-
-          if [ -d docs ]; then
-            cp -R docs "$DIST/$PACKAGE/"
-          fi
-
-          printf '+ MayaScriptToolbox %s .\nPYTHONPATH +:= scripts\n' \
-            "$VERSION" > "$DIST/$PACKAGE/MayaScriptToolbox.mod"
-
-          find "$DIST/$PACKAGE" \
-            -type d -name '__pycache__' -prune -exec rm -rf {} +
-          find "$DIST/$PACKAGE" \
-            -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
-
-          (
-            cd "$DIST"
-            zip -qr "$PACKAGE.zip" "$PACKAGE"
-          )
-
-          (
-            cd "$DIST"
-            sha256sum "$PACKAGE.zip" > "$PACKAGE.zip.sha256"
-          )
-
-      - name: Validate release archive
-        if: steps.version.outputs.release_needed == 'true'
-        shell: bash
-        run: |
-          python - <<'PY'
-          import os
-          import zipfile
-
-          version = os.environ["VERSION"]
-          archive_path = os.path.join(
-              "dist",
-              "script-toolbox-%s.zip" % version,
-          )
-          root = "script-toolbox-%s/" % version
-
-          required = {
-              root + "MayaScriptToolbox.mod",
-              root + "scripts/script_toolbox/__init__.py",
-              root + "scripts/script_toolbox/constants.py",
-              root + "scripts/script_toolbox/core/updater.py",
-          }
-
-          with zipfile.ZipFile(archive_path, "r") as archive:
-              names = set(archive.namelist())
-
-          missing = sorted(required - names)
-
-          if missing:
-              raise SystemExit(
-                  "Release archive is missing: %s" % ", ".join(missing)
-              )
-
-          print("Release archive contract: OK")
-          PY
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
+          ls -lh dist/
 
       - name: Create version tag
         if: >

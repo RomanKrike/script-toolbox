@@ -30,12 +30,25 @@ QFrame#RuntimeFolder {
     border: 0px;
 }
 
-/* Nested folders are real visual groups. The border makes it immediately
-   obvious which controls belong to a subsection without making the whole
-   toolbox look like a stack of heavy group boxes. */
-QFrame#RuntimeFolder QFrame#RuntimeFolder {
+/* Collapsible folders are outlined cards at every hierarchy level.
+   The header is visually attached to the same outline, so ownership of
+   controls stays obvious even in long toolboxes. */
+QFrame#RuntimeFolder[folderType="collapsible"] {
+    background-color: #292b2c;
+    border: 1px solid #414346;
+    border-radius: 4px;
+}
+
+QFrame#RuntimeFolder[folderType="collapsible"][nested="true"] {
     background-color: #282a2b;
-    border: 1px solid #3b3d3f;
+    border-color: #393b3d;
+}
+
+/* Simple folders stay lightweight at top level, but nested Simple folders
+   still work as visual subgroup cards. */
+QFrame#RuntimeFolder[folderType="simple"][nested="true"] {
+    background-color: #282a2b;
+    border: 1px solid #393b3d;
     border-radius: 4px;
 }
 
@@ -129,52 +142,54 @@ QStackedWidget#PropertyStack {
    Folder headers in runtime toolbox
    --------------------------------------------------------------- */
 QToolButton#RuntimeFolderHeader {
-    background-color: #303235;
+    background-color: #323436;
     color: #e2e2e2;
     border: 0px;
-    border-left: 2px solid #8b603d;
-    border-radius: 2px;
-    min-height: 20px;
-    padding: 2px 7px;
+    border-left: 2px solid #9a673e;
+    border-bottom: 1px solid #414346;
+    border-radius: 3px;
+    min-height: 18px;
+    padding: 2px 6px;
     font-weight: bold;
     text-align: left;
 }
 
 QToolButton#RuntimeFolderHeader:hover {
-    background-color: #393c40;
-    color: #f0f0f0;
-    border-left-color: #b47543;
+    background-color: #393c3f;
+    color: #f1f1f1;
+    border-left-color: #c17b46;
+    border-bottom-color: #505255;
 }
 
 QToolButton#RuntimeFolderHeader:pressed {
-    background-color: #292b2e;
+    background-color: #2c2e30;
 }
 
 QToolButton#RuntimeFolderHeader[collapsed="true"] {
-    background-color: #2d2f31;
-    color: #bdbdbd;
-    border-left-color: #5f5147;
+    background-color: #2e3032;
+    color: #c5c5c5;
+    border-left-color: #6d5948;
+    border-bottom-color: transparent;
 }
 
-/* Nested collapsible groups live inside a card, so their own header is
-   deliberately quieter than the top-level section header. */
-QFrame#RuntimeFolder QFrame#RuntimeFolder QToolButton#RuntimeFolderHeader {
-    background-color: #2e3031;
+/* Nested cards are deliberately quieter than primary sections. */
+QFrame#RuntimeFolder[nested="true"] QToolButton#RuntimeFolderHeader {
+    background-color: #2d2f30;
     color: #d7d7d7;
-    border: 0px;
-    border-bottom: 1px solid #3b3d3f;
-    border-radius: 2px;
-    min-height: 18px;
+    border-left-color: #71563f;
+    border-bottom-color: #393b3d;
+    min-height: 17px;
     padding: 2px 6px;
 }
 
-QFrame#RuntimeFolder QFrame#RuntimeFolder QToolButton#RuntimeFolderHeader:hover {
-    background-color: #353738;
+QFrame#RuntimeFolder[nested="true"] QToolButton#RuntimeFolderHeader:hover {
+    background-color: #343637;
     color: #eeeeee;
-    border-bottom-color: #4a4c4e;
+    border-left-color: #936846;
+    border-bottom-color: #484a4c;
 }
 
-QFrame#RuntimeFolder QFrame#RuntimeFolder QToolButton#RuntimeFolderHeader[collapsed="true"] {
+QFrame#RuntimeFolder[nested="true"] QToolButton#RuntimeFolderHeader[collapsed="true"] {
     background-color: #2b2d2e;
     color: #bdbdbd;
     border-bottom-color: transparent;
@@ -186,11 +201,10 @@ QFrame#SimpleSectionHeader {
     border-bottom: 1px solid #3a3a3a;
 }
 
-/* Simple nested folders use the same card language as nested collapsibles. */
-QFrame#RuntimeFolder QFrame#RuntimeFolder QFrame#SimpleSectionHeader {
+QFrame#RuntimeFolder[nested="true"] QFrame#SimpleSectionHeader {
     background-color: #2e3031;
     border: 0px;
-    border-bottom: 1px solid #3b3d3f;
+    border-bottom: 1px solid #393b3d;
     border-radius: 2px;
 }
 
@@ -201,7 +215,7 @@ QLabel#SectionTitle {
     padding: 2px 3px 3px 3px;
 }
 
-QFrame#RuntimeFolder QFrame#RuntimeFolder QLabel#SectionTitle {
+QFrame#RuntimeFolder[nested="true"] QLabel#SectionTitle {
     color: #d8d8d8;
     padding: 2px 4px 3px 4px;
 }

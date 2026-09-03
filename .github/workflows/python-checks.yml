@@ -71,6 +71,14 @@ jobs:
           python:2.7.18-slim-buster
           python -m compileall -q scripts/script_toolbox
 
+      - name: Nuke host import smoke with Python 2.7
+        run: >
+          docker run --rm
+          -v "$PWD:/work"
+          -w /work
+          python:2.7.18-slim-buster
+          python tests/python2_nuke_host_smoke.py
+
   release-contract:
     name: Release package contract
     runs-on: ubuntu-latest

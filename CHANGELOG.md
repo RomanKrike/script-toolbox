@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.3
+
+Interface Editor Qt4 polish release.
+
+### Fixed
+
+- Force Parameter Description viewport, host and property-editor backgrounds through QPalette for Maya 2015 Qt4.
+- Restore the host-native ComboBox drop-down and arrow instead of replacing the Qt4 subcontrols with QSS.
+- Match Create Parameters alternating rows to Existing Parameters.
+- Move Label and Separator into Layout and remove the redundant Display palette group.
+
 ## 0.4.2
 
 Interface Editor visual consistency patch.

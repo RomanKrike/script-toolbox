@@ -15,6 +15,22 @@ class PropertyEditorBase(QtGui.QWidget):
     def __init__(self, toolbox=None, parent=None):
         QtGui.QWidget.__init__(self, parent)
 
+        self.setObjectName("PropertyEditor")
+        try:
+            editor_palette = self.palette()
+            editor_palette.setColor(
+                QtGui.QPalette.Window,
+                QtGui.QColor("#303030")
+            )
+            editor_palette.setColor(
+                QtGui.QPalette.Base,
+                QtGui.QColor("#303030")
+            )
+            self.setPalette(editor_palette)
+            self.setAutoFillBackground(True)
+        except Exception:
+            pass
+
         self.toolbox = toolbox
         self.item = None
         self.loading = False
@@ -318,6 +334,21 @@ class EmptyPropertyEditor(QtGui.QWidget):
 
     def __init__(self, toolbox=None, parent=None):
         QtGui.QWidget.__init__(self, parent)
+        self.setObjectName("PropertyEditor")
+        try:
+            editor_palette = self.palette()
+            editor_palette.setColor(
+                QtGui.QPalette.Window,
+                QtGui.QColor("#303030")
+            )
+            editor_palette.setColor(
+                QtGui.QPalette.Base,
+                QtGui.QColor("#303030")
+            )
+            self.setPalette(editor_palette)
+            self.setAutoFillBackground(True)
+        except Exception:
+            pass
 
         layout = QtGui.QVBoxLayout(self)
         layout.addStretch(1)

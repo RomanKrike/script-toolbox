@@ -41,6 +41,8 @@ class InterfaceEditor(QtGui.QDialog):
             (
                 ("Folder", "folder", "Container: Collapsible, Simple, Tabs or Radio."),
                 ("Row", "row", "Horizontal layout for compact controls and buttons."),
+                ("Label", "label", "Static text for headings and notes."),
+                ("Separator", "separator", "Visual divider between parameter groups."),
             )
         ),
         (
@@ -59,13 +61,6 @@ class InterfaceEditor(QtGui.QDialog):
             "ACTIONS",
             (
                 ("Button", "button", "Run Python or the active host native script language."),
-            )
-        ),
-        (
-            "DISPLAY",
-            (
-                ("Label", "label", "Static text for headings and notes."),
-                ("Separator", "separator", "Visual divider between parameter groups."),
             )
         ),
     )
@@ -230,7 +225,7 @@ class InterfaceEditor(QtGui.QDialog):
             14
         )
         self.palette.setAlternatingRowColors(
-            False
+            True
         )
 
         for group_label, entries in self.PALETTE_GROUPS:
@@ -500,10 +495,44 @@ class InterfaceEditor(QtGui.QDialog):
             QtCore.Qt.ScrollBarAlwaysOff
         )
 
+        # Maya 2015 / Qt4 does not consistently honor QScrollArea viewport
+        # background selectors. Set the viewport palette explicitly so the
+        # property pane stays visually identical to EditorPane.
+        try:
+            viewport = self.property_scroll.viewport()
+            viewport.setObjectName("PropertyViewport")
+            viewport_palette = viewport.palette()
+            viewport_palette.setColor(
+                QtGui.QPalette.Window,
+                QtGui.QColor("#303030")
+            )
+            viewport_palette.setColor(
+                QtGui.QPalette.Base,
+                QtGui.QColor("#303030")
+            )
+            viewport.setPalette(viewport_palette)
+            viewport.setAutoFillBackground(True)
+        except Exception:
+            pass
+
         self.property_host = QtGui.QWidget()
         self.property_host.setObjectName(
             "PropertyHost"
         )
+        try:
+            host_palette = self.property_host.palette()
+            host_palette.setColor(
+                QtGui.QPalette.Window,
+                QtGui.QColor("#303030")
+            )
+            host_palette.setColor(
+                QtGui.QPalette.Base,
+                QtGui.QColor("#303030")
+            )
+            self.property_host.setPalette(host_palette)
+            self.property_host.setAutoFillBackground(True)
+        except Exception:
+            pass
         self.property_layout = QtGui.QVBoxLayout(
             self.property_host
         )

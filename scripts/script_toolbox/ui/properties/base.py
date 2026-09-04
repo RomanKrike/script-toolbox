@@ -27,6 +27,12 @@ class PropertyEditorBase(QtGui.QWidget):
         self.form = QtGui.QFormLayout()
         self.form.setHorizontalSpacing(8)
         self.form.setVerticalSpacing(6)
+        try:
+            self.form.setFieldGrowthPolicy(
+                QtGui.QFormLayout.AllNonFixedFieldsGrow
+            )
+        except Exception:
+            pass
         self.form.setLabelAlignment(
             QtCore.Qt.AlignLeft |
             QtCore.Qt.AlignVCenter
@@ -50,6 +56,12 @@ class PropertyEditorBase(QtGui.QWidget):
         row_form.setContentsMargins(7, 7, 7, 7)
         row_form.setHorizontalSpacing(8)
         row_form.setVerticalSpacing(5)
+        try:
+            row_form.setFieldGrowthPolicy(
+                QtGui.QFormLayout.AllNonFixedFieldsGrow
+            )
+        except Exception:
+            pass
 
         self.row_width_mode = QtGui.QComboBox()
         self.row_width_mode.addItems([

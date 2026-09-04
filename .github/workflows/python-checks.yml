@@ -6,6 +6,7 @@ on:
       - main
       - refactor/**
       - feature/**
+      - maintenance/**
   pull_request:
 
 concurrency:
@@ -32,7 +33,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install test dependencies
-        run: python -m pip install --upgrade pip pytest pytest-cov
+        run: python -m pip install --upgrade pip pytest pytest-cov flake8
+
+      - name: Flake8 correctness checks
+        run: >
+          python -m flake8 scripts tests
+          --select=E9,F63,F7,F82,F401,F841
 
       - name: Compile modular package
         run: python -m compileall -q scripts/script_toolbox
@@ -44,6 +50,7 @@ jobs:
           --cov=script_toolbox.core.values
           --cov=script_toolbox.core.text_transform
           --cov=script_toolbox.core.updater
+          --cov=script_toolbox.core.config
           --cov-report=term-missing
           --cov-report=xml
           --cov-fail-under=60
@@ -78,6 +85,14 @@ jobs:
           -w /work
           python:2.7.18-slim-buster
           python tests/python2_nuke_host_smoke.py
+
+      - name: Config save/load smoke with Python 2.7
+        run: >
+          docker run --rm
+          -v "$PWD:/work"
+          -w /work
+          python:2.7.18-slim-buster
+          python tests/python2_config_smoke.py
 
   release-contract:
     name: Release package contract

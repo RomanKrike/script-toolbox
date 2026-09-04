@@ -4,8 +4,6 @@ from __future__ import print_function
 from ...compat import QtGui
 from ...model.items import clamp
 from ...model.items import safe_color
-from ...model.items import safe_float
-from ...model.items import safe_int
 from ...model.items import safe_menu_items
 from ...pycompat import text_type
 from .base import PropertyEditorBase

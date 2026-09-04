@@ -53,8 +53,6 @@ class ExistingInterfaceTree(QtGui.QTreeWidget):
         self,
         event
     ):
-        current = self.currentItem()
-
         # Folders, Rows and normal items can be moved through the tree.
         # fix_tree_structure() normalizes invalid destinations afterwards.
         QtGui.QTreeWidget.dropEvent(

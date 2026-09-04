@@ -202,6 +202,12 @@ def _download_with_powershell(
     token = _github_token(
         token
     )
+    child_env = os.environ.copy()
+    token_env = "SCRIPT_TOOLBOX_UPDATE_TOKEN"
+    child_env.pop(
+        token_env,
+        None
+    )
 
     script = [
         "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12",
@@ -229,13 +235,15 @@ def _download_with_powershell(
     ]
 
     if token:
-        script.append(
-            "$request.Headers['Authorization'] = 'token {0}'".format(
-                _powershell_quote(
-                    token
-                )
-            )
-        )
+        child_env[
+            token_env
+        ] = token
+        script.extend([
+            "$token = $env:{0}".format(
+                token_env
+            ),
+            "if ($token) { $request.Headers['Authorization'] = 'token ' + $token }",
+        ])
 
     script.extend([
         "$response = $request.GetResponse()",
@@ -266,6 +274,7 @@ def _download_with_powershell(
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=child_env,
         **process_kwargs
     )
 
@@ -905,6 +914,9 @@ def install_release(
         destination_package +
         ".update_backup"
     )
+    destination_mod = None
+    mod_backup_path = None
+    mod_had_original = False
 
     try:
         _download_file(
@@ -958,6 +970,54 @@ def install_release(
             "scripts",
             "script_toolbox"
         )
+        source_mod = os.path.join(
+            source_root,
+            "MayaScriptToolbox.mod"
+        )
+
+        if (
+            HOST.key == "maya" and
+            os.path.isfile(
+                source_mod
+            )
+        ):
+            destination_mod = os.path.join(
+                destination_root,
+                "MayaScriptToolbox.mod"
+            )
+            mod_backup_path = (
+                destination_mod +
+                ".update_backup"
+            )
+
+            if os.path.exists(
+                mod_backup_path
+            ):
+                os.remove(
+                    mod_backup_path
+                )
+
+            if os.path.isfile(
+                destination_mod
+            ):
+                try:
+                    shutil.copy2(
+                        destination_mod,
+                        mod_backup_path
+                    )
+                except Exception:
+                    try:
+                        if os.path.exists(
+                            mod_backup_path
+                        ):
+                            os.remove(
+                                mod_backup_path
+                            )
+                    except Exception:
+                        pass
+                    raise
+
+                mod_had_original = True
 
         if os.path.exists(
             backup_path
@@ -977,37 +1037,70 @@ def install_release(
                 destination_package
             )
 
-            source_mod = os.path.join(
-                source_root,
-                "MayaScriptToolbox.mod"
-            )
-
-            if (
-                HOST.key == "maya" and
-                os.path.isfile(
-                    source_mod
-                )
-            ):
+            if destination_mod is not None:
                 shutil.copy2(
                     source_mod,
-                    os.path.join(
-                        destination_root,
-                        "MayaScriptToolbox.mod"
+                    destination_mod
+                )
+
+        except Exception as install_exc:
+            rollback_error = None
+
+            try:
+                if os.path.isdir(
+                    destination_package
+                ):
+                    shutil.rmtree(
+                        destination_package
+                    )
+
+                os.rename(
+                    backup_path,
+                    destination_package
+                )
+            except Exception as exc:
+                rollback_error = exc
+
+            if destination_mod is not None:
+                try:
+                    if (
+                        mod_had_original and
+                        os.path.isfile(
+                            mod_backup_path
+                        )
+                    ):
+                        shutil.copy2(
+                            mod_backup_path,
+                            destination_mod
+                        )
+                        os.remove(
+                            mod_backup_path
+                        )
+                    elif (
+                        not mod_had_original and
+                        os.path.exists(
+                            destination_mod
+                        )
+                    ):
+                        os.remove(
+                            destination_mod
+                        )
+                except Exception as exc:
+                    if rollback_error is None:
+                        rollback_error = exc
+
+            if rollback_error is not None:
+                raise UpdateError(
+                    "Update failed ({0}); rollback also failed ({1}).".format(
+                        text_type(
+                            install_exc
+                        ),
+                        text_type(
+                            rollback_error
+                        )
                     )
                 )
 
-        except Exception:
-            if os.path.isdir(
-                destination_package
-            ):
-                shutil.rmtree(
-                    destination_package
-                )
-
-            os.rename(
-                backup_path,
-                destination_package
-            )
             raise
 
         if os.path.isdir(
@@ -1015,6 +1108,16 @@ def install_release(
         ):
             shutil.rmtree(
                 backup_path
+            )
+
+        if (
+            mod_backup_path and
+            os.path.isfile(
+                mod_backup_path
+            )
+        ):
+            os.remove(
+                mod_backup_path
             )
 
         return {

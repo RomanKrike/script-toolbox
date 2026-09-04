@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.4.4
+
+Configuration and updater safety maintenance release.
+
+### Fixed
+
+- Save toolbox configuration through a same-directory temporary file and atomic replacement.
+- Use Windows MoveFileExW replacement for Maya 2015 / Python 2.7 instead of delete-then-rename semantics.
+- Warn when an existing configuration cannot be read or parsed instead of silently hiding the failure.
+- Keep updater authentication tokens out of the PowerShell command line by passing them through the child environment.
+- Back up and restore MayaScriptToolbox.mod together with the Python package when an update fails.
+- Remove stale unused imports and editor locals reported by flake8.
+
+### Tests
+
+- Add direct config load/save, corruption, write-failure and replacement-failure tests.
+- Add install_release filesystem, rollback, archive-validation and Maya module rollback tests.
+- Add flake8 to CI, config coverage, and a Python 2.7 config save/load smoke test.
+
 ## 0.4.3
 
 Interface Editor Qt4 polish release.

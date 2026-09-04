@@ -68,19 +68,23 @@ script_toolbox.register_nuke_panel()
 
 See [docs/NUKE.md](docs/NUKE.md) and `nuke/menu.py.example` for installation.
 
-## Current feature set in the legacy implementation
+## Current modular feature set
 
 - Nested Folders
 - Collapsible / Simple / Tabs / Radio folder types
-- Row layout containers
+- Row layout containers with per-item Auto / Stretch / Fixed width, alignment, equal-width mode and vertical alignment
 - Button, String, Integer, Float, Checkbox, Menu, Color, Field, Label and Separator items
 - Name / Label separation
 - Optional labels
 - Python / MEL scripts
-- Click / Shift+Click actions
+- Click / Shift+Click actions and state-aware buttons with ON/OFF scripts, labels and colors
 - Embedded code editor
-- Import / Export JSON configuration
+- Import / Export JSON configuration with Replace / Append / Insert-into-Folder modes
 - Persistent parameter values
+- Interface Editor Undo / Redo, Duplicate, Copy and Paste
+- Python On Change scripts for value controls (`value`, `old_value`, `toolbox`, `host`)
+- Field List mode with multi-selection, copy, double-click scene selection and configurable visible rows
+- Field collection API: `get_field_selection`, `add_to_field`, `remove_from_field`, `clear_field`
 
 ## Modular extraction completed
 

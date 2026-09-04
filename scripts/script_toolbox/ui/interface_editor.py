@@ -13,6 +13,8 @@ from ..core.config import config_path
 from ..core.config import export_config
 from ..core.config import import_config
 from ..model import create_item
+from ..model.items import new_id
+from ..model.items import sanitize_name
 from ..model import normalize_document
 from ..model import walk_items
 from ..pycompat import text_type
@@ -24,6 +26,11 @@ from .properties import create_editor
 
 ROLE_KIND = QtCore.Qt.UserRole
 ROLE_ID = QtCore.Qt.UserRole + 1
+
+# Internal editor clipboard shared across Interface Editor instances in the
+# current host session. Data is cloned again on paste so IDs always remain
+# unique in the destination document.
+_EDITOR_CLIPBOARD = None
 
 
 class InterfaceEditor(QtGui.QDialog):
@@ -81,6 +88,22 @@ class InterfaceEditor(QtGui.QDialog):
 
         self.current_property_editor = None
         self.current_item_id = None
+
+        self.clipboard_item = _EDITOR_CLIPBOARD
+        self.undo_stack = []
+        self.redo_stack = []
+        self._history_current = copy.deepcopy(
+            self.working
+        )
+        self._history_restoring = False
+        self.history_timer = QtCore.QTimer(
+            self
+        )
+        self.history_timer.setSingleShot(True)
+        self.history_timer.setInterval(300)
+        self.history_timer.timeout.connect(
+            self.commit_history
+        )
 
         self.setObjectName(
             EDITOR_OBJECT_NAME
@@ -340,6 +363,10 @@ class InterfaceEditor(QtGui.QDialog):
         )
 
         for icon_name, tooltip, callback in (
+            ("undo", "Undo (Ctrl+Z)", self.undo),
+            ("redo", "Redo (Ctrl+Y)", self.redo),
+            ("copy", "Copy (Ctrl+C)", self.copy_selected),
+            ("paste", "Paste (Ctrl+V)", self.paste_selected),
             ("up", "Move Up", lambda: self.move_selected(-1)),
             ("down", "Move Down", lambda: self.move_selected(1)),
             ("delete", "Delete", self.delete_selected),
@@ -392,6 +419,35 @@ class InterfaceEditor(QtGui.QDialog):
         self.tree.currentItemChanged.connect(
             self.selection_changed
         )
+        self.tree.setContextMenuPolicy(
+            QtCore.Qt.CustomContextMenu
+        )
+        self.tree.customContextMenuRequested.connect(
+            self.show_tree_context_menu
+        )
+
+        self.shortcuts = []
+        for sequence, callback in (
+            ("Ctrl+Z", self.undo),
+            ("Ctrl+Y", self.redo),
+            ("Ctrl+Shift+Z", self.redo),
+            ("Ctrl+C", self.copy_selected),
+            ("Ctrl+V", self.paste_selected),
+            ("Ctrl+D", self.duplicate_selected),
+            ("Delete", self.delete_selected),
+        ):
+            shortcut = QtGui.QShortcut(
+                QtGui.QKeySequence(sequence),
+                self.tree
+            )
+            try:
+                shortcut.setContext(
+                    QtCore.Qt.WidgetWithChildrenShortcut
+                )
+            except Exception:
+                pass
+            shortcut.activated.connect(callback)
+            self.shortcuts.append(shortcut)
 
         center_layout.addWidget(
             self.tree,
@@ -1042,6 +1098,361 @@ class InterfaceEditor(QtGui.QDialog):
         self.status.setText(
             "Modified — Apply or Accept to save."
         )
+        self.commit_history(
+            sync_tree=False
+        )
+
+    # ------------------------------------------------------------------
+    # History / clipboard
+    # ------------------------------------------------------------------
+
+    def schedule_history(self):
+        if self._history_restoring:
+            return
+        self.history_timer.start()
+
+    def commit_history(
+        self,
+        sync_tree=True
+    ):
+        if self._history_restoring:
+            return
+
+        if self.history_timer.isActive():
+            self.history_timer.stop()
+
+        if sync_tree:
+            self.sync_working_from_tree()
+
+        if self.working == self._history_current:
+            return
+
+        self.undo_stack.append(
+            copy.deepcopy(self._history_current)
+        )
+        if len(self.undo_stack) > 100:
+            self.undo_stack = self.undo_stack[-100:]
+
+        self._history_current = copy.deepcopy(
+            self.working
+        )
+        self.redo_stack = []
+
+    def _restore_history(
+        self,
+        document,
+        label
+    ):
+        current_id = self.current_item_id
+        self._history_restoring = True
+        try:
+            self.working = copy.deepcopy(document)
+            self.populate_tree()
+
+            if current_id:
+                tree_item = self.tree_item_by_id(
+                    current_id
+                )
+                if tree_item is not None:
+                    self.tree.setCurrentItem(
+                        tree_item
+                    )
+
+            self._history_current = copy.deepcopy(
+                self.working
+            )
+            self.status.setText(
+                "{0} — Apply or Accept to save.".format(
+                    label
+                )
+            )
+        finally:
+            self._history_restoring = False
+
+    def undo(self):
+        if self.history_timer.isActive():
+            self.commit_history()
+
+        if not self.undo_stack:
+            return
+
+        current = copy.deepcopy(
+            self._history_current
+        )
+        previous = self.undo_stack.pop()
+        self.redo_stack.append(current)
+        self._restore_history(
+            previous,
+            "Undo"
+        )
+
+    def redo(self):
+        if self.history_timer.isActive():
+            self.commit_history()
+
+        if not self.redo_stack:
+            return
+
+        current = copy.deepcopy(
+            self._history_current
+        )
+        next_state = self.redo_stack.pop()
+        self.undo_stack.append(current)
+        self._restore_history(
+            next_state,
+            "Redo"
+        )
+
+    def _used_names(self):
+        return set(
+            text_type(item.get("name", ""))
+            for item in walk_items(
+                self.working,
+                include_folders=True
+            )
+        )
+
+    def _unique_name(
+        self,
+        base,
+        used_names
+    ):
+        base = sanitize_name(
+            base,
+            "item"
+        )
+
+        if base not in used_names:
+            used_names.add(base)
+            return base
+
+        index = 2
+        while True:
+            candidate = "{0}_{1}".format(
+                base,
+                index
+            )
+            if candidate not in used_names:
+                used_names.add(candidate)
+                return candidate
+            index += 1
+
+    def _clone_data(
+        self,
+        data,
+        used_names=None
+    ):
+        if used_names is None:
+            used_names = self._used_names()
+
+        clone = copy.deepcopy(data)
+        clone["id"] = new_id()
+        clone["name"] = self._unique_name(
+            clone.get(
+                "name",
+                clone.get("kind", "item")
+            ),
+            used_names
+        )
+
+        if clone.get("kind") in ("folder", "row"):
+            clone["items"] = [
+                self._clone_data(
+                    child,
+                    used_names
+                )
+                for child in clone.get("items", [])
+            ]
+
+        return clone
+
+    def _cache_subtree(self, data):
+        self.item_cache[
+            text_type(data["id"])
+        ] = data
+
+        if data.get("kind") in ("folder", "row"):
+            for child in data.get("items", []):
+                self._cache_subtree(child)
+
+    def copy_selected(self):
+        global _EDITOR_CLIPBOARD
+
+        current = self.tree.currentItem()
+        if current is None:
+            return
+
+        self.sync_working_from_tree()
+        item_id = self.item_data(
+            current,
+            ROLE_ID
+        )
+        data = self.item_cache.get(item_id)
+
+        if data is None:
+            return
+
+        self.clipboard_item = copy.deepcopy(data)
+        _EDITOR_CLIPBOARD = copy.deepcopy(data)
+        self.status.setText(
+            "Copied: {0}".format(
+                data.get("label", data.get("name", "Item"))
+            )
+        )
+
+    def _insert_cloned_tree_item(
+        self,
+        data,
+        sibling=False
+    ):
+        tree_item = self.make_tree_item(data)
+        self._cache_subtree(data)
+        current = self.tree.currentItem()
+        kind = data.get("kind")
+
+        if current is None:
+            if kind == "folder":
+                self.tree.addTopLevelItem(tree_item)
+            else:
+                root = self.ensure_root_folder()
+                root.addChild(tree_item)
+                root.setExpanded(True)
+            return tree_item
+
+        current_kind = self.item_data(
+            current,
+            ROLE_KIND
+        )
+        parent = current.parent()
+
+        if sibling:
+            if parent is None:
+                if kind == "folder":
+                    index = self.tree.indexOfTopLevelItem(current)
+                    self.tree.insertTopLevelItem(index + 1, tree_item)
+                else:
+                    current.addChild(tree_item)
+                    current.setExpanded(True)
+            else:
+                index = parent.indexOfChild(current)
+                parent.insertChild(index + 1, tree_item)
+            return tree_item
+
+        # Paste into a compatible selected container. Otherwise paste as the
+        # next sibling, preserving Row restrictions.
+        if current_kind == "row" and kind not in ("folder", "row"):
+            current.addChild(tree_item)
+            current.setExpanded(True)
+            return tree_item
+
+        if current_kind == "folder":
+            current.addChild(tree_item)
+            current.setExpanded(True)
+            return tree_item
+
+        if parent is not None:
+            parent_kind = self.item_data(
+                parent,
+                ROLE_KIND
+            )
+            if parent_kind == "row" and kind in ("folder", "row"):
+                folder = self.nearest_folder(parent)
+                if folder is not None:
+                    folder.addChild(tree_item)
+                    folder.setExpanded(True)
+                    return tree_item
+
+            index = parent.indexOfChild(current)
+            parent.insertChild(index + 1, tree_item)
+            return tree_item
+
+        if kind == "folder":
+            self.tree.addTopLevelItem(tree_item)
+        else:
+            root = self.ensure_root_folder()
+            root.addChild(tree_item)
+            root.setExpanded(True)
+
+        return tree_item
+
+    def paste_selected(self):
+        global _EDITOR_CLIPBOARD
+
+        source = self.clipboard_item or _EDITOR_CLIPBOARD
+        if source is None:
+            return
+
+        self.clipboard_item = copy.deepcopy(source)
+        self.sync_working_from_tree()
+        clone = self._clone_data(
+            source,
+            self._used_names()
+        )
+        tree_item = self._insert_cloned_tree_item(
+            clone,
+            sibling=False
+        )
+        self.tree.setCurrentItem(tree_item)
+        self.fix_tree_structure()
+        self.tree_changed()
+
+    def duplicate_selected(self):
+        current = self.tree.currentItem()
+        if current is None:
+            return
+
+        self.sync_working_from_tree()
+        item_id = self.item_data(current, ROLE_ID)
+        data = self.item_cache.get(item_id)
+        if data is None:
+            return
+
+        clone = self._clone_data(
+            data,
+            self._used_names()
+        )
+        tree_item = self._insert_cloned_tree_item(
+            clone,
+            sibling=True
+        )
+        self.tree.setCurrentItem(tree_item)
+        self.fix_tree_structure()
+        self.tree_changed()
+
+    def show_tree_context_menu(self, point):
+        item = self.tree.itemAt(point)
+        if item is not None:
+            self.tree.setCurrentItem(item)
+
+        menu = QtGui.QMenu(self.tree)
+        undo_action = menu.addAction("Undo")
+        redo_action = menu.addAction("Redo")
+        undo_action.setEnabled(bool(self.undo_stack))
+        redo_action.setEnabled(bool(self.redo_stack))
+        menu.addSeparator()
+        copy_action = menu.addAction("Copy")
+        paste_action = menu.addAction("Paste")
+        duplicate_action = menu.addAction("Duplicate")
+        paste_action.setEnabled(self.clipboard_item is not None)
+        menu.addSeparator()
+        delete_action = menu.addAction("Delete")
+
+        action = menu.exec_(
+            self.tree.viewport().mapToGlobal(point)
+        )
+
+        if action == undo_action:
+            self.undo()
+        elif action == redo_action:
+            self.redo()
+        elif action == copy_action:
+            self.copy_selected()
+        elif action == paste_action:
+            self.paste_selected()
+        elif action == duplicate_action:
+            self.duplicate_selected()
+        elif action == delete_action:
+            self.delete_selected()
 
     # ------------------------------------------------------------------
     # Create / move / delete
@@ -1384,6 +1795,17 @@ class InterfaceEditor(QtGui.QDialog):
             toolbox=self.toolbox,
             parent=self.property_host
         )
+        try:
+            parent_item = current.parent()
+            editor.set_row_context(
+                parent_item is not None and
+                self.item_data(
+                    parent_item,
+                    ROLE_KIND
+                ) == "row"
+            )
+        except Exception:
+            pass
         editor.bind(
             data
         )
@@ -1447,6 +1869,7 @@ class InterfaceEditor(QtGui.QDialog):
         self.status.setText(
             "Modified — Apply or Accept to save."
         )
+        self.schedule_history()
 
     def tree_item_by_id(
         self,
@@ -1574,38 +1997,107 @@ class InterfaceEditor(QtGui.QDialog):
         result = QtGui.QFileDialog.getOpenFileName(
             self,
             "Import Toolbox Settings",
-            os.path.dirname(
-                config_path()
-            ),
+            os.path.dirname(config_path()),
             "JSON Files (*.json);;All Files (*.*)"
         )
-
-        path = self._dialog_path(
-            result
-        )
+        path = self._dialog_path(result)
 
         if not path:
             return
 
+        modes = [
+            "Replace Toolbox",
+            "Append to Toolbox",
+            "Insert into Selected Folder",
+        ]
+        choice = QtGui.QInputDialog.getItem(
+            self,
+            "Import Toolbox Settings",
+            "Import mode:",
+            modes,
+            0,
+            False
+        )
+
+        if isinstance(choice, (tuple, list)):
+            if len(choice) < 2 or not choice[1]:
+                return
+            mode = text_type(choice[0])
+        else:
+            mode = text_type(choice)
+
+        if not mode:
+            return
+
         try:
-            self.working = import_config(
-                path
-            )
-            self.populate_tree()
-            self.status.setText(
-                "Imported {0}. Apply or Accept to save.".format(
-                    os.path.basename(
-                        path
+            imported = import_config(path)
+            self.sync_working_from_tree()
+            current_id = self.current_item_id
+
+            if mode == "Replace Toolbox":
+                self.working = normalize_document(
+                    copy.deepcopy(imported)
+                )
+
+            elif mode == "Append to Toolbox":
+                used_names = self._used_names()
+                for section in imported.get("sections", []):
+                    self.working.setdefault("sections", []).append(
+                        self._clone_data(
+                            section,
+                            used_names
+                        )
                     )
+
+            else:
+                current = self.tree.currentItem()
+                target_tree = self.nearest_folder(current)
+
+                if target_tree is None:
+                    target_tree = self.ensure_root_folder()
+
+                target_id = self.item_data(
+                    target_tree,
+                    ROLE_ID
+                )
+                target = self.item_cache.get(target_id)
+
+                if target is None:
+                    raise RuntimeError(
+                        "Select a Folder before using Insert mode."
+                    )
+
+                used_names = self._used_names()
+                target.setdefault("items", [])
+
+                for section in imported.get("sections", []):
+                    target["items"].append(
+                        self._clone_data(
+                            section,
+                            used_names
+                        )
+                    )
+
+                current_id = target_id
+
+            self.populate_tree()
+            if current_id:
+                selected = self.tree_item_by_id(current_id)
+                if selected is not None:
+                    self.tree.setCurrentItem(selected)
+
+            self.commit_history(sync_tree=False)
+            self.status.setText(
+                "Imported {0} ({1}). Apply or Accept to save.".format(
+                    os.path.basename(path),
+                    mode
                 )
             )
         except Exception as exc:
             QtGui.QMessageBox.critical(
                 self,
                 "Import Failed",
-                text_type(
-                    exc
-                )
+                text_type(exc)
             )
 
     # ------------------------------------------------------------------
@@ -1663,6 +2155,9 @@ class InterfaceEditor(QtGui.QDialog):
             self.toolbox.config
         )
         self.populate_tree()
+        self._history_current = copy.deepcopy(
+            self.working
+        )
 
         self.status.setText(
             "Applied."

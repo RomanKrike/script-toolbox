@@ -1,0 +1,89 @@
+name: Apply 0.4.2 editor visual fixes
+
+on:
+  push:
+    branches:
+      - fix/0.4.2-editor-visuals
+    paths:
+      - .github/workflows/apply-042-visual-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/0.4.2-editor-visuals
+      - name: Apply fixes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              if old not in text:
+                  raise SystemExit("pattern not found in %s" % path)
+              p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          # Make every non-fixed property field use the full value column width.
+          replace(
+              "scripts/script_toolbox/ui/properties/base.py",
+              '''        self.form.setVerticalSpacing(6)\n        self.form.setLabelAlignment(\n''',
+              '''        self.form.setVerticalSpacing(6)\n        try:\n            self.form.setFieldGrowthPolicy(\n                QtGui.QFormLayout.AllNonFixedFieldsGrow\n            )\n        except Exception:\n            pass\n        self.form.setLabelAlignment(\n'''
+          )
+          replace(
+              "scripts/script_toolbox/ui/properties/base.py",
+              '''        row_form.setVerticalSpacing(5)\n\n        self.row_width_mode = QtGui.QComboBox()\n''',
+              '''        row_form.setVerticalSpacing(5)\n        try:\n            row_form.setFieldGrowthPolicy(\n                QtGui.QFormLayout.AllNonFixedFieldsGrow\n            )\n        except Exception:\n            pass\n\n        self.row_width_mode = QtGui.QComboBox()\n'''
+          )
+
+          # Restore the Parameter Description pane background inside QScrollArea.
+          replace(
+              "scripts/script_toolbox/style/stylesheet.py",
+              '''QWidget#EditorPane {\n    background-color: #303030;\n    border: 1px solid #1b1b1b;\n    border-radius: 3px;\n}\n\nQLabel#PaneTitle {\n''',
+              '''QWidget#EditorPane {\n    background-color: #303030;\n    border: 1px solid #1b1b1b;\n    border-radius: 3px;\n}\n\nQScrollArea#PropertyScroll,\nQScrollArea#PropertyScroll QWidget#qt_scrollarea_viewport,\nQWidget#PropertyHost {\n    background-color: #303030;\n    border: 0px;\n}\n\nQLabel#PaneTitle {\n'''
+          )
+
+          # Give dropdowns an unmistakable right-side button area and leave room
+          # for the host/native down-arrow glyph.
+          replace(
+              "scripts/script_toolbox/style/stylesheet.py",
+              '''QComboBox::drop-down {\n    border: 0px;\n    width: 18px;\n}\n\nQComboBox QAbstractItemView {\n''',
+              '''QComboBox {\n    padding-right: 25px;\n}\n\nQComboBox::drop-down {\n    subcontrol-origin: border;\n    subcontrol-position: top right;\n    width: 21px;\n    background-color: #303030;\n    border: 0px;\n    border-left: 1px solid #4a4a4a;\n    border-top-right-radius: 2px;\n    border-bottom-right-radius: 2px;\n}\n\nQComboBox::drop-down:hover {\n    background-color: #3a3a3a;\n}\n\nQComboBox::down-arrow {\n    width: 7px;\n    height: 5px;\n}\n\nQComboBox:disabled::drop-down {\n    background-color: #292929;\n    border-left-color: #242424;\n}\n\nQComboBox QAbstractItemView {\n'''
+          )
+
+          # Patch release metadata.
+          replace(
+              "scripts/script_toolbox/constants.py",
+              'PLUGIN_VERSION = "0.4.1"',
+              'PLUGIN_VERSION = "0.4.2"'
+          )
+          replace(
+              "MayaScriptToolbox.mod",
+              '+ MayaScriptToolbox 0.4.1 .',
+              '+ MayaScriptToolbox 0.4.2 .'
+          )
+
+          changelog = Path("CHANGELOG.md")
+          text = changelog.read_text(encoding="utf-8")
+          marker = "# Changelog\n"
+          entry = '''\n## 0.4.2\n\nInterface Editor visual consistency patch.\n\n### Fixed\n\n- Restore the Parameter Description background after the 0.4.1 scroll-area change.\n- Make ComboBox controls visually read as dropdowns with a distinct right-side button area.\n- Expand ComboBox and SpinBox property fields to the same value-column width as text fields.\n- Apply the same field-growth policy to Row Layout properties for consistent sizing.\n'''
+          if "## 0.4.2" not in text:
+              if marker in text:
+                  text = text.replace(marker, marker + entry, 1)
+              else:
+                  text = entry.lstrip() + "\n" + text
+              changelog.write_text(text, encoding="utf-8")
+
+          Path(".github/workflows/apply-042-visual-fix.yml").unlink()
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Fix 0.4.2 Interface Editor visual consistency"
+          git push origin HEAD:fix/0.4.2-editor-visuals

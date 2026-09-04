@@ -1419,8 +1419,6 @@ class InterfaceEditor(QtGui.QDialog):
         return tree_item
 
     def paste_selected(self):
-        global _EDITOR_CLIPBOARD
-
         source = self.clipboard_item or _EDITOR_CLIPBOARD
         if source is None:
             return

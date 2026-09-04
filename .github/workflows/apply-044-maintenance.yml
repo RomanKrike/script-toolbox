@@ -1,0 +1,44 @@
+name: Apply 0.4.4 maintenance
+
+on:
+  push:
+    branches:
+      - maintenance/0.4.4-safety-tests
+    paths:
+      - .github/workflows/apply-044-maintenance.yml
+      - .github/apply_044_maintenance.py
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: maintenance/0.4.4-safety-tests
+          fetch-depth: 0
+
+      - name: Apply maintenance changes
+        run: python .github/apply_044_maintenance.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            CHANGELOG.md \
+            MayaScriptToolbox.mod \
+            .github/workflows/python-checks.yml \
+            scripts/script_toolbox/constants.py \
+            scripts/script_toolbox/core/config.py \
+            scripts/script_toolbox/core/updater.py \
+            scripts/script_toolbox/ui/interface_editor.py \
+            scripts/script_toolbox/ui/interface_tree.py \
+            scripts/script_toolbox/ui/properties/basic.py \
+            tests/test_config.py \
+            tests/test_updater.py \
+            tests/python2_config_smoke.py
+          git commit -m "Harden config and updater for 0.4.4"
+          git push origin HEAD:maintenance/0.4.4-safety-tests

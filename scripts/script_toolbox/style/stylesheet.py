@@ -110,8 +110,9 @@ QWidget#EditorPane {
 }
 
 QScrollArea#PropertyScroll,
-QScrollArea#PropertyScroll QWidget#qt_scrollarea_viewport,
-QWidget#PropertyHost {
+QWidget#PropertyViewport,
+QWidget#PropertyHost,
+QWidget#PropertyEditor {
     background-color: #303030;
     border: 0px;
 }
@@ -369,34 +370,8 @@ QDoubleSpinBox:disabled {
     border-color: #242424;
 }
 
-QComboBox {
-    padding-right: 25px;
-}
-
-QComboBox::drop-down {
-    subcontrol-origin: border;
-    subcontrol-position: top right;
-    width: 21px;
-    background-color: #303030;
-    border: 0px;
-    border-left: 1px solid #4a4a4a;
-    border-top-right-radius: 2px;
-    border-bottom-right-radius: 2px;
-}
-
-QComboBox::drop-down:hover {
-    background-color: #3a3a3a;
-}
-
-QComboBox::down-arrow {
-    width: 7px;
-    height: 5px;
-}
-
-QComboBox:disabled::drop-down {
-    background-color: #292929;
-    border-left-color: #242424;
-}
+/* Keep the host-native ComboBox drop-down/arrow. Maya 2015 Qt4
+   loses the arrow when QSS replaces these subcontrols. */
 
 QComboBox QAbstractItemView {
     background-color: #242424;
@@ -419,8 +394,9 @@ QTreeWidget {
 }
 
 QTreeWidget#ParameterPalette {
-    background-color: #262626;
+    background-color: #242424;
     border-color: #191919;
+    alternate-background-color: #282828;
 }
 
 QListWidget::item,

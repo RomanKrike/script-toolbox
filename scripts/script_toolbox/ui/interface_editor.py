@@ -486,18 +486,38 @@ class InterfaceEditor(QtGui.QDialog):
             right_title
         )
 
+        self.property_scroll = QtGui.QScrollArea()
+        self.property_scroll.setObjectName(
+            "PropertyScroll"
+        )
+        self.property_scroll.setWidgetResizable(
+            True
+        )
+        self.property_scroll.setFrameShape(
+            QtGui.QFrame.NoFrame
+        )
+        self.property_scroll.setHorizontalScrollBarPolicy(
+            QtCore.Qt.ScrollBarAlwaysOff
+        )
+
         self.property_host = QtGui.QWidget()
+        self.property_host.setObjectName(
+            "PropertyHost"
+        )
         self.property_layout = QtGui.QVBoxLayout(
             self.property_host
         )
         self.property_layout.setContentsMargins(
             0,
             0,
-            0,
+            4,
             0
         )
+        self.property_scroll.setWidget(
+            self.property_host
+        )
         right_layout.addWidget(
-            self.property_host,
+            self.property_scroll,
             1
         )
 
@@ -919,9 +939,6 @@ class InterfaceEditor(QtGui.QDialog):
                     normalize_folder(
                         child
                     )
-                    child.setExpanded(
-                        True
-                    )
                     child_index += 1
                     continue
 
@@ -953,9 +970,6 @@ class InterfaceEditor(QtGui.QDialog):
 
                         row_index += 1
 
-                    child.setExpanded(
-                        True
-                    )
                     child_index += 1
                     continue
 
@@ -1396,11 +1410,17 @@ class InterfaceEditor(QtGui.QDialog):
         self.fix_tree_structure()
         self.tree_changed()
 
-    def duplicate_selected(self):
-        current = self.tree.currentItem()
+    def duplicate_selected(
+        self,
+        target_item=None
+    ):
+        current = target_item or self.tree.currentItem()
         if current is None:
             return
 
+        self.tree.setCurrentItem(
+            current
+        )
         self.sync_working_from_tree()
         item_id = self.item_data(current, ROLE_ID)
         data = self.item_cache.get(item_id)
@@ -1415,9 +1435,33 @@ class InterfaceEditor(QtGui.QDialog):
             clone,
             sibling=True
         )
-        self.tree.setCurrentItem(tree_item)
+
+        try:
+            tree_item.setExpanded(
+                current.isExpanded()
+            )
+        except Exception:
+            pass
+
         self.fix_tree_structure()
         self.tree_changed()
+
+        selected = self.tree_item_by_id(
+            text_type(clone["id"])
+        )
+        if selected is None:
+            selected = tree_item
+
+        self.tree.setCurrentItem(
+            selected
+        )
+        try:
+            self.tree.scrollToItem(
+                selected,
+                QtGui.QAbstractItemView.EnsureVisible
+            )
+        except Exception:
+            pass
 
     def show_tree_context_menu(self, point):
         item = self.tree.itemAt(point)
@@ -1450,7 +1494,9 @@ class InterfaceEditor(QtGui.QDialog):
         elif action == paste_action:
             self.paste_selected()
         elif action == duplicate_action:
-            self.duplicate_selected()
+            self.duplicate_selected(
+                item
+            )
         elif action == delete_action:
             self.delete_selected()
 
@@ -1823,6 +1869,12 @@ class InterfaceEditor(QtGui.QDialog):
         self.property_layout.addWidget(
             editor
         )
+        try:
+            self.property_scroll.verticalScrollBar().setValue(
+                0
+            )
+        except Exception:
+            pass
 
     def property_changed(self):
         if not self.current_item_id:

@@ -27,7 +27,8 @@ class FieldPropertyEditor(ValuePropertyEditorBase):
         ])
 
         self.value = QtGui.QPlainTextEdit()
-        self.value.setMinimumHeight(72)
+        self.value.setMinimumHeight(64)
+        self.value.setMaximumHeight(92)
         self.placeholder = QtGui.QLineEdit()
         self.display_mode = QtGui.QComboBox()
         self.display_mode.addItems([
@@ -52,13 +53,13 @@ class FieldPropertyEditor(ValuePropertyEditorBase):
         )
 
         self.form.addRow("Source", self.source)
+        self.form.addRow("Display", self.display_mode)
         self.form.addRow("Value", self.value)
         self.form.addRow("Placeholder", self.placeholder)
-        self.form.addRow("Display", self.display_mode)
+        self.form.addRow("", self.multiple)
         self.form.addRow("Visible Rows", self.visible_rows)
         self.form.addRow("", self.selectable)
         self.form.addRow("", self.select_scene)
-        self.form.addRow("", self.multiple)
         self.form.addRow("", self.long_names)
         self.add_stretch()
 

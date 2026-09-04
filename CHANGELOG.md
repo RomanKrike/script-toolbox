@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.1
+
+Interface Editor regression fix release.
+
+### Fixed
+
+- Make Parameter Description scrollable so Field 2.0 and other large property editors no longer compress or overlap controls.
+- Tighten the Field property layout and keep its manual multi-value editor bounded to a compact height.
+- Preserve folder/row expansion state while normalizing the Existing Parameters tree.
+- Make context-menu Duplicate target the item that opened the menu and keep the duplicated item selected after normalization.
+
 ## 0.4.0
 
 Editor and interactive-controls release.

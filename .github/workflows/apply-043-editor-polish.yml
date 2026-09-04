@@ -20,8 +20,9 @@ jobs:
           fetch-depth: 0
 
       - name: Apply editor polish
-        shell: python
+        shell: bash
         run: |
+          python - <<'PY'
           from pathlib import Path
           import re
 
@@ -31,9 +32,6 @@ jobs:
           def write(path, text):
               Path(path).write_text(text, encoding="utf-8")
 
-          # ----------------------------------------------------------
-          # Interface Editor palette + deterministic Qt4 backgrounds
-          # ----------------------------------------------------------
           path = "scripts/script_toolbox/ui/interface_editor.py"
           text = read(path)
 
@@ -140,9 +138,6 @@ jobs:
           text = text.replace(marker, replacement, 1)
           write(path, text)
 
-          # ----------------------------------------------------------
-          # Property editor root background
-          # ----------------------------------------------------------
           path = "scripts/script_toolbox/ui/properties/base.py"
           text = read(path)
           init_line = '''        QtGui.QWidget.__init__(self, parent)
@@ -169,7 +164,6 @@ jobs:
               raise RuntimeError("Expected PropertyEditor QWidget init blocks")
           text = text.replace(init_line, root_palette, 1)
 
-          # Empty editor gets the same deterministic panel background.
           empty_anchor = '''class EmptyPropertyEditor(QtGui.QWidget):
 
               def __init__(self, toolbox=None, parent=None):
@@ -200,9 +194,6 @@ jobs:
           text = text.replace(empty_anchor, empty_replacement, 1)
           write(path, text)
 
-          # ----------------------------------------------------------
-          # QSS: native Maya combo arrows + matching zebra palette
-          # ----------------------------------------------------------
           path = "scripts/script_toolbox/style/stylesheet.py"
           text = read(path)
 
@@ -251,16 +242,17 @@ jobs:
           text = text.replace(old, new, 1)
           write(path, text)
 
-          # ----------------------------------------------------------
-          # Version + changelog
-          # ----------------------------------------------------------
           path = "scripts/script_toolbox/constants.py"
           text = read(path)
+          if 'PLUGIN_VERSION = "0.4.2"' not in text:
+              raise RuntimeError("0.4.2 version marker not found")
           text = text.replace('PLUGIN_VERSION = "0.4.2"', 'PLUGIN_VERSION = "0.4.3"', 1)
           write(path, text)
 
           path = "MayaScriptToolbox.mod"
           text = read(path)
+          if '+ MayaScriptToolbox 0.4.2 .' not in text:
+              raise RuntimeError("0.4.2 module marker not found")
           text = text.replace('+ MayaScriptToolbox 0.4.2 .', '+ MayaScriptToolbox 0.4.3 .', 1)
           write(path, text)
 
@@ -284,6 +276,7 @@ jobs:
               raise RuntimeError("Unexpected CHANGELOG header")
           text = text.replace("# Changelog\n\n", entry, 1)
           write(path, text)
+          PY
 
       - name: Commit fixes
         run: |

@@ -110,7 +110,28 @@ def base_item(kind, data=None, default_label=None):
         "label": text_type(label),
         "show_label": bool(data.get("show_label", True)),
         "tooltip": text_type(data.get("tooltip") or ""),
+        "row_width_mode": (
+            text_type(data.get("row_width_mode", "auto")).lower()
+            if text_type(data.get("row_width_mode", "auto")).lower()
+            in ("auto", "stretch", "fixed")
+            else "auto"
+        ),
+        "row_width": clamp(safe_int(data.get("row_width"), 120), 20, 2000),
+        "row_stretch": clamp(safe_int(data.get("row_stretch"), 1), 1, 100),
+        "row_alignment": (
+            text_type(data.get("row_alignment", "left")).lower()
+            if text_type(data.get("row_alignment", "left")).lower()
+            in ("left", "center", "right")
+            else "left"
+        ),
     }
+
+
+def add_value_behavior(item, data):
+    item["on_change_script"] = text_type(
+        data.get("on_change_script") or ""
+    )
+    return item
 
 
 def _button(data):
@@ -120,19 +141,41 @@ def _button(data):
     if language not in ("python", "mel"):
         language = "python"
 
+    mode = text_type(data.get("mode", "action")).lower()
+
+    if mode not in ("action", "state"):
+        mode = "action"
+
     item.update({
         "language": language,
+        "mode": mode,
         "click_script": text_type(data.get("click_script") or ""),
         "shift_script": text_type(data.get("shift_script") or ""),
         "color": safe_color(data.get("color")),
+        "state_get_script": text_type(data.get("state_get_script") or ""),
+        "state_on_script": text_type(data.get("state_on_script") or ""),
+        "state_off_script": text_type(data.get("state_off_script") or ""),
+        "state_on_label": text_type(
+            data.get("state_on_label") or
+            "{0}: ON".format(item.get("label", "State"))
+        ),
+        "state_off_label": text_type(
+            data.get("state_off_label") or
+            "{0}: OFF".format(item.get("label", "State"))
+        ),
+        "state_on_color": safe_color(
+            data.get("state_on_color") or [0.22, 0.42, 0.26]
+        ),
+        "state_off_color": safe_color(
+            data.get("state_off_color") or [0.30, 0.30, 0.30]
+        ),
     })
     return item
-
 
 def _string(data):
     item = base_item("string", data, "String")
     item["value"] = text_type(data.get("value") or "")
-    return item
+    return add_value_behavior(item, data)
 
 
 def _integer(data):
@@ -153,7 +196,7 @@ def _integer(data):
             maximum,
         ),
     })
-    return item
+    return add_value_behavior(item, data)
 
 
 def _float(data):
@@ -175,7 +218,7 @@ def _float(data):
             maximum,
         ),
     })
-    return item
+    return add_value_behavior(item, data)
 
 
 def _checkbox(data):
@@ -192,7 +235,7 @@ def _checkbox(data):
         "value": bool(data.get("value", False)),
         "label_position": position,
     })
-    return item
+    return add_value_behavior(item, data)
 
 
 def _legacy_toggle(data):
@@ -214,13 +257,13 @@ def _menu(data):
         "items": values,
         "value": value,
     })
-    return item
+    return add_value_behavior(item, data)
 
 
 def _color(data):
     item = base_item("color", data, "Color")
     item["value"] = safe_color(data.get("value"))
-    return item
+    return add_value_behavior(item, data)
 
 
 def _field(data):
@@ -236,17 +279,40 @@ def _field(data):
     if isinstance(value, tuple):
         value = list(value)
 
+    multiple = bool(data.get("multiple", True))
+
+    if not multiple and isinstance(value, list):
+        value = value[0] if value else ""
+
+    display_mode = text_type(
+        data.get(
+            "display_mode",
+            "list" if multiple else "single"
+        )
+    ).lower()
+
+    if display_mode not in ("single", "list"):
+        display_mode = "list" if multiple else "single"
+
+    if not multiple:
+        display_mode = "single"
+
     item.update({
         "source": source,
         "value": value,
         "placeholder": text_type(data.get("placeholder") or ""),
         "selectable": bool(data.get("selectable", True)),
         "select_scene": bool(data.get("select_scene", False)),
-        "multiple": bool(data.get("multiple", True)),
+        "multiple": multiple,
         "long_names": bool(data.get("long_names", False)),
+        "display_mode": display_mode,
+        "visible_rows": clamp(
+            safe_int(data.get("visible_rows"), 4),
+            1,
+            20
+        ),
     })
-    return item
-
+    return add_value_behavior(item, data)
 
 def _label(data):
     return base_item("label", data, "Label")
@@ -273,12 +339,20 @@ def _row(data):
 
         children.append(create_item(kind, raw))
 
+    vertical_alignment = text_type(
+        data.get("vertical_alignment", "center")
+    ).lower()
+
+    if vertical_alignment not in ("top", "center", "bottom"):
+        vertical_alignment = "center"
+
     item.update({
         "spacing": clamp(safe_int(data.get("spacing"), 4), 0, 30),
+        "equal_widths": bool(data.get("equal_widths", False)),
+        "vertical_alignment": vertical_alignment,
         "items": children,
     })
     return item
-
 
 def _folder(data):
     item = base_item("folder", data, "Folder")

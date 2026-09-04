@@ -10,11 +10,13 @@ from ..constants import PLUGIN_VERSION
 from ..constants import WINDOW_OBJECT_NAME
 from ..core.config import load_config
 from ..core.config import save_config
+from ..core.executor import evaluate_python_state
 from ..core.executor import execute_script
 from ..core.values import find_item
 from ..core.values import get_value as get_document_value
 from ..core.values import store_value as store_document_value
 from ..model import walk_items
+from ..model.items import safe_color
 from ..pycompat import text_type
 from ..style import STYLE
 from ..style import toolbar_icon
@@ -60,7 +62,9 @@ class ScriptToolbox(QtGui.QMainWindow):
         self.config = load_config()
         self.editor_window = None
         self.field_widgets = {}
+        self.state_button_widgets = {}
         self._selection_signature = None
+        self._on_change_guard = set()
 
         self.update_info = None
         self.update_check_thread = None
@@ -367,6 +371,9 @@ class ScriptToolbox(QtGui.QMainWindow):
         key,
         value
     ):
+        item = self.find_item(key)
+        old_value = self.get_value(key)
+
         item = store_document_value(
             self.config,
             key,
@@ -376,22 +383,63 @@ class ScriptToolbox(QtGui.QMainWindow):
         if item is None:
             return False
 
-        self.save()
+        new_value = self.get_value(key)
+
+        if old_value != new_value:
+            self.save()
+            self._run_on_change(
+                item,
+                old_value,
+                new_value
+            )
+            self.refresh_state_buttons()
+
         return True
+
+    def _run_on_change(
+        self,
+        item,
+        old_value,
+        value
+    ):
+        code = item.get(
+            "on_change_script",
+            ""
+        )
+        item_id = text_type(
+            item.get("id", "")
+        )
+
+        if (
+            not code.strip() or
+            item_id in self._on_change_guard
+        ):
+            return True
+
+        self._on_change_guard.add(item_id)
+        try:
+            return execute_script(
+                code,
+                "python",
+                parent=self,
+                toolbox=self,
+                extra_namespace={
+                    "value": value,
+                    "old_value": old_value,
+                    "host": HOST,
+                }
+            )
+        finally:
+            self._on_change_guard.discard(item_id)
 
     def set_value(
         self,
         key,
         value
     ):
-        item = self.find_item(
-            key
-        )
+        item = self.find_item(key)
 
-        if not self.store_value(
-            key,
-            value
-        ):
+        if not self.store_value(key, value):
             return False
 
         if (
@@ -411,10 +459,7 @@ class ScriptToolbox(QtGui.QMainWindow):
         key,
         value
     ):
-        return self.set_value(
-            key,
-            value
-        )
+        return self.set_value(key, value)
 
     # ------------------------------------------------------------------
     # Field API
@@ -429,48 +474,59 @@ class ScriptToolbox(QtGui.QMainWindow):
             text_type(item_id)
         ] = widget
 
-    def field_display_text(
+    def field_display_values(
         self,
         key
     ):
-        item = self.find_item(
-            key
-        )
+        item = self.find_item(key)
 
         if (
             item is None or
             item.get("kind") != "field"
         ):
-            return ""
+            return []
 
-        value = item.get(
-            "value",
-            ""
-        )
+        value = item.get("value", "")
 
         if value is None:
-            return ""
+            return []
 
-        if isinstance(
-            value,
-            (list, tuple)
-        ):
-            return ", ".join(
+        if isinstance(value, (list, tuple)):
+            return [
                 text_type(entry)
                 for entry in value
-            )
+                if text_type(entry).strip()
+            ]
 
-        return text_type(
-            value
+        value = text_type(value or "")
+
+        if item.get("multiple", True):
+            normalized = (
+                value
+                .replace(";", "\n")
+                .replace(",", "\n")
+            )
+            return [
+                part.strip()
+                for part in normalized.splitlines()
+                if part.strip()
+            ]
+
+        return [value] if value else []
+
+    def field_display_text(
+        self,
+        key
+    ):
+        return ", ".join(
+            self.field_display_values(key)
         )
 
     def refresh_field_widget(
         self,
         key
     ):
-        item = self.find_item(
-            key
-        )
+        item = self.find_item(key)
 
         if item is None:
             return
@@ -485,13 +541,11 @@ class ScriptToolbox(QtGui.QMainWindow):
             except Exception:
                 pass
 
-    def field_scene_objects(
+    def get_field_selection(
         self,
         key
     ):
-        item = self.find_item(
-            key
-        )
+        item = self.find_item(key)
 
         if (
             item is None or
@@ -499,75 +553,153 @@ class ScriptToolbox(QtGui.QMainWindow):
         ):
             return []
 
-        value = item.get(
-            "value",
-            ""
+        widget = self.field_widgets.get(
+            item["id"]
         )
 
-        if isinstance(
-            value,
-            (list, tuple)
+        if widget is not None:
+            try:
+                return widget.selected_values()
+            except Exception:
+                pass
+
+        return self.field_display_values(key)
+
+    def add_to_field(
+        self,
+        key,
+        values
+    ):
+        item = self.find_item(key)
+
+        if (
+            item is None or
+            item.get("kind") != "field"
         ):
-            candidates = [
-                text_type(entry)
-                for entry in value
+            return False
+
+        if isinstance(values, (list, tuple)):
+            incoming = [
+                text_type(value)
+                for value in values
+                if text_type(value).strip()
             ]
         else:
-            value = text_type(
-                value or ""
+            incoming = [
+                text_type(values)
+            ] if text_type(values or "").strip() else []
+
+        current = self.field_display_values(key)
+        result = list(current)
+
+        for value in incoming:
+            if value not in result:
+                result.append(value)
+
+        if not item.get("multiple", True):
+            result = result[-1:]
+            value = result[0] if result else ""
+        else:
+            value = result
+
+        return self.set_value(key, value)
+
+    def remove_from_field(
+        self,
+        key,
+        values=None
+    ):
+        item = self.find_item(key)
+
+        if (
+            item is None or
+            item.get("kind") != "field"
+        ):
+            return False
+
+        if values is None:
+            values = self.get_field_selection(key)
+
+        if isinstance(values, (list, tuple)):
+            remove_values = set(
+                text_type(value)
+                for value in values
             )
-            normalized = (
-                value
-                .replace(";", "\n")
-                .replace(",", "\n")
-            )
-            candidates = [
-                part.strip()
-                for part in normalized.splitlines()
-                if part.strip()
+        else:
+            remove_values = set([
+                text_type(values)
+            ])
+
+        result = [
+            value
+            for value in self.field_display_values(key)
+            if value not in remove_values
+        ]
+
+        if not item.get("multiple", True):
+            value = result[0] if result else ""
+        else:
+            value = result
+
+        return self.set_value(key, value)
+
+    def clear_field(
+        self,
+        key
+    ):
+        item = self.find_item(key)
+        if (
+            item is None or
+            item.get("kind") != "field"
+        ):
+            return False
+
+        return self.set_value(
+            key,
+            [] if item.get("multiple", True) else ""
+        )
+
+    def field_scene_objects(
+        self,
+        key,
+        values=None
+    ):
+        candidates = (
+            self.field_display_values(key)
+            if values is None
+            else [
+                text_type(value)
+                for value in values
             ]
+        )
 
         return [
             candidate
             for candidate in candidates
-            if HOST.object_exists(
-                candidate
-            )
+            if HOST.object_exists(candidate)
         ]
 
     def select_field_objects(
         self,
-        key
+        key,
+        values=None
     ):
         objects = self.field_scene_objects(
-            key
+            key,
+            values=values
         )
 
         if not objects:
             return False
 
         return bool(
-            HOST.select_objects(
-                objects
-            )
+            HOST.select_objects(objects)
         )
 
     def refresh_selection_fields(
         self,
         force=False
     ):
-        selection_fields = [
-            item
-            for item in self.all_items()
-            if (
-                item.get("kind") == "field" and
-                item.get("source") == "selection"
-            )
-        ]
-
-        if not selection_fields:
-            return
-
         try:
             raw_selection = HOST.current_selection(
                 long_names=True
@@ -575,9 +707,7 @@ class ScriptToolbox(QtGui.QMainWindow):
         except Exception:
             raw_selection = []
 
-        signature = tuple(
-            raw_selection
-        )
+        signature = tuple(raw_selection)
 
         if (
             not force and
@@ -587,42 +717,133 @@ class ScriptToolbox(QtGui.QMainWindow):
 
         self._selection_signature = signature
 
+        selection_fields = [
+            item
+            for item in self.all_items()
+            if (
+                item.get("kind") == "field" and
+                item.get("source") == "selection"
+            )
+        ]
+
         for item in selection_fields:
             try:
                 values = HOST.current_selection(
                     long_names=bool(
-                        item.get(
-                            "long_names",
-                            False
-                        )
+                        item.get("long_names", False)
                     )
                 ) or []
 
-                if not item.get(
-                    "multiple",
-                    True
-                ):
+                if not item.get("multiple", True):
                     values = values[:1]
+                    new_value = values[0] if values else ""
+                else:
+                    new_value = values
 
-                item["value"] = values
-                self.refresh_field_widget(
-                    item["id"]
-                )
+                old_value = item.get("value", "")
+                item["value"] = new_value
+                self.refresh_field_widget(item["id"])
+
+                if old_value != new_value:
+                    self._run_on_change(
+                        item,
+                        old_value,
+                        new_value
+                    )
             except Exception:
                 pass
 
+        self.refresh_state_buttons()
 
     # ------------------------------------------------------------------
     # Runtime
     # ------------------------------------------------------------------
 
+    def register_state_button(
+        self,
+        item_id,
+        widget
+    ):
+        self.state_button_widgets[
+            text_type(item_id)
+        ] = widget
+
+    def refresh_state_button(
+        self,
+        key
+    ):
+        item = self.find_item(key)
+
+        if (
+            item is None or
+            item.get("kind") != "button" or
+            item.get("mode", "action") != "state"
+        ):
+            return False
+
+        widget = self.state_button_widgets.get(
+            item["id"]
+        )
+
+        if widget is None:
+            return False
+
+        state = evaluate_python_state(
+            item.get("state_get_script", ""),
+            toolbox=self,
+            parent=self
+        )
+
+        if state is None:
+            return None
+
+        label = item.get(
+            "state_on_label" if state else "state_off_label",
+            item.get("label", item["name"])
+        )
+        color = safe_color(
+            item.get(
+                "state_on_color" if state else "state_off_color"
+            )
+        )
+        rgb = [
+            int(value * 255)
+            for value in color
+        ]
+
+        widget.setText(
+            text_type(label)
+        )
+        widget.setProperty(
+            "stateOn",
+            bool(state)
+        )
+        widget.setStyleSheet(
+            "QPushButton#ScriptButton {"
+            "background-color: rgb(%d,%d,%d);"
+            "}" % (
+                rgb[0],
+                rgb[1],
+                rgb[2]
+            )
+        )
+        return state
+
+    def refresh_state_buttons(self):
+        for item_id in list(
+            self.state_button_widgets.keys()
+        ):
+            try:
+                self.refresh_state_button(item_id)
+            except Exception:
+                pass
+
     def rebuild(self):
         self.field_widgets = {}
+        self.state_button_widgets = {}
 
         while self.content_layout.count() > 1:
-            layout_item = self.content_layout.takeAt(
-                0
-            )
+            layout_item = self.content_layout.takeAt(0)
             widget = layout_item.widget()
 
             if widget is not None:
@@ -640,17 +861,14 @@ class ScriptToolbox(QtGui.QMainWindow):
                 widget
             )
 
-        self.refresh_selection_fields(
-            force=True
-        )
+        self.refresh_selection_fields(force=True)
+        self.refresh_state_buttons()
 
     def run_item(
         self,
         item_id
     ):
-        item = self.find_item(
-            item_id
-        )
+        item = self.find_item(item_id)
 
         if (
             not item or
@@ -658,40 +876,41 @@ class ScriptToolbox(QtGui.QMainWindow):
         ):
             return
 
-        code = item.get(
-            "click_script",
-            ""
-        )
-
-        if (
-            shift_pressed() and
-            item.get(
-                "shift_script",
-                ""
-            ).strip()
-        ):
+        if item.get("mode", "action") == "state":
+            state = self.refresh_state_button(
+                item["id"]
+            )
+            if state is None:
+                return
             code = item.get(
-                "shift_script",
+                "state_off_script" if state else "state_on_script",
                 ""
             )
+        else:
+            code = item.get("click_script", "")
+
+            if (
+                shift_pressed() and
+                item.get("shift_script", "").strip()
+            ):
+                code = item.get("shift_script", "")
 
         success = execute_script(
             code,
-            item.get(
-                "language",
-                "python"
-            ),
+            item.get("language", "python"),
             parent=self,
             toolbox=self
         )
 
+        if item.get("mode", "action") == "state":
+            self.refresh_state_button(
+                item["id"]
+            )
+
         if success:
             self.statusBar().showMessage(
                 "Executed: {0}".format(
-                    item.get(
-                        "label",
-                        item["name"]
-                    )
+                    item.get("label", item["name"])
                 ),
                 2500
             )

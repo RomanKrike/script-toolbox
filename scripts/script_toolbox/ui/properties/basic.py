@@ -9,12 +9,13 @@ from ...model.items import safe_int
 from ...model.items import safe_menu_items
 from ...pycompat import text_type
 from .base import PropertyEditorBase
+from .base import ValuePropertyEditorBase
 
 
-class StringPropertyEditor(PropertyEditorBase):
+class StringPropertyEditor(ValuePropertyEditorBase):
 
     def __init__(self, toolbox=None, parent=None):
-        PropertyEditorBase.__init__(self, toolbox, parent)
+        ValuePropertyEditorBase.__init__(self, toolbox, parent)
         self.value = QtGui.QLineEdit()
         self.form.addRow("Value", self.value)
         self.add_stretch()
@@ -27,10 +28,10 @@ class StringPropertyEditor(PropertyEditorBase):
         item["value"] = text_type(self.value.text())
 
 
-class IntegerPropertyEditor(PropertyEditorBase):
+class IntegerPropertyEditor(ValuePropertyEditorBase):
 
     def __init__(self, toolbox=None, parent=None):
-        PropertyEditorBase.__init__(self, toolbox, parent)
+        ValuePropertyEditorBase.__init__(self, toolbox, parent)
 
         self.value = QtGui.QSpinBox()
         self.minimum = QtGui.QSpinBox()
@@ -86,10 +87,10 @@ class IntegerPropertyEditor(PropertyEditorBase):
         )
 
 
-class FloatPropertyEditor(PropertyEditorBase):
+class FloatPropertyEditor(ValuePropertyEditorBase):
 
     def __init__(self, toolbox=None, parent=None):
-        PropertyEditorBase.__init__(self, toolbox, parent)
+        ValuePropertyEditorBase.__init__(self, toolbox, parent)
 
         self.value = QtGui.QDoubleSpinBox()
         self.minimum = QtGui.QDoubleSpinBox()
@@ -188,10 +189,10 @@ class FloatPropertyEditor(PropertyEditorBase):
         )
 
 
-class CheckboxPropertyEditor(PropertyEditorBase):
+class CheckboxPropertyEditor(ValuePropertyEditorBase):
 
     def __init__(self, toolbox=None, parent=None):
-        PropertyEditorBase.__init__(self, toolbox, parent)
+        ValuePropertyEditorBase.__init__(self, toolbox, parent)
 
         self.position = QtGui.QComboBox()
         self.position.addItems([
@@ -249,10 +250,10 @@ class CheckboxPropertyEditor(PropertyEditorBase):
         )
 
 
-class MenuPropertyEditor(PropertyEditorBase):
+class MenuPropertyEditor(ValuePropertyEditorBase):
 
     def __init__(self, toolbox=None, parent=None):
-        PropertyEditorBase.__init__(self, toolbox, parent)
+        ValuePropertyEditorBase.__init__(self, toolbox, parent)
 
         self.items_edit = QtGui.QPlainTextEdit()
         self.items_edit.setMinimumHeight(
@@ -354,10 +355,10 @@ class MenuPropertyEditor(PropertyEditorBase):
         item["value"] = selected
 
 
-class ColorPropertyEditor(PropertyEditorBase):
+class ColorPropertyEditor(ValuePropertyEditorBase):
 
     def __init__(self, toolbox=None, parent=None):
-        PropertyEditorBase.__init__(self, toolbox, parent)
+        ValuePropertyEditorBase.__init__(self, toolbox, parent)
 
         self.color = [0.25, 0.25, 0.25]
         self.button = QtGui.QPushButton(

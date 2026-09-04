@@ -24,28 +24,17 @@ class DisplayField(QtGui.QLineEdit):
         self.toolbox = toolbox
         self.item_id = item["id"]
         self.selectable = bool(
-            item.get(
-                "selectable",
-                True
-            )
+            item.get("selectable", True)
         )
         self.select_scene = bool(
-            item.get(
-                "select_scene",
-                False
-            )
+            item.get("select_scene", False)
         )
 
-        self.setReadOnly(
-            True
-        )
+        self.setReadOnly(True)
 
         try:
             self.setPlaceholderText(
-                item.get(
-                    "placeholder",
-                    ""
-                )
+                item.get("placeholder", "")
             )
         except Exception:
             pass
@@ -56,12 +45,8 @@ class DisplayField(QtGui.QLineEdit):
             )
 
         self.setToolTip(
-            item.get(
-                "tooltip",
-                ""
-            )
+            item.get("tooltip", "")
         )
-
         self.refresh()
 
     def refresh(self):
@@ -73,6 +58,11 @@ class DisplayField(QtGui.QLineEdit):
 
         if not self.selectable:
             self.deselect()
+
+    def selected_values(self):
+        return self.toolbox.field_display_values(
+            self.item_id
+        )
 
     def mousePressEvent(self, event):
         if self.selectable:
@@ -105,6 +95,144 @@ class DisplayField(QtGui.QLineEdit):
             )
         else:
             event.accept()
+
+
+class DisplayFieldList(QtGui.QListWidget):
+
+    def __init__(
+        self,
+        toolbox,
+        item,
+        parent=None
+    ):
+        QtGui.QListWidget.__init__(
+            self,
+            parent
+        )
+
+        self.toolbox = toolbox
+        self.item_id = item["id"]
+        self.selectable = bool(
+            item.get("selectable", True)
+        )
+        self.select_scene = bool(
+            item.get("select_scene", False)
+        )
+        self.multiple = bool(
+            item.get("multiple", True)
+        )
+        self.visible_rows = int(
+            item.get("visible_rows", 4)
+        )
+
+        self.setObjectName(
+            "RuntimeFieldList"
+        )
+        self.setAlternatingRowColors(False)
+
+        if not self.selectable:
+            self.setSelectionMode(
+                QtGui.QAbstractItemView.NoSelection
+            )
+            self.setFocusPolicy(
+                QtCore.Qt.NoFocus
+            )
+        elif self.multiple:
+            self.setSelectionMode(
+                QtGui.QAbstractItemView.ExtendedSelection
+            )
+        else:
+            self.setSelectionMode(
+                QtGui.QAbstractItemView.SingleSelection
+            )
+
+        self.setToolTip(
+            item.get("tooltip", "")
+        )
+        self.itemDoubleClicked.connect(
+            self._double_clicked
+        )
+        self.refresh()
+
+        row_height = max(
+            22,
+            self.fontMetrics().height() + 6
+        )
+        self.setMinimumHeight(
+            self.visible_rows * row_height + 6
+        )
+        self.setMaximumHeight(
+            self.visible_rows * row_height + 6
+        )
+
+    def refresh(self):
+        selected = set(
+            self.selected_values()
+        )
+        values = self.toolbox.field_display_values(
+            self.item_id
+        )
+
+        self.blockSignals(True)
+        try:
+            self.clear()
+            for value in values:
+                entry = QtGui.QListWidgetItem(
+                    text_type(value)
+                )
+                entry.setToolTip(
+                    text_type(value)
+                )
+                self.addItem(entry)
+                if value in selected:
+                    entry.setSelected(True)
+        finally:
+            self.blockSignals(False)
+
+    def selected_values(self):
+        result = []
+        for item in self.selectedItems():
+            result.append(
+                text_type(item.text())
+            )
+        return result
+
+    def _double_clicked(self, item):
+        if not self.select_scene:
+            return
+
+        values = self.selected_values()
+        if not values and item is not None:
+            values = [
+                text_type(item.text())
+            ]
+
+        self.toolbox.select_field_objects(
+            self.item_id,
+            values=values
+        )
+
+    def keyPressEvent(self, event):
+        try:
+            is_copy = event.matches(
+                QtGui.QKeySequence.Copy
+            )
+        except Exception:
+            is_copy = False
+
+        if is_copy:
+            values = self.selected_values()
+            if values:
+                QtGui.QApplication.clipboard().setText(
+                    "\n".join(values)
+                )
+            event.accept()
+            return
+
+        QtGui.QListWidget.keyPressEvent(
+            self,
+            event
+        )
 
 
 # ----------------------------------------------------------------------
@@ -483,26 +611,34 @@ class RuntimeFolder(QtGui.QFrame):
         self,
         item
     ):
+        state_mode = item.get(
+            "mode",
+            "action"
+        ) == "state"
+
         button = QtGui.QPushButton(
-            self._label(
-                item
+            item.get(
+                "state_off_label",
+                self._label(item)
             )
+            if state_mode
+            else self._label(item)
         )
         button.setObjectName(
             "ScriptButton"
         )
         button.setToolTip(
-            self._tooltip(
-                item
-            )
+            self._tooltip(item)
         )
 
+        color = (
+            item.get("state_off_color")
+            if state_mode
+            else item.get("color")
+        )
         rgb = [
             int(value * 255)
-            for value in item.get(
-                "color",
-                [0.25, 0.25, 0.25]
-            )
+            for value in safe_color(color)
         ]
 
         button.setStyleSheet(
@@ -517,10 +653,14 @@ class RuntimeFolder(QtGui.QFrame):
 
         button.clicked.connect(
             lambda checked=False, item_id=item["id"]:
-            self.toolbox.run_item(
-                item_id
-            )
+            self.toolbox.run_item(item_id)
         )
+
+        if state_mode:
+            self.toolbox.register_state_button(
+                item["id"],
+                button
+            )
 
         return button
 
@@ -932,46 +1072,100 @@ class RuntimeFolder(QtGui.QFrame):
     ):
         row_widget = QtGui.QWidget()
         row_widget.setToolTip(
-            self._tooltip(
-                item
-            )
+            self._tooltip(item)
         )
 
         layout = QtGui.QHBoxLayout(
             row_widget
         )
-        layout.setContentsMargins(
-            0,
-            0,
-            0,
-            0
-        )
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(
-            int(
-                item.get(
-                    "spacing",
-                    4
-                )
-            )
+            int(item.get("spacing", 4))
         )
 
-        for child in item.get(
-            "items",
-            []
-        ):
+        vertical = item.get(
+            "vertical_alignment",
+            "center"
+        )
+        vertical_flag = (
+            QtCore.Qt.AlignTop
+            if vertical == "top"
+            else QtCore.Qt.AlignBottom
+            if vertical == "bottom"
+            else QtCore.Qt.AlignVCenter
+        )
+        equal_widths = bool(
+            item.get("equal_widths", False)
+        )
+        has_stretch = equal_widths
+
+        for child in item.get("items", []):
             child_widget = self.build_runtime_widget(
                 child,
                 compact=True
             )
 
-            if child_widget is not None:
+            if child_widget is None:
+                continue
+
+            width_mode = child.get(
+                "row_width_mode",
+                "auto"
+            )
+            horizontal = child.get(
+                "row_alignment",
+                "left"
+            )
+            horizontal_flag = (
+                QtCore.Qt.AlignRight
+                if horizontal == "right"
+                else QtCore.Qt.AlignHCenter
+                if horizontal == "center"
+                else QtCore.Qt.AlignLeft
+            )
+            alignment = horizontal_flag | vertical_flag
+
+            if equal_widths and child.get("kind") != "separator":
+                child_widget.setSizePolicy(
+                    QtGui.QSizePolicy.Expanding,
+                    QtGui.QSizePolicy.Preferred
+                )
                 layout.addWidget(
-                    child_widget
+                    child_widget,
+                    1,
+                    vertical_flag
+                )
+                continue
+
+            if width_mode == "fixed":
+                child_widget.setFixedWidth(
+                    int(child.get("row_width", 120))
+                )
+                layout.addWidget(
+                    child_widget,
+                    0,
+                    alignment
+                )
+            elif width_mode == "stretch":
+                has_stretch = True
+                child_widget.setSizePolicy(
+                    QtGui.QSizePolicy.Expanding,
+                    QtGui.QSizePolicy.Preferred
+                )
+                layout.addWidget(
+                    child_widget,
+                    max(1, int(child.get("row_stretch", 1))),
+                    vertical_flag
+                )
+            else:
+                layout.addWidget(
+                    child_widget,
+                    0,
+                    alignment
                 )
 
-        layout.addStretch(
-            1
-        )
+        if not has_stretch:
+            layout.addStretch(1)
 
         return row_widget
 
@@ -1022,21 +1216,25 @@ class RuntimeFolder(QtGui.QFrame):
                 compact=compact
             )
 
-            control = DisplayField(
+            list_mode = (
+                item.get("display_mode") == "list" and
+                bool(item.get("multiple", True))
+            )
+            control_class = (
+                DisplayFieldList
+                if list_mode
+                else DisplayField
+            )
+            control = control_class(
                 self.toolbox,
                 item,
                 container
             )
 
             if compact:
-                control.setMinimumWidth(
-                    100
-                )
+                control.setMinimumWidth(100)
 
-            layout.addWidget(
-                control,
-                1
-            )
+            layout.addWidget(control, 1)
 
             self.toolbox.register_field_widget(
                 item["id"],
@@ -1374,6 +1572,7 @@ RuntimeSection = RuntimeFolder
 
 __all__ = [
     "DisplayField",
+    "DisplayFieldList",
     "RuntimeFolder",
     "RuntimeFolderTabs",
     "RuntimeFolderRadio",

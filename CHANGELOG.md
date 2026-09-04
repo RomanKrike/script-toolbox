@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.4.0
+
+Editor and interactive-controls release.
+
+### Added
+
+- Add snapshot-based Undo / Redo to the Interface Editor with Ctrl+Z / Ctrl+Y.
+- Add Duplicate, Copy and Paste for parameters and complete Folder/Row subtrees with regenerated IDs and unique names.
+- Add import modes for Replace Toolbox, Append to Toolbox and Insert into Selected Folder.
+- Add advanced Row layout controls: spacing, equal widths, vertical alignment and per-child Auto / Stretch / Fixed width and alignment.
+- Add State mode to Button with Python state queries, ON/OFF scripts, labels and colors.
+- Add Python On Change scripts to value controls with `value`, `old_value`, `toolbox` and `host` namespace values.
+- Add multi-row Field list display with visible-row control, list multi-selection, Ctrl+C and double-click scene selection.
+- Add Field collection API: `get_field_selection()`, `add_to_field()`, `remove_from_field()` and `clear_field()`.
+
+### Changed
+
+- Upgrade config schema to version 16 while preserving normalization of existing configurations.
+- Keep Maya and Nuke toolbox configurations independent while sharing the common runtime/editor engine.
+
 ## 0.3.8
 
 Separator rendering fix release.
@@ -179,7 +199,6 @@ First modular release of Script Toolbox for Autodesk Maya 2015.
 - Reusable script editor with Python/MEL execution and captured output.
 - JSON import/export.
 - GitHub Releases updater with background checks, package backup/rollback and SHA-256 verification.
-- GitHub Actions unit tests, coverage checks, Python 2.7 syntax validation and release-package validation.
 - Automatic tested release packaging.
 
 ### Compatibility

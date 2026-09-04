@@ -109,6 +109,13 @@ QWidget#EditorPane {
     border-radius: 3px;
 }
 
+QScrollArea#PropertyScroll,
+QScrollArea#PropertyScroll QWidget#qt_scrollarea_viewport,
+QWidget#PropertyHost {
+    background-color: #303030;
+    border: 0px;
+}
+
 QLabel#PaneTitle {
     background-color: transparent;
     color: #e0e0e0;
@@ -362,9 +369,33 @@ QDoubleSpinBox:disabled {
     border-color: #242424;
 }
 
+QComboBox {
+    padding-right: 25px;
+}
+
 QComboBox::drop-down {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 21px;
+    background-color: #303030;
     border: 0px;
-    width: 18px;
+    border-left: 1px solid #4a4a4a;
+    border-top-right-radius: 2px;
+    border-bottom-right-radius: 2px;
+}
+
+QComboBox::drop-down:hover {
+    background-color: #3a3a3a;
+}
+
+QComboBox::down-arrow {
+    width: 7px;
+    height: 5px;
+}
+
+QComboBox:disabled::drop-down {
+    background-color: #292929;
+    border-left-color: #242424;
 }
 
 QComboBox QAbstractItemView {

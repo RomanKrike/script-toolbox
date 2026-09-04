@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.2
+
+Interface Editor visual consistency patch.
+
+### Fixed
+
+- Restore the Parameter Description background after the 0.4.1 scroll-area change.
+- Make ComboBox controls visually read as dropdowns with a distinct right-side button area.
+- Expand ComboBox and SpinBox property fields to the same value-column width as text fields.
+- Apply the same field-growth policy to Row Layout properties for consistent sizing.
+
 ## 0.4.1
 
 Interface Editor regression fix release.

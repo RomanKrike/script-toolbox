@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.8
+
+Separator rendering fix release.
+
+### Fixed
+
+- Render horizontal separators as explicit QSS border strokes instead of relying on a 1 px QFrame background fill.
+- Render compact vertical separators with the same explicit border-stroke approach.
+- Apply the separator override after the base stylesheet so Maya 2015 Qt4 cannot lose it to earlier QFrame rules.
+
 ## 0.3.7
 
 Separator visibility polish release.

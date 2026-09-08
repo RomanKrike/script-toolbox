@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-from ...compat import HOST
 from ...compat import QtGui
 from ...model.items import clamp
 from ...model.items import safe_color
 from ...pycompat import text_type
-from ..script_editor import ScriptEditorWidget
+from ..language_script_editor import LanguageScriptEditor
 from .base import PropertyEditorBase
 
 
@@ -29,18 +28,6 @@ class ButtonPropertyEditor(PropertyEditorBase):
             "State",
         ])
 
-        self.language = QtGui.QComboBox()
-        self.languages = list(
-            HOST.available_languages()
-        )
-
-        for language in self.languages:
-            self.language.addItem(
-                language.upper()
-                if language == "mel"
-                else language.title()
-            )
-
         self.color = [0.25, 0.25, 0.25]
         self.state_on_color = [0.22, 0.42, 0.26]
         self.state_off_color = [0.30, 0.30, 0.30]
@@ -57,7 +44,6 @@ class ButtonPropertyEditor(PropertyEditorBase):
         self.state_off_color_button = QtGui.QPushButton("Choose...")
 
         self.form.addRow("Mode", self.mode)
-        self.form.addRow("Language", self.language)
         self.form.addRow("Icon Path", self.icon_path)
         self.form.addRow("Icon Size", self.icon_size)
         self.form.addRow("", self.icon_only)
@@ -75,39 +61,44 @@ class ButtonPropertyEditor(PropertyEditorBase):
         state_form.addRow("OFF Color", self.state_off_color_button)
         self.root_layout.addWidget(self.state_group)
 
-        self.tabs = QtGui.QTabWidget()
+        self.state_tabs = QtGui.QTabWidget()
 
-        self.click_editor = ScriptEditorWidget(
+        self.state_get_editor = LanguageScriptEditor(
             language="python",
             toolbox=self.toolbox
         )
-        self.shift_editor = ScriptEditorWidget(
+        self.state_get_editor.set_language_enabled(
+            False,
+            "State queries use Python so the state variable can be evaluated."
+        )
+        self.state_on_editor = LanguageScriptEditor(
             language="python",
             toolbox=self.toolbox
         )
-        self.state_get_editor = ScriptEditorWidget(
-            language="python",
-            toolbox=self.toolbox
-        )
-        self.state_on_editor = ScriptEditorWidget(
-            language="python",
-            toolbox=self.toolbox
-        )
-        self.state_off_editor = ScriptEditorWidget(
+        self.state_off_editor = LanguageScriptEditor(
             language="python",
             toolbox=self.toolbox
         )
 
+        self.state_tabs.addTab(
+            self.state_get_editor,
+            "Get State"
+        )
+        self.state_tabs.addTab(
+            self.state_on_editor,
+            "Turn ON"
+        )
+        self.state_tabs.addTab(
+            self.state_off_editor,
+            "Turn OFF"
+        )
         self.root_layout.addWidget(
-            self.tabs,
+            self.state_tabs,
             1
         )
 
         self.mode.currentIndexChanged.connect(
             self._mode_changed
-        )
-        self.language.currentIndexChanged.connect(
-            self._language_changed
         )
         self.icon_path.textEdited.connect(
             self._control_changed
@@ -135,8 +126,6 @@ class ButtonPropertyEditor(PropertyEditorBase):
         )
 
         for editor in (
-            self.click_editor,
-            self.shift_editor,
             self.state_get_editor,
             self.state_on_editor,
             self.state_off_editor,
@@ -144,19 +133,11 @@ class ButtonPropertyEditor(PropertyEditorBase):
             editor.textChanged.connect(
                 self._control_changed
             )
+            editor.languageChanged.connect(
+                self._control_changed
+            )
 
         self._refresh_mode()
-
-    def current_language(self):
-        index = self.language.currentIndex()
-
-        if (
-            index < 0 or
-            index >= len(self.languages)
-        ):
-            return "python"
-
-        return self.languages[index]
 
     def current_mode(self):
         return (
@@ -166,6 +147,13 @@ class ButtonPropertyEditor(PropertyEditorBase):
         )
 
     def _mode_changed(self, *args):
+        if self.item is not None and not self.loading:
+            self.binding_panel.write_to_item(
+                self.item
+            )
+            self.item["mode"] = self.current_mode()
+            self.refresh_binding_panel()
+
         self._refresh_mode()
         self._control_changed()
 
@@ -173,66 +161,9 @@ class ButtonPropertyEditor(PropertyEditorBase):
         state_mode = self.current_mode() == "state"
         self.action_group.setVisible(not state_mode)
         self.state_group.setVisible(state_mode)
-
-        current_widget = self.tabs.currentWidget()
-        self.tabs.clear()
-
-        if state_mode:
-            self.tabs.addTab(
-                self.state_get_editor,
-                "Get State (Python)"
-            )
-            self.tabs.addTab(
-                self.state_on_editor,
-                "Turn ON"
-            )
-            self.tabs.addTab(
-                self.state_off_editor,
-                "Turn OFF"
-            )
-        else:
-            self.tabs.addTab(
-                self.click_editor,
-                "Click Script"
-            )
-            self.tabs.addTab(
-                self.shift_editor,
-                "Shift + Click"
-            )
-
-        if current_widget is not None:
-            index = self.tabs.indexOf(current_widget)
-            if index >= 0:
-                self.tabs.setCurrentIndex(index)
-
-    def _language_changed(self, *args):
-        language = self.current_language()
-
-        self.click_editor.set_language(language)
-        self.shift_editor.set_language(language)
-        self.state_on_editor.set_language(language)
-        self.state_off_editor.set_language(language)
-        self.state_get_editor.set_language("python")
-        self._control_changed()
+        self.state_tabs.setVisible(state_mode)
 
     def load_specific(self, item):
-        language = item.get(
-            "language",
-            "python"
-        )
-
-        if language not in self.languages:
-            self.languages.append(language)
-            self.language.addItem(
-                "{0} (Unavailable in {1})".format(
-                    language.upper(),
-                    HOST.display_name
-                )
-            )
-
-        self.language.setCurrentIndex(
-            self.languages.index(language)
-        )
         self.mode.setCurrentIndex(
             1
             if item.get("mode", "action") == "state"
@@ -274,23 +205,23 @@ class ButtonPropertyEditor(PropertyEditorBase):
             )
         )
 
-        self.click_editor.setPlainText(
-            text_type(item.get("click_script", ""))
-        )
-        self.shift_editor.setPlainText(
-            text_type(item.get("shift_script", ""))
-        )
+        self.state_get_editor.set_language("python")
         self.state_get_editor.setPlainText(
             text_type(item.get("state_get_script", ""))
         )
+        self.state_on_editor.set_language(
+            item.get("state_on_language", "python")
+        )
         self.state_on_editor.setPlainText(
             text_type(item.get("state_on_script", ""))
+        )
+        self.state_off_editor.set_language(
+            item.get("state_off_language", "python")
         )
         self.state_off_editor.setPlainText(
             text_type(item.get("state_off_script", ""))
         )
 
-        self._language_changed()
         self._refresh_colors()
         self._refresh_mode()
 
@@ -358,7 +289,6 @@ class ButtonPropertyEditor(PropertyEditorBase):
 
     def write_specific(self, item):
         item["mode"] = self.current_mode()
-        item["language"] = self.current_language()
         item["color"] = safe_color(self.color)
         item["icon_path"] = text_type(
             self.icon_path.text()
@@ -371,21 +301,20 @@ class ButtonPropertyEditor(PropertyEditorBase):
         item["icon_only"] = bool(
             self.icon_only.isChecked()
         )
-        item["click_script"] = text_type(
-            self.click_editor.toPlainText()
-        )
-        item["shift_script"] = text_type(
-            self.shift_editor.toPlainText()
-        )
+
         item["state_get_script"] = text_type(
             self.state_get_editor.toPlainText()
         )
+        item["state_get_language"] = "python"
         item["state_on_script"] = text_type(
             self.state_on_editor.toPlainText()
         )
+        item["state_on_language"] = self.state_on_editor.language()
         item["state_off_script"] = text_type(
             self.state_off_editor.toPlainText()
         )
+        item["state_off_language"] = self.state_off_editor.language()
+
         item["state_on_label"] = text_type(
             self.state_on_label.text()
         ).strip() or item.get("label", "ON")
@@ -399,13 +328,9 @@ class ButtonPropertyEditor(PropertyEditorBase):
             self.state_off_color
         )
 
-    def run_click(self):
-        self.write_to_item()
-        return self.click_editor.run()
-
-    def run_shift(self):
-        self.write_to_item()
-        return self.shift_editor.run()
+        item.pop("language", None)
+        item.pop("click_script", None)
+        item.pop("shift_script", None)
 
 
 __all__ = [

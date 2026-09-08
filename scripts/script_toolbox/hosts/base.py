@@ -31,6 +31,36 @@ class BaseHost(object):
     ):
         return False
 
+    def supports_callback(
+        self,
+        event_name
+    ):
+        """Return whether this host can provide a native callback event."""
+        return False
+
+    def add_callback(
+        self,
+        event_name,
+        callback
+    ):
+        """Subscribe to a host event and return an opaque handle or None."""
+        return None
+
+    def remove_callback(
+        self,
+        handle
+    ):
+        """Remove a callback handle returned by add_callback()."""
+        if handle is None:
+            return False
+
+        try:
+            return bool(
+                handle.close()
+            )
+        except Exception:
+            return False
+
     def available_languages(self):
         return (
             "python",

@@ -6,6 +6,8 @@ import maya.cmds as cmds
 import maya.mel as mel
 
 from .base import BaseHost
+from .callbacks import EVENT_SELECTION_CHANGED
+from .callbacks import HostCallbackHandle
 
 
 class MayaHost(BaseHost):
@@ -60,6 +62,64 @@ class MayaHost(BaseHost):
             return True
         except Exception:
             return False
+
+    def supports_callback(
+        self,
+        event_name
+    ):
+        return (
+            event_name == EVENT_SELECTION_CHANGED and
+            callable(
+                getattr(
+                    cmds,
+                    "scriptJob",
+                    None
+                )
+            )
+        )
+
+    def _remove_script_job(
+        self,
+        job_id
+    ):
+        try:
+            if cmds.scriptJob(
+                exists=job_id
+            ):
+                cmds.scriptJob(
+                    kill=job_id,
+                    force=True
+                )
+            return True
+        except Exception:
+            return False
+
+    def add_callback(
+        self,
+        event_name,
+        callback
+    ):
+        if not self.supports_callback(
+            event_name
+        ):
+            return None
+
+        try:
+            job_id = cmds.scriptJob(
+                event=[
+                    "SelectionChanged",
+                    callback,
+                ],
+                protected=True
+            )
+        except Exception:
+            return None
+
+        return HostCallbackHandle(
+            event_name,
+            job_id,
+            self._remove_script_job
+        )
 
     def available_languages(self):
         return (

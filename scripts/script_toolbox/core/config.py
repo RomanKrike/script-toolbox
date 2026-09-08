@@ -282,6 +282,10 @@ def _rotate_backups(
         int(count)
     )
 
+    # Existing backups are moved, not copied, so each save copies only the
+    # current primary config once. This matters because runtime value controls
+    # currently persist frequently; debounced persistence is a later roadmap
+    # step and backup safety must not multiply that I/O cost.
     for index in range(
         count,
         1,
@@ -299,7 +303,7 @@ def _rotate_backups(
         if os.path.isfile(
             source
         ):
-            shutil.copy2(
+            _replace_file(
                 source,
                 destination
             )

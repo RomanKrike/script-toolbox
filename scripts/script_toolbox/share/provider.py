@@ -262,9 +262,10 @@ class DpasteProvider(ShareProvider):
             expiry_days = 7
         expiry_days = max(1, min(365, expiry_days))
 
+        # Omit syntax intentionally: dpaste treats an absent syntax field as
+        # plain text, which is exactly what the encrypted base64 blob is.
         form = urlencode({
             "content": text_type(content),
-            "syntax": "text",
             "title": "Script Toolbox encrypted share",
             "expiry_days": text_type(expiry_days),
         })

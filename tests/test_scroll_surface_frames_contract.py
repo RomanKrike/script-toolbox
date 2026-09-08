@@ -32,6 +32,21 @@ def test_scroll_surface_frame_supports_all_scrollable_control_hosts():
     assert "isinstance(owner_layout, QtGui.QFormLayout)" in source
 
 
+def test_scroll_surface_frame_preserves_original_outer_constraints():
+    source = _read(
+        "scripts/script_toolbox/ui/scroll_surface_frames.py"
+    )
+
+    assert "frame.setMinimumHeight(minimum_height)" in source
+    assert "frame.setMaximumHeight(maximum_height)" in source
+    assert "frame.setMinimumWidth(minimum_width)" in source
+    assert "frame.setMaximumWidth(maximum_width)" in source
+    assert "minimum_height + 2" not in source
+    assert "maximum_height + 2" not in source
+    assert "minimum_width + 2" not in source
+    assert "maximum_width + 2" not in source
+
+
 def test_runtime_list_field_uses_external_scroll_surface_frame():
     source = _read(
         "scripts/script_toolbox/ui/scroll_surface_frames.py"

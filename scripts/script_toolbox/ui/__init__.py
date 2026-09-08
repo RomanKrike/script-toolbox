@@ -17,7 +17,6 @@ from .properties.base import PropertyEditorBase
 from .scroll_surface_frames import install_property_editor_scroll_frames
 from .scroll_surface_frames import install_runtime_scroll_frames
 from .scroll_surface_frames import install_script_editor_scroll_frames
-from .runtime_pane import install_runtime_pane
 
 
 def _install_controls_v2_palette(editor_class):
@@ -137,9 +136,6 @@ from .runtime import RuntimeFolderTabs
 
 ScriptToolbox = build_update_channel_toolbox_class(
     _BaseScriptToolbox
-)
-install_runtime_pane(
-    ScriptToolbox
 )
 
 install_script_editor_scroll_frames(

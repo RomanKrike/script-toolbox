@@ -4,6 +4,10 @@ from __future__ import print_function
 from ...compat import QtGui
 from ...model.items import clamp
 from ...pycompat import text_type
+from ...style.builtin_icons import builtin_icon
+from ...style.builtin_icons import builtin_icon_entries
+from ...style.builtin_icons import builtin_icon_id_from_path
+from ...style.builtin_icons import builtin_icon_resource
 from .base import PropertyEditorBase
 
 
@@ -20,6 +24,20 @@ class IconPropertyEditor(PropertyEditorBase):
             parent
         )
 
+        self._custom_path = ""
+        self.icon_source = QtGui.QComboBox()
+        self.icon_source.addItem(
+            "Custom Path",
+            ""
+        )
+
+        for icon_id, label in builtin_icon_entries():
+            self.icon_source.addItem(
+                builtin_icon(icon_id),
+                label,
+                icon_id
+            )
+
         self.path = QtGui.QLineEdit()
         self.width = QtGui.QSpinBox()
         self.height = QtGui.QSpinBox()
@@ -33,6 +51,10 @@ class IconPropertyEditor(PropertyEditorBase):
             "Right",
         ])
 
+        self.form.addRow(
+            "Icon",
+            self.icon_source
+        )
         self.form.addRow(
             "Path",
             self.path
@@ -51,6 +73,9 @@ class IconPropertyEditor(PropertyEditorBase):
         )
         self.add_stretch()
 
+        self.icon_source.currentIndexChanged.connect(
+            self._icon_source_changed
+        )
         self.path.textEdited.connect(
             self._control_changed
         )
@@ -64,15 +89,58 @@ class IconPropertyEditor(PropertyEditorBase):
             self._control_changed
         )
 
-    def load_specific(self, item):
-        self.path.setText(
-            text_type(
-                item.get(
-                    "path",
-                    ""
+    def _selected_builtin_icon(self):
+        value = self.icon_source.itemData(
+            self.icon_source.currentIndex()
+        )
+        return text_type(value or "")
+
+    def _refresh_icon_source(self):
+        icon_id = self._selected_builtin_icon()
+        current_path = text_type(
+            self.path.text()
+        )
+
+        if icon_id:
+            if not builtin_icon_id_from_path(current_path):
+                self._custom_path = current_path
+            self.path.setText(
+                builtin_icon_resource(icon_id)
+            )
+            self.path.setEnabled(False)
+        else:
+            if builtin_icon_id_from_path(current_path):
+                self.path.setText(
+                    self._custom_path
                 )
+            self.path.setEnabled(True)
+
+    def _icon_source_changed(self, *args):
+        self._refresh_icon_source()
+        self._control_changed()
+
+    def load_specific(self, item):
+        path = text_type(
+            item.get(
+                "path",
+                ""
             )
         )
+        icon_id = builtin_icon_id_from_path(path)
+
+        if icon_id:
+            self._custom_path = ""
+        else:
+            self._custom_path = path
+
+        self.path.setText(path)
+
+        index = self.icon_source.findData(icon_id)
+        if index < 0:
+            index = 0
+        self.icon_source.setCurrentIndex(index)
+        self._refresh_icon_source()
+
         self.width.setValue(
             int(
                 item.get(
@@ -106,8 +174,11 @@ class IconPropertyEditor(PropertyEditorBase):
         ))
 
     def write_specific(self, item):
-        item["path"] = text_type(
-            self.path.text()
+        icon_id = self._selected_builtin_icon()
+        item["path"] = (
+            builtin_icon_resource(icon_id)
+            if icon_id
+            else text_type(self.path.text())
         )
         item["width"] = clamp(
             int(

@@ -1,10 +1,21 @@
 # -*- coding: utf-8 -*-
 
-from .icons import toolbar_icon
+from .builtin_icons import builtin_icon
+from .icons import toolbar_icon as _legacy_toolbar_icon
 from .runtime_overrides import RUNTIME_OVERRIDES
 from .stylesheet import STYLE as BASE_STYLE
 
 STYLE = BASE_STYLE + RUNTIME_OVERRIDES
+
+
+def toolbar_icon(kind):
+    icon = builtin_icon(kind)
+
+    if not icon.isNull():
+        return icon
+
+    return _legacy_toolbar_icon(kind)
+
 
 __all__ = [
     "STYLE",

@@ -3,12 +3,9 @@ from __future__ import print_function
 
 from ...compat import QtCore
 from ...compat import QtGui
-from ...model.callbacks import CALLBACK_LABELS
-from ...model.callbacks import callback_events
-from ...model.callbacks import callback_script
 from ...model.items import sanitize_name
 from ...pycompat import text_type
-from ..script_editor import ScriptEditorWidget
+from .bindings import BindingPanel
 
 
 class PropertyEditorBase(QtGui.QWidget):
@@ -38,7 +35,6 @@ class PropertyEditorBase(QtGui.QWidget):
         self.item = None
         self.loading = False
         self.row_context = False
-        self.callback_editors = {}
 
         self.root_layout = QtGui.QVBoxLayout(self)
         self.root_layout.setContentsMargins(0, 0, 0, 0)
@@ -105,22 +101,13 @@ class PropertyEditorBase(QtGui.QWidget):
         self.root_layout.addWidget(self.row_group)
         self.row_group.setVisible(False)
 
-        self.callback_group = QtGui.QGroupBox("Callbacks (Python)")
-        callback_layout = QtGui.QVBoxLayout(self.callback_group)
-        callback_layout.setContentsMargins(6, 6, 6, 6)
-        callback_layout.setSpacing(4)
-
-        callback_hint = QtGui.QLabel(
-            "Namespace: toolbox, item, value, old_value, event, host."
+        self.binding_panel = BindingPanel(
+            toolbox=self.toolbox,
+            parent=self
         )
-        callback_hint.setObjectName("HintText")
-        callback_hint.setWordWrap(True)
-        callback_layout.addWidget(callback_hint)
-
-        self.callback_tabs = QtGui.QTabWidget()
-        callback_layout.addWidget(self.callback_tabs, 1)
-        self.root_layout.addWidget(self.callback_group)
-        self.callback_group.setVisible(False)
+        self.root_layout.addWidget(
+            self.binding_panel
+        )
 
         self.name_edit.textEdited.connect(self._control_changed)
         self.label_edit.textEdited.connect(self._control_changed)
@@ -132,6 +119,9 @@ class PropertyEditorBase(QtGui.QWidget):
         self.row_width.valueChanged.connect(self._control_changed)
         self.row_stretch.valueChanged.connect(self._control_changed)
         self.row_alignment.currentIndexChanged.connect(
+            self._control_changed
+        )
+        self.binding_panel.changed.connect(
             self._control_changed
         )
 
@@ -160,61 +150,6 @@ class PropertyEditorBase(QtGui.QWidget):
     def _row_layout_changed(self, *args):
         self._refresh_row_layout_controls()
         self._control_changed()
-
-    def _clear_callback_editors(self):
-        while self.callback_tabs.count():
-            widget = self.callback_tabs.widget(0)
-            self.callback_tabs.removeTab(0)
-            if widget is not None:
-                widget.deleteLater()
-        self.callback_editors = {}
-
-    def _load_callbacks(self, item):
-        self._clear_callback_editors()
-        events = callback_events(
-            item.get("kind")
-        )
-        self.callback_group.setVisible(
-            bool(events)
-        )
-
-        for event in events:
-            editor = ScriptEditorWidget(
-                language="python",
-                toolbox=self.toolbox
-            )
-            editor.setMinimumHeight(105)
-            editor.setPlainText(
-                callback_script(item, event)
-            )
-            try:
-                editor.run_button.setEnabled(False)
-                editor.run_button.setToolTip(
-                    "Runs automatically for the {0} event".format(
-                        event
-                    )
-                )
-            except Exception:
-                pass
-            editor.textChanged.connect(
-                self._control_changed
-            )
-            self.callback_editors[event] = editor
-            self.callback_tabs.addTab(
-                editor,
-                CALLBACK_LABELS.get(event, event)
-            )
-
-    def _write_callbacks(self, item):
-        callbacks = {}
-        for event, editor in self.callback_editors.items():
-            source = text_type(
-                editor.toPlainText()
-            )
-            if source.strip():
-                callbacks[event] = source
-        item["callbacks"] = callbacks
-        item.pop("on_change_script", None)
 
     def add_stretch(self):
         self.root_layout.addStretch(1)
@@ -260,11 +195,21 @@ class PropertyEditorBase(QtGui.QWidget):
                 "right": 2,
             }.get(item.get("row_alignment", "left"), 0))
 
-            self._load_callbacks(item)
+            self.binding_panel.load(item)
             self.load_specific(item)
         finally:
             self.loading = False
             self._refresh_row_layout_controls()
+
+    def refresh_binding_panel(self):
+        if self.item is None:
+            return
+        previous = self.loading
+        self.loading = True
+        try:
+            self.binding_panel.load(self.item)
+        finally:
+            self.loading = previous
 
     def load_specific(self, item):
         pass
@@ -317,7 +262,7 @@ class PropertyEditorBase(QtGui.QWidget):
             )
 
         self.write_specific(self.item)
-        self._write_callbacks(self.item)
+        self.binding_panel.write_to_item(self.item)
 
     def _control_changed(self, *args):
         if self.loading:
@@ -328,7 +273,6 @@ class PropertyEditorBase(QtGui.QWidget):
 
 
 class ValuePropertyEditorBase(PropertyEditorBase):
-    """Compatibility base for value editors; callbacks now live in base."""
 
     def __init__(self, toolbox=None, parent=None):
         PropertyEditorBase.__init__(self, toolbox, parent)

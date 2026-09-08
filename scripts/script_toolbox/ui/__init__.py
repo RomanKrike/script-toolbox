@@ -10,6 +10,8 @@ from .editor_view_state import build_editor_view_state_class
 from .layout_editor_adapter import build_layout_editor_class
 from .layout_context import install_layout_property_context
 from .interface_tree import ExistingInterfaceTree
+from .property_pane_style import install_property_pane_style
+from .properties.base import PropertyEditorBase
 
 
 def _install_controls_v2_palette(editor_class):
@@ -70,6 +72,10 @@ InterfaceEditor = build_interface_editor_class(
 )
 InterfaceEditor = build_editor_view_state_class(
     InterfaceEditor
+)
+install_property_pane_style(
+    InterfaceEditor,
+    PropertyEditorBase
 )
 
 # Keep direct imports from script_toolbox.ui.interface_editor compatible while

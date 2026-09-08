@@ -53,11 +53,17 @@ install_runtime_renderer_registry(
 )
 
 from .main_window import ScriptToolbox
+from .controls_v2_hooks import install_controls_v2_hooks
 from .script_editor import ScriptEditorWidget
 from .runtime import DisplayField
 from .runtime import RuntimeFolder
 from .runtime import RuntimeFolderRadio
 from .runtime import RuntimeFolderTabs
+
+install_controls_v2_hooks(
+    _runtime_module,
+    ScriptToolbox
+)
 
 __all__ = [
     "CodeEditor",

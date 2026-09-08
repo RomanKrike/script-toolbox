@@ -6,7 +6,6 @@ import sys
 import token as token_module
 import tokenize
 
-from ..model.callbacks import callback_events
 from ..pycompat import StringIO
 from ..pycompat import text_type
 
@@ -26,11 +25,6 @@ REFERENCE_METHODS = set([
     "clear_field",
     "field_scene_objects",
     "select_field_objects",
-])
-
-_ALWAYS_PYTHON_SCRIPT_KEYS = set([
-    "on_change_script",
-    "state_get_script",
 ])
 
 _SKIP_TOKEN_TYPES = set([
@@ -140,13 +134,7 @@ def _tokens(source):
 
 
 def rewrite_python_references(source, replacements):
-    """Rewrite literal Script Toolbox API keys without changing other text.
-
-    Only a literal first argument on calls such as
-    ``toolbox.get_value("name")`` is considered a managed reference. Plain
-    strings, comments, variables and calls on unrelated objects are left
-    untouched.
-    """
+    """Rewrite literal Script Toolbox API keys without changing other text."""
     source = text_type(source or "")
     normalized = {}
 
@@ -244,7 +232,6 @@ def rewrite_python_references(source, replacements):
 def python_script_keys(item):
     """Return flat item payload keys whose contents are Python scripts."""
     kind = text_type(item.get("kind", ""))
-    language = text_type(item.get("language", "python")).lower()
     result = []
 
     for key in item.keys():
@@ -252,24 +239,54 @@ def python_script_keys(item):
         if not key_text.endswith("_script"):
             continue
 
-        if key_text in _ALWAYS_PYTHON_SCRIPT_KEYS:
+        if key_text == "state_get_script":
             result.append(key)
-        elif kind != "button" or language == "python":
+            continue
+
+        if key_text == "state_on_script":
+            if text_type(
+                item.get("state_on_language", "python")
+            ).lower() == "python":
+                result.append(key)
+            continue
+
+        if key_text == "state_off_script":
+            if text_type(
+                item.get("state_off_language", "python")
+            ).lower() == "python":
+                result.append(key)
+            continue
+
+        # Compatibility for direct legacy payloads before normalization.
+        language = text_type(
+            item.get("language", "python")
+        ).lower()
+        if kind != "button" or language == "python":
             result.append(key)
 
     return result
 
 
-def callback_script_keys(item):
-    """Return callback event keys that currently contain Python code."""
-    callbacks = item.get("callbacks")
-    if not isinstance(callbacks, dict):
-        return []
-
+def binding_script_indexes(item):
     result = []
-    for event in callback_events(item.get("kind")):
-        if text_type(callbacks.get(event) or "").strip():
-            result.append(event)
+
+    for index, binding in enumerate(
+        item.get("bindings", []) or []
+    ):
+        if not isinstance(binding, dict):
+            continue
+        if binding.get("handler", "script") != "script":
+            continue
+        if text_type(
+            binding.get("language", "python")
+        ).lower() != "python":
+            continue
+        if not text_type(
+            binding.get("script") or ""
+        ).strip():
+            continue
+        result.append(index)
+
     return result
 
 
@@ -287,10 +304,27 @@ def rewrite_item_references(item, replacements):
         item[key] = rewritten
         changed = True
 
+    bindings = item.get("bindings")
+    if isinstance(bindings, list):
+        for index in binding_script_indexes(item):
+            binding = bindings[index]
+            source = text_type(
+                binding.get("script") or ""
+            )
+            rewritten = rewrite_python_references(
+                source,
+                replacements
+            )
+            if rewritten == source:
+                continue
+            binding["script"] = rewritten
+            changed = True
+
+    # Compatibility for schema-17 objects passed directly to editor helpers.
     callbacks = item.get("callbacks")
     if isinstance(callbacks, dict):
-        for event in callback_script_keys(item):
-            source = text_type(callbacks.get(event) or "")
+        for event, source in list(callbacks.items()):
+            source = text_type(source or "")
             rewritten = rewrite_python_references(
                 source,
                 replacements
@@ -344,7 +378,7 @@ def rewrite_document_references(document, replacements):
 
 __all__ = [
     "REFERENCE_METHODS",
-    "callback_script_keys",
+    "binding_script_indexes",
     "python_script_keys",
     "rewrite_document_references",
     "rewrite_item_references",

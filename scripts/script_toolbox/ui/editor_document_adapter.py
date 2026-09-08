@@ -5,6 +5,7 @@ from ..compat import QtGui
 from ..core.editor_commands import CommandHistory
 from ..core.editor_commands import DocumentCapture
 from ..core.editor_commands import ItemStateCommand
+from ..core.editor_commands import ItemsStateCommand
 from ..core.editor_commands import build_document_delta
 from ..core.editor_document import EditorDocumentController
 from ..model import normalize_document
@@ -148,6 +149,64 @@ def build_interface_editor_class(base_class):
                 self.document_controller.item_state(item)
             )
 
+        def _linked_rename_command(
+            self,
+            item_id,
+            before,
+            old_name,
+            new_name
+        ):
+            """Apply a name remap and capture only items changed by the link."""
+            states_before = {}
+            for candidate_id, candidate in self.document_controller.item_cache.items():
+                states_before[candidate_id] = (
+                    self.document_controller.item_state(candidate)
+                )
+
+            # The selected item has already been edited by the property widget.
+            # Restore its true pre-edit state in the command's before side.
+            states_before[item_id] = before
+
+            changed_reference_ids = (
+                self.document_controller.rename_item_references(
+                    item_id,
+                    old_name,
+                    new_name
+                )
+            )
+
+            changed_before = {}
+            changed_after = {}
+            for candidate_id, before_state in states_before.items():
+                candidate = self.document_controller.find_by_id(
+                    candidate_id
+                )
+                if candidate is None:
+                    continue
+
+                after_state = self.document_controller.item_state(
+                    candidate
+                )
+                if before_state == after_state:
+                    continue
+
+                changed_before[candidate_id] = before_state
+                changed_after[candidate_id] = after_state
+
+            if not changed_before:
+                return None, changed_reference_ids
+
+            return (
+                ItemsStateCommand(
+                    changed_before,
+                    changed_after,
+                    label="Rename Parameter",
+                    selection_before=item_id,
+                    selection_after=item_id
+                ),
+                changed_reference_ids
+            )
+
         def schedule_history(self):
             if self._history_restoring:
                 return
@@ -199,17 +258,46 @@ def build_interface_editor_class(base_class):
 
             after = self.document_controller.item_state(item)
             if before != after:
-                command = ItemStateCommand(
-                    item_id,
-                    before,
-                    after,
-                    label="Edit Parameter",
-                    selection_before=item_id,
-                    selection_after=item_id
-                )
+                old_name = text_type(before.get("name", ""))
+                new_name = text_type(after.get("name", ""))
+                changed_reference_ids = set()
+
+                if old_name and new_name and old_name != new_name:
+                    command, changed_reference_ids = (
+                        self._linked_rename_command(
+                            item_id,
+                            before,
+                            old_name,
+                            new_name
+                        )
+                    )
+                else:
+                    command = ItemStateCommand(
+                        item_id,
+                        before,
+                        after,
+                        label="Edit Parameter",
+                        selection_before=item_id,
+                        selection_after=item_id
+                    )
+
                 self.command_history.push_applied(command)
 
-            self._pending_property_before = after
+                # A self-reference can change the selected item's script text.
+                # Rebind so the visible editor cannot later write stale text
+                # back over the remapped payload.
+                if (
+                    item_id in changed_reference_ids and
+                    self.current_property_editor is not None
+                ):
+                    try:
+                        self.current_property_editor.bind(item)
+                    except Exception:
+                        pass
+
+            self._pending_property_before = (
+                self.document_controller.item_state(item)
+            )
 
         def _restore_command_ui(self, command, is_undo):
             target_id = (

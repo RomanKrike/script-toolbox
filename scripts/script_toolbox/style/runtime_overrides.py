@@ -12,6 +12,19 @@ QToolTip {
     padding: 0px;
 }
 
+/* Keep Parameter Description on the same surface as the main dialog. The
+   base theme historically used #303030 here, which reads as a light slab
+   against the #292929 editor window. Explicit palette fallbacks are installed
+   separately for Maya 2015 / Qt4, where viewport QSS is not reliable. */
+QWidget#PropertyPane,
+QScrollArea#PropertyScroll,
+QWidget#PropertyViewport,
+QWidget#PropertyHost,
+QWidget#PropertyEditor {
+    background-color: #292929;
+    border: 0px;
+}
+
 QFrame#RuntimeSeparatorLine {
     background-color: transparent;
     border: 0px;

@@ -3,7 +3,6 @@ from __future__ import print_function
 
 import copy
 
-from ..model import normalize_document
 from ..model import walk_items
 from ..model.items import new_id
 from ..model.items import sanitize_name
@@ -26,19 +25,11 @@ class EditorDocumentController(object):
     def item_cache(self):
         return self._item_cache
 
-    def replace(
-        self,
-        document,
-        normalize=False,
-        copy_document=True
-    ):
+    def replace(self, document, copy_document=True):
         candidate = document if isinstance(document, dict) else {}
 
         if copy_document:
             candidate = copy.deepcopy(candidate)
-
-        if normalize:
-            candidate = normalize_document(candidate)
 
         self._document = candidate
         self.rebuild_index()
@@ -48,7 +39,6 @@ class EditorDocumentController(object):
         """Adopt an internally assembled staged document without copying it."""
         return self.replace(
             document,
-            normalize=False,
             copy_document=False
         )
 

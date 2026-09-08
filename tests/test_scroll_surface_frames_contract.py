@@ -63,22 +63,30 @@ def test_runtime_list_field_uses_plain_editor_surface_contract():
 
     assert 'registry.renderer_for("field")' in source
     assert "runtime_module.DisplayFieldList" in source
-    assert 'background="#303030"' in source
-    assert 'border="#1b1b1b"' in source
-    assert "_RUNTIME_FIELD_FRAME_STYLE" in source
-    assert "border-radius: 3px;" in source
+    assert '_apply_runtime_field_surface(control)' in source
 
-    editor_rule = base_style.split(
-        "QWidget#EditorPane {",
+    # The requested visual target is the editor's QListWidget/QTreeWidget
+    # surface (palette + Existing Interface), not the surrounding EditorPane.
+    editor_list_rule = base_style.split(
+        "QListWidget,\nQTreeWidget {",
         1
     )[1].split("}", 1)[0]
+
+    frame_rule = source.split(
+        "_RUNTIME_FIELD_FRAME_STYLE =",
+        1
+    )[1].split('"""', 2)[1]
+
     for token in (
-        "background-color: #303030;",
-        "border: 1px solid #1b1b1b;",
-        "border-radius: 3px;",
+        "background-color: #242424;",
+        "border: 1px solid #161616;",
+        "border-radius: 2px;",
     ):
-        assert token in editor_rule
-        assert token in source
+        assert token in editor_list_rule
+        assert token in frame_rule
+
+    assert 'background="#242424"' in source
+    assert 'border="#161616"' in source
 
     runtime_rule = style.split(
         "QListWidget#RuntimeFieldList {",
@@ -106,6 +114,18 @@ def test_runtime_list_field_uses_plain_editor_surface_contract():
     )[1].split("}", 1)[0]
     assert "background-color: #68462c;" in selected_rule
     assert "color: #ffffff;" in selected_rule
+
+    # Maya can keep the reparented QListWidget viewport on the host palette.
+    # The runtime hook therefore applies the same surface directly and carries
+    # a QPalette fallback for the background and orange selection.
+    assert "_RUNTIME_FIELD_LIST_STYLE" in source
+    assert "control.setStyleSheet(" in source
+    assert "QtGui.QPalette.Base" in source
+    assert "QtGui.QPalette.AlternateBase" in source
+    assert 'QtGui.QColor("#242424")' in source
+    assert "QtGui.QPalette.Highlight" in source
+    assert 'QtGui.QColor("#68462c")' in source
+    assert "viewport.setAutoFillBackground(True)" in source
 
 
 def test_runtime_folder_pane_override_is_removed():

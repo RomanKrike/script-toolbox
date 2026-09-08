@@ -16,11 +16,37 @@ QFrame#ScrollSurfaceFrame {
 }
 """
 
+# Runtime Field should match the actual editor list/tree surface, not the
+# surrounding EditorPane container.  The list stays frameless because the
+# external ScrollSurfaceFrame owns the visible outline in Maya/Qt4.
 _RUNTIME_FIELD_FRAME_STYLE = """
 QFrame#ScrollSurfaceFrame {
-    background-color: #303030;
-    border: 1px solid #1b1b1b;
-    border-radius: 3px;
+    background-color: #242424;
+    border: 1px solid #161616;
+    border-radius: 2px;
+}
+"""
+
+_RUNTIME_FIELD_LIST_STYLE = """
+QListWidget#RuntimeFieldList {
+    background-color: #242424;
+    alternate-background-color: #242424;
+    color: #d4d4d4;
+    border: 0px;
+    border-radius: 0px;
+    outline: 0px;
+    padding: 0px;
+}
+
+QListWidget#RuntimeFieldList::item {
+    min-height: 20px;
+    padding: 3px 4px;
+    border: 0px;
+}
+
+QListWidget#RuntimeFieldList::item:selected {
+    background-color: #68462c;
+    color: #ffffff;
 }
 """
 
@@ -44,6 +70,58 @@ QFrame#ScrollSurfaceFrame {
         background,
         border
     )
+
+
+def _apply_runtime_field_surface(control):
+    """Apply the editor list surface directly to a runtime Field.
+
+    The top-level toolbox stylesheet is inherited through Maya's host widget
+    hierarchy.  Some Qt4/Qt5 builds do not reliably repaint the viewport of a
+    QListWidget after it is reparented into ScrollSurfaceFrame, so keep a
+    local QSS plus palette fallback on the concrete Field control.
+    """
+    if control is None:
+        return
+
+    try:
+        existing = control.styleSheet() or ""
+        if _RUNTIME_FIELD_LIST_STYLE not in existing:
+            control.setStyleSheet(
+                existing + "\n" + _RUNTIME_FIELD_LIST_STYLE
+            )
+    except Exception:
+        pass
+
+    try:
+        palette = control.palette()
+        palette.setColor(
+            QtGui.QPalette.Base,
+            QtGui.QColor("#242424")
+        )
+        palette.setColor(
+            QtGui.QPalette.AlternateBase,
+            QtGui.QColor("#242424")
+        )
+        palette.setColor(
+            QtGui.QPalette.Text,
+            QtGui.QColor("#d4d4d4")
+        )
+        palette.setColor(
+            QtGui.QPalette.Highlight,
+            QtGui.QColor("#68462c")
+        )
+        palette.setColor(
+            QtGui.QPalette.HighlightedText,
+            QtGui.QColor("#ffffff")
+        )
+        control.setPalette(palette)
+
+        viewport = control.viewport()
+        if viewport is not None:
+            viewport.setPalette(palette)
+            viewport.setAutoFillBackground(True)
+    except Exception:
+        pass
 
 
 def _bounded_maximum(value):
@@ -318,10 +396,12 @@ def install_runtime_scroll_frames(registry, runtime_module):
             control is not None and
             isinstance(control, runtime_module.DisplayFieldList)
         ):
+            _apply_runtime_field_surface(control)
+
             frame = wrap_scroll_widget(
                 control,
-                background="#303030",
-                border="#1b1b1b"
+                background="#242424",
+                border="#161616"
             )
             if frame is not None:
                 frame.setStyleSheet(

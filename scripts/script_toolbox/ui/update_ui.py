@@ -2,7 +2,7 @@
 from __future__ import print_function
 
 from ..compat import QtCore
-from ..core.updater import check_for_update
+from ..core.update_channels import check_for_update
 from ..core.update_transaction import install_release
 
 
@@ -12,9 +12,23 @@ class UpdateCheckThread(QtCore.QThread):
         object
     )
 
+    def __init__(
+        self,
+        parent=None,
+        channel="stable"
+    ):
+        QtCore.QThread.__init__(
+            self,
+            parent
+        )
+
+        self.channel = channel
+
     def run(self):
         self.completed.emit(
-            check_for_update()
+            check_for_update(
+                channel=self.channel
+            )
         )
 
 

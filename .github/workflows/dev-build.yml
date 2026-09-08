@@ -1,0 +1,231 @@
+name: Development build
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: script-toolbox-development
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.ref == 'refs/heads/dev'
+    uses: ./.github/workflows/python-checks.yml
+
+  publish:
+    name: Publish dev-latest
+    if: github.ref == 'refs/heads/dev'
+    needs:
+      - checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Resolve development version
+        id: version
+        shell: bash
+        run: |
+          BASE_VERSION=$(python - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path("scripts/script_toolbox/constants.py").read_text(
+              encoding="utf-8"
+          )
+          match = re.search(
+              r'^PLUGIN_VERSION\s*=\s*"([^"]+)"',
+              text,
+              re.M,
+          )
+          if not match:
+              raise SystemExit("PLUGIN_VERSION not found")
+          print(match.group(1).split("-", 1)[0])
+          PY
+          )
+
+          DEV_VERSION="${BASE_VERSION}-dev.${GITHUB_RUN_NUMBER}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+
+          echo "base=$BASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "dev=$DEV_VERSION" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp development build metadata
+        env:
+          DEV_VERSION: ${{ steps.version.outputs.dev }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          BUILD_COMMIT: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path("scripts/script_toolbox/constants.py")
+          text = path.read_text(encoding="utf-8")
+
+          replacements = (
+              (
+                  r'^PLUGIN_VERSION\s*=\s*"[^"]*"',
+                  'PLUGIN_VERSION = "{0}"'.format(
+                      os.environ["DEV_VERSION"]
+                  ),
+              ),
+              (
+                  r'^BUILD_CHANNEL\s*=\s*"[^"]*"',
+                  'BUILD_CHANNEL = "development"',
+              ),
+              (
+                  r'^BUILD_NUMBER\s*=\s*\d+',
+                  'BUILD_NUMBER = {0}'.format(
+                      int(os.environ["BUILD_NUMBER"])
+                  ),
+              ),
+              (
+                  r'^BUILD_COMMIT\s*=\s*"[^"]*"',
+                  'BUILD_COMMIT = "{0}"'.format(
+                      os.environ["BUILD_COMMIT"]
+                  ),
+              ),
+          )
+
+          for pattern, replacement in replacements:
+              text, count = re.subn(
+                  pattern,
+                  replacement,
+                  text,
+                  count=1,
+                  flags=re.M,
+              )
+              if count != 1:
+                  raise SystemExit(
+                      "Could not stamp constants pattern: {0}".format(
+                          pattern
+                      )
+                  )
+
+          path.write_text(
+              text,
+              encoding="utf-8"
+          )
+          PY
+
+      - name: Build development package
+        env:
+          DEV_VERSION: ${{ steps.version.outputs.dev }}
+        run: |
+          python tools/build_release.py \
+            --output dist-dev \
+            --version "$DEV_VERSION"
+
+          mv \
+            "dist-dev/script-toolbox-$DEV_VERSION.zip" \
+            "dist-dev/script-toolbox-dev.zip"
+
+          SHA256=$(sha256sum \
+            "dist-dev/script-toolbox-dev.zip" |
+            awk '{print $1}')
+
+          printf "%s  script-toolbox-dev.zip\n" \
+            "$SHA256" \
+            > "dist-dev/script-toolbox-dev.zip.sha256"
+
+          rm -f \
+            "dist-dev/script-toolbox-$DEV_VERSION.zip.sha256"
+
+      - name: Write development manifest
+        env:
+          DEV_VERSION: ${{ steps.version.outputs.dev }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          BUILD_COMMIT: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime
+          from datetime import timezone
+          from pathlib import Path
+
+          manifest = {
+              "channel": "development",
+              "version": os.environ["DEV_VERSION"],
+              "build_number": int(
+                  os.environ["BUILD_NUMBER"]
+              ),
+              "commit": os.environ["BUILD_COMMIT"],
+              "published_at": datetime.now(
+                  timezone.utc
+              ).isoformat(),
+          }
+
+          Path(
+              "dist-dev/dev-manifest.json"
+          ).write_text(
+              json.dumps(
+                  manifest,
+                  indent=2,
+                  sort_keys=True
+              ) + "\n",
+              encoding="utf-8"
+          )
+          PY
+
+      - name: Move dev-latest tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag -f dev-latest "$GITHUB_SHA"
+          git push origin refs/tags/dev-latest --force
+
+      - name: Publish development prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEV_VERSION: ${{ steps.version.outputs.dev }}
+          SHORT_SHA: ${{ steps.version.outputs.short_sha }}
+        run: |
+          TITLE="Script Toolbox Development $DEV_VERSION"
+          NOTES="Automated Development build from dev (${SHORT_SHA})."
+
+          if gh release view dev-latest >/dev/null 2>&1; then
+            gh release upload dev-latest \
+              dist-dev/script-toolbox-dev.zip \
+              dist-dev/script-toolbox-dev.zip.sha256 \
+              dist-dev/dev-manifest.json \
+              --clobber
+
+            gh release edit dev-latest \
+              --prerelease \
+              --title "$TITLE" \
+              --notes "$NOTES"
+          else
+            gh release create dev-latest \
+              dist-dev/script-toolbox-dev.zip \
+              dist-dev/script-toolbox-dev.zip.sha256 \
+              dist-dev/dev-manifest.json \
+              --prerelease \
+              --title "$TITLE" \
+              --notes "$NOTES"
+          fi
+
+      - name: Development build summary
+        run: |
+          echo "### Script Toolbox Development" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version: \`${{ steps.version.outputs.dev }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit: \`${{ steps.version.outputs.short_sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Release tag: \`dev-latest\`" >> "$GITHUB_STEP_SUMMARY"

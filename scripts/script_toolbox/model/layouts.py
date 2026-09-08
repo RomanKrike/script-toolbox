@@ -96,6 +96,12 @@ def _column(data):
         "Column"
     )
 
+    # A Column is most useful as a cell inside Row. Defaulting its Row width
+    # mode to Stretch makes sibling columns share the available width without
+    # requiring extra setup; users can still choose Auto / Fixed explicitly.
+    if "row_width_mode" not in data:
+        item["row_width_mode"] = "stretch"
+
     horizontal_alignment = text_type(
         data.get("horizontal_alignment", "stretch")
     ).lower()

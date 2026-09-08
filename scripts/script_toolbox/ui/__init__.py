@@ -65,10 +65,11 @@ _editor_document_adapter_module.EditorDocumentController = (
     LayoutEditorDocumentController
 )
 
+InterfaceEditor = build_interface_editor_class(
+    _layout_editor_class
+)
 InterfaceEditor = build_editor_view_state_class(
-    build_interface_editor_class(
-        _layout_editor_class
-    )
+    InterfaceEditor
 )
 
 # Keep direct imports from script_toolbox.ui.interface_editor compatible while

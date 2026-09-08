@@ -13,7 +13,7 @@ PACKAGE_NAME = "script_toolbox"
 
 
 def show():
-    from .ui.main_window import show as _show
+    from .ui.debounced_main_window import show as _show
     return _show()
 
 
@@ -73,11 +73,10 @@ def _close_live_ui():
     except Exception:
         QtGui = None
 
-    try:
-        from .ui.main_window import close_toolbox
-        close_toolbox()
-    except Exception:
-        pass
+    # Persistence failures must abort reload instead of being swallowed. The
+    # debounced window flushes pending runtime values before it closes.
+    from .ui.debounced_main_window import close_toolbox
+    close_toolbox()
 
     if QtGui is not None:
         try:
@@ -148,12 +147,10 @@ def reload_toolbox():
 
     Close the live window first, then reload child modules from deepest names
     to shallowest names so UI classes do not keep stale module references.
+    Pending runtime config changes are flushed before any module reload starts.
     """
-    try:
-        from .ui.main_window import close_toolbox
-        close_toolbox()
-    except Exception:
-        pass
+    from .ui.debounced_main_window import close_toolbox
+    close_toolbox()
 
     prefix = "script_toolbox."
 

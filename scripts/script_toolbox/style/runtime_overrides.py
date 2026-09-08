@@ -25,6 +25,46 @@ QWidget#PropertyEditor {
     border: 0px;
 }
 
+/* A collapsible Folder is the pane-like runtime item. Match the visual
+   contract used by the Create Parameters / Existing Parameters EditorPane
+   widgets instead of framing the whole toolbox window. */
+QFrame#RuntimeFolder[folderType="collapsible"],
+QFrame#RuntimeFolder[folderType="collapsible"][nested="true"] {
+    background-color: #303030;
+    border: 1px solid #1b1b1b;
+    border-radius: 3px;
+}
+
+/* Keep the collapsible title visually inside the pane, like PaneTitle in the
+   Interface Editor, while preserving the full-width click target. */
+QFrame#RuntimeFolder[folderType="collapsible"] QPushButton#RuntimeFolderHeader,
+QFrame#RuntimeFolder[folderType="collapsible"][nested="true"] QPushButton#RuntimeFolderHeader {
+    background-color: transparent;
+    color: #e0e0e0;
+    border: 0px;
+    border-radius: 0px;
+    font-weight: bold;
+    text-align: left;
+    padding: 3px 8px 5px 8px;
+}
+
+QFrame#RuntimeFolder[folderType="collapsible"] QPushButton#RuntimeFolderHeader:hover,
+QFrame#RuntimeFolder[folderType="collapsible"][nested="true"] QPushButton#RuntimeFolderHeader:hover {
+    background-color: #353535;
+    color: #eeeeee;
+}
+
+QFrame#RuntimeFolder[folderType="collapsible"] QPushButton#RuntimeFolderHeader:pressed,
+QFrame#RuntimeFolder[folderType="collapsible"][nested="true"] QPushButton#RuntimeFolderHeader:pressed {
+    background-color: #2c2c2c;
+}
+
+QFrame#RuntimeFolder[folderType="collapsible"] QPushButton#RuntimeFolderHeader[collapsed="true"],
+QFrame#RuntimeFolder[folderType="collapsible"][nested="true"] QPushButton#RuntimeFolderHeader[collapsed="true"] {
+    background-color: transparent;
+    color: #cfcfcf;
+}
+
 QFrame#RuntimeSeparatorLine {
     background-color: transparent;
     border: 0px;

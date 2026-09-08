@@ -11,7 +11,19 @@ from ..model.items import safe_int
 from ..pycompat import text_type
 
 
-def find_item(document, key):
+def find_item(
+    document,
+    key,
+    index=None
+):
+    if index is not None:
+        index.ensure(
+            document
+        )
+        return index.find(
+            key
+        )
+
     key_text = text_type(key)
 
     items = list(
@@ -36,10 +48,16 @@ def find_item(document, key):
     return None
 
 
-def get_value(document, key, default=None):
+def get_value(
+    document,
+    key,
+    default=None,
+    index=None
+):
     item = find_item(
         document,
-        key
+        key,
+        index=index
     )
 
     if item is None or "value" not in item:
@@ -120,10 +138,16 @@ def normalize_value(item, value):
     return value
 
 
-def store_value(document, key, value):
+def store_value(
+    document,
+    key,
+    value,
+    index=None
+):
     item = find_item(
         document,
-        key
+        key,
+        index=index
     )
 
     if item is None or "value" not in item:

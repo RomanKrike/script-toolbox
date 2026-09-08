@@ -182,11 +182,13 @@ def _copy_constraints(widget, frame):
 
 
 def _fit_runtime_field_inside_frame(control, frame):
-    """Consume the frame's 1 px top/bottom margins inside fixed Field height.
+    """Keep a fixed-height Field fully inside the painted frame.
 
-    DisplayFieldList is deliberately fixed-height.  The outer frame preserves
-    that public height, so the child must give two pixels back to the frame;
-    otherwise it overflows the layout and covers the bottom border in Maya.
+    There are two independent vertical insets around the child: the QSS frame
+    border itself (1 px top + 1 px bottom) and the QVBoxLayout contents margins
+    (another 1 px top + 1 px bottom).  The previous fix only accounted for the
+    layout margins, leaving the child two pixels too tall and still able to
+    cover the bottom border in Maya.
     """
     if control is None or frame is None:
         return
@@ -204,9 +206,22 @@ def _fit_runtime_field_inside_frame(control, frame):
     ):
         return
 
+    # The runtime Field frame has a 1 px QSS border on both vertical edges.
+    # Count it explicitly rather than relying on QFrame.frameWidth(), which is
+    # not reliable for style-sheet borders on older Maya/Qt4 builds.
+    vertical_inset = 2
+
+    try:
+        margins = frame.layout().contentsMargins()
+        vertical_inset += int(margins.top())
+        vertical_inset += int(margins.bottom())
+    except Exception:
+        # _make_frame currently installs 1 px top/bottom layout margins.
+        vertical_inset += 2
+
     inner_height = max(
         1,
-        minimum_height - 2
+        minimum_height - vertical_inset
     )
 
     try:

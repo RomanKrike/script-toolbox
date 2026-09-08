@@ -71,22 +71,23 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
                 pass
 
     def _ensure_add_tab(self):
-        if (
-            self._add_tab_page is not None and
-            self.tabs.indexOf(self._add_tab_page) >= 0
-        ):
-            return
+        if self._add_tab_page is None:
+            self._add_tab_page = QtGui.QWidget(
+                self.tabs
+            )
+            self._add_tab_page.setObjectName(
+                "AddTriggerTabPage"
+            )
 
-        self._add_tab_page = QtGui.QWidget(
-            self.tabs
+        index = self.tabs.indexOf(
+            self._add_tab_page
         )
-        self._add_tab_page.setObjectName(
-            "AddTriggerTabPage"
-        )
-        index = self.tabs.addTab(
-            self._add_tab_page,
-            "+"
-        )
+        if index < 0:
+            index = self.tabs.addTab(
+                self._add_tab_page,
+                "+"
+            )
+
         self.tabs.setTabToolTip(
             index,
             "Add trigger"

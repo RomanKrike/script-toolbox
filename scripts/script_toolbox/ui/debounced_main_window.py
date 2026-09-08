@@ -5,6 +5,7 @@ from ..compat import QtCore
 from ..compat import QtGui
 from ..compat import main_window
 from ..core.config_store import ConfigStore
+from ..core.values import store_value as store_document_value
 from ..pycompat import text_type
 from . import main_window as base_main_window
 
@@ -15,8 +16,8 @@ SAVE_DEBOUNCE_MS = 500
 class ScriptToolbox(base_main_window.ScriptToolbox):
     """Runtime window with debounced persistence for value changes.
 
-    Explicit ``save()`` calls remain synchronous. Only saves requested from
-    ``store_value()`` are deferred so rapid control events coalesce into one
+    Explicit ``save()`` calls remain synchronous. Only the persistence caused
+    by ``store_value()`` is deferred so rapid control events coalesce into one
     atomic config write on the DCC main thread.
     """
 
@@ -24,7 +25,6 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         self,
         parent=None
     ):
-        self._defer_config_save = False
         self.config_store = None
         self.save_timer = None
 
@@ -55,9 +55,6 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
     # ------------------------------------------------------------------
 
     def save(self):
-        if self._defer_config_save:
-            return self.schedule_save()
-
         if self.config_store is None:
             return base_main_window.ScriptToolbox.save(
                 self
@@ -121,15 +118,30 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         key,
         value
     ):
-        self._defer_config_save = True
-        try:
-            return base_main_window.ScriptToolbox.store_value(
-                self,
-                key,
-                value
+        item = self.find_item(key)
+        old_value = self.get_value(key)
+
+        item = store_document_value(
+            self.config,
+            key,
+            value
+        )
+
+        if item is None:
+            return False
+
+        new_value = self.get_value(key)
+
+        if old_value != new_value:
+            self.schedule_save()
+            self._run_on_change(
+                item,
+                old_value,
+                new_value
             )
-        finally:
-            self._defer_config_save = False
+            self.refresh_state_buttons()
+
+        return True
 
     # ------------------------------------------------------------------
     # Lifecycle flush points

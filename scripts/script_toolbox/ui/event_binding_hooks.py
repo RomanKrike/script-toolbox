@@ -564,6 +564,30 @@ def _install_main_window(main_window_class):
                 )
         return results
 
+    def run_on_change(
+        self,
+        item,
+        old_value,
+        value
+    ):
+        results = self.dispatch_binding_event(
+            item,
+            "value_changed",
+            value=value,
+            old_value=old_value
+        )
+        concrete = [
+            result
+            for result in results
+            if result is not None
+        ]
+        if not concrete:
+            return True
+        return all(
+            getattr(result, "success", False)
+            for result in concrete
+        )
+
     def run_state_binding(
         self,
         item_or_id,
@@ -635,6 +659,7 @@ def _install_main_window(main_window_class):
         )
 
     main_window_class.dispatch_binding_event = dispatch_binding_event
+    main_window_class._run_on_change = run_on_change
     main_window_class.run_state_binding = run_state_binding
     main_window_class.run_item = run_item
 

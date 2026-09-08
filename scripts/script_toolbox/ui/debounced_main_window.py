@@ -6,18 +6,25 @@ from ..compat import QtCore
 from ..compat import QtGui
 from ..compat import main_window
 from ..core.config_store import ConfigStore
-from ..core.executor import execute_script_result
 from ..core.state_refresh import StateRefreshQueue
 from ..core.values import store_value as store_document_value
 from ..hosts.callbacks import EVENT_SELECTION_CHANGED
 from ..hosts.callbacks import HostCallbackGroup
-from ..model.callbacks import callback_script
 from ..pycompat import text_type
 from . import main_window as base_main_window
 
 
 SAVE_DEBOUNCE_MS = 500
 STATE_REFRESH_INTERVAL_MS = 100
+
+_LEGACY_CALLBACK_EVENTS = {
+    "on_change": "value_changed",
+    "on_select": "selection_changed",
+    "on_double_click": "double_click",
+    "on_click": "click",
+    "on_open": "opened",
+    "on_close": "closed",
+}
 
 
 class ScriptToolbox(base_main_window.ScriptToolbox):
@@ -34,7 +41,7 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         self.state_refresh_timer = None
         self._selection_refresh_in_progress = False
         self._rebuilding_runtime = False
-        self._callback_guard = set()
+        self._binding_guard = set()
 
         self.host_callbacks = HostCallbackGroup(
             HOST
@@ -115,7 +122,7 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         return removed
 
     # ------------------------------------------------------------------
-    # Universal item callbacks
+    # Event bindings
     # ------------------------------------------------------------------
 
     def run_item_callback(
@@ -125,57 +132,26 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         value=None,
         old_value=None
     ):
-        item = (
-            item_or_id
-            if isinstance(item_or_id, dict)
-            else self.find_item(item_or_id)
+        """Compatibility adapter for schema-17 callback call sites."""
+        mapped = _LEGACY_CALLBACK_EVENTS.get(
+            text_type(event or ""),
+            text_type(event or "")
         )
-        if item is None:
-            return None
+        mouse = mapped in ("click", "double_click")
 
-        source = callback_script(
-            item,
-            event
+        results = self.dispatch_binding_event(
+            item_or_id,
+            mapped,
+            value=value,
+            old_value=old_value,
+            mouse_button="left" if mouse else None,
+            modifiers=[] if mouse else None
         )
-        if not source.strip():
-            return None
 
-        item_id = text_type(
-            item.get("id", "")
-        )
-        event = text_type(event or "")
-        guard_key = (
-            item_id,
-            event
-        )
-        if guard_key in self._callback_guard:
-            return None
-
-        self._callback_guard.add(guard_key)
-        try:
-            return execute_script_result(
-                source,
-                language="python",
-                toolbox=self,
-                parent=self,
-                extra_namespace={
-                    "toolbox": self,
-                    "item": item,
-                    "value": value,
-                    "old_value": old_value,
-                    "event": event,
-                    "host": HOST,
-                },
-                context="callback:{0}:{1}".format(
-                    item.get("name", item_id),
-                    event
-                ),
-                notify=True
-            )
-        finally:
-            self._callback_guard.discard(
-                guard_key
-            )
+        for result in results:
+            if result is not None:
+                return result
+        return None
 
     def _run_on_change(
         self,
@@ -183,15 +159,23 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         old_value,
         value
     ):
-        result = self.run_item_callback(
+        results = self.dispatch_binding_event(
             item,
-            "on_change",
+            "value_changed",
             value=value,
             old_value=old_value
         )
-        if result is None:
+        concrete = [
+            result
+            for result in results
+            if result is not None
+        ]
+        if not concrete:
             return True
-        return bool(result.success)
+        return all(
+            getattr(result, "success", False)
+            for result in concrete
+        )
 
     # ------------------------------------------------------------------
     # Persistence

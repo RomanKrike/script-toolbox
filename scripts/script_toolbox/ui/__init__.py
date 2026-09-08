@@ -9,6 +9,7 @@ from .editor_document_adapter import build_interface_editor_class
 from .editor_view_state import build_editor_view_state_class
 from .layout_editor_adapter import build_layout_editor_class
 from .layout_context import install_layout_property_context
+from .share_hooks import build_share_interface_editor_class
 from .interface_tree import ExistingInterfaceTree
 from .property_pane_style import install_property_pane_style
 from .properties.base import PropertyEditorBase
@@ -71,6 +72,9 @@ InterfaceEditor = build_interface_editor_class(
     _layout_editor_class
 )
 InterfaceEditor = build_editor_view_state_class(
+    InterfaceEditor
+)
+InterfaceEditor = build_share_interface_editor_class(
     InterfaceEditor
 )
 install_property_pane_style(

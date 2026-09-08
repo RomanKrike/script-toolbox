@@ -1,14 +1,22 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+import os
+
+from ..compat import QtCore
 from ..compat import QtGui
 from ..core.runtime_registry import RuntimeRendererRegistry
+from ..model.callbacks import has_callback
 from ..model.items import create_item
+from ..model.items import safe_component_labels
+from ..model.items import safe_numeric_size
 from ..pycompat import text_type
 
 
 _INSTALL_MARKER = "_script_toolbox_runtime_registry_installed"
 _LEGACY_BUILD = "_script_toolbox_legacy_build_runtime_widget"
+_LEGACY_TOGGLE = "_script_toolbox_legacy_toggle"
+_LEGACY_FIELD_DOUBLE_CLICK = "_script_toolbox_legacy_field_double_click"
 _RUNTIME_MODULE = "_script_toolbox_runtime_module"
 _ACTIVE_REGISTRY = None
 
@@ -18,6 +26,36 @@ def _runtime_module(owner):
         owner.__class__,
         _RUNTIME_MODULE,
         None
+    )
+
+
+def _expanded_path(value):
+    return os.path.expanduser(
+        os.path.expandvars(
+            text_type(value or "")
+        )
+    )
+
+
+def _invoke_callback(
+    toolbox,
+    item,
+    event,
+    value=None,
+    old_value=None
+):
+    callback = getattr(
+        toolbox,
+        "run_item_callback",
+        None
+    )
+    if callback is None:
+        return None
+    return callback(
+        item,
+        event,
+        value=value,
+        old_value=old_value
     )
 
 
@@ -38,7 +76,102 @@ def _render_row(owner, item, compact=False):
 
 
 def _render_button(owner, item, compact=False):
-    return owner._button_widget(item)
+    button = owner._button_widget(item)
+    icon_path = _expanded_path(
+        item.get("icon_path")
+    )
+    icon_size = int(
+        item.get("icon_size", 18)
+    )
+
+    if icon_path:
+        button.setIcon(
+            QtGui.QIcon(icon_path)
+        )
+        button.setIconSize(
+            QtCore.QSize(
+                icon_size,
+                icon_size
+            )
+        )
+
+    if item.get("icon_only", False):
+        button.setText("")
+
+    button.clicked.connect(
+        lambda checked=False, current=item:
+        _invoke_callback(
+            owner.toolbox,
+            current,
+            "on_click"
+        )
+    )
+    return button
+
+
+def _render_icon(owner, item, compact=False):
+    width = int(item.get("width", 24))
+    height = int(item.get("height", 24))
+    path = _expanded_path(item.get("path"))
+    clickable = bool(item.get("clickable", False))
+
+    if clickable:
+        icon_widget = QtGui.QToolButton()
+        icon_widget.setAutoRaise(True)
+        icon_widget.setFixedSize(width, height)
+        icon_widget.setIconSize(
+            QtCore.QSize(width, height)
+        )
+        if path:
+            icon_widget.setIcon(
+                QtGui.QIcon(path)
+            )
+        else:
+            icon_widget.setText("?")
+        icon_widget.clicked.connect(
+            lambda checked=False, current=item:
+            _invoke_callback(
+                owner.toolbox,
+                current,
+                "on_click"
+            )
+        )
+    else:
+        icon_widget = QtGui.QLabel()
+        icon_widget.setFixedSize(width, height)
+        icon_widget.setAlignment(
+            QtCore.Qt.AlignCenter
+        )
+        pixmap = QtGui.QPixmap(path) if path else QtGui.QPixmap()
+        if not pixmap.isNull():
+            icon_widget.setPixmap(
+                pixmap.scaled(
+                    width,
+                    height,
+                    QtCore.Qt.KeepAspectRatio,
+                    QtCore.Qt.SmoothTransformation
+                )
+            )
+        else:
+            icon_widget.setText("?")
+
+    icon_widget.setToolTip(
+        item.get("tooltip", "")
+    )
+
+    container = QtGui.QWidget()
+    layout = QtGui.QHBoxLayout(container)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(0)
+    alignment = item.get("alignment", "left")
+
+    if alignment in ("center", "right"):
+        layout.addStretch(1)
+    layout.addWidget(icon_widget, 0, QtCore.Qt.AlignVCenter)
+    if alignment == "center":
+        layout.addStretch(1)
+
+    return container
 
 
 def _render_toggle(owner, item, compact=False):
@@ -56,6 +189,36 @@ def _render_checkbox(owner, item, compact=False):
     return owner._checkbox_widget(
         item,
         compact=compact
+    )
+
+
+def _field_selection_changed(toolbox, item, control):
+    value = control.selected_values()
+    old_value = getattr(
+        control,
+        "_script_toolbox_callback_selection",
+        []
+    )
+    if old_value == value:
+        return
+    control._script_toolbox_callback_selection = list(value)
+    _invoke_callback(
+        toolbox,
+        item,
+        "on_select",
+        value=value,
+        old_value=old_value
+    )
+
+
+def _field_double_clicked(toolbox, item, control):
+    values = control.selected_values()
+    _invoke_callback(
+        toolbox,
+        item,
+        "on_double_click",
+        value=values,
+        old_value=None
     )
 
 
@@ -97,13 +260,50 @@ def _render_field(owner, item, compact=False):
         control
     )
 
+    if list_mode:
+        control._script_toolbox_callback_selection = list(
+            control.selected_values()
+        )
+        control.itemSelectionChanged.connect(
+            lambda current=item, widget=control:
+            _field_selection_changed(
+                owner.toolbox,
+                current,
+                widget
+            )
+        )
+        control.itemDoubleClicked.connect(
+            lambda entry, current=item, widget=control:
+            _field_double_clicked(
+                owner.toolbox,
+                current,
+                widget
+            )
+        )
+
     return container
 
 
 def _render_label(owner, item, compact=False):
-    label = QtGui.QLabel(
-        owner._label(item)
-    )
+    if has_callback(item, "on_click"):
+        label = QtGui.QToolButton()
+        label.setAutoRaise(True)
+        label.setText(
+            owner._label(item)
+        )
+        label.clicked.connect(
+            lambda checked=False, current=item:
+            _invoke_callback(
+                owner.toolbox,
+                current,
+                "on_click"
+            )
+        )
+    else:
+        label = QtGui.QLabel(
+            owner._label(item)
+        )
+
     label.setToolTip(
         owner._tooltip(item)
     )
@@ -151,71 +351,197 @@ def _render_string(owner, item, compact=False):
     return container
 
 
-def _render_integer(owner, item, compact=False):
+def _numeric_values(item, size):
+    value = item.get("value", 0)
+    if isinstance(value, (list, tuple)):
+        values = list(value)
+    else:
+        values = [value] * size
+    while len(values) < size:
+        values.append(0)
+    return values[:size]
+
+
+def _float_slider_position(value, minimum, maximum):
+    if maximum <= minimum:
+        return 0
+    ratio = (float(value) - minimum) / float(maximum - minimum)
+    return max(0, min(10000, int(round(ratio * 10000.0))))
+
+
+def _float_slider_value(position, minimum, maximum):
+    if maximum <= minimum:
+        return minimum
+    return minimum + (
+        (float(position) / 10000.0) *
+        (maximum - minimum)
+    )
+
+
+def _render_numeric(owner, item, compact=False, is_float=False):
     container, layout = owner._parameter_container(
         item,
         compact=compact
     )
-    control = QtGui.QSpinBox()
-    control.setRange(
-        item["min"],
-        item["max"]
+    size = safe_numeric_size(
+        item.get("size", 1)
     )
-    control.setSingleStep(
-        item["step"]
+    values = _numeric_values(item, size)
+    labels = safe_component_labels(
+        item.get("component_labels"),
+        size
     )
-    control.setValue(
-        item["value"]
+    show_slider = bool(
+        item.get("show_slider", False)
     )
+    minimum = item["min"]
+    maximum = item["max"]
 
-    control.valueChanged.connect(
-        lambda value, item_id=item["id"]:
+    control_root = QtGui.QWidget()
+    if show_slider and size > 1:
+        control_layout = QtGui.QVBoxLayout(control_root)
+    else:
+        control_layout = QtGui.QHBoxLayout(control_root)
+    control_layout.setContentsMargins(0, 0, 0, 0)
+    control_layout.setSpacing(4)
+
+    spins = []
+    sliders = []
+
+    for index in range(size):
+        target_layout = control_layout
+        if show_slider and size > 1:
+            line = QtGui.QWidget()
+            line_layout = QtGui.QHBoxLayout(line)
+            line_layout.setContentsMargins(0, 0, 0, 0)
+            line_layout.setSpacing(4)
+            control_layout.addWidget(line)
+            target_layout = line_layout
+
+        if size > 1:
+            component_label = QtGui.QLabel(
+                labels[index]
+            )
+            component_label.setMinimumWidth(14)
+            target_layout.addWidget(component_label)
+
+        if is_float:
+            spin = QtGui.QDoubleSpinBox()
+            spin.setDecimals(item["decimals"])
+            spin.setRange(minimum, maximum)
+            spin.setSingleStep(item["step"])
+            spin.setValue(float(values[index]))
+        else:
+            spin = QtGui.QSpinBox()
+            spin.setRange(minimum, maximum)
+            spin.setSingleStep(item["step"])
+            spin.setValue(int(values[index]))
+
+        spins.append(spin)
+        target_layout.addWidget(spin, 0)
+
+        slider = None
+        if show_slider:
+            slider = QtGui.QSlider(QtCore.Qt.Horizontal)
+            if is_float:
+                slider.setRange(0, 10000)
+                slider.setValue(
+                    _float_slider_position(
+                        values[index],
+                        minimum,
+                        maximum
+                    )
+                )
+            else:
+                slider.setRange(int(minimum), int(maximum))
+                slider.setSingleStep(int(item["step"]))
+                slider.setValue(int(values[index]))
+            target_layout.addWidget(slider, 1)
+        sliders.append(slider)
+
+    def store_current():
+        result = []
+        for spin in spins:
+            result.append(
+                float(spin.value())
+                if is_float
+                else int(spin.value())
+            )
         owner.toolbox.store_value(
-            item_id,
-            int(value)
+            item["id"],
+            result[0] if size == 1 else result
         )
-    )
+
+    for index, spin in enumerate(spins):
+        slider = sliders[index]
+
+        def spin_changed(
+            value,
+            current_slider=slider
+        ):
+            if current_slider is not None:
+                current_slider.blockSignals(True)
+                try:
+                    if is_float:
+                        current_slider.setValue(
+                            _float_slider_position(
+                                value,
+                                minimum,
+                                maximum
+                            )
+                        )
+                    else:
+                        current_slider.setValue(int(value))
+                finally:
+                    current_slider.blockSignals(False)
+            store_current()
+
+        spin.valueChanged.connect(spin_changed)
+
+        if slider is not None:
+            def slider_changed(
+                position,
+                current_spin=spin
+            ):
+                if is_float:
+                    current_spin.setValue(
+                        _float_slider_value(
+                            position,
+                            minimum,
+                            maximum
+                        )
+                    )
+                else:
+                    current_spin.setValue(int(position))
+
+            slider.valueChanged.connect(slider_changed)
+
+    if compact:
+        control_root.setMinimumWidth(100)
 
     layout.addWidget(
-        control,
-        0
+        control_root,
+        1 if show_slider or size > 1 else 0
     )
     return container
+
+
+def _render_integer(owner, item, compact=False):
+    return _render_numeric(
+        owner,
+        item,
+        compact=compact,
+        is_float=False
+    )
 
 
 def _render_float(owner, item, compact=False):
-    container, layout = owner._parameter_container(
+    return _render_numeric(
+        owner,
         item,
-        compact=compact
+        compact=compact,
+        is_float=True
     )
-    control = QtGui.QDoubleSpinBox()
-    control.setDecimals(
-        item["decimals"]
-    )
-    control.setRange(
-        item["min"],
-        item["max"]
-    )
-    control.setSingleStep(
-        item["step"]
-    )
-    control.setValue(
-        item["value"]
-    )
-
-    control.valueChanged.connect(
-        lambda value, item_id=item["id"]:
-        owner.toolbox.store_value(
-            item_id,
-            float(value)
-        )
-    )
-
-    layout.addWidget(
-        control,
-        0
-    )
-    return container
 
 
 def _render_menu(owner, item, compact=False):
@@ -286,6 +612,7 @@ def build_default_runtime_renderer_registry():
         ("folder", _render_folder),
         ("row", _render_row),
         ("button", _render_button),
+        ("icon", _render_icon),
         ("toggle", _render_toggle),
         ("checkbox", _render_checkbox),
         ("field", _render_field),
@@ -328,6 +655,67 @@ def _registry_build_runtime_widget(
     )
 
 
+def _install_callback_hooks(runtime_module):
+    folder_class = runtime_module.RuntimeFolder
+    if not hasattr(folder_class, _LEGACY_TOGGLE):
+        setattr(
+            folder_class,
+            _LEGACY_TOGGLE,
+            folder_class.toggle
+        )
+
+        def callback_toggle(self):
+            old_collapsed = bool(
+                self.section.get("collapsed", False)
+            )
+            result = getattr(
+                self.__class__,
+                _LEGACY_TOGGLE
+            )(self)
+            new_collapsed = bool(
+                self.section.get("collapsed", False)
+            )
+            if old_collapsed != new_collapsed:
+                _invoke_callback(
+                    self.toolbox,
+                    self.section,
+                    "on_close" if new_collapsed else "on_open",
+                    value=not new_collapsed,
+                    old_value=not old_collapsed
+                )
+            return result
+
+        folder_class.toggle = callback_toggle
+
+    field_class = runtime_module.DisplayField
+    if not hasattr(field_class, _LEGACY_FIELD_DOUBLE_CLICK):
+        setattr(
+            field_class,
+            _LEGACY_FIELD_DOUBLE_CLICK,
+            field_class.mouseDoubleClickEvent
+        )
+
+        def callback_double_click(self, event):
+            result = getattr(
+                self.__class__,
+                _LEGACY_FIELD_DOUBLE_CLICK
+            )(self, event)
+            item = self.toolbox.find_item(
+                self.item_id
+            )
+            if item is not None:
+                _invoke_callback(
+                    self.toolbox,
+                    item,
+                    "on_double_click",
+                    value=self.selected_values(),
+                    old_value=None
+                )
+            return result
+
+        field_class.mouseDoubleClickEvent = callback_double_click
+
+
 def install_runtime_renderer_registry(runtime_module):
     """Route active RuntimeFolder rendering through the registry."""
     global _ACTIVE_REGISTRY
@@ -362,6 +750,10 @@ def install_runtime_renderer_registry(runtime_module):
         folder_class,
         _INSTALL_MARKER,
         True
+    )
+
+    _install_callback_hooks(
+        runtime_module
     )
 
     _ACTIVE_REGISTRY = registry

@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 from ...compat import QtGui
+from ...model.bindings import normalize_bindings
 from ...model.items import clamp
 from ...model.items import safe_color
 from ...pycompat import text_type
@@ -152,6 +153,10 @@ class ButtonPropertyEditor(PropertyEditorBase):
                 self.item
             )
             self.item["mode"] = self.current_mode()
+            self.item["bindings"] = normalize_bindings(
+                "button",
+                self.item
+            )
             self.refresh_binding_panel()
 
         self._refresh_mode()

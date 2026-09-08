@@ -19,7 +19,10 @@ class ColumnPropertyEditor(PropertyEditorBase):
         )
 
         self.spacing = QtGui.QSpinBox()
-        self.spacing.setRange(0, 30)
+        self.spacing.setRange(
+            0,
+            30
+        )
 
         self.horizontal_alignment = QtGui.QComboBox()
         self.horizontal_alignment.addItems([
@@ -29,23 +32,42 @@ class ColumnPropertyEditor(PropertyEditorBase):
             "Right",
         ])
 
+        self.vertical_distribution = QtGui.QComboBox()
+        self.vertical_distribution.addItems([
+            "Top",
+            "Center",
+            "Bottom",
+            "Space Between",
+        ])
+
         self.form.addRow(
             "Spacing",
             self.spacing
         )
         self.form.addRow(
-            "Child Alignment",
+            "Child Horizontal Alignment",
             self.horizontal_alignment
+        )
+        self.form.addRow(
+            "Vertical Distribution",
+            self.vertical_distribution
         )
 
         note = QtGui.QLabel(
-            "Column is a vertical layout container. It can contain controls, "
-            "Rows and other Columns. Put Columns inside a Row to build "
-            "side-by-side groups with controls stacked underneath each other."
+            "Column stacks controls, Rows and Columns vertically. Select an "
+            "item inside the Column to configure Auto / Stretch / Fixed item "
+            "height. Vertical Distribution uses free space and therefore has "
+            "no visible effect while a child uses Stretch height."
         )
-        note.setObjectName("HintText")
-        note.setWordWrap(True)
-        self.root_layout.addWidget(note)
+        note.setObjectName(
+            "HintText"
+        )
+        note.setWordWrap(
+            True
+        )
+        self.root_layout.addWidget(
+            note
+        )
         self.add_stretch()
 
         self.spacing.valueChanged.connect(
@@ -54,10 +76,21 @@ class ColumnPropertyEditor(PropertyEditorBase):
         self.horizontal_alignment.currentIndexChanged.connect(
             self._control_changed
         )
+        self.vertical_distribution.currentIndexChanged.connect(
+            self._control_changed
+        )
 
-    def load_specific(self, item):
+    def load_specific(
+        self,
+        item
+    ):
         self.spacing.setValue(
-            int(item.get("spacing", 4))
+            int(
+                item.get(
+                    "spacing",
+                    4
+                )
+            )
         )
         self.horizontal_alignment.setCurrentIndex({
             "stretch": 0,
@@ -71,8 +104,23 @@ class ColumnPropertyEditor(PropertyEditorBase):
             ),
             0
         ))
+        self.vertical_distribution.setCurrentIndex({
+            "top": 0,
+            "center": 1,
+            "bottom": 2,
+            "space_between": 3,
+        }.get(
+            item.get(
+                "vertical_distribution",
+                "top"
+            ),
+            0
+        ))
 
-    def write_specific(self, item):
+    def write_specific(
+        self,
+        item
+    ):
         item["spacing"] = int(
             self.spacing.value()
         )
@@ -84,6 +132,15 @@ class ColumnPropertyEditor(PropertyEditorBase):
             else "right"
             if self.horizontal_alignment.currentIndex() == 3
             else "stretch"
+        )
+        item["vertical_distribution"] = (
+            "center"
+            if self.vertical_distribution.currentIndex() == 1
+            else "bottom"
+            if self.vertical_distribution.currentIndex() == 2
+            else "space_between"
+            if self.vertical_distribution.currentIndex() == 3
+            else "top"
         )
 
 

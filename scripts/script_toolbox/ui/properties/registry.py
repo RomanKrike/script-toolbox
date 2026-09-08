@@ -2,6 +2,7 @@
 
 from ...pycompat import text_type
 from .base import EmptyPropertyEditor
+from .base import PropertyEditorBase
 from .basic import CheckboxPropertyEditor
 from .basic import ColorPropertyEditor
 from .basic import FloatPropertyEditor
@@ -25,6 +26,12 @@ class SeparatorPropertyEditor(_SeparatorPropertyEditor):
         if self.item is None:
             return
 
+        # Use the shared writer so Row/Column item-layout settings are
+        # persisted just like every other control. Separator-specific fields
+        # are stripped afterwards.
+        PropertyEditorBase.write_to_item(
+            self
+        )
         self.item["name"] = text_type(
             self.name_edit.text()
         ).strip() or "separator"

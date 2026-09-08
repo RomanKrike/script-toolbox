@@ -26,6 +26,13 @@ class RowPropertyEditor(PropertyEditorBase):
         self.equal_widths = QtGui.QCheckBox(
             "Give children equal width"
         )
+        self.horizontal_distribution = QtGui.QComboBox()
+        self.horizontal_distribution.addItems([
+            "Left",
+            "Center",
+            "Right",
+            "Space Between",
+        ])
         self.vertical_alignment = QtGui.QComboBox()
         self.vertical_alignment.addItems([
             "Top",
@@ -38,17 +45,23 @@ class RowPropertyEditor(PropertyEditorBase):
             self.spacing
         )
         self.form.addRow(
-            "",
-            self.equal_widths
+            "Horizontal Distribution",
+            self.horizontal_distribution
         )
         self.form.addRow(
             "Vertical Alignment",
             self.vertical_alignment
         )
+        self.form.addRow(
+            "",
+            self.equal_widths
+        )
 
         note = QtGui.QLabel(
-            "Row is a horizontal layout container. Select an item inside "
-            "the Row to configure Auto / Stretch / Fixed width and alignment."
+            "Row distributes children horizontally. Select an item inside "
+            "the Row to configure Auto / Stretch / Fixed item width. "
+            "Horizontal Distribution uses free space and therefore has no "
+            "visible effect while Stretch or Equal Widths consumes it."
         )
         note.setObjectName(
             "HintText"
@@ -65,6 +78,9 @@ class RowPropertyEditor(PropertyEditorBase):
             self._control_changed
         )
         self.equal_widths.toggled.connect(
+            self._control_changed
+        )
+        self.horizontal_distribution.currentIndexChanged.connect(
             self._control_changed
         )
         self.vertical_alignment.currentIndexChanged.connect(
@@ -91,6 +107,18 @@ class RowPropertyEditor(PropertyEditorBase):
                 )
             )
         )
+        self.horizontal_distribution.setCurrentIndex({
+            "left": 0,
+            "center": 1,
+            "right": 2,
+            "space_between": 3,
+        }.get(
+            item.get(
+                "horizontal_distribution",
+                "left"
+            ),
+            0
+        ))
         self.vertical_alignment.setCurrentIndex({
             "top": 0,
             "center": 1,
@@ -112,6 +140,15 @@ class RowPropertyEditor(PropertyEditorBase):
         )
         item["equal_widths"] = bool(
             self.equal_widths.isChecked()
+        )
+        item["horizontal_distribution"] = (
+            "center"
+            if self.horizontal_distribution.currentIndex() == 1
+            else "right"
+            if self.horizontal_distribution.currentIndex() == 2
+            else "space_between"
+            if self.horizontal_distribution.currentIndex() == 3
+            else "left"
         )
         item["vertical_alignment"] = (
             "top"

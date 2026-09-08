@@ -16,6 +16,24 @@ CONTAINER_KINDS = (
     "column",
 )
 
+ROW_DISTRIBUTIONS = (
+    "left",
+    "center",
+    "right",
+    "space_between",
+)
+COLUMN_DISTRIBUTIONS = (
+    "top",
+    "center",
+    "bottom",
+    "space_between",
+)
+COLUMN_HEIGHT_MODES = (
+    "auto",
+    "stretch",
+    "fixed",
+)
+
 _ORIGINAL_CREATE_ITEM = items_module.create_item
 _INSTALLED = False
 
@@ -26,6 +44,11 @@ def is_layout_kind(kind):
 
 def is_container_kind(kind):
     return text_type(kind or "").lower() in CONTAINER_KINDS
+
+
+def _safe_choice(value, choices, fallback):
+    value = text_type(value or fallback).lower()
+    return value if value in choices else fallback
 
 
 def _layout_children(data):
@@ -54,6 +77,57 @@ def _layout_children(data):
     return children
 
 
+def _legacy_row_distribution(data):
+    """Infer the old per-child Row alignment when the intent is unambiguous."""
+    raw_items = data.get("items", []) or []
+    legacy = []
+
+    for raw in raw_items:
+        if not isinstance(raw, dict):
+            continue
+
+        value = text_type(
+            raw.get("row_alignment", "")
+        ).lower()
+        if value in ("center", "right"):
+            legacy.append(value)
+        elif value == "left":
+            legacy.append("left")
+
+    if legacy and all(
+        value == legacy[0]
+        for value in legacy
+    ):
+        return legacy[0]
+
+    return "left"
+
+
+def _column_child_layout(child):
+    child["column_height_mode"] = _safe_choice(
+        child.get("column_height_mode", "auto"),
+        COLUMN_HEIGHT_MODES,
+        "auto"
+    )
+    child["column_height"] = items_module.clamp(
+        items_module.safe_int(
+            child.get("column_height"),
+            28
+        ),
+        8,
+        2000
+    )
+    child["column_stretch"] = items_module.clamp(
+        items_module.safe_int(
+            child.get("column_stretch"),
+            1
+        ),
+        1,
+        100
+    )
+    return child
+
+
 def _row(data):
     item = items_module.base_item(
         "row",
@@ -61,15 +135,22 @@ def _row(data):
         "Row"
     )
 
-    vertical_alignment = text_type(
-        data.get("vertical_alignment", "center")
-    ).lower()
-    if vertical_alignment not in (
-        "top",
-        "center",
-        "bottom",
-    ):
-        vertical_alignment = "center"
+    vertical_alignment = _safe_choice(
+        data.get("vertical_alignment", "center"),
+        ("top", "center", "bottom"),
+        "center"
+    )
+
+    if "horizontal_distribution" in data:
+        horizontal_distribution = _safe_choice(
+            data.get("horizontal_distribution"),
+            ROW_DISTRIBUTIONS,
+            "left"
+        )
+    else:
+        # Pre-layout-contract configs stored horizontal intent on individual
+        # children as row_alignment. Preserve a common value when possible.
+        horizontal_distribution = _legacy_row_distribution(data)
 
     item.update({
         "spacing": items_module.clamp(
@@ -83,6 +164,7 @@ def _row(data):
         "equal_widths": bool(
             data.get("equal_widths", False)
         ),
+        "horizontal_distribution": horizontal_distribution,
         "vertical_alignment": vertical_alignment,
         "items": _layout_children(data),
     })
@@ -102,16 +184,21 @@ def _column(data):
     if "row_width_mode" not in data:
         item["row_width_mode"] = "stretch"
 
-    horizontal_alignment = text_type(
-        data.get("horizontal_alignment", "stretch")
-    ).lower()
-    if horizontal_alignment not in (
-        "stretch",
-        "left",
-        "center",
-        "right",
-    ):
-        horizontal_alignment = "stretch"
+    horizontal_alignment = _safe_choice(
+        data.get("horizontal_alignment", "stretch"),
+        ("stretch", "left", "center", "right"),
+        "stretch"
+    )
+    vertical_distribution = _safe_choice(
+        data.get("vertical_distribution", "top"),
+        COLUMN_DISTRIBUTIONS,
+        "top"
+    )
+
+    children = [
+        _column_child_layout(child)
+        for child in _layout_children(data)
+    ]
 
     item.update({
         "spacing": items_module.clamp(
@@ -123,7 +210,8 @@ def _column(data):
             30
         ),
         "horizontal_alignment": horizontal_alignment,
-        "items": _layout_children(data),
+        "vertical_distribution": vertical_distribution,
+        "items": children,
     })
     return item
 
@@ -197,8 +285,11 @@ def install_layout_kinds():
 
 
 __all__ = [
+    "COLUMN_DISTRIBUTIONS",
+    "COLUMN_HEIGHT_MODES",
     "CONTAINER_KINDS",
     "LAYOUT_KINDS",
+    "ROW_DISTRIBUTIONS",
     "create_item",
     "install_layout_kinds",
     "is_container_kind",

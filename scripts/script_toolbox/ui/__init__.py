@@ -6,8 +6,9 @@ from . import interface_editor as _interface_editor_module
 from . import editor_document_adapter as _editor_document_adapter_module
 from ..core.layout_document import LayoutEditorDocumentController
 from .editor_document_adapter import build_interface_editor_class
-from .interface_tree import ExistingInterfaceTree
 from .layout_editor_adapter import build_layout_editor_class
+from .layout_context import install_layout_property_context
+from .interface_tree import ExistingInterfaceTree
 
 
 def _install_controls_v2_palette(editor_class):
@@ -52,6 +53,9 @@ _install_controls_v2_palette(
 _layout_editor_class = build_layout_editor_class(
     _interface_editor_module.InterfaceEditor
 )
+install_layout_property_context(
+    _layout_editor_class
+)
 
 # The command/history adapter resolves this module global when constructing its
 # controller. Use the layout-aware controller without changing the legacy core
@@ -75,6 +79,7 @@ _interface_editor_module.InterfaceEditor = InterfaceEditor
 from . import runtime as _runtime_module
 from . import runtime_renderers as _runtime_renderers_module
 from .column_layout import render_column
+from .row_layout import render_row
 from .runtime_renderers import get_runtime_renderer_registry
 from .runtime_renderers import install_runtime_renderer_registry
 from .runtime_renderers import register_runtime_renderer
@@ -82,6 +87,11 @@ from .runtime_renderers import unregister_runtime_renderer
 
 install_runtime_renderer_registry(
     _runtime_module
+)
+register_runtime_renderer(
+    "row",
+    render_row,
+    replace=True
 )
 register_runtime_renderer(
     "column",

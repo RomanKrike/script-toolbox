@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import pytest
+
 try:
     from urllib.parse import parse_qs
 except ImportError:
@@ -8,6 +10,7 @@ except ImportError:
 from script_toolbox.share import provider as provider_module
 from script_toolbox.share.provider import DpasteProvider
 from script_toolbox.share.provider import PastesDevProvider
+from script_toolbox.share.provider import ShareProviderError
 
 
 def test_pastes_dev_upload_uses_raw_text_contract(monkeypatch):
@@ -136,3 +139,42 @@ def test_dpaste_download_uses_raw_text_endpoint(monkeypatch):
 
     assert provider.download("ABC123") == "encrypted-payload"
     assert captured["url"] == "https://dpaste.com/ABC123.txt"
+
+
+def test_powershell_transport_avoids_reserved_input_variable(monkeypatch):
+    captured = {}
+
+    class FakeProcess(object):
+        returncode = 1
+
+        def communicate(self):
+            return b"", b"network failure"
+
+    def fake_popen(arguments, **kwargs):
+        captured["command"] = arguments[-1]
+        return FakeProcess()
+
+    monkeypatch.setattr(
+        provider_module,
+        "_powershell_executable",
+        lambda: "powershell.exe"
+    )
+    monkeypatch.setattr(
+        provider_module.subprocess,
+        "Popen",
+        fake_popen
+    )
+
+    with pytest.raises(ShareProviderError):
+        provider_module._powershell_request(
+            "https://example.invalid/post",
+            data=b"payload",
+            timeout=1,
+            content_type="text/plain"
+        )
+
+    command = captured["command"]
+    assert "$ErrorActionPreference = 'Stop'" in command
+    assert "$requestStream" in command
+    assert "$responseStream" in command
+    assert "$input =" not in command

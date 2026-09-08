@@ -11,6 +11,7 @@ from .codec import decode_payload
 from .codec import encode_payload
 from .codec import make_payload
 from .provider import DpasteProvider
+from .provider import PastesDevProvider
 from .provider import ShareProviderError
 
 
@@ -24,7 +25,13 @@ class ShareError(RuntimeError):
     pass
 
 
+DEFAULT_PROVIDER_NAMES = (
+    "pastes-dev",
+    "dpaste",
+)
+
 _PROVIDERS = {
+    "pastes-dev": PastesDevProvider(),
     "dpaste": DpasteProvider(),
 }
 
@@ -101,10 +108,21 @@ def looks_like_share_code(value):
         return False
 
 
+def _provider_candidates(provider_name):
+    provider_name = text_type(
+        provider_name or ""
+    ).strip().lower()
+
+    if provider_name and provider_name != "auto":
+        return (provider_name,)
+
+    return DEFAULT_PROVIDER_NAMES
+
+
 def share_data(
     payload_type,
     data,
-    provider_name="dpaste",
+    provider_name="auto",
     expiry_days=7
 ):
     payload = make_payload(
@@ -116,28 +134,51 @@ def share_data(
 
     try:
         blob_text, key_text = encode_payload(payload)
-        provider = get_provider(provider_name)
-        paste_id = provider.upload(
-            blob_text,
-            expiry_days=expiry_days
-        )
-    except (
-        ShareCodecError,
-        ShareProviderError,
-        ShareError
-    ) as exc:
+    except ShareCodecError as exc:
         raise ShareError(text_type(exc))
     except Exception as exc:
         raise ShareError(
-            "Could not create Script Toolbox share: {0}".format(
+            "Could not encrypt Script Toolbox share: {0}".format(
                 exc
             )
         )
 
-    return format_share_code(
-        provider_name,
-        paste_id,
-        key_text
+    failures = []
+
+    for candidate_name in _provider_candidates(provider_name):
+        try:
+            provider = get_provider(candidate_name)
+            paste_id = provider.upload(
+                blob_text,
+                expiry_days=expiry_days
+            )
+            return format_share_code(
+                candidate_name,
+                paste_id,
+                key_text
+            )
+        except (
+            ShareProviderError,
+            ShareError
+        ) as exc:
+            failures.append(
+                "{0}: {1}".format(
+                    candidate_name,
+                    text_type(exc)
+                )
+            )
+        except Exception as exc:
+            failures.append(
+                "{0}: {1}".format(
+                    candidate_name,
+                    text_type(exc)
+                )
+            )
+
+    raise ShareError(
+        "All share providers failed. {0}".format(
+            "; ".join(failures)
+        )
     )
 
 
@@ -172,6 +213,7 @@ def fetch_shared_data(code):
 
 
 __all__ = [
+    "DEFAULT_PROVIDER_NAMES",
     "SHARE_PREFIX",
     "ShareError",
     "extract_share_code",

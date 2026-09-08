@@ -192,13 +192,39 @@ class CommandHistory(object):
         return command
 
 
+def _topology_ids(topology):
+    result = set(
+        text_type(item_id)
+        for item_id in topology.get("roots", [])
+    )
+    for parent_id, child_ids in topology.get("children", {}).items():
+        result.add(text_type(parent_id))
+        result.update(
+            text_type(item_id)
+            for item_id in child_ids
+        )
+    return result
+
+
+def _reachable_refs(controller, topology):
+    refs = {}
+    for item_id in _topology_ids(topology):
+        item = controller.item_cache.get(item_id)
+        if item is not None:
+            refs[item_id] = item
+    return refs
+
+
 class DocumentCapture(object):
     """Lightweight pre-change capture used to build a semantic delta."""
 
     def __init__(self, controller):
         self.topology = controller.capture_topology()
         self.root_state = controller.root_state()
-        self.item_refs = dict(controller.item_cache)
+        self.item_refs = _reachable_refs(
+            controller,
+            self.topology
+        )
         self.item_states = {}
 
         for item_id, item in self.item_refs.items():
@@ -248,7 +274,10 @@ def build_document_delta(
     """Build a command containing only changed document state."""
     after_topology = controller.capture_topology()
     after_root = controller.root_state()
-    after_refs = dict(controller.item_cache)
+    after_refs = _reachable_refs(
+        controller,
+        after_topology
+    )
     after_states = {}
 
     for item_id, item in after_refs.items():

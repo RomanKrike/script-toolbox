@@ -51,28 +51,32 @@ def _safe_choice(value, choices, fallback):
     return value if value in choices else fallback
 
 
+def _create_layout_child(raw):
+    if not isinstance(raw, dict):
+        return None
+
+    kind = text_type(
+        raw.get("kind", "button")
+    ).lower()
+
+    # Folders remain structural sections. Row / Column are composable
+    # layout containers and may nest inside each other.
+    if kind in ("folder", "section"):
+        return None
+
+    return create_item(
+        kind,
+        raw
+    )
+
+
 def _layout_children(data):
     children = []
 
     for raw in data.get("items", []) or []:
-        if not isinstance(raw, dict):
-            continue
-
-        kind = text_type(
-            raw.get("kind", "button")
-        ).lower()
-
-        # Folders remain structural sections. Row / Column are composable
-        # layout containers and may nest inside each other.
-        if kind in ("folder", "section"):
-            continue
-
-        children.append(
-            create_item(
-                kind,
-                raw
-            )
-        )
+        child = _create_layout_child(raw)
+        if child is not None:
+            children.append(child)
 
     return children
 
@@ -195,10 +199,26 @@ def _column(data):
         "top"
     )
 
-    children = [
-        _column_child_layout(child)
-        for child in _layout_children(data)
-    ]
+    children = []
+    for raw in data.get("items", []) or []:
+        child = _create_layout_child(raw)
+        if child is None:
+            continue
+
+        # Base item factories intentionally ignore unknown layout-context
+        # fields. Reapply the raw Column child settings before normalizing
+        # them so Fixed/Stretch values survive item creation.
+        for key in (
+            "column_height_mode",
+            "column_height",
+            "column_stretch",
+        ):
+            if key in raw:
+                child[key] = raw[key]
+
+        children.append(
+            _column_child_layout(child)
+        )
 
     item.update({
         "spacing": items_module.clamp(

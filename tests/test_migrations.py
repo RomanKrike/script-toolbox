@@ -17,7 +17,7 @@ from script_toolbox.core.migrations import migrate_document
 
 def test_schema_15_is_legacy_migration_baseline():
     assert LEGACY_CONFIG_VERSION == 15
-    assert CONFIG_VERSION == 16
+    assert CONFIG_VERSION == 17
 
 
 def test_versionless_document_is_treated_as_schema_15():
@@ -53,7 +53,11 @@ def test_schema_15_migrates_to_current_without_mutating_source():
 
     assert source == original
     assert migrated["version"] == CONFIG_VERSION
-    assert migrated["sections"] == source["sections"]
+    assert migrated["sections"][0]["name"] == "tools"
+    assert migrated["sections"][0]["items"][0]["click_script"] == (
+        "print('freeze')"
+    )
+    assert migrated["sections"][0]["items"][0]["callbacks"] == {}
 
 
 def test_versionless_legacy_document_migrates_to_current():
@@ -69,6 +73,34 @@ def test_versionless_legacy_document_migrates_to_current():
 
     assert migrated["version"] == CONFIG_VERSION
     assert migrated["folders"][0]["name"] == "legacy_tools"
+
+
+def test_schema_16_on_change_migrates_to_callbacks():
+    source = {
+        "version": 16,
+        "sections": [
+            {
+                "kind": "folder",
+                "name": "tools",
+                "items": [
+                    {
+                        "kind": "integer",
+                        "name": "samples",
+                        "on_change_script": "print(value)",
+                    }
+                ],
+            }
+        ],
+    }
+
+    migrated = migrate_document(source)
+    item = migrated["sections"][0]["items"][0]
+
+    assert migrated["version"] == 17
+    assert item["callbacks"] == {
+        "on_change": "print(value)",
+    }
+    assert "on_change_script" not in item
 
 
 def test_current_schema_is_returned_as_independent_copy():

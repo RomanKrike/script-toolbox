@@ -3,6 +3,7 @@ from __future__ import print_function
 
 from ...compat import HOST
 from ...compat import QtGui
+from ...model.items import clamp
 from ...model.items import safe_color
 from ...pycompat import text_type
 from ..script_editor import ScriptEditorWidget
@@ -44,6 +45,11 @@ class ButtonPropertyEditor(PropertyEditorBase):
         self.state_on_color = [0.22, 0.42, 0.26]
         self.state_off_color = [0.30, 0.30, 0.30]
 
+        self.icon_path = QtGui.QLineEdit()
+        self.icon_size = QtGui.QSpinBox()
+        self.icon_size.setRange(8, 256)
+        self.icon_only = QtGui.QCheckBox("Icon Only")
+
         self.color_button = QtGui.QPushButton("Choose...")
         self.state_on_label = QtGui.QLineEdit()
         self.state_off_label = QtGui.QLineEdit()
@@ -52,6 +58,9 @@ class ButtonPropertyEditor(PropertyEditorBase):
 
         self.form.addRow("Mode", self.mode)
         self.form.addRow("Language", self.language)
+        self.form.addRow("Icon Path", self.icon_path)
+        self.form.addRow("Icon Size", self.icon_size)
+        self.form.addRow("", self.icon_only)
 
         self.action_group = QtGui.QGroupBox("Action Appearance")
         action_form = QtGui.QFormLayout(self.action_group)
@@ -99,6 +108,15 @@ class ButtonPropertyEditor(PropertyEditorBase):
         )
         self.language.currentIndexChanged.connect(
             self._language_changed
+        )
+        self.icon_path.textEdited.connect(
+            self._control_changed
+        )
+        self.icon_size.valueChanged.connect(
+            self._control_changed
+        )
+        self.icon_only.toggled.connect(
+            self._control_changed
         )
         self.color_button.clicked.connect(
             lambda: self.choose_color("action")
@@ -221,6 +239,16 @@ class ButtonPropertyEditor(PropertyEditorBase):
             else 0
         )
 
+        self.icon_path.setText(
+            text_type(item.get("icon_path", ""))
+        )
+        self.icon_size.setValue(
+            int(item.get("icon_size", 18))
+        )
+        self.icon_only.setChecked(
+            bool(item.get("icon_only", False))
+        )
+
         self.color = safe_color(item.get("color"))
         self.state_on_color = safe_color(
             item.get("state_on_color")
@@ -332,6 +360,17 @@ class ButtonPropertyEditor(PropertyEditorBase):
         item["mode"] = self.current_mode()
         item["language"] = self.current_language()
         item["color"] = safe_color(self.color)
+        item["icon_path"] = text_type(
+            self.icon_path.text()
+        )
+        item["icon_size"] = clamp(
+            int(self.icon_size.value()),
+            8,
+            256
+        )
+        item["icon_only"] = bool(
+            self.icon_only.isChecked()
+        )
         item["click_script"] = text_type(
             self.click_editor.toPlainText()
         )

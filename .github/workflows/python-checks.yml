@@ -120,6 +120,14 @@ jobs:
           python:2.7.18-slim-buster
           python tests/python2_update_transaction_smoke.py
 
+      - name: Controls v2 smoke with Python 2.7
+        run: >
+          docker run --rm
+          -v "$PWD:/work"
+          -w /work
+          python:2.7.18-slim-buster
+          python tests/python2_controls_v2_smoke.py
+
   release-contract:
     name: Release package contract
     runs-on: ubuntu-latest

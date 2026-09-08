@@ -9,7 +9,7 @@ EDITOR_OBJECT_NAME = "MayaScriptToolboxInterfaceEditor"
 
 CONFIG_FILENAME = "maya_script_toolbox.json"
 CONFIG_PATH_ENV = "SCRIPT_TOOLBOX_CONFIG_PATH"
-CONFIG_VERSION = 16
+CONFIG_VERSION = 17
 
 GITHUB_REPOSITORY = "RomanKrike/script-toolbox"
 GITHUB_TOKEN_ENV = "SCRIPT_TOOLBOX_GITHUB_TOKEN"
@@ -28,6 +28,7 @@ FOLDER_TYPES = (
 
 ITEM_KINDS = (
     "button",
+    "icon",
     "string",
     "integer",
     "float",

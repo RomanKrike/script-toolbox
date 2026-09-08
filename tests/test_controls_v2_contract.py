@@ -44,7 +44,7 @@ def test_active_runtime_routes_value_changes_to_event_bindings():
     assert '"on_change": "value_changed"' in source
 
 
-def test_property_editor_uses_binding_panel_and_per_script_language():
+def test_property_editor_uses_compact_trigger_tabs_and_toolbar_language():
     base_source = _source(
         "scripts",
         "script_toolbox",
@@ -67,13 +67,21 @@ def test_property_editor_uses_binding_panel_and_per_script_language():
     )
 
     assert "BindingPanel" in base_source
-    assert '"Event Scripts"' in binding_source
-    assert 'QPushButton("+")' in binding_source
-    assert "AddBindingDialog" in binding_source
-    assert "Ctrl / Alt / Shift" in binding_source
+    assert '"Triggers"' in binding_source
+    assert "setCornerWidget" in binding_source
+    assert "QToolButton(self.tabs)" in binding_source
+    assert 'setText("+")' in binding_source
+    assert "setTabsClosable(True)" in binding_source
+    assert "tabCloseRequested" in binding_source
+    assert "MouseButtonDblClick" in binding_source
+    assert "Double-click to edit trigger" in binding_source
+    assert "QMessageBox.question" in binding_source
+    assert "edit_button =" not in binding_source
+    assert "remove_button =" not in binding_source
     assert "LanguageScriptEditor" in binding_source
-    assert "Language" in language_source
+    assert "toolbar_layout.addWidget" in language_source
     assert "language_combo" in language_source
+    assert 'QLabel("Language")' not in language_source
     assert "callback_tabs" not in base_source
 
 

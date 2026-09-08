@@ -21,6 +21,8 @@ sys.path.insert(
 
 from script_toolbox.core import config
 from script_toolbox.core.config_store import ConfigStore
+from script_toolbox.core.editor_commands import CommandHistory
+from script_toolbox.core.editor_commands import ItemStateCommand
 from script_toolbox.core.editor_document import EditorDocumentController
 from script_toolbox.core.state_refresh import StateRefreshQueue
 
@@ -97,6 +99,23 @@ def main():
         )
         assert clone["id"] != "root"
         assert clone["items"][0]["id"] != "value"
+
+        value_item = controller.find_by_id("value")
+        before = controller.item_state(value_item)
+        value_item["value"] = "changed"
+        after = controller.item_state(value_item)
+        history = CommandHistory(controller)
+        history.push_applied(
+            ItemStateCommand(
+                "value",
+                before,
+                after
+            )
+        )
+        history.undo()
+        assert controller.find_by_id("value")["value"] == "test"
+        history.redo()
+        assert controller.find_by_id("value")["value"] == "changed"
     finally:
         shutil.rmtree(folder)
 

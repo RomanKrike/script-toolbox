@@ -52,12 +52,9 @@ def test_adapter_factory_unwraps_previous_adapter_on_reload():
     assert "_LEGACY_BASE" in source
 
 
-def test_adapter_routes_structural_helpers_without_replacing_history_yet():
+def test_adapter_routes_structural_helpers_through_controller():
     source = _read(
         "scripts/script_toolbox/ui/editor_document_adapter.py"
-    )
-    legacy = _read(
-        "scripts/script_toolbox/ui/interface_editor.py"
     )
 
     assert "self.document_controller.used_names()" in source
@@ -66,7 +63,51 @@ def test_adapter_routes_structural_helpers_without_replacing_history_yet():
     assert "self.document_controller.cache_subtree(data)" in source
     assert "self.document_controller.duplicate_name()" in source
 
-    # STEP 08 owns the history rewrite. STEP 07 must retain the existing
-    # snapshot stacks so this PR cannot silently mix both roadmap steps.
-    assert "self.undo_stack = []" in legacy
-    assert "copy.deepcopy(self._history_current)" in legacy
+
+def test_adapter_replaces_active_snapshot_history_with_commands():
+    source = _read(
+        "scripts/script_toolbox/ui/editor_document_adapter.py"
+    )
+
+    assert "CommandHistory(" in source
+    assert "DocumentCapture(" in source
+    assert "ItemStateCommand(" in source
+    assert "build_document_delta(" in source
+    assert "self.command_history.undo()" in source
+    assert "self.command_history.redo()" in source
+    assert "self.undo_stack = self.command_history.undo_stack" in source
+    assert "self.redo_stack = self.command_history.redo_stack" in source
+
+
+def test_property_history_coalescing_timer_is_preserved():
+    source = _read(
+        "scripts/script_toolbox/ui/editor_document_adapter.py"
+    )
+    legacy = _read(
+        "scripts/script_toolbox/ui/interface_editor.py"
+    )
+
+    assert "self.history_timer.setInterval(300)" in legacy
+    assert "def schedule_history(self):" in source
+    assert "self.history_timer.start()" in source
+    assert "def commit_history(self, sync_tree=True):" in source
+
+
+def test_apply_bypasses_legacy_history_snapshot_bookkeeping():
+    source = _read(
+        "scripts/script_toolbox/ui/editor_document_adapter.py"
+    )
+
+    apply_source = source.split(
+        "        def apply_changes(self):",
+        1
+    )[1]
+    apply_source = apply_source.split(
+        "    setattr(",
+        1
+    )[0]
+
+    assert "base_class.apply_changes" not in apply_source
+    assert "self.document_controller.snapshot()" in apply_source
+    assert "self.document_controller.replace(" in apply_source
+    assert "_history_current" not in apply_source

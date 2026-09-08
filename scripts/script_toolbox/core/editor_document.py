@@ -138,6 +138,145 @@ class EditorDocumentController(object):
 
         return None
 
+    # ------------------------------------------------------------------
+    # Command support
+    # ------------------------------------------------------------------
+
+    def item_state(self, item_or_id):
+        """Return non-structural item state suitable for an edit command."""
+        if isinstance(item_or_id, dict):
+            item = item_or_id
+        else:
+            item = self.find_by_id(item_or_id)
+
+        if item is None:
+            return {}
+
+        state = {}
+        for key, value in item.items():
+            if key == "items":
+                continue
+            state[key] = copy.deepcopy(value)
+        return state
+
+    def apply_item_state(
+        self,
+        item_id,
+        state,
+        rebuild=True
+    ):
+        item = self.find_by_id(item_id)
+        if item is None:
+            return False
+
+        children = item.get("items", [])
+        item.clear()
+        item.update(copy.deepcopy(state or {}))
+
+        if item.get("kind") in ("folder", "row"):
+            item["items"] = children
+
+        if rebuild:
+            self.rebuild_index()
+        return True
+
+    def root_state(self):
+        state = {}
+        for key, value in self._document.items():
+            if key == "sections":
+                continue
+            state[key] = copy.deepcopy(value)
+        return state
+
+    def apply_root_state(self, state):
+        sections = self._document.get("sections", [])
+        self._document.clear()
+        self._document.update(copy.deepcopy(state or {}))
+        self._document["sections"] = sections
+        return self._document
+
+    def capture_topology(self):
+        topology = {
+            "roots": [],
+            "children": {},
+        }
+
+        def visit(item):
+            item_id = text_type(item.get("id", ""))
+            if not item_id:
+                return
+
+            if item.get("kind") in ("folder", "row"):
+                child_ids = []
+                for child in item.get("items", []) or []:
+                    child_id = text_type(child.get("id", ""))
+                    if child_id:
+                        child_ids.append(child_id)
+                    visit(child)
+                topology["children"][item_id] = child_ids
+
+        for section in self._document.get("sections", []) or []:
+            section_id = text_type(section.get("id", ""))
+            if section_id:
+                topology["roots"].append(section_id)
+            visit(section)
+
+        return topology
+
+    def _payload_pool(self, payloads):
+        pool = {}
+
+        def register(item):
+            if not isinstance(item, dict):
+                return
+            item_id = text_type(item.get("id", ""))
+            if item_id:
+                pool[item_id] = item
+            if item.get("kind") in ("folder", "row"):
+                for child in item.get("items", []) or []:
+                    register(child)
+
+        for payload in (payloads or {}).values():
+            register(copy.deepcopy(payload))
+
+        return pool
+
+    def apply_topology(self, topology, payloads=None):
+        """Restore ID-only topology, materializing missing subtrees as needed."""
+        topology = topology or {
+            "roots": [],
+            "children": {},
+        }
+        pool = dict(self._item_cache)
+        pool.update(self._payload_pool(payloads))
+
+        for parent_id, child_ids in topology.get("children", {}).items():
+            parent_id = text_type(parent_id)
+            parent = pool.get(parent_id)
+            if parent is None:
+                raise KeyError(parent_id)
+
+            children = []
+            for child_id in child_ids:
+                child_id = text_type(child_id)
+                child = pool.get(child_id)
+                if child is None:
+                    raise KeyError(child_id)
+                children.append(child)
+            parent["items"] = children
+
+        sections = []
+        for item_id in topology.get("roots", []):
+            item_id = text_type(item_id)
+            item = pool.get(item_id)
+            if item is None:
+                raise KeyError(item_id)
+            sections.append(item)
+
+        self._document["sections"] = sections
+        self.rebuild_index()
+        return self._document
+
 
 __all__ = [
     "EditorDocumentController",

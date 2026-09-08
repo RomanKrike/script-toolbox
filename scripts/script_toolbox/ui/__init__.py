@@ -6,6 +6,7 @@ from . import interface_editor as _interface_editor_module
 from . import editor_document_adapter as _editor_document_adapter_module
 from ..core.layout_document import LayoutEditorDocumentController
 from .editor_document_adapter import build_interface_editor_class
+from .editor_view_state import build_editor_view_state_class
 from .layout_editor_adapter import build_layout_editor_class
 from .layout_context import install_layout_property_context
 from .interface_tree import ExistingInterfaceTree
@@ -64,8 +65,10 @@ _editor_document_adapter_module.EditorDocumentController = (
     LayoutEditorDocumentController
 )
 
-InterfaceEditor = build_interface_editor_class(
-    _layout_editor_class
+InterfaceEditor = build_editor_view_state_class(
+    build_interface_editor_class(
+        _layout_editor_class
+    )
 )
 
 # Keep direct imports from script_toolbox.ui.interface_editor compatible while

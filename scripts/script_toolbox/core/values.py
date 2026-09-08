@@ -31,6 +31,10 @@ def get_document_index(document):
         if cached_document is not document:
             continue
 
+        index.ensure(
+            document
+        )
+
         if position != len(_INDEX_CACHE) - 1:
             _INDEX_CACHE.pop(
                 position

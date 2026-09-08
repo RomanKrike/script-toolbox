@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-from ..compat import HOST
+from ..hosts import HOST
 from ..model.bindings import binding_display_name
 from ..model.bindings import matching_bindings
 from ..pycompat import text_type

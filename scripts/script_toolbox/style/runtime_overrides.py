@@ -26,9 +26,13 @@ QWidget#PropertyEditor {
 }
 
 /* Runtime uses the same stable outer-panel contract as the first two panes in
-   Interface Editor. The scroll area stays frameless; this QFrame owns the
-   visible outline so Qt4 scrollbars cannot cover or clip its bottom/right
-   edges. */
+   Interface Editor. RuntimePaneHost supplies the visible outside inset; the
+   scroll area stays frameless and RuntimePane owns the actual outline. */
+QWidget#RuntimePaneHost {
+    background-color: #292929;
+    border: 0px;
+}
+
 QFrame#RuntimePane {
     background-color: #303030;
     border: 1px solid #1b1b1b;

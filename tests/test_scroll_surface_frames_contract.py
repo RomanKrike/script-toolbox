@@ -47,9 +47,12 @@ def test_scroll_surface_frame_preserves_original_outer_constraints():
     assert "maximum_width + 2" not in source
 
 
-def test_runtime_list_field_uses_editor_pane_visual_contract():
+def test_runtime_list_field_uses_plain_editor_surface_contract():
     source = _read(
         "scripts/script_toolbox/ui/scroll_surface_frames.py"
+    )
+    runtime = _read(
+        "scripts/script_toolbox/ui/runtime.py"
     )
     style = _read(
         "scripts/script_toolbox/style/runtime_overrides.py"
@@ -82,13 +85,27 @@ def test_runtime_list_field_uses_editor_pane_visual_contract():
         1
     )[1].split("}", 1)[0]
     assert "background-color: #242424;" in runtime_rule
+    assert "alternate-background-color: #242424;" in runtime_rule
     assert "border: 0px;" in runtime_rule
     assert "border-radius: 0px;" in runtime_rule
     assert "outline: 0px;" in runtime_rule
 
-    assert "QListWidget#RuntimeFieldList::item:hover" in style
-    assert "background-color: #333333;" in style
-    assert "background-color: #68462c;" in style
+    item_rule = style.split(
+        "QListWidget#RuntimeFieldList::item {",
+        1
+    )[1].split("}", 1)[0]
+    assert "border: 0px;" in item_rule
+    assert "border-bottom" not in item_rule
+
+    assert "self.setAlternatingRowColors(False)" in runtime
+    assert "QListWidget#RuntimeFieldList::item:hover" not in style
+
+    selected_rule = style.split(
+        "QListWidget#RuntimeFieldList::item:selected {",
+        1
+    )[1].split("}", 1)[0]
+    assert "background-color: #68462c;" in selected_rule
+    assert "color: #ffffff;" in selected_rule
 
 
 def test_runtime_folder_pane_override_is_removed():

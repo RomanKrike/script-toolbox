@@ -37,12 +37,14 @@ QFrame#RuntimeSeparatorLineVertical {
     border-left: 1px solid #414346;
 }
 
-/* Runtime Field list uses the same inner surface language as the parameter
-   trees in the Interface Editor. The visible outer pane border is owned by
-   ScrollSurfaceFrame so Maya/Qt4 scrollbars cannot cover its bottom/right
-   edge. */
+/* Runtime Field keeps the editor list surface without row decoration:
+   one flat background, no alternating rows or separators, and only the
+   selected row receives the editor's orange highlight. The visible outer
+   pane border is owned by ScrollSurfaceFrame so Maya/Qt4 scrollbars cannot
+   cover its bottom/right edge. */
 QListWidget#RuntimeFieldList {
     background-color: #242424;
+    alternate-background-color: #242424;
     color: #d4d4d4;
     border: 0px;
     border-radius: 0px;
@@ -54,10 +56,6 @@ QListWidget#RuntimeFieldList::item {
     min-height: 20px;
     padding: 3px 4px;
     border: 0px;
-}
-
-QListWidget#RuntimeFieldList::item:hover {
-    background-color: #333333;
 }
 
 QListWidget#RuntimeFieldList::item:selected {

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from . import items as _items
-from .index import DocumentIndex
 from .layouts import CONTAINER_KINDS
 from .layouts import LAYOUT_KINDS
 from .layouts import install_layout_kinds
@@ -10,6 +9,10 @@ from .layouts import is_layout_kind
 
 
 install_layout_kinds()
+
+# Import after layout installation so DocumentIndex binds the extended
+# walk_items implementation that traverses Row / Column subtrees.
+from .index import DocumentIndex
 
 create_item = _items.create_item
 normalize_document = _items.normalize_document

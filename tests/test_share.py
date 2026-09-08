@@ -87,8 +87,16 @@ def test_payload_round_trip_and_tamper_detection():
 
     assert decode_payload(blob, key) == payload
 
-    replacement = "A" if blob[-1] != "A" else "B"
-    tampered = blob[:-1] + replacement
+    # Change a character in the body rather than the final base64 character.
+    # The final character may contain only padding bits and can therefore have
+    # multiple textual spellings for the same decoded bytes.
+    index = len(blob) // 2
+    replacement = "A" if blob[index] != "A" else "B"
+    tampered = (
+        blob[:index] +
+        replacement +
+        blob[index + 1:]
+    )
 
     with pytest.raises(ShareCodecError):
         decode_payload(tampered, key)

@@ -124,7 +124,8 @@ install_runtime_scroll_frames(
     _runtime_module
 )
 
-from .main_window import ScriptToolbox
+from .main_window import ScriptToolbox as _BaseScriptToolbox
+from .update_channels_ui import build_update_channel_toolbox_class
 from .controls_v2_hooks import install_controls_v2_hooks
 from .event_binding_hooks import install_event_binding_hooks
 from .script_editor import ScriptEditorWidget
@@ -132,6 +133,10 @@ from .runtime import DisplayField
 from .runtime import RuntimeFolder
 from .runtime import RuntimeFolderRadio
 from .runtime import RuntimeFolderTabs
+
+ScriptToolbox = build_update_channel_toolbox_class(
+    _BaseScriptToolbox
+)
 
 install_script_editor_scroll_frames(
     ScriptEditorWidget

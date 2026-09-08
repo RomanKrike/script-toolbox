@@ -15,8 +15,37 @@ cmds = None
 mel = None
 nuke = None
 nukescripts = None
+hou = None
 shiboken = None
 omui = None
+
+
+def _mirror_qtwidgets_onto_qtgui(
+    qt_gui,
+    qt_widgets
+):
+    for name in dir(
+        qt_widgets
+    ):
+        if hasattr(
+            qt_gui,
+            name
+        ):
+            continue
+
+        try:
+            setattr(
+                qt_gui,
+                name,
+                getattr(
+                    qt_widgets,
+                    name
+                )
+            )
+        except Exception:
+            pass
+
+    return qt_gui
 
 
 if HOST_KEY == "maya":
@@ -51,26 +80,29 @@ elif HOST_KEY == "nuke":
     # The Maya 2015 codebase uses the Qt4/PySide1 layout where widgets live
     # under QtGui. Mirror QtWidgets onto QtGui so the same UI code works in
     # Nuke 12 / PySide2 without maintaining a second widget tree.
-    for _name in dir(
+    QtGui = _mirror_qtwidgets_onto_qtgui(
+        _QtGui,
         QtWidgets
-    ):
-        if not hasattr(
-            _QtGui,
-            _name
-        ):
-            try:
-                setattr(
-                    _QtGui,
-                    _name,
-                    getattr(
-                        QtWidgets,
-                        _name
-                    )
-                )
-            except Exception:
-                pass
+    )
 
-    QtGui = _QtGui
+    try:
+        import shiboken2 as shiboken
+    except ImportError:
+        shiboken = None
+
+elif HOST_KEY == "houdini":
+    import hou
+
+    from PySide2 import QtCore
+    from PySide2 import QtGui as _QtGui
+    from PySide2 import QtWidgets
+
+    # Houdini 19 uses PySide2/Qt5. Preserve the legacy QtGui widget namespace
+    # expected by the original Maya UI so all hosts can share one widget tree.
+    QtGui = _mirror_qtwidgets_onto_qtgui(
+        _QtGui,
+        QtWidgets
+    )
 
     try:
         import shiboken2 as shiboken
@@ -85,26 +117,10 @@ else:
         from PySide2 import QtGui as _QtGui
         from PySide2 import QtWidgets
 
-        for _name in dir(
+        QtGui = _mirror_qtwidgets_onto_qtgui(
+            _QtGui,
             QtWidgets
-        ):
-            if not hasattr(
-                _QtGui,
-                _name
-            ):
-                try:
-                    setattr(
-                        _QtGui,
-                        _name,
-                        getattr(
-                            QtWidgets,
-                            _name
-                        )
-                    )
-                except Exception:
-                    pass
-
-        QtGui = _QtGui
+        )
 
     except ImportError:
         from PySide import QtCore
@@ -180,12 +196,70 @@ def _nuke_main_window():
         return None
 
 
+def _houdini_main_window():
+    if (
+        HOST_KEY != "houdini" or
+        hou is None
+    ):
+        return None
+
+    try:
+        qt_api = getattr(
+            hou,
+            "qt",
+            None
+        )
+
+        if qt_api is not None:
+            main_window_getter = getattr(
+                qt_api,
+                "mainWindow",
+                None
+            )
+
+            if callable(
+                main_window_getter
+            ):
+                window = main_window_getter()
+
+                if window is not None:
+                    return window
+    except Exception:
+        pass
+
+    # Compatibility fallback for older Houdini builds where the Qt main
+    # window helper lives on hou.ui.
+    try:
+        ui_api = getattr(
+            hou,
+            "ui",
+            None
+        )
+        main_window_getter = getattr(
+            ui_api,
+            "mainQtWindow",
+            None
+        )
+
+        if callable(
+            main_window_getter
+        ):
+            return main_window_getter()
+    except Exception:
+        pass
+
+    return None
+
+
 def main_window():
     if HOST_KEY == "maya":
         return _maya_main_window()
 
     if HOST_KEY == "nuke":
         return _nuke_main_window()
+
+    if HOST_KEY == "houdini":
+        return _houdini_main_window()
 
     return None
 
@@ -220,6 +294,7 @@ __all__ = [
     "mel",
     "nuke",
     "nukescripts",
+    "hou",
     "QtCore",
     "QtGui",
     "StringIO",

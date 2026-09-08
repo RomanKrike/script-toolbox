@@ -7,6 +7,7 @@ from ..core.editor_commands import DocumentCapture
 from ..core.editor_commands import ItemStateCommand
 from ..core.editor_commands import build_document_delta
 from ..core.editor_document import EditorDocumentController
+from ..model import normalize_document
 from ..pycompat import text_type
 
 
@@ -381,10 +382,30 @@ def build_interface_editor_class(base_class):
             if self.history_timer.isActive():
                 self.commit_history()
 
-            result = base_class.apply_changes(self)
-            if result:
-                self._sync_property_baseline()
-            return result
+            self.fix_tree_structure()
+            self.sync_working_from_tree()
+
+            if not self.validate_internal_names():
+                return False
+
+            self.toolbox.config = normalize_document(
+                self.document_controller.snapshot()
+            )
+            self.toolbox.save()
+            self.toolbox.rebuild()
+
+            # Re-seed the staged controller from the applied runtime config
+            # without creating a history snapshot. Existing command objects
+            # remain valid because item IDs are stable across Apply.
+            self.document_controller.replace(
+                self.toolbox.config
+            )
+            self.populate_tree()
+            self.status.setText(
+                "Applied."
+            )
+            self._sync_property_baseline()
+            return True
 
     setattr(
         InterfaceEditor,

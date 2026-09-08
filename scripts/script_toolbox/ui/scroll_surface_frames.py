@@ -16,6 +16,14 @@ QFrame#ScrollSurfaceFrame {
 }
 """
 
+_RUNTIME_FIELD_FRAME_STYLE = """
+QFrame#ScrollSurfaceFrame {
+    background-color: #303030;
+    border: 1px solid #1b1b1b;
+    border-radius: 3px;
+}
+"""
+
 _CHILD_STYLE = """
 border: 0px;
 border-radius: 0px;
@@ -310,7 +318,15 @@ def install_runtime_scroll_frames(registry, runtime_module):
             control is not None and
             isinstance(control, runtime_module.DisplayFieldList)
         ):
-            wrap_scroll_widget(control)
+            frame = wrap_scroll_widget(
+                control,
+                background="#303030",
+                border="#1b1b1b"
+            )
+            if frame is not None:
+                frame.setStyleSheet(
+                    _RUNTIME_FIELD_FRAME_STYLE
+                )
 
         return result
 

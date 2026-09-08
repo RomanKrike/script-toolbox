@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import copy
-
 from script_toolbox.core.editor_commands import CommandHistory
 from script_toolbox.core.editor_commands import DocumentCapture
 from script_toolbox.core.editor_commands import ItemStateCommand

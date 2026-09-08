@@ -4,6 +4,7 @@ from __future__ import print_function
 import io
 import json
 import os
+import shutil
 import tempfile
 import warnings
 
@@ -14,6 +15,41 @@ from ..constants import CONFIG_PATH_ENV
 from ..model import normalize_document
 from .migrations import ConfigMigrationError
 from .migrations import migrate_document
+
+
+CONFIG_BACKUP_COUNT = 3
+
+
+class ConfigRecoveryRequired(RuntimeError):
+
+    def __init__(
+        self,
+        path,
+        cause,
+        backups=None
+    ):
+        self.path = os.path.normpath(
+            path
+        )
+        self.cause = text_type(
+            cause
+        )
+        self.backups = list(
+            backups or []
+        )
+
+        message = (
+            "Script Toolbox configuration at {0!r} cannot be read safely: "
+            "{1}"
+        ).format(
+            self.path,
+            self.cause
+        )
+
+        RuntimeError.__init__(
+            self,
+            message
+        )
 
 
 def config_path():
@@ -45,12 +81,71 @@ def config_path():
     )
 
 
+def backup_path(
+    path,
+    index
+):
+    return "{0}.bak{1}".format(
+        os.path.normpath(path),
+        int(index)
+    )
+
+
 def _prepare_document(document):
     return normalize_document(
         migrate_document(
             document
         )
     )
+
+
+def _read_document(path):
+    with io.open(
+        path,
+        "r",
+        encoding="utf-8"
+    ) as handle:
+        raw_document = json.load(
+            handle
+        )
+
+    return _prepare_document(
+        raw_document
+    )
+
+
+def valid_backup_paths(
+    path,
+    count=CONFIG_BACKUP_COUNT
+):
+    result = []
+
+    for index in range(
+        1,
+        int(count) + 1
+    ):
+        candidate = backup_path(
+            path,
+            index
+        )
+
+        if not os.path.isfile(
+            candidate
+        ):
+            continue
+
+        try:
+            _read_document(
+                candidate
+            )
+        except Exception:
+            continue
+
+        result.append(
+            candidate
+        )
+
+    return result
 
 
 def load_config(path=None):
@@ -60,17 +155,8 @@ def load_config(path=None):
         return _prepare_document({})
 
     try:
-        with io.open(
-            path,
-            "r",
-            encoding="utf-8"
-        ) as handle:
-            raw_document = json.load(
-                handle
-            )
-
-        return _prepare_document(
-            raw_document
+        return _read_document(
+            path
         )
 
     except ConfigMigrationError as exc:
@@ -88,16 +174,26 @@ def load_config(path=None):
         raise
 
     except Exception as exc:
+        backups = valid_backup_paths(
+            path
+        )
         warnings.warn(
-            "Script Toolbox: failed to load config at {0!r}: {1}. "
-            "Falling back to the default configuration.".format(
+            (
+                "Script Toolbox: failed to load config at {0!r}: {1}. "
+                "The original file was left untouched and configuration "
+                "recovery is required."
+            ).format(
                 path,
                 exc
             ),
             RuntimeWarning,
             stacklevel=2
         )
-        return _prepare_document({})
+        raise ConfigRecoveryRequired(
+            path,
+            exc,
+            backups=backups
+        )
 
 
 def _replace_file_windows(source, destination):
@@ -148,6 +244,187 @@ def _replace_file(source, destination):
     )
 
 
+def _rotate_backups(
+    path,
+    count=CONFIG_BACKUP_COUNT
+):
+    if not os.path.isfile(
+        path
+    ):
+        return []
+
+    count = max(
+        1,
+        int(count)
+    )
+
+    for index in range(
+        count,
+        1,
+        -1
+    ):
+        source = backup_path(
+            path,
+            index - 1
+        )
+        destination = backup_path(
+            path,
+            index
+        )
+
+        if os.path.isfile(
+            source
+        ):
+            shutil.copy2(
+                source,
+                destination
+            )
+
+    shutil.copy2(
+        path,
+        backup_path(
+            path,
+            1
+        )
+    )
+
+    return [
+        backup_path(path, index)
+        for index in range(1, count + 1)
+        if os.path.isfile(
+            backup_path(path, index)
+        )
+    ]
+
+
+def _corrupt_copy_path(path):
+    base = os.path.normpath(
+        path
+    ) + ".corrupt"
+
+    if not os.path.exists(
+        base
+    ):
+        return base
+
+    index = 2
+
+    while True:
+        candidate = "{0}.{1}".format(
+            base,
+            index
+        )
+
+        if not os.path.exists(
+            candidate
+        ):
+            return candidate
+
+        index += 1
+
+
+def restore_config_backup(
+    path,
+    source_backup=None
+):
+    path = os.path.normpath(
+        path
+    )
+    backups = valid_backup_paths(
+        path
+    )
+
+    if source_backup is None:
+        if not backups:
+            raise RuntimeError(
+                "No valid Script Toolbox configuration backup is available."
+            )
+
+        source_backup = backups[0]
+
+    source_backup = os.path.normpath(
+        source_backup
+    )
+
+    if source_backup not in backups:
+        # Validate explicitly supplied backup paths as well, while preventing
+        # accidental restoration from an unrelated file.
+        expected = set([
+            backup_path(path, index)
+            for index in range(1, CONFIG_BACKUP_COUNT + 1)
+        ])
+
+        if source_backup not in expected:
+            raise RuntimeError(
+                "The requested configuration backup does not belong to this "
+                "Script Toolbox config."
+            )
+
+        _read_document(
+            source_backup
+        )
+
+    folder = os.path.dirname(
+        path
+    )
+    descriptor, temp_path = tempfile.mkstemp(
+        prefix=".script_toolbox_restore_",
+        suffix=".tmp",
+        dir=(folder or ".")
+    )
+    os.close(
+        descriptor
+    )
+
+    corrupt_copy = None
+
+    try:
+        shutil.copy2(
+            source_backup,
+            temp_path
+        )
+
+        # Validate the exact bytes that will replace the primary config.
+        _read_document(
+            temp_path
+        )
+
+        if os.path.isfile(
+            path
+        ):
+            corrupt_copy = _corrupt_copy_path(
+                path
+            )
+            shutil.copy2(
+                path,
+                corrupt_copy
+            )
+
+        _replace_file(
+            temp_path,
+            path
+        )
+
+    except Exception:
+        try:
+            if os.path.exists(
+                temp_path
+            ):
+                os.remove(
+                    temp_path
+                )
+        except OSError:
+            pass
+        raise
+
+    return {
+        "path": path,
+        "backup": source_backup,
+        "corrupt_copy": corrupt_copy,
+        "document": _read_document(path),
+    }
+
+
 def save_config(document, path=None):
     path = path or config_path()
     document = _prepare_document(
@@ -185,6 +462,26 @@ def save_config(document, path=None):
                 handle.fileno()
             )
 
+        if os.path.isfile(
+            path
+        ):
+            try:
+                _read_document(
+                    path
+                )
+            except ConfigMigrationError:
+                raise
+            except Exception as exc:
+                raise ConfigRecoveryRequired(
+                    path,
+                    exc,
+                    backups=valid_backup_paths(path)
+                )
+
+            _rotate_backups(
+                path
+            )
+
         _replace_file(
             temp_path,
             path
@@ -192,9 +489,12 @@ def save_config(document, path=None):
 
     except Exception:
         try:
-            os.remove(
+            if os.path.exists(
                 temp_path
-            )
+            ):
+                os.remove(
+                    temp_path
+                )
         except OSError:
             pass
 
@@ -214,3 +514,17 @@ def import_config(path):
     return load_config(
         path=path
     )
+
+
+__all__ = [
+    "CONFIG_BACKUP_COUNT",
+    "ConfigRecoveryRequired",
+    "backup_path",
+    "config_path",
+    "export_config",
+    "import_config",
+    "load_config",
+    "restore_config_backup",
+    "save_config",
+    "valid_backup_paths",
+]

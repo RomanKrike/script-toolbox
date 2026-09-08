@@ -3,6 +3,7 @@
 from script_toolbox.core.editor_commands import CommandHistory
 from script_toolbox.core.editor_commands import DocumentCapture
 from script_toolbox.core.editor_commands import ItemStateCommand
+from script_toolbox.core.editor_commands import ItemsStateCommand
 from script_toolbox.core.editor_commands import build_document_delta
 from script_toolbox.core.editor_document import EditorDocumentController
 
@@ -64,6 +65,42 @@ def test_item_state_command_undo_redo_changes_only_one_item():
     history.redo()
     assert controller.find_by_id("button_a")["label"] == "Changed"
     assert controller.find_by_id("button_b")["label"] == "B"
+
+
+def test_items_state_command_undo_redo_is_atomic_for_linked_edits():
+    controller = EditorDocumentController(_document())
+    history = CommandHistory(controller)
+    item_a = controller.find_by_id("button_a")
+    item_b = controller.find_by_id("button_b")
+    before = {
+        "button_a": controller.item_state(item_a),
+        "button_b": controller.item_state(item_b),
+    }
+
+    item_a["name"] = "renamed_a"
+    item_b["click_script"] = "toolbox.get_value('renamed_a')"
+    after = {
+        "button_a": controller.item_state(item_a),
+        "button_b": controller.item_state(item_b),
+    }
+
+    history.push_applied(
+        ItemsStateCommand(
+            before,
+            after,
+            label="Rename Parameter"
+        )
+    )
+
+    history.undo()
+    assert controller.find_by_id("button_a")["name"] == "a"
+    assert controller.find_by_id("button_b")["click_script"] == "print('b')"
+
+    history.redo()
+    assert controller.find_by_id("button_a")["name"] == "renamed_a"
+    assert controller.find_by_id("button_b")["click_script"] == (
+        "toolbox.get_value('renamed_a')"
+    )
 
 
 def test_structural_reorder_uses_topology_and_round_trips():

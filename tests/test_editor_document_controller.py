@@ -39,7 +39,7 @@ def test_controller_owns_defensive_copy_and_indexes_nested_items():
     source["sections"][0]["label"] = "Changed outside"
 
     assert controller.document["sections"][0]["label"] != "Changed outside"
-    assert controller.find_by_id("int_samples")["name"] == "samples"
+    assert controller.find_by_id("integer_samples")["name"] == "samples"
     assert controller.find_by_id("field_selection")["kind"] == "field"
 
 
@@ -58,7 +58,7 @@ def test_adopt_preserves_item_identity_for_qt_tree_sync():
     controller = EditorDocumentController(
         _golden_document()
     )
-    item = controller.find_by_id("int_samples")
+    item = controller.find_by_id("integer_samples")
 
     adopted = {
         "version": controller.document["version"],
@@ -66,7 +66,7 @@ def test_adopt_preserves_item_identity_for_qt_tree_sync():
     }
     controller.adopt(adopted)
 
-    assert controller.find_by_id("int_samples") is item
+    assert controller.find_by_id("integer_samples") is item
     assert controller.document is adopted
 
 
@@ -81,7 +81,7 @@ def test_replace_rebuilds_index_and_drops_old_ids():
 
     controller.replace(replacement)
 
-    assert controller.find_by_id("int_samples") is None
+    assert controller.find_by_id("integer_samples") is None
     assert controller.find_by_id(
         replacement["sections"][0]["id"]
     ) is not None

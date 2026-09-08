@@ -5,20 +5,22 @@ from ..compat import QtCore
 from ..compat import QtGui
 from ..compat import main_window
 from ..core.config_store import ConfigStore
+from ..core.state_refresh import StateRefreshQueue
 from ..core.values import store_value as store_document_value
 from ..pycompat import text_type
 from . import main_window as base_main_window
 
 
 SAVE_DEBOUNCE_MS = 500
+STATE_REFRESH_INTERVAL_MS = 100
 
 
 class ScriptToolbox(base_main_window.ScriptToolbox):
-    """Runtime window with debounced persistence for value changes.
+    """Runtime window with debounced persistence and state refresh scheduling.
 
-    Explicit ``save()`` calls remain synchronous. Only the persistence caused
-    by ``store_value()`` is deferred so rapid control events coalesce into one
-    atomic config write on the DCC main thread.
+    Explicit ``save()`` calls remain synchronous. Runtime value persistence is
+    debounced, while full state-button refresh requests are coalesced into a
+    bounded 100 ms window on the DCC main thread.
     """
 
     def __init__(
@@ -27,6 +29,11 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
     ):
         self.config_store = None
         self.save_timer = None
+
+        self.state_refresh_queue = StateRefreshQueue()
+        self.state_refresh_timer = None
+        self._selection_refresh_in_progress = False
+        self._rebuilding_runtime = False
 
         base_main_window.ScriptToolbox.__init__(
             self,
@@ -48,6 +55,19 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         )
         self.save_timer.timeout.connect(
             self._flush_scheduled_save
+        )
+
+        self.state_refresh_timer = QtCore.QTimer(
+            self
+        )
+        self.state_refresh_timer.setSingleShot(
+            True
+        )
+        self.state_refresh_timer.setInterval(
+            STATE_REFRESH_INTERVAL_MS
+        )
+        self.state_refresh_timer.timeout.connect(
+            self._flush_scheduled_state_refresh
         )
 
     # ------------------------------------------------------------------
@@ -139,9 +159,88 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
                 old_value,
                 new_value
             )
-            self.refresh_state_buttons()
+            self.request_state_refresh()
 
         return True
+
+    # ------------------------------------------------------------------
+    # State refresh scheduling
+    # ------------------------------------------------------------------
+
+    def request_state_refresh(self):
+        """Request one bounded full refresh without restarting its timer."""
+        if not self.state_button_widgets:
+            return False
+
+        should_schedule = self.state_refresh_queue.request()
+
+        if not should_schedule:
+            return False
+
+        if self.state_refresh_timer is None:
+            self.state_refresh_queue.consume()
+            base_main_window.ScriptToolbox.refresh_state_buttons(
+                self
+            )
+            return True
+
+        self.state_refresh_timer.start()
+        return True
+
+    def _flush_scheduled_state_refresh(self):
+        if not self.state_refresh_queue.consume():
+            return False
+
+        base_main_window.ScriptToolbox.refresh_state_buttons(
+            self
+        )
+        return True
+
+    def cancel_scheduled_state_refresh(self):
+        if self.state_refresh_timer is not None:
+            self.state_refresh_timer.stop()
+
+        return self.state_refresh_queue.cancel()
+
+    def refresh_state_buttons(self):
+        # Selection polling is a high-frequency producer, so its request is
+        # scheduled unless it is part of a runtime rebuild. Rebuild performs
+        # one explicit immediate refresh after all widgets have been created.
+        if self._selection_refresh_in_progress:
+            if self._rebuilding_runtime:
+                return None
+
+            self.request_state_refresh()
+            return None
+
+        # Explicit callers retain the old synchronous semantics and also clear
+        # a pending scheduled refresh to avoid a duplicate full pass.
+        self.cancel_scheduled_state_refresh()
+        return base_main_window.ScriptToolbox.refresh_state_buttons(
+            self
+        )
+
+    def refresh_selection_fields(
+        self,
+        force=False
+    ):
+        self._selection_refresh_in_progress = True
+        try:
+            return base_main_window.ScriptToolbox.refresh_selection_fields(
+                self,
+                force=force
+            )
+        finally:
+            self._selection_refresh_in_progress = False
+
+    def rebuild(self):
+        self._rebuilding_runtime = True
+        try:
+            return base_main_window.ScriptToolbox.rebuild(
+                self
+            )
+        finally:
+            self._rebuilding_runtime = False
 
     # ------------------------------------------------------------------
     # Lifecycle flush points
@@ -149,6 +248,7 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
 
     def reload_config(self):
         self.flush_pending_save()
+        self.cancel_scheduled_state_refresh()
 
         base_main_window.ScriptToolbox.reload_config(
             self
@@ -217,6 +317,8 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
             event.ignore()
             return
 
+        self.cancel_scheduled_state_refresh()
+
         QtGui.QMainWindow.closeEvent(
             self,
             event
@@ -258,6 +360,7 @@ def show():
 
 __all__ = [
     "SAVE_DEBOUNCE_MS",
+    "STATE_REFRESH_INTERVAL_MS",
     "ScriptToolbox",
     "close_toolbox",
     "show",

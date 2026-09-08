@@ -21,6 +21,7 @@ sys.path.insert(
 
 from script_toolbox.core import config
 from script_toolbox.core.config_store import ConfigStore
+from script_toolbox.core.state_refresh import StateRefreshQueue
 
 
 def main():
@@ -58,6 +59,12 @@ def main():
                 1
             )
         )
+
+        refresh_queue = StateRefreshQueue()
+        assert refresh_queue.request() is True
+        assert refresh_queue.request() is False
+        assert refresh_queue.consume() is True
+        assert refresh_queue.pending is False
     finally:
         shutil.rmtree(folder)
 

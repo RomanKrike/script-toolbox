@@ -48,7 +48,9 @@ The compatibility adapter uses `adopt()` only when the legacy Qt tree has alread
 
 ## Compatibility adapter
 
-`ui/editor_document_adapter.py` subclasses the existing Qt `InterfaceEditor` and redirects the legacy attributes and helper methods:
+`ui/editor_document_adapter.py` exposes `build_interface_editor_class(base_class)`. `ui/__init__.py` passes the current legacy `ui.interface_editor.InterfaceEditor` class to that factory and publishes the resulting controller-backed class.
+
+The adapter redirects the legacy attributes and helper methods:
 
 - `working` -> `controller.document`;
 - `item_cache` -> `controller.item_cache`;
@@ -59,7 +61,9 @@ The compatibility adapter uses `adopt()` only when the legacy Qt tree has alread
 - `_cache_subtree()` -> `controller.cache_subtree()`;
 - duplicate-name validation -> `controller.duplicate_name()`.
 
-`ui/__init__.py` also updates the already-loaded `ui.interface_editor.InterfaceEditor` module attribute to the controller-backed adapter. This preserves existing direct imports while the legacy dialog is decomposed incrementally.
+`ui/__init__.py` also updates the already-loaded `ui.interface_editor.InterfaceEditor` module attribute. This preserves existing direct imports while the legacy dialog is decomposed incrementally.
+
+The factory marks generated adapter classes and unwraps an already wrapped class before creating another adapter. That makes repeated development reloads stable instead of accumulating adapter subclasses when module reload order changes.
 
 This compatibility layer is transitional. Future editor work should move behavior from the legacy dialog into explicit controller/command APIs rather than expanding the adapter.
 

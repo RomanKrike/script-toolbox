@@ -5,8 +5,8 @@ from script_toolbox.core.executor import evaluate_python_state
 from script_toolbox.model.items import create_item
 
 
-def test_config_schema_is_16():
-    assert CONFIG_VERSION == 16
+def test_config_schema_is_17():
+    assert CONFIG_VERSION == 17
 
 
 def test_state_button_normalizes_state_fields():
@@ -92,7 +92,7 @@ def test_row_and_child_layout_settings_are_normalized():
     assert row["items"][1]["row_width"] == 160
 
 
-def test_value_controls_preserve_on_change_script():
+def test_value_controls_migrate_legacy_on_change_to_callbacks():
     item = create_item(
         "integer",
         {
@@ -100,7 +100,10 @@ def test_value_controls_preserve_on_change_script():
         }
     )
 
-    assert item["on_change_script"] == "result = value + 1"
+    assert item["callbacks"] == {
+        "on_change": "result = value + 1",
+    }
+    assert "on_change_script" not in item
 
 
 def test_state_query_evaluator_reads_state_variable():

@@ -52,7 +52,15 @@ def _bounded_maximum(value):
 
 
 def _copy_constraints(widget, frame):
-    """Preserve explicit size bounds after moving a control into a frame."""
+    """Preserve the source control's *outer* geometry after framing.
+
+    The external frame replaces the control's own 1 px border; it must not
+    make a fixed-height runtime control two pixels taller.  The frame keeps the
+    exact original min/max bounds and its 1 px contents margin is consumed from
+    the inner viewport area instead.  This prevents cumulative layout growth
+    in long toolboxes while still keeping scrollbars away from the visible
+    border.
+    """
     try:
         frame.setSizePolicy(widget.sizePolicy())
     except Exception:
@@ -61,28 +69,28 @@ def _copy_constraints(widget, frame):
     try:
         minimum_height = int(widget.minimumHeight())
         if minimum_height > 0:
-            frame.setMinimumHeight(minimum_height + 2)
+            frame.setMinimumHeight(minimum_height)
     except Exception:
         pass
 
     try:
         maximum_height = _bounded_maximum(widget.maximumHeight())
         if maximum_height is not None:
-            frame.setMaximumHeight(maximum_height + 2)
+            frame.setMaximumHeight(maximum_height)
     except Exception:
         pass
 
     try:
         minimum_width = int(widget.minimumWidth())
         if minimum_width > 0:
-            frame.setMinimumWidth(minimum_width + 2)
+            frame.setMinimumWidth(minimum_width)
     except Exception:
         pass
 
     try:
         maximum_width = _bounded_maximum(widget.maximumWidth())
         if maximum_width is not None:
-            frame.setMaximumWidth(maximum_width + 2)
+            frame.setMaximumWidth(maximum_width)
     except Exception:
         pass
 

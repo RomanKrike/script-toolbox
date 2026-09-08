@@ -72,7 +72,7 @@ def test_trigger_add_tab_stays_after_real_binding_pages():
     assert "self._ensure_add_tab()" in add_page_source
 
 
-def test_property_script_editor_has_minimum_height_and_expands():
+def test_property_script_editor_is_large_expanding_and_resizable():
     source = _read(
         "scripts/script_toolbox/ui/properties/script_editor_sizing.py"
     )
@@ -80,7 +80,14 @@ def test_property_script_editor_has_minimum_height_and_expands():
         "scripts/script_toolbox/ui/properties/__init__.py"
     )
 
-    assert "self.script_editor.setMinimumHeight(240)" in source
+    assert "_DEFAULT_SCRIPT_EDITOR_HEIGHT = 480" in source
+    assert "_MIN_SCRIPT_EDITOR_HEIGHT = 240" in source
+    assert "_MAX_SCRIPT_EDITOR_HEIGHT = 1600" in source
+    assert "class ScriptEditorResizeHandle" in source
+    assert '"Drag to resize script editor"' in source
+    assert "QtCore.Qt.SizeVerCursor" in source
+    assert "event.globalY()" in source
+    assert "_set_panel_script_editor_height(" in source
     assert "QtGui.QSizePolicy.Expanding" in source
     assert "self.root_layout.setStretch(" in source
     assert "self.binding_panel" in source

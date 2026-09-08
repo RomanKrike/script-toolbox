@@ -4,7 +4,6 @@ from __future__ import print_function
 import copy
 
 from ...constants import CONFIG_VERSION
-from ...pycompat import text_type
 from .v15_to_v16 import migrate as migrate_v15_to_v16
 
 

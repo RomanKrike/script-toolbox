@@ -77,7 +77,7 @@ def register_panel():
         )
 
     return nukescripts.panels.registerWidgetAsPanel(
-        "script_toolbox.ui.main_window.ScriptToolbox",
+        "script_toolbox.ui.debounced_main_window.ScriptToolbox",
         "Script Toolbox",
         PANEL_ID
     )

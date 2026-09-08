@@ -7,6 +7,15 @@ import uuid
 from ..pycompat import text_type
 from ..constants import CONFIG_VERSION
 from ..constants import FOLDER_TYPES
+from .callbacks import normalize_callbacks
+
+
+DEFAULT_COMPONENT_LABELS = (
+    "X",
+    "Y",
+    "Z",
+    "W",
+)
 
 
 def new_id():
@@ -88,6 +97,75 @@ def safe_menu_items(value):
     return result
 
 
+def safe_numeric_size(value):
+    return clamp(
+        safe_int(value, 1),
+        1,
+        4
+    )
+
+
+def safe_component_labels(value, size):
+    size = safe_numeric_size(size)
+
+    if isinstance(value, (list, tuple)):
+        labels = [
+            text_type(entry).strip()
+            for entry in value
+        ]
+    else:
+        raw = text_type(value or "")
+        labels = [
+            part.strip()
+            for part in raw.replace(";", ",").split(",")
+        ] if raw.strip() else []
+
+    result = []
+    for index in range(size):
+        if index < len(labels) and labels[index]:
+            result.append(labels[index])
+        else:
+            result.append(DEFAULT_COMPONENT_LABELS[index])
+
+    return result
+
+
+def _numeric_value(
+    value,
+    size,
+    minimum,
+    maximum,
+    caster,
+    fallback
+):
+    size = safe_numeric_size(size)
+
+    if isinstance(value, (list, tuple)):
+        values = list(value)
+    else:
+        values = [value] * size
+
+    normalized = []
+    for index in range(size):
+        current = (
+            values[index]
+            if index < len(values)
+            else fallback
+        )
+        normalized.append(
+            clamp(
+                caster(current, fallback),
+                minimum,
+                maximum
+            )
+        )
+
+    if size == 1:
+        return normalized[0]
+
+    return normalized
+
+
 def base_item(kind, data=None, default_label=None):
     data = data or {}
     item_id = data.get("id") or new_id()
@@ -110,6 +188,7 @@ def base_item(kind, data=None, default_label=None):
         "label": text_type(label),
         "show_label": bool(data.get("show_label", True)),
         "tooltip": text_type(data.get("tooltip") or ""),
+        "callbacks": normalize_callbacks(kind, data),
         "row_width_mode": (
             text_type(data.get("row_width_mode", "auto")).lower()
             if text_type(data.get("row_width_mode", "auto")).lower()
@@ -128,9 +207,8 @@ def base_item(kind, data=None, default_label=None):
 
 
 def add_value_behavior(item, data):
-    item["on_change_script"] = text_type(
-        data.get("on_change_script") or ""
-    )
+    # Schema 17 stores callbacks in base_item(). Keep accepting the historical
+    # key through normalize_callbacks(), but do not persist a duplicate field.
     return item
 
 
@@ -152,6 +230,9 @@ def _button(data):
         "click_script": text_type(data.get("click_script") or ""),
         "shift_script": text_type(data.get("shift_script") or ""),
         "color": safe_color(data.get("color")),
+        "icon_path": text_type(data.get("icon_path") or ""),
+        "icon_size": clamp(safe_int(data.get("icon_size"), 18), 8, 256),
+        "icon_only": bool(data.get("icon_only", False)),
         "state_get_script": text_type(data.get("state_get_script") or ""),
         "state_on_script": text_type(data.get("state_on_script") or ""),
         "state_off_script": text_type(data.get("state_off_script") or ""),
@@ -172,6 +253,26 @@ def _button(data):
     })
     return item
 
+
+def _icon(data):
+    item = base_item("icon", data, "Icon")
+    alignment = text_type(
+        data.get("alignment", "left")
+    ).lower()
+    if alignment not in ("left", "center", "right"):
+        alignment = "left"
+
+    item.update({
+        "show_label": bool(data.get("show_label", False)),
+        "path": text_type(data.get("path") or ""),
+        "width": clamp(safe_int(data.get("width"), 24), 8, 512),
+        "height": clamp(safe_int(data.get("height"), 24), 8, 512),
+        "alignment": alignment,
+        "clickable": bool(data.get("clickable", False)),
+    })
+    return item
+
+
 def _string(data):
     item = base_item("string", data, "String")
     item["value"] = text_type(data.get("value") or "")
@@ -186,14 +287,24 @@ def _integer(data):
     if minimum > maximum:
         minimum, maximum = maximum, minimum
 
+    size = safe_numeric_size(data.get("size", 1))
     item.update({
         "min": minimum,
         "max": maximum,
         "step": max(1, safe_int(data.get("step"), 1)),
-        "value": clamp(
-            safe_int(data.get("value"), 0),
+        "size": size,
+        "component_labels": safe_component_labels(
+            data.get("component_labels"),
+            size
+        ),
+        "show_slider": bool(data.get("show_slider", False)),
+        "value": _numeric_value(
+            data.get("value", 0),
+            size,
             minimum,
             maximum,
+            safe_int,
+            0
         ),
     })
     return add_value_behavior(item, data)
@@ -207,15 +318,25 @@ def _float(data):
     if minimum > maximum:
         minimum, maximum = maximum, minimum
 
+    size = safe_numeric_size(data.get("size", 1))
     item.update({
         "min": minimum,
         "max": maximum,
         "step": max(0.000001, safe_float(data.get("step"), 0.1)),
         "decimals": clamp(safe_int(data.get("decimals"), 3), 0, 8),
-        "value": clamp(
-            safe_float(data.get("value"), 0.0),
+        "size": size,
+        "component_labels": safe_component_labels(
+            data.get("component_labels"),
+            size
+        ),
+        "show_slider": bool(data.get("show_slider", False)),
+        "value": _numeric_value(
+            data.get("value", 0.0),
+            size,
             minimum,
             maximum,
+            safe_float,
+            0.0
         ),
     })
     return add_value_behavior(item, data)
@@ -314,6 +435,7 @@ def _field(data):
     })
     return add_value_behavior(item, data)
 
+
 def _label(data):
     return base_item("label", data, "Label")
 
@@ -354,6 +476,7 @@ def _row(data):
     })
     return item
 
+
 def _folder(data):
     item = base_item("folder", data, "Folder")
     folder_type = text_type(
@@ -382,6 +505,7 @@ def _folder(data):
 
 _FACTORIES = {
     "button": _button,
+    "icon": _icon,
     "string": _string,
     "integer": _integer,
     "float": _float,
@@ -464,3 +588,23 @@ def walk_items(document, include_folders=False):
 
         for item in walk(folder.get("items", [])):
             yield item
+
+
+__all__ = [
+    "DEFAULT_COMPONENT_LABELS",
+    "add_value_behavior",
+    "base_item",
+    "clamp",
+    "create_item",
+    "default_document",
+    "new_id",
+    "normalize_document",
+    "safe_color",
+    "safe_component_labels",
+    "safe_float",
+    "safe_int",
+    "safe_menu_items",
+    "safe_numeric_size",
+    "sanitize_name",
+    "walk_items",
+]

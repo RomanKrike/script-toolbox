@@ -36,10 +36,15 @@ QFrame#RuntimeSeparatorLineVertical {
     border: 0px;
     border-left: 1px solid #414346;
 }
+
+/* Runtime Field lists are QAbstractScrollArea widgets. Maya/Qt4 paints their
+   scrollbars inside the frame rect, so a border on the QListWidget itself can
+   disappear behind the right/bottom scrollbar. ScrollSurfaceFrame owns the
+   visible border; the list owns only its viewport/background. */
 QListWidget#RuntimeFieldList {
     background-color: #202020;
-    border: 1px solid #151515;
-    border-radius: 2px;
+    border: 0px;
+    border-radius: 0px;
     padding: 1px;
 }
 

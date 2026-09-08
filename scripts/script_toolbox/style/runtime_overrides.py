@@ -3,6 +3,15 @@
 # Runtime-only QSS fixes that must override the base theme. Keeping these
 # rules separate makes host-specific Qt4/Qt5 rendering quirks explicit.
 RUNTIME_OVERRIDES = """
+/* Qt4/Qt5 can mis-size the first tooltip when QToolTip uses QSS padding.
+   The next tooltip is then laid out correctly, which looks like the first
+   line was clipped until the cursor moves to another control. Keep tooltip
+   colors/border from the base theme, but let the native style own its text
+   margins so geometry is stable in Maya 2015 and newer hosts. */
+QToolTip {
+    padding: 0px;
+}
+
 QFrame#RuntimeSeparatorLine {
     background-color: transparent;
     border: 0px;

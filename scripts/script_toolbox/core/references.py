@@ -6,6 +6,7 @@ import sys
 import token as token_module
 import tokenize
 
+from ..model.callbacks import callback_events
 from ..pycompat import StringIO
 from ..pycompat import text_type
 
@@ -241,7 +242,7 @@ def rewrite_python_references(source, replacements):
 
 
 def python_script_keys(item):
-    """Return item payload keys whose contents are Python scripts."""
+    """Return flat item payload keys whose contents are Python scripts."""
     kind = text_type(item.get("kind", ""))
     language = text_type(item.get("language", "python")).lower()
     result = []
@@ -259,6 +260,19 @@ def python_script_keys(item):
     return result
 
 
+def callback_script_keys(item):
+    """Return callback event keys that currently contain Python code."""
+    callbacks = item.get("callbacks")
+    if not isinstance(callbacks, dict):
+        return []
+
+    result = []
+    for event in callback_events(item.get("kind")):
+        if text_type(callbacks.get(event) or "").strip():
+            result.append(event)
+    return result
+
+
 def rewrite_item_references(item, replacements):
     changed = False
 
@@ -272,6 +286,19 @@ def rewrite_item_references(item, replacements):
             continue
         item[key] = rewritten
         changed = True
+
+    callbacks = item.get("callbacks")
+    if isinstance(callbacks, dict):
+        for event in callback_script_keys(item):
+            source = text_type(callbacks.get(event) or "")
+            rewritten = rewrite_python_references(
+                source,
+                replacements
+            )
+            if rewritten == source:
+                continue
+            callbacks[event] = rewritten
+            changed = True
 
     return changed
 
@@ -317,6 +344,7 @@ def rewrite_document_references(document, replacements):
 
 __all__ = [
     "REFERENCE_METHODS",
+    "callback_script_keys",
     "python_script_keys",
     "rewrite_document_references",
     "rewrite_item_references",

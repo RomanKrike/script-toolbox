@@ -47,24 +47,58 @@ def test_scroll_surface_frame_preserves_original_outer_constraints():
     assert "maximum_width + 2" not in source
 
 
-def test_runtime_list_field_uses_external_scroll_surface_frame():
+def test_runtime_list_field_uses_editor_pane_visual_contract():
     source = _read(
         "scripts/script_toolbox/ui/scroll_surface_frames.py"
     )
     style = _read(
         "scripts/script_toolbox/style/runtime_overrides.py"
     )
+    base_style = _read(
+        "scripts/script_toolbox/style/stylesheet.py"
+    )
 
     assert 'registry.renderer_for("field")' in source
     assert "runtime_module.DisplayFieldList" in source
-    assert "wrap_scroll_widget(control)" in source
-    assert "QListWidget#RuntimeFieldList" in style
+    assert 'background="#303030"' in source
+    assert 'border="#1b1b1b"' in source
+    assert "_RUNTIME_FIELD_FRAME_STYLE" in source
+    assert "border-radius: 3px;" in source
+
+    editor_rule = base_style.split(
+        "QWidget#EditorPane {",
+        1
+    )[1].split("}", 1)[0]
+    for token in (
+        "background-color: #303030;",
+        "border: 1px solid #1b1b1b;",
+        "border-radius: 3px;",
+    ):
+        assert token in editor_rule
+        assert token in source
+
     runtime_rule = style.split(
         "QListWidget#RuntimeFieldList {",
         1
     )[1].split("}", 1)[0]
+    assert "background-color: #242424;" in runtime_rule
     assert "border: 0px;" in runtime_rule
     assert "border-radius: 0px;" in runtime_rule
+    assert "outline: 0px;" in runtime_rule
+
+    assert "QListWidget#RuntimeFieldList::item:hover" in style
+    assert "background-color: #333333;" in style
+    assert "background-color: #68462c;" in style
+
+
+def test_runtime_folder_pane_override_is_removed():
+    style = _read(
+        "scripts/script_toolbox/style/runtime_overrides.py"
+    )
+
+    assert 'QFrame#RuntimeFolder[folderType="collapsible"],' not in style
+    assert "RuntimePane" not in style
+    assert "RuntimePaneHost" not in style
 
 
 def test_script_editor_frames_code_and_output_scroll_areas():

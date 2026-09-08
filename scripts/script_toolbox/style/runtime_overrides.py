@@ -25,46 +25,6 @@ QWidget#PropertyEditor {
     border: 0px;
 }
 
-/* A collapsible Folder is the pane-like runtime item. Match the visual
-   contract used by the Create Parameters / Existing Parameters EditorPane
-   widgets instead of framing the whole toolbox window. */
-QFrame#RuntimeFolder[folderType="collapsible"],
-QFrame#RuntimeFolder[folderType="collapsible"][nested="true"] {
-    background-color: #303030;
-    border: 1px solid #1b1b1b;
-    border-radius: 3px;
-}
-
-/* Keep the collapsible title visually inside the pane, like PaneTitle in the
-   Interface Editor, while preserving the full-width click target. */
-QFrame#RuntimeFolder[folderType="collapsible"] QPushButton#RuntimeFolderHeader,
-QFrame#RuntimeFolder[folderType="collapsible"][nested="true"] QPushButton#RuntimeFolderHeader {
-    background-color: transparent;
-    color: #e0e0e0;
-    border: 0px;
-    border-radius: 0px;
-    font-weight: bold;
-    text-align: left;
-    padding: 3px 8px 5px 8px;
-}
-
-QFrame#RuntimeFolder[folderType="collapsible"] QPushButton#RuntimeFolderHeader:hover,
-QFrame#RuntimeFolder[folderType="collapsible"][nested="true"] QPushButton#RuntimeFolderHeader:hover {
-    background-color: #353535;
-    color: #eeeeee;
-}
-
-QFrame#RuntimeFolder[folderType="collapsible"] QPushButton#RuntimeFolderHeader:pressed,
-QFrame#RuntimeFolder[folderType="collapsible"][nested="true"] QPushButton#RuntimeFolderHeader:pressed {
-    background-color: #2c2c2c;
-}
-
-QFrame#RuntimeFolder[folderType="collapsible"] QPushButton#RuntimeFolderHeader[collapsed="true"],
-QFrame#RuntimeFolder[folderType="collapsible"][nested="true"] QPushButton#RuntimeFolderHeader[collapsed="true"] {
-    background-color: transparent;
-    color: #cfcfcf;
-}
-
 QFrame#RuntimeSeparatorLine {
     background-color: transparent;
     border: 0px;
@@ -77,25 +37,32 @@ QFrame#RuntimeSeparatorLineVertical {
     border-left: 1px solid #414346;
 }
 
-/* Runtime Field lists are QAbstractScrollArea widgets. Maya/Qt4 paints their
-   scrollbars inside the frame rect, so a border on the QListWidget itself can
-   disappear behind the right/bottom scrollbar. ScrollSurfaceFrame owns the
-   visible border; the list owns only its viewport/background. */
+/* Runtime Field list uses the same inner surface language as the parameter
+   trees in the Interface Editor. The visible outer pane border is owned by
+   ScrollSurfaceFrame so Maya/Qt4 scrollbars cannot cover its bottom/right
+   edge. */
 QListWidget#RuntimeFieldList {
-    background-color: #202020;
+    background-color: #242424;
+    color: #d4d4d4;
     border: 0px;
     border-radius: 0px;
-    padding: 1px;
+    outline: 0px;
+    padding: 0px;
 }
 
 QListWidget#RuntimeFieldList::item {
-    min-height: 18px;
-    padding: 1px 4px;
+    min-height: 20px;
+    padding: 3px 4px;
+    border: 0px;
+}
+
+QListWidget#RuntimeFieldList::item:hover {
+    background-color: #333333;
 }
 
 QListWidget#RuntimeFieldList::item:selected {
-    background-color: #3b4348;
-    color: #eeeeee;
+    background-color: #68462c;
+    color: #ffffff;
 }
 
 """

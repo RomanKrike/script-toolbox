@@ -20,7 +20,7 @@ def test_runtime_value_persistence_is_debounced_on_main_thread():
     assert "SAVE_DEBOUNCE_MS = 500" in source
     assert "self.save_timer.setSingleShot" in source
     assert "self.save_timer.timeout.connect" in source
-    assert "self._defer_config_save = True" in source
+    assert "self.schedule_save()" in source
     assert "self.config_store.mark_dirty" in source
 
 
@@ -31,6 +31,7 @@ def test_explicit_save_remains_immediate():
 
     assert "return self.config_store.save" in source
     assert "return self.config_store.flush()" in source
+    assert "_defer_config_save" not in source
 
 
 def test_lifecycle_flush_points_are_present():

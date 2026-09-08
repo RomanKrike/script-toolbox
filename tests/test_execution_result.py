@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
+import io
 import logging
 
 from script_toolbox.core.execution_result import ExecutionResult
@@ -60,11 +61,21 @@ def test_script_toolbox_logger_installs_one_handler():
     assert logger.propagate is False
 
 
-def test_failure_is_logged_at_error_level(caplog):
-    logger = logging.getLogger("script_toolbox.test.capture")
-    logger.handlers = []
-    logger.propagate = True
-    logger.setLevel(logging.DEBUG)
+def test_failure_is_logged_at_error_level():
+    stream = io.StringIO()
+    handler = logging.StreamHandler(
+        stream
+    )
+    logger = logging.getLogger(
+        "script_toolbox_test_capture"
+    )
+    logger.handlers = [
+        handler
+    ]
+    logger.propagate = False
+    logger.setLevel(
+        logging.DEBUG
+    )
 
     result = ExecutionResult(
         False,
@@ -73,10 +84,10 @@ def test_failure_is_logged_at_error_level(caplog):
         message="bad value"
     )
 
-    with caplog.at_level(logging.ERROR):
-        log_execution_result(
-            result,
-            logger=logger
-        )
+    log_execution_result(
+        result,
+        logger=logger
+    )
+    handler.flush()
 
-    assert "ValueError: bad value" in caplog.text
+    assert "ValueError: bad value" in stream.getvalue()

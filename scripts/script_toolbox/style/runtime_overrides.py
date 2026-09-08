@@ -25,25 +25,6 @@ QWidget#PropertyEditor {
     border: 0px;
 }
 
-/* Runtime uses the same stable outer-panel contract as the first two panes in
-   Interface Editor. RuntimePaneHost supplies the visible outside inset; the
-   scroll area stays frameless and RuntimePane owns the actual outline. */
-QWidget#RuntimePaneHost {
-    background-color: #292929;
-    border: 0px;
-}
-
-QFrame#RuntimePane {
-    background-color: #303030;
-    border: 1px solid #1b1b1b;
-    border-radius: 3px;
-}
-
-QFrame#RuntimePane QScrollArea#ToolboxScroll {
-    background-color: #2b2b2b;
-    border: 0px;
-}
-
 QFrame#RuntimeSeparatorLine {
     background-color: transparent;
     border: 0px;

@@ -21,6 +21,7 @@ sys.path.insert(
 
 from script_toolbox.core import config
 from script_toolbox.core.config_store import ConfigStore
+from script_toolbox.core.editor_document import EditorDocumentController
 from script_toolbox.core.state_refresh import StateRefreshQueue
 
 
@@ -65,6 +66,37 @@ def main():
         assert refresh_queue.request() is False
         assert refresh_queue.consume() is True
         assert refresh_queue.pending is False
+
+        editor_document = {
+            "version": 16,
+            "sections": [
+                {
+                    "kind": "folder",
+                    "id": "root",
+                    "name": "root",
+                    "label": "Root",
+                    "items": [
+                        {
+                            "kind": "string",
+                            "id": "value",
+                            "name": "value",
+                            "label": "Value",
+                            "value": "test",
+                        }
+                    ],
+                }
+            ],
+        }
+        controller = EditorDocumentController(
+            editor_document
+        )
+        assert controller.find_by_id("value")["value"] == "test"
+
+        clone = controller.clone_subtree(
+            controller.document["sections"][0]
+        )
+        assert clone["id"] != "root"
+        assert clone["items"][0]["id"] != "value"
     finally:
         shutil.rmtree(folder)
 

@@ -53,6 +53,7 @@ jobs:
           --cov=script_toolbox.core.config
           --cov=script_toolbox.core.config_store
           --cov=script_toolbox.core.state_refresh
+          --cov=script_toolbox.core.editor_document
           --cov-report=term-missing
           --cov-report=xml
           --cov-fail-under=60

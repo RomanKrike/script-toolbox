@@ -12,6 +12,7 @@ from .basic import StringPropertyEditor
 from .button import ButtonPropertyEditor
 from .field import FieldPropertyEditor
 from .folder import FolderPropertyEditor
+from .icon import IconPropertyEditor
 from .row import RowPropertyEditor
 
 
@@ -19,6 +20,7 @@ PROPERTY_EDITORS = {
     "folder": FolderPropertyEditor,
     "row": RowPropertyEditor,
     "button": ButtonPropertyEditor,
+    "icon": IconPropertyEditor,
     "string": StringPropertyEditor,
     "integer": IntegerPropertyEditor,
     "float": FloatPropertyEditor,

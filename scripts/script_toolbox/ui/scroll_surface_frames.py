@@ -22,6 +22,22 @@ border-radius: 0px;
 """
 
 
+def _frame_style(background, border):
+    if background == "#202020" and border == "#151515":
+        return _FRAME_STYLE
+
+    return """
+QFrame#ScrollSurfaceFrame {
+    background-color: %s;
+    border: 1px solid %s;
+    border-radius: 2px;
+}
+""" % (
+        background,
+        border
+    )
+
+
 def _bounded_maximum(value):
     try:
         value = int(value)
@@ -96,10 +112,20 @@ def _find_layout(layout, target):
     return None, -1
 
 
-def _make_frame(widget, parent):
+def _make_frame(
+    widget,
+    parent,
+    background="#202020",
+    border="#151515"
+):
     frame = QtGui.QFrame(parent)
     frame.setObjectName("ScrollSurfaceFrame")
-    frame.setStyleSheet(_FRAME_STYLE)
+    frame.setStyleSheet(
+        _frame_style(
+            background,
+            border
+        )
+    )
 
     layout = QtGui.QVBoxLayout(frame)
     layout.setContentsMargins(1, 1, 1, 1)
@@ -122,14 +148,18 @@ def _make_frame(widget, parent):
     return frame, layout
 
 
-def wrap_scroll_widget(widget):
+def wrap_scroll_widget(
+    widget,
+    background="#202020",
+    border="#151515"
+):
     """Move a framed QAbstractScrollArea into an external border frame.
 
     Maya/Qt4 paints scrollbars inside QAbstractScrollArea's frame rectangle.
-    With a QSS border this can cover the right/bottom border pixels.  Keeping
-    the border on a parent QFrame makes scroll geometry independent from the
-    visible outline and works consistently for QListWidget, QTreeWidget and
-    QPlainTextEdit descendants.
+    With a QSS border this can cover the right/bottom border pixels. Keeping
+    the border on one shared parent QFrame makes scroll geometry independent
+    from the visible outline and works consistently for QListWidget,
+    QTreeWidget and QPlainTextEdit descendants.
     """
     if widget is None:
         return None
@@ -159,7 +189,9 @@ def wrap_scroll_widget(widget):
 
         frame, frame_layout = _make_frame(
             widget,
-            parent
+            parent,
+            background=background,
+            border=border
         )
         widget.setParent(frame)
         frame_layout.addWidget(widget)
@@ -184,7 +216,9 @@ def wrap_scroll_widget(widget):
 
     frame, frame_layout = _make_frame(
         widget,
-        parent
+        parent,
+        background=background,
+        border=border
     )
 
     # QFormLayout needs row/role replacement rather than insertWidget().

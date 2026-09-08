@@ -2,14 +2,15 @@
 
 from script_toolbox.constants import CONFIG_VERSION
 from script_toolbox.core.executor import evaluate_python_state
+from script_toolbox.model.bindings import matching_bindings
 from script_toolbox.model.items import create_item
 
 
-def test_config_schema_is_17():
-    assert CONFIG_VERSION == 17
+def test_config_schema_is_18():
+    assert CONFIG_VERSION == 18
 
 
-def test_state_button_normalizes_state_fields():
+def test_state_button_normalizes_state_fields_and_default_trigger():
     item = create_item(
         "button",
         {
@@ -25,8 +26,20 @@ def test_state_button_normalizes_state_fields():
     assert item["state_get_script"] == "state = True"
     assert item["state_on_script"] == "result = 'on'"
     assert item["state_off_script"] == "result = 'off'"
+    assert item["state_get_language"] == "python"
+    assert item["state_on_language"] == "python"
+    assert item["state_off_language"] == "python"
     assert item["state_on_label"] == "Visibility: ON"
     assert item["state_off_label"] == "Visibility: OFF"
+
+    triggers = matching_bindings(
+        item,
+        "click",
+        mouse_button="left",
+        modifiers=[]
+    )
+    assert len(triggers) == 1
+    assert triggers[0]["handler"] == "state_toggle"
 
 
 def test_field_multiple_defaults_to_list_display():
@@ -92,7 +105,7 @@ def test_row_and_child_layout_settings_are_normalized():
     assert row["items"][1]["row_width"] == 160
 
 
-def test_value_controls_migrate_legacy_on_change_to_callbacks():
+def test_value_controls_migrate_legacy_on_change_to_binding():
     item = create_item(
         "integer",
         {
@@ -100,9 +113,11 @@ def test_value_controls_migrate_legacy_on_change_to_callbacks():
         }
     )
 
-    assert item["callbacks"] == {
-        "on_change": "result = value + 1",
-    }
+    assert len(item["bindings"]) == 1
+    assert item["bindings"][0]["event"] == "value_changed"
+    assert item["bindings"][0]["language"] == "python"
+    assert item["bindings"][0]["script"] == "result = value + 1"
+    assert "callbacks" not in item
     assert "on_change_script" not in item
 
 

@@ -19,7 +19,7 @@ def _install_controls_v2_palette(editor_class):
                 (
                     "Icon",
                     "icon",
-                    "Standalone image; optionally clickable through an On Click callback."
+                    "Standalone image with optional event bindings."
                 ),
             )
         groups.append((group_label, entries))
@@ -43,6 +43,7 @@ _interface_editor_module.InterfaceEditor = InterfaceEditor
 # as a compatibility implementation, while active kind dispatch is registry-
 # based and can be extended without editing RuntimeFolder's if/elif chain.
 from . import runtime as _runtime_module
+from . import runtime_renderers as _runtime_renderers_module
 from .runtime_renderers import get_runtime_renderer_registry
 from .runtime_renderers import install_runtime_renderer_registry
 from .runtime_renderers import register_runtime_renderer
@@ -54,6 +55,7 @@ install_runtime_renderer_registry(
 
 from .main_window import ScriptToolbox
 from .controls_v2_hooks import install_controls_v2_hooks
+from .event_binding_hooks import install_event_binding_hooks
 from .script_editor import ScriptEditorWidget
 from .runtime import DisplayField
 from .runtime import RuntimeFolder
@@ -62,6 +64,12 @@ from .runtime import RuntimeFolderTabs
 
 install_controls_v2_hooks(
     _runtime_module,
+    ScriptToolbox
+)
+
+install_event_binding_hooks(
+    get_runtime_renderer_registry(),
+    _runtime_renderers_module,
     ScriptToolbox
 )
 

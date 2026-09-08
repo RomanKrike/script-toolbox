@@ -7,7 +7,7 @@ import uuid
 from ..pycompat import text_type
 from ..constants import CONFIG_VERSION
 from ..constants import FOLDER_TYPES
-from .callbacks import normalize_callbacks
+from .bindings import normalize_bindings
 
 
 DEFAULT_COMPONENT_LABELS = (
@@ -188,7 +188,7 @@ def base_item(kind, data=None, default_label=None):
         "label": text_type(label),
         "show_label": bool(data.get("show_label", True)),
         "tooltip": text_type(data.get("tooltip") or ""),
-        "callbacks": normalize_callbacks(kind, data),
+        "bindings": normalize_bindings(kind, data),
         "row_width_mode": (
             text_type(data.get("row_width_mode", "auto")).lower()
             if text_type(data.get("row_width_mode", "auto")).lower()
@@ -207,35 +207,49 @@ def base_item(kind, data=None, default_label=None):
 
 
 def add_value_behavior(item, data):
-    # Schema 17 stores callbacks in base_item(). Keep accepting the historical
-    # key through normalize_callbacks(), but do not persist a duplicate field.
     return item
 
 
 def _button(data):
-    item = base_item("button", data, "New Button")
-    language = text_type(data.get("language", "python")).lower()
-
-    if language not in ("python", "mel"):
-        language = "python"
-
     mode = text_type(data.get("mode", "action")).lower()
 
     if mode not in ("action", "state"):
         mode = "action"
 
+    normalized_data = dict(data)
+    normalized_data["mode"] = mode
+    item = base_item("button", normalized_data, "New Button")
+
+    legacy_language = text_type(
+        data.get("language", "python")
+    ).lower()
+    if legacy_language not in ("python", "mel"):
+        legacy_language = "python"
+
+    state_on_language = text_type(
+        data.get("state_on_language", legacy_language)
+    ).lower()
+    state_off_language = text_type(
+        data.get("state_off_language", legacy_language)
+    ).lower()
+
+    if state_on_language not in ("python", "mel"):
+        state_on_language = "python"
+    if state_off_language not in ("python", "mel"):
+        state_off_language = "python"
+
     item.update({
-        "language": language,
         "mode": mode,
-        "click_script": text_type(data.get("click_script") or ""),
-        "shift_script": text_type(data.get("shift_script") or ""),
         "color": safe_color(data.get("color")),
         "icon_path": text_type(data.get("icon_path") or ""),
         "icon_size": clamp(safe_int(data.get("icon_size"), 18), 8, 256),
         "icon_only": bool(data.get("icon_only", False)),
         "state_get_script": text_type(data.get("state_get_script") or ""),
+        "state_get_language": "python",
         "state_on_script": text_type(data.get("state_on_script") or ""),
+        "state_on_language": state_on_language,
         "state_off_script": text_type(data.get("state_off_script") or ""),
+        "state_off_language": state_off_language,
         "state_on_label": text_type(
             data.get("state_on_label") or
             "{0}: ON".format(item.get("label", "State"))
@@ -268,7 +282,6 @@ def _icon(data):
         "width": clamp(safe_int(data.get("width"), 24), 8, 512),
         "height": clamp(safe_int(data.get("height"), 24), 8, 512),
         "alignment": alignment,
-        "clickable": bool(data.get("clickable", False)),
     })
     return item
 

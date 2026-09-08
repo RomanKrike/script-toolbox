@@ -6,8 +6,8 @@ from script_toolbox.core.migrations import migrate_document
 from script_toolbox.core.references import rewrite_item_references
 from script_toolbox.core.references import rewrite_subtree_references
 from script_toolbox.core.values import store_value
-from script_toolbox.model.callbacks import callback_events
-from script_toolbox.model.callbacks import callback_script
+from script_toolbox.model.bindings import binding_events
+from script_toolbox.model.bindings import matching_bindings
 from script_toolbox.model.items import create_item
 
 
@@ -28,11 +28,11 @@ def _document_with(item):
 
 
 def test_controls_v2_schema_and_icon_kind_are_registered():
-    assert CONFIG_VERSION == 17
+    assert CONFIG_VERSION == 18
     assert "icon" in ITEM_KINDS
 
 
-def test_icon_model_preserves_path_size_alignment_and_clickable():
+def test_icon_model_preserves_path_size_alignment_and_binding():
     item = create_item(
         "icon",
         {
@@ -43,10 +43,16 @@ def test_icon_model_preserves_path_size_alignment_and_clickable():
             "height": 40,
             "alignment": "center",
             "tooltip": "Open",
-            "clickable": True,
-            "callbacks": {
-                "on_click": "toolbox.get_value('target')",
-            },
+            "bindings": [
+                {
+                    "id": "open",
+                    "event": "click",
+                    "mouse_button": "left",
+                    "modifiers": [],
+                    "language": "python",
+                    "script": "toolbox.get_value('target')",
+                }
+            ],
         }
     )
 
@@ -57,8 +63,8 @@ def test_icon_model_preserves_path_size_alignment_and_clickable():
     assert item["height"] == 40
     assert item["alignment"] == "center"
     assert item["tooltip"] == "Open"
-    assert item["clickable"] is True
-    assert callback_script(item, "on_click") == (
+    assert "clickable" not in item
+    assert item["bindings"][0]["script"] == (
         "toolbox.get_value('target')"
     )
 
@@ -76,23 +82,36 @@ def test_button_icon_properties_and_icon_only_are_normalized():
     assert item["icon_path"] == "icons/run.png"
     assert item["icon_size"] == 28
     assert item["icon_only"] is True
+    assert "language" not in item
+    assert "click_script" not in item
+    assert len(item["bindings"]) == 1
 
 
-def test_callback_events_are_kind_specific():
-    assert callback_events("integer") == ("on_change",)
-    assert callback_events("field") == (
-        "on_change",
-        "on_select",
-        "on_double_click",
+def test_binding_events_are_kind_specific_and_layout_is_hidden():
+    assert binding_events("integer") == (
+        "value_changed",
+        "editing_finished",
+        "click",
+        "double_click",
     )
-    assert callback_events("folder") == (
-        "on_open",
-        "on_close",
+    assert binding_events("field") == (
+        "value_changed",
+        "selection_changed",
+        "click",
+        "double_click",
     )
-    assert callback_events("separator") == ()
+    assert binding_events("folder") == ()
+    assert binding_events(
+        "folder",
+        include_internal=True
+    ) == (
+        "opened",
+        "closed",
+    )
+    assert binding_events("separator") == ()
 
 
-def test_legacy_on_change_is_accepted_by_item_factory():
+def test_legacy_on_change_is_accepted_by_item_factory_as_binding():
     item = create_item(
         "string",
         {
@@ -100,13 +119,14 @@ def test_legacy_on_change_is_accepted_by_item_factory():
         }
     )
 
-    assert item["callbacks"] == {
-        "on_change": "result = value",
-    }
+    assert len(item["bindings"]) == 1
+    assert item["bindings"][0]["event"] == "value_changed"
+    assert item["bindings"][0]["script"] == "result = value"
     assert "on_change_script" not in item
+    assert "callbacks" not in item
 
 
-def test_schema_16_migrates_legacy_callbacks_recursively():
+def test_schema_16_migrates_recursively_through_schema_18():
     source = {
         "version": 16,
         "sections": [
@@ -138,10 +158,12 @@ def test_schema_16_migrates_legacy_callbacks_recursively():
     migrated = migrate_document(source)
     value_item = migrated["sections"][0]["items"][0]["items"][0]
 
-    assert migrated["version"] == 17
-    assert value_item["callbacks"]["on_change"] == (
+    assert migrated["version"] == 18
+    assert value_item["bindings"][0]["event"] == "value_changed"
+    assert value_item["bindings"][0]["script"] == (
         "toolbox.store_value('other', value)"
     )
+    assert "callbacks" not in value_item
     assert "on_change_script" not in value_item
 
 
@@ -222,18 +244,23 @@ def test_store_value_vector_clamps_each_component():
     assert stored["value"] == [0, 5, 10]
 
 
-def test_callback_references_are_remapped_but_plain_strings_are_not():
+def test_binding_references_are_remapped_but_plain_strings_are_not():
     item = create_item(
         "string",
         {
             "id": "source",
             "name": "source",
-            "callbacks": {
-                "on_change": (
-                    "value = toolbox.get_value('old_name')\n"
-                    "note = 'old_name'\n"
-                ),
-            },
+            "bindings": [
+                {
+                    "id": "changed",
+                    "event": "value_changed",
+                    "language": "python",
+                    "script": (
+                        "value = toolbox.get_value('old_name')\n"
+                        "note = 'old_name'\n"
+                    ),
+                }
+            ],
         }
     )
 
@@ -242,12 +269,12 @@ def test_callback_references_are_remapped_but_plain_strings_are_not():
         {"old_name": "new_name"}
     ) is True
 
-    source = item["callbacks"]["on_change"]
+    source = item["bindings"][0]["script"]
     assert "toolbox.get_value('new_name')" in source
     assert "note = 'old_name'" in source
 
 
-def test_callback_references_remap_inside_duplicated_subtree_payload():
+def test_binding_references_remap_inside_duplicated_subtree_payload():
     row = create_item(
         "row",
         {
@@ -258,11 +285,16 @@ def test_callback_references_remap_inside_duplicated_subtree_payload():
                     "kind": "button",
                     "id": "button",
                     "name": "button",
-                    "callbacks": {
-                        "on_click": (
-                            "toolbox.store_value('inside', 1)"
-                        ),
-                    },
+                    "bindings": [
+                        {
+                            "id": "click",
+                            "event": "click",
+                            "language": "python",
+                            "script": (
+                                "toolbox.store_value('inside', 1)"
+                            ),
+                        }
+                    ],
                 }
             ],
         }
@@ -275,5 +307,50 @@ def test_callback_references_remap_inside_duplicated_subtree_payload():
 
     assert "button" in changed
     assert "inside_copy" in (
-        row["items"][0]["callbacks"]["on_click"]
+        row["items"][0]["bindings"][0]["script"]
     )
+
+
+def test_shift_click_is_matched_as_modifier_not_special_script_field():
+    item = create_item(
+        "button",
+        {
+            "bindings": [
+                {
+                    "id": "normal",
+                    "event": "click",
+                    "mouse_button": "left",
+                    "modifiers": [],
+                    "language": "python",
+                    "script": "normal = True",
+                    "button_mode": "action",
+                },
+                {
+                    "id": "shift",
+                    "event": "click",
+                    "mouse_button": "left",
+                    "modifiers": ["shift"],
+                    "language": "mel",
+                    "script": "polyCube;",
+                    "button_mode": "action",
+                },
+            ],
+        }
+    )
+
+    normal = matching_bindings(
+        item,
+        "click",
+        mouse_button="left",
+        modifiers=[]
+    )
+    shifted = matching_bindings(
+        item,
+        "click",
+        mouse_button="left",
+        modifiers=["shift"]
+    )
+
+    assert [entry["id"] for entry in normal] == ["normal"]
+    assert [entry["id"] for entry in shifted] == ["shift"]
+    assert shifted[0]["language"] == "mel"

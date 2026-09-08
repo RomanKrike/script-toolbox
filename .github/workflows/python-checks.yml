@@ -50,6 +50,7 @@ jobs:
           --cov=script_toolbox.core.values
           --cov=script_toolbox.core.text_transform
           --cov=script_toolbox.core.updater
+          --cov=script_toolbox.core.update_transaction
           --cov=script_toolbox.core.config
           --cov=script_toolbox.core.config_store
           --cov=script_toolbox.core.state_refresh
@@ -110,6 +111,14 @@ jobs:
           -w /work
           python:2.7.18-slim-buster
           python tests/python2_executor_smoke.py
+
+      - name: Updater transaction v2 smoke with Python 2.7
+        run: >
+          docker run --rm
+          -v "$PWD:/work"
+          -w /work
+          python:2.7.18-slim-buster
+          python tests/python2_update_transaction_smoke.py
 
   release-contract:
     name: Release package contract

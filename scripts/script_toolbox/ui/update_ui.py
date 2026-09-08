@@ -3,7 +3,7 @@ from __future__ import print_function
 
 from ..compat import QtCore
 from ..core.updater import check_for_update
-from ..core.updater import install_release
+from ..core.update_transaction import install_release
 
 
 class UpdateCheckThread(QtCore.QThread):

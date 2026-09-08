@@ -177,11 +177,35 @@ def load_config(path=None):
         backups = valid_backup_paths(
             path
         )
+
+        if backups:
+            recovery = restore_config_backup(
+                path,
+                source_backup=backups[0]
+            )
+            warnings.warn(
+                (
+                    "Script Toolbox: config at {0!r} was unreadable ({1}). "
+                    "Recovered automatically from {2!r}; the damaged file "
+                    "was preserved at {3!r}."
+                ).format(
+                    path,
+                    exc,
+                    recovery["backup"],
+                    recovery["corrupt_copy"]
+                ),
+                RuntimeWarning,
+                stacklevel=2
+            )
+            return recovery[
+                "document"
+            ]
+
         warnings.warn(
             (
                 "Script Toolbox: failed to load config at {0!r}: {1}. "
-                "The original file was left untouched and configuration "
-                "recovery is required."
+                "The original file was left untouched, no valid backup was "
+                "found, and configuration recovery is required."
             ).format(
                 path,
                 exc

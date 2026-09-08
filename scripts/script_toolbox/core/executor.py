@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
 from __future__ import print_function
 
 import traceback
 
 from ..hosts import HOST
+from ..pycompat import text_type
+from .execution_result import ExecutionResult
+from .logging_utils import get_logger
+from .logging_utils import log_execution_result
 from .source import prepare_python_source
+
+
+LOGGER = get_logger()
 
 
 def _script_namespace(toolbox=None, extra_namespace=None):
@@ -24,22 +32,98 @@ def _script_namespace(toolbox=None, extra_namespace=None):
     return namespace
 
 
-def execute_script(
+def _source_name(
+    default_name,
+    context
+):
+    context = text_type(
+        context or ""
+    ).strip()
+    if not context:
+        return default_name
+    return "{0} {1}>".format(
+        default_name[:-1],
+        context
+    )
+
+
+def _failure_result(
+    exc,
+    language,
+    context,
+    source_name
+):
+    return ExecutionResult(
+        False,
+        value=None,
+        language=language,
+        context=context,
+        source_name=source_name,
+        exception_type=exc.__class__.__name__,
+        message=text_type(exc),
+        traceback_text=traceback.format_exc()
+    )
+
+
+def _notify_failure(
+    result,
+    parent=None,
+    title="Script Toolbox"
+):
+    try:
+        from ..compat import QtGui
+
+        QtGui.QMessageBox.critical(
+            parent,
+            title,
+            (
+                "{0}\n\n"
+                "See the host Script Editor / console for the full traceback."
+            ).format(
+                result.summary()
+            )
+        )
+    except Exception as exc:
+        LOGGER.debug(
+            "Could not show execution error dialog: %s",
+            text_type(exc)
+        )
+
+
+def execute_script_result(
     code,
     language="python",
     toolbox=None,
     parent=None,
-    extra_namespace=None
+    extra_namespace=None,
+    context="",
+    notify=True
 ):
+    """Execute code and return a structured :class:`ExecutionResult`."""
     code = code or ""
     language = (
         language or "python"
     ).lower()
+    context = text_type(
+        context or ""
+    )
+    source_name = _source_name(
+        "<Script Toolbox>",
+        context
+    )
 
     if not code.strip():
-        return True
+        return ExecutionResult(
+            True,
+            value=None,
+            language=language,
+            context=context,
+            source_name=source_name
+        )
 
     try:
+        value = None
+
         if language == "python":
             namespace = _script_namespace(
                 toolbox=toolbox,
@@ -50,7 +134,7 @@ def execute_script(
                 prepare_python_source(
                     code
                 ),
-                "<Script Toolbox>",
+                source_name,
                 "exec"
             )
             eval(
@@ -60,45 +144,92 @@ def execute_script(
             )
 
         else:
-            HOST.execute_native(
+            value = HOST.execute_native(
                 language,
                 code
             )
 
-        return True
+        result = ExecutionResult(
+            True,
+            value=value,
+            language=language,
+            context=context,
+            source_name=source_name
+        )
+        log_execution_result(
+            result,
+            logger=LOGGER
+        )
+        return result
 
-    except Exception:
-        traceback.print_exc()
+    except Exception as exc:
+        result = _failure_result(
+            exc,
+            language,
+            context,
+            source_name
+        )
+        log_execution_result(
+            result,
+            logger=LOGGER
+        )
 
-        try:
-            from ..compat import QtGui
-
-            QtGui.QMessageBox.critical(
-                parent,
-                "Script Toolbox",
-                "Script execution failed. See the host Script Editor / console for traceback."
+        if notify:
+            _notify_failure(
+                result,
+                parent=parent
             )
-        except Exception:
-            pass
 
-        return False
+        return result
 
 
-def evaluate_python_state(
+def execute_script(
+    code,
+    language="python",
+    toolbox=None,
+    parent=None,
+    extra_namespace=None,
+    context=""
+):
+    """Compatibility wrapper returning the historical ``True``/``False``."""
+    return bool(
+        execute_script_result(
+            code,
+            language=language,
+            toolbox=toolbox,
+            parent=parent,
+            extra_namespace=extra_namespace,
+            context=context,
+            notify=True
+        ).success
+    )
+
+
+def evaluate_python_state_result(
     code,
     toolbox=None,
-    parent=None
+    parent=None,
+    context="",
+    notify=True
 ):
-    """Execute a state query script and return its boolean ``state`` value.
-
-    State scripts set ``state = True`` or ``state = False``. An empty script
-    resolves to False. Errors are reported through the same host UI path as
-    normal button execution.
-    """
+    """Execute a state query and return a structured ExecutionResult."""
     code = code or ""
+    context = text_type(
+        context or ""
+    )
+    source_name = _source_name(
+        "<Script Toolbox State>",
+        context
+    )
 
     if not code.strip():
-        return False
+        return ExecutionResult(
+            True,
+            value=False,
+            language="python",
+            context=context,
+            source_name=source_name
+        )
 
     namespace = _script_namespace(
         toolbox=toolbox,
@@ -112,7 +243,7 @@ def evaluate_python_state(
             prepare_python_source(
                 code
             ),
-            "<Script Toolbox State>",
+            source_name,
             "exec"
         )
         eval(
@@ -120,31 +251,74 @@ def evaluate_python_state(
             namespace,
             namespace
         )
-        return bool(
-            namespace.get(
-                "state",
-                False
-            )
+
+        result = ExecutionResult(
+            True,
+            value=bool(
+                namespace.get(
+                    "state",
+                    False
+                )
+            ),
+            language="python",
+            context=context,
+            source_name=source_name
+        )
+        log_execution_result(
+            result,
+            logger=LOGGER
+        )
+        return result
+
+    except Exception as exc:
+        result = _failure_result(
+            exc,
+            "python",
+            context,
+            source_name
+        )
+        log_execution_result(
+            result,
+            logger=LOGGER
         )
 
-    except Exception:
-        traceback.print_exc()
-
-        try:
-            from ..compat import QtGui
-
-            QtGui.QMessageBox.critical(
-                parent,
-                "Script Toolbox",
-                "State query failed. See the host Script Editor / console for traceback."
+        if notify:
+            _notify_failure(
+                result,
+                parent=parent,
+                title="Script Toolbox State"
             )
-        except Exception:
-            pass
 
+        return result
+
+
+def evaluate_python_state(
+    code,
+    toolbox=None,
+    parent=None,
+    context=""
+):
+    """Compatibility wrapper preserving the historical bool/None contract."""
+    result = evaluate_python_state_result(
+        code,
+        toolbox=toolbox,
+        parent=parent,
+        context=context,
+        notify=True
+    )
+
+    if not result.success:
         return None
+
+    return bool(
+        result.value
+    )
 
 
 __all__ = [
+    "ExecutionResult",
     "evaluate_python_state",
+    "evaluate_python_state_result",
     "execute_script",
+    "execute_script_result",
 ]

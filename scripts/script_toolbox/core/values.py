@@ -9,6 +9,7 @@ from ..model.items import clamp
 from ..model.items import safe_color
 from ..model.items import safe_float
 from ..model.items import safe_int
+from ..model.items import safe_numeric_size
 from ..pycompat import text_type
 
 
@@ -123,10 +124,6 @@ def find_item(
     if item is not None:
         return item
 
-    # Runtime value edits do not change lookup keys, so normal successful
-    # lookups stay O(1). This fallback preserves compatibility for external
-    # code that mutates a document structure/name/label in place without
-    # explicitly invalidating the index.
     item = _linear_find_item(
         document,
         key
@@ -163,6 +160,52 @@ def get_value(
     )
 
 
+def _normalize_numeric_vector(
+    item,
+    value,
+    caster
+):
+    size = safe_numeric_size(
+        item.get("size", 1)
+    )
+    current = item.get("value")
+
+    if isinstance(value, (list, tuple)):
+        incoming = list(value)
+    else:
+        incoming = [value] * size
+
+    if isinstance(current, (list, tuple)):
+        fallback_values = list(current)
+    else:
+        fallback_values = [current] * size
+
+    result = []
+    for index in range(size):
+        fallback = (
+            fallback_values[index]
+            if index < len(fallback_values)
+            else 0
+        )
+        candidate = (
+            incoming[index]
+            if index < len(incoming)
+            else fallback
+        )
+        result.append(
+            clamp(
+                caster(candidate, fallback),
+                item["min"],
+                item["max"]
+            )
+        )
+
+    if size == 1:
+        return result[0]
+
+    return result
+
+
 def normalize_value(item, value):
     kind = item.get(
         "kind"
@@ -191,23 +234,17 @@ def normalize_value(item, value):
         )
 
     if kind == "integer":
-        return clamp(
-            safe_int(
-                value,
-                item["value"]
-            ),
-            item["min"],
-            item["max"]
+        return _normalize_numeric_vector(
+            item,
+            value,
+            safe_int
         )
 
     if kind == "float":
-        return clamp(
-            safe_float(
-                value,
-                item["value"]
-            ),
-            item["min"],
-            item["max"]
+        return _normalize_numeric_vector(
+            item,
+            value,
+            safe_float
         )
 
     if kind == "checkbox":

@@ -22,25 +22,30 @@ from script_toolbox.constants import CONFIG_VERSION
 from script_toolbox.core.migrations import migrate_document
 from script_toolbox.core.references import rewrite_item_references
 from script_toolbox.core.values import store_value
+from script_toolbox.model.bindings import make_binding
 from script_toolbox.model.items import create_item
 
 
 def main():
-    assert CONFIG_VERSION == 17
+    assert CONFIG_VERSION == 18
 
     icon = create_item(
         "icon",
         {
             "name": "icon_test",
             "path": "icon.png",
-            "clickable": True,
-            "callbacks": {
-                "on_click": "toolbox.get_value('inside')",
-            },
+            "bindings": [
+                make_binding(
+                    "click",
+                    language="python",
+                    script="toolbox.get_value('inside')",
+                    binding_id="icon_click"
+                )
+            ],
         }
     )
     assert icon["kind"] == "icon"
-    assert icon["clickable"] is True
+    assert icon["bindings"][0]["event"] == "click"
 
     vector = create_item(
         "integer",
@@ -55,7 +60,7 @@ def main():
         }
     )
     document = {
-        "version": 17,
+        "version": 18,
         "sections": [
             create_item(
                 "folder",
@@ -73,20 +78,26 @@ def main():
     )
     assert stored["value"] == [0, 5, 10]
 
-    callback_item = create_item(
+    binding_item = create_item(
         "button",
         {
-            "callbacks": {
-                "on_click": "toolbox.store_value('inside', 1)",
-            },
+            "bindings": [
+                make_binding(
+                    "click",
+                    language="python",
+                    script="toolbox.store_value('inside', 1)",
+                    binding_id="button_click",
+                    button_mode="action"
+                )
+            ],
         }
     )
     changed = rewrite_item_references(
-        callback_item,
+        binding_item,
         {"inside": "inside_copy"}
     )
     assert changed is True
-    assert "inside_copy" in callback_item["callbacks"]["on_click"]
+    assert "inside_copy" in binding_item["bindings"][0]["script"]
 
     migrated = migrate_document({
         "version": 16,
@@ -105,11 +116,13 @@ def main():
         ],
     })
     legacy_value = migrated["sections"][0]["items"][0]
-    assert migrated["version"] == 17
-    assert legacy_value["callbacks"]["on_change"] == "print(value)"
+    assert migrated["version"] == 18
+    assert legacy_value["bindings"][0]["event"] == "value_changed"
+    assert legacy_value["bindings"][0]["script"] == "print(value)"
+    assert "callbacks" not in legacy_value
     assert "on_change_script" not in legacy_value
 
-    print("Controls v2 Python 2.7 smoke passed")
+    print("Controls v2 / event bindings Python 2.7 smoke passed")
 
 
 if __name__ == "__main__":

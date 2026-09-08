@@ -20,6 +20,7 @@ sys.path.insert(
 )
 
 from script_toolbox.core import config
+from script_toolbox.core.config_store import ConfigStore
 
 
 def main():
@@ -41,6 +42,22 @@ def main():
         )
         assert document["sections"]
         assert os.path.isfile(path)
+
+        store = ConfigStore(
+            document=document,
+            path=path
+        )
+        store.mark_dirty()
+        store.flush()
+
+        assert store.dirty is False
+        assert store.write_count == 1
+        assert os.path.isfile(
+            config.backup_path(
+                path,
+                1
+            )
+        )
     finally:
         shutil.rmtree(folder)
 

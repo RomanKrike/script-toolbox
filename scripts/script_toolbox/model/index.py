@@ -81,23 +81,64 @@ class DocumentIndex(object):
             key
         )
 
-        item = self.by_id.get(
+        item = self._current_match(
+            self.by_id,
+            "id",
             key_text
         )
 
         if item is not None:
             return item
 
-        item = self.by_name.get(
+        item = self._current_match(
+            self.by_name,
+            "name",
             key_text
         )
 
         if item is not None:
             return item
 
-        return self.by_label.get(
+        return self._current_match(
+            self.by_label,
+            "label",
             key_text
         )
+
+    def _current_match(
+        self,
+        mapping,
+        field,
+        key_text
+    ):
+        item = mapping.get(
+            key_text
+        )
+
+        if item is None:
+            return None
+
+        current = item.get(
+            field
+        )
+
+        if (
+            current is not None and
+            text_type(current) == key_text
+        ):
+            return item
+
+        # External scripts can mutate item names/labels directly. Drop stale
+        # entries so core.values can fall back to a linear compatibility scan
+        # and rebuild the index when that happens.
+        try:
+            del mapping[
+                key_text
+            ]
+        except KeyError:
+            pass
+
+        return None
 
     def _store_first(
         self,

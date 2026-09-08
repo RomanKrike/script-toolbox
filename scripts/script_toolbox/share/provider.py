@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+import json
 import os
 import re
 import shutil
@@ -22,9 +23,10 @@ from ..constants import PLUGIN_VERSION
 from ..pycompat import text_type
 
 
-USER_AGENT = "Script-Toolbox-Share/{0}".format(
-    PLUGIN_VERSION
-)
+USER_AGENT = (
+    "Script-Toolbox-Share/{0} "
+    "(github.com/RomanKrike/script-toolbox)"
+).format(PLUGIN_VERSION)
 
 
 class ShareProviderError(RuntimeError):
@@ -111,7 +113,12 @@ def _hidden_process_kwargs():
     return result
 
 
-def _powershell_request(url, data=None, timeout=15):
+def _powershell_request(
+    url,
+    data=None,
+    timeout=15,
+    content_type=None
+):
     executable = _powershell_executable()
     if not executable:
         raise ShareProviderError(
@@ -134,6 +141,7 @@ def _powershell_request(url, data=None, timeout=15):
             int(float(timeout) * 1000.0)
         )
         script = [
+            "$ErrorActionPreference = 'Stop'",
             "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12",
             "$request = [System.Net.HttpWebRequest]::Create('{0}')".format(
                 _ps_quote(url)
@@ -141,6 +149,7 @@ def _powershell_request(url, data=None, timeout=15):
             "$request.UserAgent = '{0}'".format(
                 _ps_quote(USER_AGENT)
             ),
+            "$request.Accept = 'text/plain'",
             "$request.Timeout = {0}".format(timeout_ms),
             "$request.ReadWriteTimeout = {0}".format(timeout_ms),
         ]
@@ -148,24 +157,29 @@ def _powershell_request(url, data=None, timeout=15):
         if data is not None:
             script.extend([
                 "$request.Method = 'POST'",
-                "$request.ContentType = 'application/x-www-form-urlencoded'",
+                "$request.ContentType = '{0}'".format(
+                    _ps_quote(
+                        content_type or
+                        "application/octet-stream"
+                    )
+                ),
                 "$body = [System.IO.File]::ReadAllBytes('{0}')".format(
                     _ps_quote(body_path)
                 ),
-                "$request.ContentLength = $body.Length",
-                "$stream = $request.GetRequestStream()",
-                "try { $stream.Write($body, 0, $body.Length) } finally { $stream.Close() }",
+                "$request.ContentLength = [Int64]$body.Length",
+                "$requestStream = $request.GetRequestStream()",
+                "try { $requestStream.Write($body, 0, $body.Length) } finally { if ($requestStream) { $requestStream.Dispose() } }",
             ])
         else:
             script.append("$request.Method = 'GET'")
 
         script.extend([
             "$response = $request.GetResponse()",
-            "$input = $response.GetResponseStream()",
-            "$output = [System.IO.File]::Open('{0}', [System.IO.FileMode]::Create)".format(
+            "$responseStream = $response.GetResponseStream()",
+            "$outputStream = [System.IO.File]::Open('{0}', [System.IO.FileMode]::Create)".format(
                 _ps_quote(output_path)
             ),
-            "try { $input.CopyTo($output) } finally { $output.Close(); $input.Close(); $response.Close() }",
+            "try { $responseStream.CopyTo($outputStream) } finally { if ($outputStream) { $outputStream.Dispose() }; if ($responseStream) { $responseStream.Dispose() }; if ($response) { $response.Close() } }",
         ])
 
         process = subprocess.Popen(
@@ -188,8 +202,14 @@ def _powershell_request(url, data=None, timeout=15):
             raise ShareProviderError(
                 "PowerShell request failed: {0}".format(
                     _as_text(stderr_value).strip() or
+                    _as_text(stdout_value).strip() or
                     "exit code {0}".format(process.returncode)
                 )
+            )
+
+        if not os.path.isfile(output_path):
+            raise ShareProviderError(
+                "PowerShell request returned no response body."
             )
 
         with open(output_path, "rb") as handle:
@@ -202,12 +222,19 @@ def _powershell_request(url, data=None, timeout=15):
             pass
 
 
-def _request(url, data=None, timeout=15):
-    _throttle()
+def _request(
+    url,
+    data=None,
+    timeout=15,
+    content_type=None
+):
     headers = {
         "User-Agent": USER_AGENT,
         "Accept": "text/plain",
     }
+    if data is not None and content_type:
+        headers["Content-Type"] = content_type
+
     request = Request(
         url,
         data=_as_bytes(data) if data is not None else None,
@@ -238,7 +265,8 @@ def _request(url, data=None, timeout=15):
             return _powershell_request(
                 url,
                 data=data,
-                timeout=timeout
+                timeout=timeout,
+                content_type=content_type
             )
         except Exception as fallback_error:
             raise ShareProviderError(
@@ -248,6 +276,51 @@ def _request(url, data=None, timeout=15):
                     fallback_error
                 )
             )
+
+
+class PastesDevProvider(ShareProvider):
+    name = "pastes-dev"
+    api_url = "https://api.pastes.dev/post"
+    raw_url = "https://api.pastes.dev/{0}"
+
+    def upload(self, content, expiry_days=7):
+        # The public pastes.dev API does not expose per-paste expiry.
+        # Shared Script Toolbox data is encrypted before it reaches here.
+        response_text = _as_text(
+            _request(
+                self.api_url,
+                data=_as_bytes(content),
+                content_type="text/plain; charset=utf-8"
+            )
+        ).strip()
+
+        try:
+            payload = json.loads(response_text)
+            paste_id = text_type(
+                payload.get("key", "")
+            ).strip()
+        except Exception:
+            paste_id = ""
+
+        if not re.match(r"^[A-Za-z0-9_-]+$", paste_id):
+            raise ShareProviderError(
+                "pastes.dev returned an unexpected response."
+            )
+
+        return paste_id
+
+    def download(self, paste_id):
+        paste_id = text_type(paste_id or "").strip()
+        if not re.match(r"^[A-Za-z0-9_-]+$", paste_id):
+            raise ShareProviderError(
+                "Invalid pastes.dev item ID."
+            )
+
+        return _as_text(
+            _request(
+                self.raw_url.format(paste_id)
+            )
+        ).strip()
 
 
 class DpasteProvider(ShareProvider):
@@ -262,17 +335,17 @@ class DpasteProvider(ShareProvider):
             expiry_days = 7
         expiry_days = max(1, min(365, expiry_days))
 
-        # Omit syntax intentionally: dpaste treats an absent syntax field as
-        # plain text, which is exactly what the encrypted base64 blob is.
         form = urlencode({
             "content": text_type(content),
             "title": "Script Toolbox encrypted share",
             "expiry_days": text_type(expiry_days),
         })
+        _throttle()
         body = _as_text(
             _request(
                 self.api_url,
-                data=form
+                data=form,
+                content_type="application/x-www-form-urlencoded"
             )
         ).strip()
 
@@ -294,6 +367,7 @@ class DpasteProvider(ShareProvider):
                 "Invalid dpaste item ID."
             )
 
+        _throttle()
         return _as_text(
             _request(
                 self.raw_url.format(paste_id)
@@ -303,6 +377,7 @@ class DpasteProvider(ShareProvider):
 
 __all__ = [
     "DpasteProvider",
+    "PastesDevProvider",
     "ShareProvider",
     "ShareProviderError",
 ]

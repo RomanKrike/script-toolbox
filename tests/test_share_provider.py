@@ -178,3 +178,115 @@ def test_powershell_transport_avoids_reserved_input_variable(monkeypatch):
     assert "$requestStream" in command
     assert "$responseStream" in command
     assert "$input =" not in command
+
+
+def test_legacy_windows_request_uses_powershell_before_urllib(monkeypatch):
+    calls = []
+
+    monkeypatch.setattr(
+        provider_module,
+        "_is_windows",
+        lambda: True
+    )
+    monkeypatch.setattr(
+        provider_module,
+        "_legacy_windows_python",
+        lambda: True
+    )
+    monkeypatch.setattr(
+        provider_module,
+        "_WINDOWS_POWERSHELL_PREFERRED",
+        [False]
+    )
+
+    def fake_powershell(
+        url,
+        data=None,
+        timeout=15,
+        content_type=None
+    ):
+        calls.append("powershell")
+        return b"fast-response"
+
+    def fail_urlopen(*args, **kwargs):
+        calls.append("urllib")
+        raise AssertionError(
+            "urllib should not run before PowerShell on legacy Windows Python"
+        )
+
+    monkeypatch.setattr(
+        provider_module,
+        "_powershell_request",
+        fake_powershell
+    )
+    monkeypatch.setattr(
+        provider_module,
+        "urlopen",
+        fail_urlopen
+    )
+
+    result = provider_module._request(
+        "https://example.invalid/value"
+    )
+
+    assert result == b"fast-response"
+    assert calls == ["powershell"]
+
+
+def test_windows_remembers_successful_powershell_fallback(monkeypatch):
+    calls = []
+
+    monkeypatch.setattr(
+        provider_module,
+        "_is_windows",
+        lambda: True
+    )
+    monkeypatch.setattr(
+        provider_module,
+        "_legacy_windows_python",
+        lambda: False
+    )
+    monkeypatch.setattr(
+        provider_module,
+        "_WINDOWS_POWERSHELL_PREFERRED",
+        [False]
+    )
+
+    def fake_urlopen(request, timeout=15):
+        calls.append("urllib")
+        raise IOError("TLS failure")
+
+    def fake_powershell(
+        url,
+        data=None,
+        timeout=15,
+        content_type=None
+    ):
+        calls.append("powershell")
+        return b"fallback-response"
+
+    monkeypatch.setattr(
+        provider_module,
+        "urlopen",
+        fake_urlopen
+    )
+    monkeypatch.setattr(
+        provider_module,
+        "_powershell_request",
+        fake_powershell
+    )
+
+    first = provider_module._request(
+        "https://example.invalid/first"
+    )
+    second = provider_module._request(
+        "https://example.invalid/second"
+    )
+
+    assert first == b"fallback-response"
+    assert second == b"fallback-response"
+    assert calls == [
+        "urllib",
+        "powershell",
+        "powershell",
+    ]

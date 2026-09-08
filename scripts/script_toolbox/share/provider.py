@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -45,6 +46,7 @@ class ShareProvider(object):
 
 _RATE_LOCK = threading.Lock()
 _LAST_REQUEST = [0.0]
+_WINDOWS_POWERSHELL_PREFERRED = [False]
 
 
 def _throttle():
@@ -68,8 +70,27 @@ def _as_text(value):
     return text_type(value)
 
 
+def _is_windows():
+    return os.name == "nt"
+
+
+def _legacy_windows_python():
+    return _is_windows() and sys.version_info[0] < 3
+
+
+def _prefer_powershell_first():
+    # Maya versions that embed Python 2.7 commonly fail modern HTTPS/TLS in
+    # urllib. Avoid paying the full urllib timeout before using the transport
+    # that is known to work there. On newer Windows runtimes, remember a
+    # successful fallback for the rest of the process after urllib fails once.
+    return _is_windows() and (
+        _legacy_windows_python() or
+        _WINDOWS_POWERSHELL_PREFERRED[0]
+    )
+
+
 def _powershell_executable():
-    if os.name != "nt":
+    if not _is_windows():
         return None
 
     root = os.environ.get(
@@ -94,7 +115,7 @@ def _ps_quote(value):
 
 
 def _hidden_process_kwargs():
-    if os.name != "nt":
+    if not _is_windows():
         return {}
 
     result = {
@@ -228,6 +249,21 @@ def _request(
     timeout=15,
     content_type=None
 ):
+    powershell_error = None
+
+    if _prefer_powershell_first():
+        try:
+            return _powershell_request(
+                url,
+                data=data,
+                timeout=timeout,
+                content_type=content_type
+            )
+        except Exception as exc:
+            # Keep urllib as a safety fallback in case PowerShell is disabled
+            # by local policy or unavailable on a particular workstation.
+            powershell_error = exc
+
     headers = {
         "User-Agent": USER_AGENT,
         "Accept": "text/plain",
@@ -254,28 +290,33 @@ def _request(
             except Exception:
                 pass
     except Exception as urllib_error:
-        if os.name != "nt":
+        if not _is_windows():
             raise ShareProviderError(
                 "Share service request failed: {0}".format(
                     urllib_error
                 )
             )
 
-        try:
-            return _powershell_request(
-                url,
-                data=data,
-                timeout=timeout,
-                content_type=content_type
-            )
-        except Exception as fallback_error:
-            raise ShareProviderError(
-                "Share service request failed with Python urllib ({0}); "
-                "PowerShell TLS fallback also failed ({1}).".format(
-                    urllib_error,
-                    fallback_error
+        _WINDOWS_POWERSHELL_PREFERRED[0] = True
+
+        if powershell_error is None:
+            try:
+                return _powershell_request(
+                    url,
+                    data=data,
+                    timeout=timeout,
+                    content_type=content_type
                 )
+            except Exception as fallback_error:
+                powershell_error = fallback_error
+
+        raise ShareProviderError(
+            "Share service request failed with PowerShell ({0}); "
+            "Python urllib also failed ({1}).".format(
+                powershell_error,
+                urllib_error
             )
+        )
 
 
 class PastesDevProvider(ShareProvider):

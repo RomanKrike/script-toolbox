@@ -24,7 +24,8 @@ def test_ui_package_routes_interface_editor_through_controller_adapter():
         "scripts/script_toolbox/ui/__init__.py"
     )
 
-    assert "from .editor_document_adapter import InterfaceEditor" in source
+    assert "from .editor_document_adapter import build_interface_editor_class" in source
+    assert "InterfaceEditor = build_interface_editor_class(" in source
     assert "_interface_editor_module.InterfaceEditor = InterfaceEditor" in source
 
 
@@ -38,6 +39,17 @@ def test_adapter_owns_working_document_and_cache_through_controller():
     assert "self.document_controller.adopt(document)" in source
     assert "def item_cache(self):" in source
     assert "self.document_controller.rebuild_index()" in source
+
+
+def test_adapter_factory_unwraps_previous_adapter_on_reload():
+    source = _read(
+        "scripts/script_toolbox/ui/editor_document_adapter.py"
+    )
+
+    assert "def _unwrap_base(base_class):" in source
+    assert "while getattr(base_class, _ADAPTER_MARKER, False):" in source
+    assert "def build_interface_editor_class(base_class):" in source
+    assert "_LEGACY_BASE" in source
 
 
 def test_adapter_routes_structural_helpers_without_replacing_history_yet():

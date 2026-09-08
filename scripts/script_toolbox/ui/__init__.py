@@ -14,6 +14,20 @@ InterfaceEditor = build_interface_editor_class(
 # the legacy Qt dialog is gradually decomposed across STEP 07/08.
 _interface_editor_module.InterfaceEditor = InterfaceEditor
 
+# Install the runtime renderer registry before main_window imports
+# build_folder_widgets from runtime. The legacy runtime module stays available
+# as a compatibility implementation, while active kind dispatch is registry-
+# based and can be extended without editing RuntimeFolder's if/elif chain.
+from . import runtime as _runtime_module
+from .runtime_renderers import get_runtime_renderer_registry
+from .runtime_renderers import install_runtime_renderer_registry
+from .runtime_renderers import register_runtime_renderer
+from .runtime_renderers import unregister_runtime_renderer
+
+install_runtime_renderer_registry(
+    _runtime_module
+)
+
 from .main_window import ScriptToolbox
 from .script_editor import ScriptEditorWidget
 from .runtime import DisplayField
@@ -32,4 +46,7 @@ __all__ = [
     "RuntimeFolder",
     "RuntimeFolderRadio",
     "RuntimeFolderTabs",
+    "get_runtime_renderer_registry",
+    "register_runtime_renderer",
+    "unregister_runtime_renderer",
 ]

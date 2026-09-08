@@ -113,8 +113,20 @@ def test_legacy_v15_golden_config_migrates_and_normalizes_payload():
     assert integer["value"] == 8
 
     button = find_item(document, "legacy_action")
-    assert button["click_script"] == "print('legacy payload')"
-    assert button["shift_script"] == "print('legacy alternate')"
+    assert "click_script" not in button
+    assert "shift_script" not in button
+    assert len(button["bindings"]) == 2
+
+    click_binding = button["bindings"][0]
+    shift_binding = button["bindings"][1]
+    assert click_binding["event"] == "click"
+    assert click_binding["mouse_button"] == "left"
+    assert click_binding["modifiers"] == []
+    assert click_binding["script"] == "print('legacy payload')"
+    assert shift_binding["event"] == "click"
+    assert shift_binding["mouse_button"] == "left"
+    assert shift_binding["modifiers"] == ["shift"]
+    assert shift_binding["script"] == "print('legacy alternate')"
 
 
 def test_legacy_migration_becomes_stable_current_schema(tmp_path):

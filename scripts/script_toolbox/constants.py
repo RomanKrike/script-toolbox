@@ -39,5 +39,6 @@ ITEM_KINDS = (
     "label",
     "separator",
     "row",
+    "column",
     "folder",
 )

@@ -7,6 +7,8 @@ from ..model import walk_items
 from ..model.items import new_id
 from ..model.items import sanitize_name
 from ..pycompat import text_type
+from .references import rewrite_document_references
+from .references import rewrite_subtree_references
 
 
 class EditorDocumentController(object):
@@ -106,23 +108,69 @@ class EditorDocumentController(object):
             index += 1
 
     def clone_subtree(self, data, used_names=None):
+        """Clone a subtree and remap links that target items inside it."""
         if used_names is None:
             used_names = self.used_names()
 
-        clone = copy.deepcopy(data)
-        clone["id"] = new_id()
-        clone["name"] = self.unique_name(
-            clone.get("name", clone.get("kind", "item")),
-            used_names
+        id_map = {}
+        name_map = {}
+
+        def clone_item(source):
+            clone = copy.deepcopy(source)
+            old_id = text_type(source.get("id", ""))
+            old_name = text_type(source.get("name", ""))
+            clone["id"] = new_id()
+            clone["name"] = self.unique_name(
+                clone.get("name", clone.get("kind", "item")),
+                used_names
+            )
+
+            if old_id:
+                id_map[old_id] = text_type(clone["id"])
+            if old_name:
+                name_map[old_name] = text_type(clone["name"])
+
+            if clone.get("kind") in ("folder", "row"):
+                clone["items"] = [
+                    clone_item(child)
+                    for child in source.get("items", []) or []
+                ]
+
+            return clone
+
+        clone = clone_item(data)
+        replacements = dict(id_map)
+        for old_name, new_name in name_map.items():
+            if old_name not in replacements:
+                replacements[old_name] = new_name
+
+        rewrite_subtree_references(
+            clone,
+            replacements
         )
-
-        if clone.get("kind") in ("folder", "row"):
-            clone["items"] = [
-                self.clone_subtree(child, used_names)
-                for child in clone.get("items", []) or []
-            ]
-
         return clone
+
+    def rename_item_references(
+        self,
+        item_id,
+        old_name,
+        new_name
+    ):
+        """Rewrite managed script links for a stable item ID after a rename."""
+        if self.find_by_id(item_id) is None:
+            return set()
+
+        old_name = text_type(old_name or "")
+        new_name = text_type(new_name or "")
+        if not old_name or old_name == new_name:
+            return set()
+
+        return rewrite_document_references(
+            self._document,
+            {
+                old_name: new_name,
+            }
+        )
 
     def duplicate_name(self):
         names = set()

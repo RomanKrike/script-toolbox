@@ -12,6 +12,8 @@ from ..pycompat import text_type
 from ..constants import CONFIG_FILENAME
 from ..constants import CONFIG_PATH_ENV
 from ..model import normalize_document
+from .migrations import ConfigMigrationError
+from .migrations import migrate_document
 
 
 def config_path():
@@ -43,11 +45,19 @@ def config_path():
     )
 
 
+def _prepare_document(document):
+    return normalize_document(
+        migrate_document(
+            document
+        )
+    )
+
+
 def load_config(path=None):
     path = path or config_path()
 
     if not os.path.isfile(path):
-        return normalize_document({})
+        return _prepare_document({})
 
     try:
         with io.open(
@@ -55,9 +65,28 @@ def load_config(path=None):
             "r",
             encoding="utf-8"
         ) as handle:
-            return normalize_document(
-                json.load(handle)
+            raw_document = json.load(
+                handle
             )
+
+        return _prepare_document(
+            raw_document
+        )
+
+    except ConfigMigrationError as exc:
+        # Do not silently replace a valid but unsupported configuration with
+        # defaults. In particular, a config created by a newer Script Toolbox
+        # must never be down-converted and later overwritten by this version.
+        warnings.warn(
+            "Script Toolbox: cannot safely load config at {0!r}: {1}".format(
+                path,
+                exc
+            ),
+            RuntimeWarning,
+            stacklevel=2
+        )
+        raise
+
     except Exception as exc:
         warnings.warn(
             "Script Toolbox: failed to load config at {0!r}: {1}. "
@@ -68,7 +97,7 @@ def load_config(path=None):
             RuntimeWarning,
             stacklevel=2
         )
-        return normalize_document({})
+        return _prepare_document({})
 
 
 def _replace_file_windows(source, destination):
@@ -121,7 +150,9 @@ def _replace_file(source, destination):
 
 def save_config(document, path=None):
     path = path or config_path()
-    document = normalize_document(document)
+    document = _prepare_document(
+        document
+    )
 
     folder = os.path.dirname(path)
 

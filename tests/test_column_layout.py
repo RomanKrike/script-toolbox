@@ -240,7 +240,8 @@ def test_column_editor_and_runtime_are_wired_without_layout_triggers():
         "layouts.py"
     )
 
-    assert '("Column",' in ui_init
+    assert '"Column",' in ui_init
+    assert '"column",' in ui_init
     assert 'register_runtime_renderer(\n    "column"' in ui_init
     assert "build_layout_editor_class" in ui_init
     assert '"column": ColumnPropertyEditor' in registry

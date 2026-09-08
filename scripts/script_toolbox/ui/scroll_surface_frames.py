@@ -181,6 +181,41 @@ def _copy_constraints(widget, frame):
         pass
 
 
+def _fit_runtime_field_inside_frame(control, frame):
+    """Consume the frame's 1 px top/bottom margins inside fixed Field height.
+
+    DisplayFieldList is deliberately fixed-height.  The outer frame preserves
+    that public height, so the child must give two pixels back to the frame;
+    otherwise it overflows the layout and covers the bottom border in Maya.
+    """
+    if control is None or frame is None:
+        return
+
+    try:
+        minimum_height = int(frame.minimumHeight())
+        maximum_height = _bounded_maximum(frame.maximumHeight())
+    except Exception:
+        return
+
+    if (
+        minimum_height <= 0 or
+        maximum_height is None or
+        minimum_height != maximum_height
+    ):
+        return
+
+    inner_height = max(
+        1,
+        minimum_height - 2
+    )
+
+    try:
+        control.setMinimumHeight(inner_height)
+        control.setMaximumHeight(inner_height)
+    except Exception:
+        pass
+
+
 def _find_layout(layout, target):
     """Find the nested layout that directly owns *target*."""
     if layout is None:
@@ -404,6 +439,10 @@ def install_runtime_scroll_frames(registry, runtime_module):
                 border="#161616"
             )
             if frame is not None:
+                _fit_runtime_field_inside_frame(
+                    control,
+                    frame
+                )
                 frame.setStyleSheet(
                     _RUNTIME_FIELD_FRAME_STYLE
                 )

@@ -70,3 +70,18 @@ def test_trigger_add_tab_stays_after_real_binding_pages():
     assert "self._remove_add_tab()" in add_page_source
     assert "_BaseBindingPanel._add_page(" in add_page_source
     assert "self._ensure_add_tab()" in add_page_source
+
+
+def test_property_script_editor_has_minimum_height_and_expands():
+    source = _read(
+        "scripts/script_toolbox/ui/properties/script_editor_sizing.py"
+    )
+    package_source = _read(
+        "scripts/script_toolbox/ui/properties/__init__.py"
+    )
+
+    assert "self.script_editor.setMinimumHeight(240)" in source
+    assert "QtGui.QSizePolicy.Expanding" in source
+    assert "self.root_layout.setStretch(" in source
+    assert "self.binding_panel" in source
+    assert "install_expanding_script_editors()" in package_source

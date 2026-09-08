@@ -6,6 +6,30 @@ from . import interface_editor as _interface_editor_module
 from .editor_document_adapter import build_interface_editor_class
 from .interface_tree import ExistingInterfaceTree
 
+
+def _install_controls_v2_palette(editor_class):
+    groups = []
+    for group_label, entries in editor_class.PALETTE_GROUPS:
+        entries = tuple(entries)
+        if group_label == "ACTIONS" and not any(
+            entry[1] == "icon"
+            for entry in entries
+        ):
+            entries = entries + (
+                (
+                    "Icon",
+                    "icon",
+                    "Standalone image; optionally clickable through an On Click callback."
+                ),
+            )
+        groups.append((group_label, entries))
+    editor_class.PALETTE_GROUPS = tuple(groups)
+
+
+_install_controls_v2_palette(
+    _interface_editor_module.InterfaceEditor
+)
+
 InterfaceEditor = build_interface_editor_class(
     _interface_editor_module.InterfaceEditor
 )

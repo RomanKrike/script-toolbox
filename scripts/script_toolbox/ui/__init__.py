@@ -14,6 +14,9 @@ from .editor_scroll_frames import build_scroll_frame_interface_editor_class
 from .interface_tree import ExistingInterfaceTree
 from .property_pane_style import install_property_pane_style
 from .properties.base import PropertyEditorBase
+from .scroll_surface_frames import install_property_editor_scroll_frames
+from .scroll_surface_frames import install_runtime_scroll_frames
+from .scroll_surface_frames import install_script_editor_scroll_frames
 
 
 def _install_controls_v2_palette(editor_class):
@@ -85,6 +88,7 @@ install_property_pane_style(
     InterfaceEditor,
     PropertyEditorBase
 )
+install_property_editor_scroll_frames()
 
 # Keep direct imports from script_toolbox.ui.interface_editor compatible while
 # the legacy Qt dialog is gradually decomposed across STEP 07/08.
@@ -115,6 +119,10 @@ register_runtime_renderer(
     "column",
     render_column
 )
+install_runtime_scroll_frames(
+    get_runtime_renderer_registry(),
+    _runtime_module
+)
 
 from .main_window import ScriptToolbox
 from .controls_v2_hooks import install_controls_v2_hooks
@@ -124,6 +132,10 @@ from .runtime import DisplayField
 from .runtime import RuntimeFolder
 from .runtime import RuntimeFolderRadio
 from .runtime import RuntimeFolderTabs
+
+install_script_editor_scroll_frames(
+    ScriptEditorWidget
+)
 
 install_controls_v2_hooks(
     _runtime_module,

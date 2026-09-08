@@ -16,7 +16,7 @@ class EditorDocumentController(object):
     def __init__(self, document):
         self._document = {}
         self._item_cache = {}
-        self.replace(document, normalize=False)
+        self.replace(document)
 
     @property
     def document(self):
@@ -26,10 +26,16 @@ class EditorDocumentController(object):
     def item_cache(self):
         return self._item_cache
 
-    def replace(self, document, normalize=False):
-        candidate = copy.deepcopy(
-            document if isinstance(document, dict) else {}
-        )
+    def replace(
+        self,
+        document,
+        normalize=False,
+        copy_document=True
+    ):
+        candidate = document if isinstance(document, dict) else {}
+
+        if copy_document:
+            candidate = copy.deepcopy(candidate)
 
         if normalize:
             candidate = normalize_document(candidate)
@@ -37,6 +43,14 @@ class EditorDocumentController(object):
         self._document = candidate
         self.rebuild_index()
         return self._document
+
+    def adopt(self, document):
+        """Adopt an internally assembled staged document without copying it."""
+        return self.replace(
+            document,
+            normalize=False,
+            copy_document=False
+        )
 
     def snapshot(self):
         return copy.deepcopy(self._document)

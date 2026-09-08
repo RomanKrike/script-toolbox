@@ -61,6 +61,48 @@ class ItemStateCommand(EditorCommand):
         )
 
 
+class ItemsStateCommand(EditorCommand):
+    """Change non-structural state for a small set of linked items."""
+
+    def __init__(
+        self,
+        before_states,
+        after_states,
+        label="Edit Parameters",
+        selection_before=None,
+        selection_after=None
+    ):
+        EditorCommand.__init__(
+            self,
+            label=label,
+            selection_before=selection_before,
+            selection_after=selection_after
+        )
+        self.before_states = copy.deepcopy(before_states or {})
+        self.after_states = copy.deepcopy(after_states or {})
+
+    def _apply(self, controller, states):
+        for item_id, state in states.items():
+            controller.apply_item_state(
+                item_id,
+                state,
+                rebuild=False
+            )
+        controller.rebuild_index()
+
+    def undo(self, controller):
+        self._apply(
+            controller,
+            self.before_states
+        )
+
+    def redo(self, controller):
+        self._apply(
+            controller,
+            self.after_states
+        )
+
+
 class DocumentDeltaCommand(EditorCommand):
     """
     Reversible document delta.
@@ -351,5 +393,6 @@ __all__ = [
     "DocumentDeltaCommand",
     "EditorCommand",
     "ItemStateCommand",
+    "ItemsStateCommand",
     "build_document_delta",
 ]

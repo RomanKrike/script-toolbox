@@ -32,6 +32,69 @@ def _all_items(document):
     )
 
 
+def _linked_document():
+    return {
+        "version": 16,
+        "sections": [
+            {
+                "kind": "folder",
+                "id": "folder_group",
+                "name": "group",
+                "label": "Group",
+                "items": [
+                    {
+                        "kind": "string",
+                        "id": "field_internal_id",
+                        "name": "internal_value",
+                        "label": "Internal",
+                        "value": "inside",
+                        "on_change_script": "",
+                    },
+                    {
+                        "kind": "button",
+                        "id": "button_internal_id",
+                        "name": "run_internal",
+                        "label": "Run",
+                        "language": "python",
+                        "click_script": "\n".join([
+                            "a = toolbox.get_value('internal_value')",
+                            "b = toolbox.get_value('field_internal_id')",
+                            "c = toolbox.get_value('external_value')",
+                            "note = 'internal_value'",
+                        ]),
+                    },
+                ],
+            },
+            {
+                "kind": "folder",
+                "id": "folder_external",
+                "name": "external_group",
+                "label": "External",
+                "items": [
+                    {
+                        "kind": "string",
+                        "id": "field_external_id",
+                        "name": "external_value",
+                        "label": "External",
+                        "value": "outside",
+                        "on_change_script": "",
+                    },
+                    {
+                        "kind": "button",
+                        "id": "button_external_id",
+                        "name": "external_reader",
+                        "label": "External Reader",
+                        "language": "python",
+                        "click_script": (
+                            "toolbox.get_value('internal_value')"
+                        ),
+                    },
+                ],
+            },
+        ],
+    }
+
+
 def test_controller_owns_defensive_copy_and_indexes_nested_items():
     source = _golden_document()
     controller = EditorDocumentController(source)
@@ -130,6 +193,75 @@ def test_clone_subtree_allocates_fresh_ids_and_unique_names_recursively():
     assert not original_names.intersection(clone_names)
     assert clone["label"] == source["label"]
     assert clone["kind"] == source["kind"]
+
+
+def test_clone_subtree_remaps_internal_script_links_only():
+    controller = EditorDocumentController(
+        _linked_document()
+    )
+    source = controller.document["sections"][0]
+    clone = controller.clone_subtree(source)
+
+    cloned_field = clone["items"][0]
+    cloned_button = clone["items"][1]
+    script = cloned_button["click_script"]
+
+    assert cloned_field["name"] == "internal_value_2"
+    assert cloned_field["id"] != "field_internal_id"
+    assert "toolbox.get_value('internal_value_2')" in script
+    assert "toolbox.get_value('{0}')".format(
+        cloned_field["id"]
+    ) in script
+    assert "toolbox.get_value('external_value')" in script
+    assert "note = 'internal_value'" in script
+
+
+def test_rename_item_references_uses_stable_target_and_updates_managed_calls():
+    controller = EditorDocumentController(
+        _linked_document()
+    )
+    target = controller.find_by_id(
+        "field_internal_id"
+    )
+    target["name"] = "renamed_value"
+
+    changed_ids = controller.rename_item_references(
+        "field_internal_id",
+        "internal_value",
+        "renamed_value"
+    )
+
+    internal_script = controller.find_by_id(
+        "button_internal_id"
+    )["click_script"]
+    external_script = controller.find_by_id(
+        "button_external_id"
+    )["click_script"]
+
+    assert changed_ids == set([
+        "button_internal_id",
+        "button_external_id",
+    ])
+    assert "toolbox.get_value('renamed_value')" in internal_script
+    assert "toolbox.get_value('renamed_value')" in external_script
+    assert "note = 'internal_value'" in internal_script
+
+
+def test_rename_item_references_rejects_unknown_stable_id():
+    controller = EditorDocumentController(
+        _linked_document()
+    )
+
+    changed_ids = controller.rename_item_references(
+        "missing_id",
+        "internal_value",
+        "renamed_value"
+    )
+
+    assert changed_ids == set()
+    assert controller.find_by_id(
+        "button_external_id"
+    )["click_script"] == "toolbox.get_value('internal_value')"
 
 
 def test_cache_subtree_supports_detached_items_before_tree_sync():

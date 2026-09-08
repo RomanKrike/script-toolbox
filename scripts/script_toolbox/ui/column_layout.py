@@ -25,6 +25,10 @@ def render_column(owner, item, compact=False):
     """Render a vertical layout container using the active runtime registry."""
     widget = QtGui.QWidget()
     widget.setObjectName("RuntimeColumn")
+    widget.setSizePolicy(
+        QtGui.QSizePolicy.Preferred,
+        QtGui.QSizePolicy.Expanding
+    )
 
     try:
         widget.setToolTip(

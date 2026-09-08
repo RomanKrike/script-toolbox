@@ -30,7 +30,7 @@ def test_runtime_registry_registers_icon_and_numeric_v2_renderer():
     assert "component_labels" in source
 
 
-def test_active_runtime_callback_namespace_uses_execution_result():
+def test_active_runtime_routes_value_changes_to_event_bindings():
     source = _source(
         "scripts",
         "script_toolbox",
@@ -38,28 +38,79 @@ def test_active_runtime_callback_namespace_uses_execution_result():
         "debounced_main_window.py"
     )
 
-    assert "execute_script_result" in source
-    assert '"toolbox": self' in source
-    assert '"item": item' in source
-    assert '"value": value' in source
-    assert '"old_value": old_value' in source
-    assert '"event": event' in source
-    assert 'context="callback:{0}:{1}"' in source
+    assert '"value_changed"' in source
+    assert "dispatch_binding_event" in source
+    assert "run_item_callback" in source
+    assert '"on_change": "value_changed"' in source
 
 
-def test_property_editor_uses_shared_callback_tabs():
-    source = _source(
+def test_property_editor_uses_binding_panel_and_per_script_language():
+    base_source = _source(
         "scripts",
         "script_toolbox",
         "ui",
         "properties",
         "base.py"
     )
+    binding_source = _source(
+        "scripts",
+        "script_toolbox",
+        "ui",
+        "properties",
+        "bindings.py"
+    )
+    language_source = _source(
+        "scripts",
+        "script_toolbox",
+        "ui",
+        "language_script_editor.py"
+    )
 
-    assert 'QGroupBox("Callbacks (Python)")' in source
-    assert "callback_events" in source
-    assert "callback_script" in source
-    assert 'item["callbacks"] = callbacks' in source
+    assert "BindingPanel" in base_source
+    assert '"Event Scripts"' in binding_source
+    assert 'QPushButton("+")' in binding_source
+    assert "AddBindingDialog" in binding_source
+    assert "Ctrl / Alt / Shift" in binding_source
+    assert "LanguageScriptEditor" in binding_source
+    assert "Language" in language_source
+    assert "language_combo" in language_source
+    assert "callback_tabs" not in base_source
+
+
+def test_button_editor_has_no_global_language_or_click_shift_tabs():
+    source = _source(
+        "scripts",
+        "script_toolbox",
+        "ui",
+        "properties",
+        "button.py"
+    )
+
+    assert "self.language =" not in source
+    assert "click_editor" not in source
+    assert "shift_editor" not in source
+    assert 'item.pop("language", None)' in source
+    assert 'item.pop("click_script", None)' in source
+    assert 'item.pop("shift_script", None)' in source
+    assert "state_on_language" in source
+    assert "state_off_language" in source
+
+
+def test_event_binding_runtime_installs_mouse_filter_and_double_click_delay():
+    source = _source(
+        "scripts",
+        "script_toolbox",
+        "ui",
+        "event_binding_hooks.py"
+    )
+
+    assert "MouseBindingFilter" in source
+    assert "MouseButtonDblClick" in source
+    assert "doubleClickInterval" in source
+    assert '"ctrl"' in source
+    assert '"alt"' in source
+    assert '"shift"' in source
+    assert "dispatch_item_event" in source
 
 
 def test_icon_property_editor_and_palette_are_installed():
@@ -80,22 +131,29 @@ def test_icon_property_editor_and_palette_are_installed():
     assert '"icon": IconPropertyEditor' in registry
     assert '"Icon",' in ui_init
     assert '"icon",' in ui_init
+    assert "event bindings" in ui_init
 
 
-def test_controls_v2_runtime_hooks_keep_state_icon_only_and_folder_events():
-    source = _source(
+def test_layout_trigger_ui_is_disabled_but_folder_compatibility_hook_remains():
+    binding_source = _source(
+        "scripts",
+        "script_toolbox",
+        "model",
+        "bindings.py"
+    )
+    hook_source = _source(
         "scripts",
         "script_toolbox",
         "ui",
         "controls_v2_hooks.py"
     )
 
-    assert 'item.get("icon_only", False)' in source
-    assert 'widget.setText("")' in source
-    assert '"on_open"' in source
-    assert '"on_close"' in source
-    assert "RuntimeFolderTabs" in source
-    assert "RuntimeFolderRadio" in source
+    assert '"folder": (),' in binding_source
+    assert '"row": (),' in binding_source
+    assert '"separator": (),' in binding_source
+    assert '"folder": ("opened", "closed")' in binding_source
+    assert '"on_open"' in hook_source
+    assert '"on_close"' in hook_source
 
 
 def test_no_specialized_composition_kinds_were_added():

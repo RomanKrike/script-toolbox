@@ -206,8 +206,6 @@ class AddBindingDialog(QtGui.QDialog):
 class BindingPage(QtGui.QWidget):
 
     changed = QtCore.Signal()
-    editRequested = QtCore.Signal(object)
-    removeRequested = QtCore.Signal(object)
 
     def __init__(
         self,
@@ -219,31 +217,8 @@ class BindingPage(QtGui.QWidget):
         self.binding = copy.deepcopy(binding)
 
         root = QtGui.QVBoxLayout(self)
-        root.setContentsMargins(2, 4, 2, 2)
-        root.setSpacing(5)
-
-        toolbar = QtGui.QHBoxLayout()
-        self.description = QtGui.QLabel(
-            binding_display_name(self.binding)
-        )
-        self.description.setObjectName("HintText")
-        toolbar.addWidget(self.description)
-        toolbar.addStretch(1)
-
-        edit_button = QtGui.QPushButton("Edit Trigger")
-        remove_button = QtGui.QPushButton("Remove")
-        edit_button.setMaximumWidth(90)
-        remove_button.setMaximumWidth(70)
-        toolbar.addWidget(edit_button)
-        toolbar.addWidget(remove_button)
-        root.addLayout(toolbar)
-
-        edit_button.clicked.connect(
-            lambda: self.editRequested.emit(self)
-        )
-        remove_button.clicked.connect(
-            lambda: self.removeRequested.emit(self)
-        )
+        root.setContentsMargins(2, 3, 2, 2)
+        root.setSpacing(4)
 
         self.script_editor = None
         if self.binding.get("handler", "script") == "state_toggle":
@@ -303,9 +278,6 @@ class BindingPage(QtGui.QWidget):
         replacement["handler"] = current.get("handler", "script")
         replacement["button_mode"] = current.get("button_mode", "all")
         self.binding = replacement
-        self.description.setText(
-            binding_display_name(self.binding)
-        )
         self.changed.emit()
 
 
@@ -320,7 +292,7 @@ class BindingPanel(QtGui.QGroupBox):
     ):
         QtGui.QGroupBox.__init__(
             self,
-            "Event Scripts",
+            "Triggers",
             parent
         )
 
@@ -331,44 +303,57 @@ class BindingPanel(QtGui.QGroupBox):
         self.loading = False
 
         root = QtGui.QVBoxLayout(self)
-        root.setContentsMargins(6, 6, 6, 6)
-        root.setSpacing(5)
-
-        header = QtGui.QHBoxLayout()
-        hint = QtGui.QLabel(
-            "Each event owns its trigger, language and script."
-        )
-        hint.setObjectName("HintText")
-        hint.setWordWrap(True)
-        header.addWidget(hint, 1)
-
-        self.add_button = QtGui.QPushButton("+")
-        self.add_button.setFixedSize(28, 24)
-        self.add_button.setToolTip("Add event trigger")
-        header.addWidget(self.add_button)
-        root.addLayout(header)
-
-        namespace_hint = QtGui.QLabel(
-            "Python namespace: toolbox, item, value, old_value, event, host."
-        )
-        namespace_hint.setObjectName("HintText")
-        namespace_hint.setWordWrap(True)
-        root.addWidget(namespace_hint)
+        root.setContentsMargins(5, 5, 5, 5)
+        root.setSpacing(3)
 
         self.tabs = QtGui.QTabWidget()
-        root.addWidget(self.tabs, 1)
+        self.tabs.setTabsClosable(True)
+
+        self.add_button = QtGui.QToolButton(self.tabs)
+        self.add_button.setText("+")
+        self.add_button.setAutoRaise(True)
+        self.add_button.setFixedSize(24, 22)
+        self.add_button.setToolTip("Add trigger")
+        self.tabs.setCornerWidget(
+            self.add_button,
+            QtCore.Qt.TopRightCorner
+        )
 
         self.empty_label = QtGui.QLabel(
-            "No event scripts. Use + to add one."
+            "No triggers. Use + to add one."
         )
         self.empty_label.setObjectName("HintText")
         self.empty_label.setAlignment(QtCore.Qt.AlignCenter)
+
+        root.addWidget(self.tabs, 1)
         root.addWidget(self.empty_label)
 
         self.add_button.clicked.connect(
             self.add_binding
         )
+        self.tabs.tabCloseRequested.connect(
+            self._close_tab_requested
+        )
+        self.tabs.tabBar().installEventFilter(self)
         self.setVisible(False)
+
+    def eventFilter(self, watched, event):
+        if (
+            watched is self.tabs.tabBar() and
+            event.type() == QtCore.QEvent.MouseButtonDblClick
+        ):
+            index = watched.tabAt(event.pos())
+            if 0 <= index < len(self.pages):
+                self.edit_binding(
+                    self.pages[index]
+                )
+                return True
+
+        return QtGui.QGroupBox.eventFilter(
+            self,
+            watched,
+            event
+        )
 
     def clear(self):
         while self.tabs.count():
@@ -406,7 +391,7 @@ class BindingPanel(QtGui.QGroupBox):
             for binding in bindings_for_editor(item):
                 self._add_page(binding)
 
-            self._refresh_empty()
+            self._refresh_tabs()
         finally:
             self.loading = False
 
@@ -417,27 +402,51 @@ class BindingPanel(QtGui.QGroupBox):
             parent=self.tabs
         )
         page.changed.connect(self._page_changed)
-        page.editRequested.connect(self.edit_binding)
-        page.removeRequested.connect(self.remove_binding)
         self.pages.append(page)
-        self.tabs.addTab(
+        index = self.tabs.addTab(
             page,
             binding_display_name(binding)
         )
+        self._update_tab_tooltip(
+            index,
+            binding
+        )
         return page
+
+    def _update_tab_tooltip(self, index, binding):
+        if index < 0:
+            return
+        self.tabs.setTabToolTip(
+            index,
+            "{0}\nDouble-click to edit trigger.".format(
+                binding_display_name(binding)
+            )
+        )
 
     def _refresh_tabs(self):
         for index, page in enumerate(self.pages):
+            binding = page.write()
             self.tabs.setTabText(
                 index,
-                binding_display_name(page.write())
+                binding_display_name(binding)
+            )
+            self._update_tab_tooltip(
+                index,
+                binding
             )
         self._refresh_empty()
 
     def _refresh_empty(self):
         empty = not bool(self.pages)
-        self.tabs.setVisible(not empty)
+        self.tabs.setVisible(True)
         self.empty_label.setVisible(empty)
+
+        if empty:
+            self.tabs.setMinimumHeight(28)
+            self.tabs.setMaximumHeight(34)
+        else:
+            self.tabs.setMinimumHeight(0)
+            self.tabs.setMaximumHeight(16777215)
 
     def _page_changed(self):
         if self.loading:
@@ -485,7 +494,7 @@ class BindingPanel(QtGui.QGroupBox):
 
         page = self._add_page(binding)
         self.tabs.setCurrentWidget(page)
-        self._refresh_empty()
+        self._refresh_tabs()
         self.changed.emit()
 
     def edit_binding(self, page):
@@ -543,6 +552,13 @@ class BindingPanel(QtGui.QGroupBox):
         )
         return count <= 1
 
+    def _close_tab_requested(self, index):
+        if index < 0 or index >= len(self.pages):
+            return
+        self.remove_binding(
+            self.pages[index]
+        )
+
     def remove_binding(self, page):
         if page not in self.pages:
             return
@@ -555,11 +571,24 @@ class BindingPanel(QtGui.QGroupBox):
             )
             return
 
+        name = binding_display_name(
+            page.write()
+        )
+        answer = QtGui.QMessageBox.question(
+            self,
+            "Remove Trigger",
+            'Remove trigger "{0}"?'.format(name),
+            QtGui.QMessageBox.Yes | QtGui.QMessageBox.No,
+            QtGui.QMessageBox.No
+        )
+        if answer != QtGui.QMessageBox.Yes:
+            return
+
         index = self.pages.index(page)
         self.pages.remove(page)
         self.tabs.removeTab(index)
         page.deleteLater()
-        self._refresh_empty()
+        self._refresh_tabs()
         self.changed.emit()
 
     def write_to_item(self, item):

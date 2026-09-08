@@ -56,6 +56,9 @@ jobs:
           --cov=script_toolbox.core.editor_document
           --cov=script_toolbox.core.editor_commands
           --cov=script_toolbox.core.runtime_registry
+          --cov=script_toolbox.core.execution_result
+          --cov=script_toolbox.core.logging_utils
+          --cov=script_toolbox.core.executor
           --cov=script_toolbox.hosts.callbacks
           --cov-report=term-missing
           --cov-report=xml
@@ -99,6 +102,14 @@ jobs:
           -w /work
           python:2.7.18-slim-buster
           python tests/python2_config_smoke.py
+
+      - name: ExecutionResult smoke with Python 2.7
+        run: >
+          docker run --rm
+          -v "$PWD:/work"
+          -w /work
+          python:2.7.18-slim-buster
+          python tests/python2_executor_smoke.py
 
   release-contract:
     name: Release package contract

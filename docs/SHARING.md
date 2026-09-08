@@ -61,16 +61,27 @@ Python 2.7 encrypted-share smoke test.
 
 ## Provider abstraction
 
-Network storage is isolated behind `ShareProvider`. Version 1 ships with the
-`DpasteProvider` backend using the public `dpaste.com` API. The rest of the
-serialization, encryption and UI code does not depend on dpaste-specific URLs
-or request formats.
+Network storage is isolated behind `ShareProvider`. New shares use automatic
+provider selection. Script Toolbox first tries `PastesDevProvider` against the
+public `pastes.dev` API and falls back to `DpasteProvider` if that request fails.
+The selected provider is written into the `STB1` share code, so downloads always
+return to the service that actually stored the encrypted payload.
 
-The provider sends only encrypted base64 text. It sets a Script Toolbox
-User-Agent, rate-limits requests to no more than one per second, and defaults to
-a seven-day paste lifetime. On Windows, a PowerShell TLS 1.2 fallback is
-available for old Python runtimes that cannot negotiate the provider HTTPS
-connection directly.
+Existing `STB1:dpaste:...` codes remain supported. Provider failover is only
+needed while creating a share; reading a share uses the provider encoded in the
+share code.
+
+The provider receives only encrypted base64 text. The decryption key is never
+sent to either public service. `pastes.dev` is used as the preferred provider;
+its public API does not expose a per-paste expiry option. The dpaste fallback
+retains the existing seven-day default expiry and one-request-per-second
+throttling.
+
+On Windows, a PowerShell TLS 1.2 fallback is available for old Python runtimes
+that cannot negotiate a provider HTTPS connection directly. The fallback uses
+terminating errors and dedicated request/response stream variables so a network
+failure reports one useful error instead of cascading PowerShell null/stream
+exceptions.
 
 A different backend can be registered without changing the `STB1` codec:
 

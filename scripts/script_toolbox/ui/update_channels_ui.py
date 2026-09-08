@@ -30,6 +30,7 @@ def build_update_channel_toolbox_class(
             self.update_channel = get_update_channel()
             self._update_channel_actions = {}
             self._update_channel_button = None
+            self._update_channel_menu = None
             base_class.__init__(
                 self,
                 parent
@@ -112,15 +113,33 @@ def build_update_channel_toolbox_class(
                     channel
                 ] = action
 
-            button.setMenu(
-                menu
+            button.setContextMenuPolicy(
+                QtCore.Qt.CustomContextMenu
             )
-            button.setPopupMode(
-                QtGui.QToolButton.MenuButtonPopup
+            button.customContextMenuRequested.connect(
+                self._show_update_channel_menu
             )
 
             self._update_channel_button = button
+            self._update_channel_menu = menu
             self._refresh_update_channel_ui()
+
+        def _show_update_channel_menu(
+            self,
+            position
+        ):
+            if (
+                self._update_channel_button is None or
+                self._update_channel_menu is None
+            ):
+                return
+
+            self._refresh_update_channel_ui()
+            self._update_channel_menu.exec_(
+                self._update_channel_button.mapToGlobal(
+                    position
+                )
+            )
 
         def _make_update_channel_handler(
             self,
@@ -154,7 +173,7 @@ def build_update_channel_toolbox_class(
                     (
                         "Check for Script Toolbox updates\n"
                         "Update channel: {0}\n"
-                        "Use the arrow to change channel."
+                        "Right-click to change channel."
                     ).format(
                         label
                     )

@@ -6,10 +6,12 @@ from ..compat import QtCore
 from ..compat import QtGui
 from ..compat import main_window
 from ..core.config_store import ConfigStore
+from ..core.executor import execute_script_result
 from ..core.state_refresh import StateRefreshQueue
 from ..core.values import store_value as store_document_value
 from ..hosts.callbacks import EVENT_SELECTION_CHANGED
 from ..hosts.callbacks import HostCallbackGroup
+from ..model.callbacks import callback_script
 from ..pycompat import text_type
 from . import main_window as base_main_window
 
@@ -19,13 +21,7 @@ STATE_REFRESH_INTERVAL_MS = 100
 
 
 class ScriptToolbox(base_main_window.ScriptToolbox):
-    """Runtime window with debounced persistence and host event scheduling.
-
-    Explicit ``save()`` calls remain synchronous. Runtime value persistence is
-    debounced, full state-button refresh requests are coalesced, and supported
-    hosts drive selection fields through normalized callbacks instead of the
-    legacy polling timer.
-    """
+    """Runtime window with debounced persistence and host event scheduling."""
 
     def __init__(
         self,
@@ -38,6 +34,7 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         self.state_refresh_timer = None
         self._selection_refresh_in_progress = False
         self._rebuilding_runtime = False
+        self._callback_guard = set()
 
         self.host_callbacks = HostCallbackGroup(
             HOST
@@ -110,15 +107,91 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
                 force=False
             )
         except Exception:
-            # Host callbacks must never leak exceptions into Maya/Nuke event
-            # dispatch. Polling fallback remains available when subscription
-            # cannot be established in the first place.
             pass
 
     def clear_host_callbacks(self):
         removed = self.host_callbacks.clear()
         self._using_selection_callback = False
         return removed
+
+    # ------------------------------------------------------------------
+    # Universal item callbacks
+    # ------------------------------------------------------------------
+
+    def run_item_callback(
+        self,
+        item_or_id,
+        event,
+        value=None,
+        old_value=None
+    ):
+        item = (
+            item_or_id
+            if isinstance(item_or_id, dict)
+            else self.find_item(item_or_id)
+        )
+        if item is None:
+            return None
+
+        source = callback_script(
+            item,
+            event
+        )
+        if not source.strip():
+            return None
+
+        item_id = text_type(
+            item.get("id", "")
+        )
+        event = text_type(event or "")
+        guard_key = (
+            item_id,
+            event
+        )
+        if guard_key in self._callback_guard:
+            return None
+
+        self._callback_guard.add(guard_key)
+        try:
+            return execute_script_result(
+                source,
+                language="python",
+                toolbox=self,
+                parent=self,
+                extra_namespace={
+                    "toolbox": self,
+                    "item": item,
+                    "value": value,
+                    "old_value": old_value,
+                    "event": event,
+                    "host": HOST,
+                },
+                context="callback:{0}:{1}".format(
+                    item.get("name", item_id),
+                    event
+                ),
+                notify=True
+            )
+        finally:
+            self._callback_guard.discard(
+                guard_key
+            )
+
+    def _run_on_change(
+        self,
+        item,
+        old_value,
+        value
+    ):
+        result = self.run_item_callback(
+            item,
+            "on_change",
+            value=value,
+            old_value=old_value
+        )
+        if result is None:
+            return True
+        return bool(result.success)
 
     # ------------------------------------------------------------------
     # Persistence
@@ -156,8 +229,6 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         try:
             self.flush_pending_save()
         except Exception as exc:
-            # Keep ConfigStore dirty so the next explicit save/change/close can
-            # retry. Do not raise out of a Qt timer callback in Maya/Nuke.
             try:
                 self.statusBar().showMessage(
                     "Config save failed: {0}".format(
@@ -218,7 +289,6 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
     # ------------------------------------------------------------------
 
     def request_state_refresh(self):
-        """Request one bounded full refresh without restarting its timer."""
         if not self.state_button_widgets:
             return False
 
@@ -253,9 +323,6 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         return self.state_refresh_queue.cancel()
 
     def refresh_state_buttons(self):
-        # Selection events are high-frequency producers, so their request is
-        # scheduled unless it is part of a runtime rebuild. Rebuild performs
-        # one explicit immediate refresh after all widgets have been created.
         if self._selection_refresh_in_progress:
             if self._rebuilding_runtime:
                 return None
@@ -263,8 +330,6 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
             self.request_state_refresh()
             return None
 
-        # Explicit callers retain the old synchronous semantics and also clear
-        # a pending scheduled refresh to avoid a duplicate full pass.
         self.cancel_scheduled_state_refresh()
         return base_main_window.ScriptToolbox.refresh_state_buttons(
             self

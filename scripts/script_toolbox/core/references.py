@@ -181,18 +181,13 @@ def rewrite_python_references(source, replacements):
 
         if index:
             previous = significant[index - 1]
-            if (
-                previous[0] == token_module.OP and
-                _as_text(previous[1]) == "."
-            ):
+            if _as_text(previous[1]) == ".":
                 continue
 
         if (
-            dot_token[0] != token_module.OP or
             _as_text(dot_token[1]) != "." or
             method_token[0] != token_module.NAME or
             _as_text(method_token[1]) not in REFERENCE_METHODS or
-            open_token[0] != token_module.OP or
             _as_text(open_token[1]) != "(" or
             argument_token[0] != token_module.STRING
         ):

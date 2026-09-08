@@ -34,32 +34,38 @@ class LanguageScriptEditor(QtGui.QWidget):
 
         root = QtGui.QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(4)
-
-        language_row = QtGui.QHBoxLayout()
-        language_row.setSpacing(5)
-        language_row.addWidget(
-            QtGui.QLabel("Language")
-        )
-
-        self.language_combo = QtGui.QComboBox()
-        for entry in self.languages:
-            self.language_combo.addItem(
-                entry.upper()
-                if entry == "mel"
-                else entry.title()
-            )
-        language_row.addWidget(
-            self.language_combo
-        )
-        language_row.addStretch(1)
-        root.addLayout(language_row)
+        root.setSpacing(0)
 
         self.editor = ScriptEditorWidget(
             language=language,
             toolbox=toolbox,
             parent=self
         )
+
+        self.language_combo = QtGui.QComboBox()
+        self.language_combo.setToolTip("Script language")
+        self.language_combo.setMaximumWidth(95)
+        for entry in self.languages:
+            self.language_combo.addItem(
+                entry.upper()
+                if entry == "mel"
+                else entry.title()
+            )
+
+        try:
+            toolbar_layout = (
+                self.editor.layout()
+                .itemAt(0)
+                .layout()
+            )
+            toolbar_layout.addWidget(
+                self.language_combo
+            )
+        except Exception:
+            root.addWidget(
+                self.language_combo
+            )
+
         root.addWidget(
             self.editor,
             1

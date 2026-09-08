@@ -63,7 +63,7 @@ def test_nested_folders_are_preserved():
     assert nested["items"][0]["kind"] == "integer"
 
 
-def test_row_rejects_nested_layout_containers():
+def test_row_accepts_layout_containers_but_rejects_folders():
     row = create_item(
         "row",
         {
@@ -78,7 +78,11 @@ def test_row_rejects_nested_layout_containers():
                 },
                 {
                     "kind": "row",
-                    "name": "bad_row",
+                    "name": "nested_row",
+                },
+                {
+                    "kind": "column",
+                    "name": "nested_column",
                 },
             ]
         }
@@ -88,7 +92,9 @@ def test_row_rejects_nested_layout_containers():
         item["kind"]
         for item in row["items"]
     ] == [
-        "button"
+        "button",
+        "row",
+        "column",
     ]
 
 
@@ -107,7 +113,7 @@ def test_name_and_label_are_independent():
     assert item["show_label"] is False
 
 
-def test_walk_items_recurses_folder_and_row():
+def test_walk_items_recurses_folder_row_and_column():
     document = normalize_document({
         "sections": [
             {
@@ -122,13 +128,19 @@ def test_walk_items_recurses_folder_and_row():
                                 "name": "controls",
                                 "items": [
                                     {
-                                        "kind": "float",
-                                        "name": "amount",
-                                    },
-                                    {
-                                        "kind": "checkbox",
-                                        "name": "enabled",
-                                    },
+                                        "kind": "column",
+                                        "name": "left_column",
+                                        "items": [
+                                            {
+                                                "kind": "float",
+                                                "name": "amount",
+                                            },
+                                            {
+                                                "kind": "checkbox",
+                                                "name": "enabled",
+                                            },
+                                        ],
+                                    }
                                 ],
                             }
                         ],
@@ -147,6 +159,7 @@ def test_walk_items_recurses_folder_and_row():
 
     assert names == [
         "controls",
+        "left_column",
         "amount",
         "enabled",
     ]

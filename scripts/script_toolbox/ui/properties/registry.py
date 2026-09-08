@@ -11,6 +11,7 @@ from .basic import MenuPropertyEditor
 from .basic import SeparatorPropertyEditor as _SeparatorPropertyEditor
 from .basic import StringPropertyEditor
 from .button import ButtonPropertyEditor
+from .column import ColumnPropertyEditor
 from .field import FieldPropertyEditor
 from .folder import FolderPropertyEditor
 from .icon import IconPropertyEditor
@@ -35,6 +36,7 @@ class SeparatorPropertyEditor(_SeparatorPropertyEditor):
 PROPERTY_EDITORS = {
     "folder": FolderPropertyEditor,
     "row": RowPropertyEditor,
+    "column": ColumnPropertyEditor,
     "button": ButtonPropertyEditor,
     "icon": IconPropertyEditor,
     "string": StringPropertyEditor,

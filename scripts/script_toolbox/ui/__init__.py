@@ -3,14 +3,33 @@
 from .code_editor import CodeEditor
 from .code_editor import ScriptHighlighter
 from . import interface_editor as _interface_editor_module
+from . import editor_document_adapter as _editor_document_adapter_module
+from ..core.layout_document import LayoutEditorDocumentController
 from .editor_document_adapter import build_interface_editor_class
 from .interface_tree import ExistingInterfaceTree
+from .layout_editor_adapter import build_layout_editor_class
 
 
 def _install_controls_v2_palette(editor_class):
     groups = []
     for group_label, entries in editor_class.PALETTE_GROUPS:
         entries = tuple(entries)
+
+        if group_label == "LAYOUT" and not any(
+            entry[1] == "column"
+            for entry in entries
+        ):
+            updated = []
+            for entry in entries:
+                updated.append(entry)
+                if entry[1] == "row":
+                    updated.append((
+                        "Column",
+                        "column",
+                        "Vertical layout for stacking controls, Rows and Columns."
+                    ))
+            entries = tuple(updated)
+
         if group_label == "ACTIONS" and not any(
             entry[1] == "icon"
             for entry in entries
@@ -30,8 +49,19 @@ _install_controls_v2_palette(
     _interface_editor_module.InterfaceEditor
 )
 
-InterfaceEditor = build_interface_editor_class(
+_layout_editor_class = build_layout_editor_class(
     _interface_editor_module.InterfaceEditor
+)
+
+# The command/history adapter resolves this module global when constructing its
+# controller. Use the layout-aware controller without changing the legacy core
+# controller contract for older direct imports.
+_editor_document_adapter_module.EditorDocumentController = (
+    LayoutEditorDocumentController
+)
+
+InterfaceEditor = build_interface_editor_class(
+    _layout_editor_class
 )
 
 # Keep direct imports from script_toolbox.ui.interface_editor compatible while
@@ -44,6 +74,7 @@ _interface_editor_module.InterfaceEditor = InterfaceEditor
 # based and can be extended without editing RuntimeFolder's if/elif chain.
 from . import runtime as _runtime_module
 from . import runtime_renderers as _runtime_renderers_module
+from .column_layout import render_column
 from .runtime_renderers import get_runtime_renderer_registry
 from .runtime_renderers import install_runtime_renderer_registry
 from .runtime_renderers import register_runtime_renderer
@@ -51,6 +82,10 @@ from .runtime_renderers import unregister_runtime_renderer
 
 install_runtime_renderer_registry(
     _runtime_module
+)
+register_runtime_renderer(
+    "column",
+    render_column
 )
 
 from .main_window import ScriptToolbox

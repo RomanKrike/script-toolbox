@@ -22,6 +22,7 @@ from script_toolbox.constants import CONFIG_VERSION
 from script_toolbox.core.migrations import migrate_document
 from script_toolbox.core.references import rewrite_item_references
 from script_toolbox.core.values import store_value
+from script_toolbox.model import walk_items
 from script_toolbox.model.bindings import make_binding
 from script_toolbox.model.items import create_item
 
@@ -59,6 +60,61 @@ def main():
             "show_slider": True,
         }
     )
+
+    layout = create_item(
+        "row",
+        {
+            "id": "layout",
+            "name": "layout",
+            "items": [
+                {
+                    "kind": "column",
+                    "id": "column_a",
+                    "name": "column_a",
+                    "items": [
+                        {
+                            "kind": "field",
+                            "id": "field_a",
+                            "name": "field_a",
+                        },
+                        {
+                            "kind": "row",
+                            "id": "actions_a",
+                            "name": "actions_a",
+                            "items": [
+                                {
+                                    "kind": "button",
+                                    "id": "add_a",
+                                    "name": "add_a",
+                                },
+                                {
+                                    "kind": "button",
+                                    "id": "remove_a",
+                                    "name": "remove_a",
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "kind": "column",
+                    "id": "column_b",
+                    "name": "column_b",
+                    "items": [
+                        {
+                            "kind": "field",
+                            "id": "field_b",
+                            "name": "field_b",
+                        },
+                    ],
+                },
+            ],
+        }
+    )
+    assert layout["items"][0]["kind"] == "column"
+    assert layout["items"][0]["row_width_mode"] == "stretch"
+    assert layout["items"][0]["items"][1]["kind"] == "row"
+
     document = {
         "version": 18,
         "sections": [
@@ -66,11 +122,22 @@ def main():
                 "folder",
                 {
                     "name": "root",
-                    "items": [vector],
+                    "items": [
+                        vector,
+                        layout,
+                    ],
                 }
             )
         ],
     }
+    names = [
+        item.get("name")
+        for item in walk_items(document)
+    ]
+    assert "column_a" in names
+    assert "actions_a" in names
+    assert "remove_a" in names
+
     stored = store_value(
         document,
         "vector",
@@ -122,7 +189,7 @@ def main():
     assert "callbacks" not in legacy_value
     assert "on_change_script" not in legacy_value
 
-    print("Controls v2 / event bindings Python 2.7 smoke passed")
+    print("Controls v2 / event bindings / columns Python 2.7 smoke passed")
 
 
 if __name__ == "__main__":

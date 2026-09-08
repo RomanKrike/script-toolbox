@@ -56,6 +56,7 @@ jobs:
           --cov=script_toolbox.core.editor_document
           --cov=script_toolbox.core.editor_commands
           --cov=script_toolbox.core.runtime_registry
+          --cov=script_toolbox.hosts.callbacks
           --cov-report=term-missing
           --cov-report=xml
           --cov-fail-under=60

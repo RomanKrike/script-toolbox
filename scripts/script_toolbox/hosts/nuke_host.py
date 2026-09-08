@@ -6,6 +6,8 @@ import os
 import sys
 
 from .base import BaseHost
+from .callbacks import EVENT_SELECTION_CHANGED
+from .callbacks import HostCallbackHandle
 
 
 def _resolve_nuke_module():
@@ -193,6 +195,90 @@ class NukeHost(BaseHost):
 
         except Exception:
             return False
+
+    def supports_callback(
+        self,
+        event_name
+    ):
+        return (
+            event_name == EVENT_SELECTION_CHANGED and
+            callable(
+                getattr(
+                    nuke,
+                    "addUpdateUI",
+                    None
+                )
+            ) and
+            callable(
+                getattr(
+                    nuke,
+                    "removeUpdateUI",
+                    None
+                )
+            )
+        )
+
+    def _remove_update_ui(
+        self,
+        callback
+    ):
+        try:
+            nuke.removeUpdateUI(
+                callback
+            )
+            return True
+        except Exception:
+            return False
+
+    def add_callback(
+        self,
+        event_name,
+        callback
+    ):
+        if not self.supports_callback(
+            event_name
+        ):
+            return None
+
+        try:
+            last_signature = [
+                tuple(
+                    self.current_selection(
+                        long_names=True
+                    ) or []
+                )
+            ]
+        except Exception:
+            last_signature = [tuple()]
+
+        def _update_ui():
+            try:
+                signature = tuple(
+                    self.current_selection(
+                        long_names=True
+                    ) or []
+                )
+            except Exception:
+                return
+
+            if signature == last_signature[0]:
+                return
+
+            last_signature[0] = signature
+            callback()
+
+        try:
+            nuke.addUpdateUI(
+                _update_ui
+            )
+        except Exception:
+            return None
+
+        return HostCallbackHandle(
+            event_name,
+            _update_ui,
+            self._remove_update_ui
+        )
 
     def available_languages(self):
         return (

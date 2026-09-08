@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..compat import HOST
 from ..compat import QtCore
 from ..compat import QtGui
 from ..compat import main_window
 from ..core.config_store import ConfigStore
 from ..core.state_refresh import StateRefreshQueue
 from ..core.values import store_value as store_document_value
+from ..hosts.callbacks import EVENT_SELECTION_CHANGED
+from ..hosts.callbacks import HostCallbackGroup
 from ..pycompat import text_type
 from . import main_window as base_main_window
 
@@ -16,11 +19,12 @@ STATE_REFRESH_INTERVAL_MS = 100
 
 
 class ScriptToolbox(base_main_window.ScriptToolbox):
-    """Runtime window with debounced persistence and state refresh scheduling.
+    """Runtime window with debounced persistence and host event scheduling.
 
     Explicit ``save()`` calls remain synchronous. Runtime value persistence is
-    debounced, while full state-button refresh requests are coalesced into a
-    bounded 100 ms window on the DCC main thread.
+    debounced, full state-button refresh requests are coalesced, and supported
+    hosts drive selection fields through normalized callbacks instead of the
+    legacy polling timer.
     """
 
     def __init__(
@@ -34,6 +38,11 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         self.state_refresh_timer = None
         self._selection_refresh_in_progress = False
         self._rebuilding_runtime = False
+
+        self.host_callbacks = HostCallbackGroup(
+            HOST
+        )
+        self._using_selection_callback = False
 
         base_main_window.ScriptToolbox.__init__(
             self,
@@ -69,6 +78,47 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         self.state_refresh_timer.timeout.connect(
             self._flush_scheduled_state_refresh
         )
+
+        self._install_host_callbacks()
+
+    # ------------------------------------------------------------------
+    # Host callbacks
+    # ------------------------------------------------------------------
+
+    def _install_host_callbacks(self):
+        subscribed = self.host_callbacks.subscribe(
+            EVENT_SELECTION_CHANGED,
+            self._host_selection_changed
+        )
+
+        if not subscribed:
+            return False
+
+        self._using_selection_callback = True
+
+        if self.selection_timer is not None:
+            self.selection_timer.stop()
+
+        self.refresh_selection_fields(
+            force=True
+        )
+        return True
+
+    def _host_selection_changed(self):
+        try:
+            self.refresh_selection_fields(
+                force=False
+            )
+        except Exception:
+            # Host callbacks must never leak exceptions into Maya/Nuke event
+            # dispatch. Polling fallback remains available when subscription
+            # cannot be established in the first place.
+            pass
+
+    def clear_host_callbacks(self):
+        removed = self.host_callbacks.clear()
+        self._using_selection_callback = False
+        return removed
 
     # ------------------------------------------------------------------
     # Persistence
@@ -203,7 +253,7 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         return self.state_refresh_queue.cancel()
 
     def refresh_state_buttons(self):
-        # Selection polling is a high-frequency producer, so its request is
+        # Selection events are high-frequency producers, so their request is
         # scheduled unless it is part of a runtime rebuild. Rebuild performs
         # one explicit immediate refresh after all widgets have been created.
         if self._selection_refresh_in_progress:
@@ -318,6 +368,10 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
             return
 
         self.cancel_scheduled_state_refresh()
+        self.clear_host_callbacks()
+
+        if self.selection_timer is not None:
+            self.selection_timer.stop()
 
         QtGui.QMainWindow.closeEvent(
             self,

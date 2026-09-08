@@ -2,6 +2,9 @@
 from __future__ import print_function
 
 from .base import BaseHost
+from .callbacks import EVENT_SELECTION_CHANGED
+from .callbacks import HostCallbackGroup
+from .callbacks import HostCallbackHandle
 
 
 def _detect_host():
@@ -28,6 +31,10 @@ def get_host():
 
 
 __all__ = [
+    "BaseHost",
+    "EVENT_SELECTION_CHANGED",
     "HOST",
+    "HostCallbackGroup",
+    "HostCallbackHandle",
     "get_host",
 ]

@@ -24,6 +24,7 @@ from script_toolbox.core.config_store import ConfigStore
 from script_toolbox.core.editor_commands import CommandHistory
 from script_toolbox.core.editor_commands import ItemStateCommand
 from script_toolbox.core.editor_document import EditorDocumentController
+from script_toolbox.core.runtime_registry import RuntimeRendererRegistry
 from script_toolbox.core.state_refresh import StateRefreshQueue
 
 
@@ -116,6 +117,30 @@ def main():
         assert controller.find_by_id("value")["value"] == "test"
         history.redo()
         assert controller.find_by_id("value")["value"] == "changed"
+
+        registry = RuntimeRendererRegistry()
+
+        def render(owner, item, compact=False):
+            return (
+                item["id"],
+                bool(compact)
+            )
+
+        registry.register(
+            "button",
+            render
+        )
+        assert registry.render(
+            None,
+            {
+                "kind": "BUTTON",
+                "id": "button_a",
+            },
+            compact=True
+        ) == (
+            "button_a",
+            True,
+        )
     finally:
         shutil.rmtree(folder)
 

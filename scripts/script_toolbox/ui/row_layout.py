@@ -25,6 +25,36 @@ def _add_spacer_if_needed(layout, positions, position):
         layout.addStretch(1)
 
 
+def _layout_child_fills_height(child):
+    return child.get("kind") in (
+        "row",
+        "column",
+    )
+
+
+def _add_child_widget(
+    layout,
+    child_widget,
+    stretch,
+    vertical_flag,
+    fill_height
+):
+    if fill_height:
+        # Nested layout containers need the full Row cross-axis so their own
+        # vertical alignment/distribution can consume the available height.
+        layout.addWidget(
+            child_widget,
+            stretch
+        )
+        return
+
+    layout.addWidget(
+        child_widget,
+        stretch,
+        vertical_flag
+    )
+
+
 def render_row(owner, item, compact=False):
     """Render a Row with parent-level horizontal distribution."""
     row_widget = QtGui.QWidget()
@@ -116,44 +146,72 @@ def render_row(owner, item, compact=False):
 
     for index, entry in enumerate(children):
         child, child_widget, width_mode, equal_child = entry
+        fill_height = _layout_child_fills_height(
+            child
+        )
+        vertical_policy = (
+            QtGui.QSizePolicy.Expanding
+            if fill_height
+            else QtGui.QSizePolicy.Preferred
+        )
 
         if equal_child:
             child_widget.setSizePolicy(
                 QtGui.QSizePolicy.Expanding,
-                QtGui.QSizePolicy.Preferred
+                vertical_policy
             )
-            layout.addWidget(
+            _add_child_widget(
+                layout,
                 child_widget,
                 1,
-                vertical_flag
+                vertical_flag,
+                fill_height
             )
         elif width_mode == "fixed":
+            if fill_height:
+                policy = child_widget.sizePolicy()
+                child_widget.setSizePolicy(
+                    policy.horizontalPolicy(),
+                    vertical_policy
+                )
             child_widget.setFixedWidth(
                 int(child.get("row_width", 120))
             )
-            layout.addWidget(
+            _add_child_widget(
+                layout,
                 child_widget,
                 0,
-                vertical_flag
+                vertical_flag,
+                fill_height
             )
         elif width_mode == "stretch":
             child_widget.setSizePolicy(
                 QtGui.QSizePolicy.Expanding,
-                QtGui.QSizePolicy.Preferred
+                vertical_policy
             )
-            layout.addWidget(
+            _add_child_widget(
+                layout,
                 child_widget,
                 max(
                     1,
                     int(child.get("row_stretch", 1))
                 ),
-                vertical_flag
+                vertical_flag,
+                fill_height
             )
         else:
-            layout.addWidget(
+            if fill_height:
+                policy = child_widget.sizePolicy()
+                child_widget.setSizePolicy(
+                    policy.horizontalPolicy(),
+                    vertical_policy
+                )
+            _add_child_widget(
+                layout,
                 child_widget,
                 0,
-                vertical_flag
+                vertical_flag,
+                fill_height
             )
 
         _add_spacer_if_needed(

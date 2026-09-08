@@ -47,14 +47,19 @@ def test_scroll_surface_frame_preserves_original_outer_constraints():
     assert "maximum_width + 2" not in source
 
 
-def test_runtime_field_consumes_vertical_frame_margins_inside_fixed_height():
+def test_runtime_field_consumes_frame_border_and_layout_insets():
     source = _read(
         "scripts/script_toolbox/ui/scroll_surface_frames.py"
     )
 
     assert "def _fit_runtime_field_inside_frame(control, frame):" in source
     assert "minimum_height != maximum_height" in source
-    assert "minimum_height - 2" in source
+    assert "vertical_inset = 2" in source
+    assert "margins = frame.layout().contentsMargins()" in source
+    assert "vertical_inset += int(margins.top())" in source
+    assert "vertical_inset += int(margins.bottom())" in source
+    assert "minimum_height - vertical_inset" in source
+    assert "minimum_height - 2" not in source
     assert "control.setMinimumHeight(inner_height)" in source
     assert "control.setMaximumHeight(inner_height)" in source
     assert "_fit_runtime_field_inside_frame(" in source

@@ -1,11 +1,12 @@
 # Script Toolbox
 
-Houdini-style configurable script toolbox for Maya and Nuke.
+Configurable script toolbox for Maya, Nuke, and Houdini.
 
 Current compatibility targets:
 
 - Maya 2015 — Python 2.7, PySide 1 / Qt 4, Python + MEL
 - Nuke 12 — Python 2.7, PySide2 / Qt 5, Python
+- Houdini 19.0 — Python 3.7 default build, PySide2 / Qt 5, Python + HScript
 
 ## Refactor status
 
@@ -68,6 +69,24 @@ script_toolbox.register_nuke_panel()
 
 See [docs/NUKE.md](docs/NUKE.md) and `nuke/menu.py.example` for installation.
 
+## Houdini 19 entry point
+
+Point Houdini at the repository `scripts` directory through `PYTHONPATH`, then run:
+
+```python
+import script_toolbox
+script_toolbox.show()
+```
+
+During development:
+
+```python
+import script_toolbox
+script_toolbox.reload_toolbox()
+```
+
+See [docs/HOUDINI.md](docs/HOUDINI.md) and `houdini/script_toolbox.json.example` for the Houdini 19 package setup.
+
 ## Current modular feature set
 
 - Nested Folders
@@ -76,7 +95,7 @@ See [docs/NUKE.md](docs/NUKE.md) and `nuke/menu.py.example` for installation.
 - Button, String, Integer, Float, Checkbox, Menu, Color, Field, Label and Separator items
 - Name / Label separation
 - Optional labels
-- Python / MEL scripts
+- Python / MEL / HScript scripts according to the active host
 - Click / Shift+Click actions and state-aware buttons with ON/OFF scripts, labels and colors
 - Embedded code editor
 - Import / Export JSON configuration with Replace / Append / Insert-into-Folder modes

@@ -12,6 +12,7 @@ from ..hosts.callbacks import EVENT_SELECTION_CHANGED
 from ..hosts.callbacks import HostCallbackGroup
 from ..pycompat import text_type
 from . import main_window as base_main_window
+from .update_channels_ui import build_update_channel_toolbox_class
 
 
 SAVE_DEBOUNCE_MS = 500
@@ -426,6 +427,12 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
             self,
             event
         )
+
+
+_DebouncedScriptToolbox = ScriptToolbox
+ScriptToolbox = build_update_channel_toolbox_class(
+    _DebouncedScriptToolbox
+)
 
 
 def close_toolbox():

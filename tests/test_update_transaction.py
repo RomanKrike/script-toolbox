@@ -201,7 +201,9 @@ def test_post_activation_validation_failure_rolls_back(tmp_path, monkeypatch):
         transaction.activate(version)
 
     assert (package / "old_only.py").is_file()
-    assert not (package / "marker.py").exists()
+    assert (package / "marker.py").read_text(encoding="utf-8") == (
+        "MARKER = '1.0.0'\n"
+    )
     assert not os.path.exists(transaction.backup_path)
     assert not os.path.exists(transaction.journal_path)
 

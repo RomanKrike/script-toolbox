@@ -16,7 +16,6 @@ class IconPropertyEditor(PropertyEditorBase):
         self.width = QtGui.QSpinBox()
         self.height = QtGui.QSpinBox()
         self.alignment = QtGui.QComboBox()
-        self.clickable = QtGui.QCheckBox("Clickable")
 
         self.width.setRange(8, 512)
         self.height.setRange(8, 512)
@@ -30,14 +29,12 @@ class IconPropertyEditor(PropertyEditorBase):
         self.form.addRow("Width", self.width)
         self.form.addRow("Height", self.height)
         self.form.addRow("Alignment", self.alignment)
-        self.form.addRow("", self.clickable)
         self.add_stretch()
 
         self.path.textEdited.connect(self._control_changed)
         self.width.valueChanged.connect(self._control_changed)
         self.height.valueChanged.connect(self._control_changed)
         self.alignment.currentIndexChanged.connect(self._control_changed)
-        self.clickable.toggled.connect(self._control_changed)
 
     def load_specific(self, item):
         self.path.setText(text_type(item.get("path", "")))
@@ -48,9 +45,6 @@ class IconPropertyEditor(PropertyEditorBase):
             "center": 1,
             "right": 2,
         }.get(item.get("alignment", "left"), 0))
-        self.clickable.setChecked(
-            bool(item.get("clickable", False))
-        )
 
     def write_specific(self, item):
         item["path"] = text_type(self.path.text())
@@ -63,7 +57,7 @@ class IconPropertyEditor(PropertyEditorBase):
             if self.alignment.currentIndex() == 1
             else "left"
         )
-        item["clickable"] = bool(self.clickable.isChecked())
+        item.pop("clickable", None)
 
 
 __all__ = [

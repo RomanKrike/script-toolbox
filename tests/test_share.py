@@ -4,6 +4,7 @@ import copy
 
 import pytest
 
+from script_toolbox.share import service as service_module
 from script_toolbox.share.codec import ShareCodecError
 from script_toolbox.share.codec import decode_payload
 from script_toolbox.share.codec import encode_payload
@@ -11,6 +12,7 @@ from script_toolbox.share.codec import make_payload
 from script_toolbox.share.crypto import decrypt
 from script_toolbox.share.crypto import encrypt
 from script_toolbox.share.provider import ShareProvider
+from script_toolbox.share.provider import ShareProviderError
 from script_toolbox.share.service import fetch_shared_data
 from script_toolbox.share.service import parse_share_code
 from script_toolbox.share.service import register_provider
@@ -87,9 +89,6 @@ def test_payload_round_trip_and_tamper_detection():
 
     assert decode_payload(blob, key) == payload
 
-    # Change a character in the body rather than the final base64 character.
-    # The final character may contain only padding bits and can therefore have
-    # multiple textual spellings for the same decoded bytes.
     index = len(blob) // 2
     replacement = "A" if blob[index] != "A" else "B"
     tampered = (
@@ -117,6 +116,16 @@ class _MemoryProvider(ShareProvider):
 
     def download(self, paste_id):
         return self.values[paste_id]
+
+
+class _FailingProvider(ShareProvider):
+    name = "failing-test"
+
+    def upload(self, content, expiry_days=7):
+        raise ShareProviderError("provider unavailable")
+
+    def download(self, paste_id):
+        raise ShareProviderError("provider unavailable")
 
 
 def test_share_service_keeps_key_out_of_provider_payload():
@@ -150,3 +159,40 @@ def test_share_service_keeps_key_out_of_provider_payload():
     payload = fetch_shared_data(code)
     assert payload["type"] == "item"
     assert payload["data"] == data
+
+
+def test_share_service_falls_back_to_next_default_provider(monkeypatch):
+    failing = _FailingProvider()
+    memory = _MemoryProvider()
+    memory.name = "working-test"
+
+    monkeypatch.setattr(
+        service_module,
+        "_PROVIDERS",
+        {
+            failing.name: failing,
+            memory.name: memory,
+        }
+    )
+    monkeypatch.setattr(
+        service_module,
+        "DEFAULT_PROVIDER_NAMES",
+        (
+            failing.name,
+            memory.name,
+        )
+    )
+
+    code = share_data(
+        "item",
+        {
+            "kind": "label",
+            "id": "fallback-label",
+            "name": "fallback_label",
+            "label": "Fallback",
+        }
+    )
+    parsed = parse_share_code(code)
+
+    assert parsed["provider"] == memory.name
+    assert parsed["paste_id"] in memory.values

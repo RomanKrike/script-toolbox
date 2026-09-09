@@ -10,27 +10,23 @@ _INSTALLED_RUNTIME = False
 _INSTALLED_SCRIPT_EDITOR = False
 _INSTALLED_PROPERTIES = False
 
-_FRAME_STYLE = """
+# All ScrollSurfaceFrame border geometry is rendered from this one template.
+# Surface colors vary by caller; border width/radius are one explicit Qt4
+# compatibility contract shared by Runtime Field, editor trees and editors.
+_SCROLL_SURFACE_STYLE_VALUES = dict(palette.__dict__)
+_SCROLL_SURFACE_STYLE_VALUES.update(vars(metrics))
+
+_FRAME_STYLE_TEMPLATE = """
 QFrame#ScrollSurfaceFrame {
-    background-color: %(CONTROL_BG)s;
-    border: 1px solid %(BORDER_DARK)s;
-    border-radius: 2px;
+    background-color: %(background)s;
+    border: %(SCROLL_SURFACE_BORDER_WIDTH)spx solid %(border)s;
+    border-radius: %(SCROLL_SURFACE_BORDER_RADIUS)spx;
 }
-""" % palette.__dict__
+"""
 
 # Runtime Field should match the actual editor list/tree surface, not the
 # surrounding EditorPane container. The list stays frameless because the
 # external ScrollSurfaceFrame owns the visible outline in Maya/Qt4.
-_RUNTIME_FIELD_FRAME_STYLE = """
-QFrame#ScrollSurfaceFrame {
-    background-color: %(LIST_BG)s;
-    border: 1px solid %(BORDER_PRESSED)s;
-    border-radius: 2px;
-}
-""" % palette.__dict__
-
-_RUNTIME_FIELD_STYLE_VALUES = dict(palette.__dict__)
-_RUNTIME_FIELD_STYLE_VALUES.update(vars(metrics))
 
 _RUNTIME_FIELD_LIST_STYLE = """
 QListWidget#RuntimeFieldList {
@@ -53,7 +49,7 @@ QListWidget#RuntimeFieldList::item:selected {
     background-color: %(SELECTION_BG)s;
     color: %(SELECTION_TEXT)s;
 }
-""" % _RUNTIME_FIELD_STYLE_VALUES
+""" % _SCROLL_SURFACE_STYLE_VALUES
 
 _CHILD_STYLE = """
 border: 0px;
@@ -62,22 +58,12 @@ border-radius: 0px;
 
 
 def _frame_style(background, border):
-    if (
-        background == palette.CONTROL_BG and
-        border == palette.BORDER_DARK
-    ):
-        return _FRAME_STYLE
-
-    return """
-QFrame#ScrollSurfaceFrame {
-    background-color: %s;
-    border: 1px solid %s;
-    border-radius: 2px;
-}
-""" % (
-        background,
-        border
-    )
+    values = dict(_SCROLL_SURFACE_STYLE_VALUES)
+    values.update({
+        "background": background,
+        "border": border,
+    })
+    return _FRAME_STYLE_TEMPLATE % values
 
 
 def _apply_runtime_field_surface(control):
@@ -189,6 +175,20 @@ def _copy_constraints(widget, frame):
         pass
 
 
+def _frame_vertical_inset(frame):
+    """Return the border + layout inset consumed inside a framed surface."""
+    vertical_inset = metrics.SCROLL_SURFACE_BORDER_WIDTH * 2
+
+    try:
+        margins = frame.layout().contentsMargins()
+        vertical_inset += int(margins.top())
+        vertical_inset += int(margins.bottom())
+    except Exception:
+        vertical_inset += metrics.SCROLL_SURFACE_CONTENT_INSET * 2
+
+    return vertical_inset
+
+
 def _fit_runtime_field_inside_frame(control, frame):
     """Keep a fixed-height Field fully inside the painted frame.
 
@@ -214,22 +214,12 @@ def _fit_runtime_field_inside_frame(control, frame):
     ):
         return
 
-    # The runtime Field frame has a 1 px QSS border on both vertical edges.
-    # Count it explicitly rather than relying on QFrame.frameWidth(), which is
-    # not reliable for style-sheet borders on older Maya/Qt4 builds.
-    vertical_inset = 2
-
-    try:
-        margins = frame.layout().contentsMargins()
-        vertical_inset += int(margins.top())
-        vertical_inset += int(margins.bottom())
-    except Exception:
-        # _make_frame currently installs 1 px top/bottom layout margins.
-        vertical_inset += 2
-
+    # Do not rely on QFrame.frameWidth(): QSS borders are unreliable there on
+    # older Maya/Qt4 builds. The explicit ScrollSurfaceFrame contract owns the
+    # border width and child inset used to derive the viewport height.
     inner_height = max(
         1,
-        minimum_height - vertical_inset
+        minimum_height - _frame_vertical_inset(frame)
     )
 
     try:
@@ -280,7 +270,13 @@ def _make_frame(
     )
 
     layout = QtGui.QVBoxLayout(frame)
-    layout.setContentsMargins(1, 1, 1, 1)
+    inset = metrics.SCROLL_SURFACE_CONTENT_INSET
+    layout.setContentsMargins(
+        inset,
+        inset,
+        inset,
+        inset
+    )
     layout.setSpacing(0)
 
     try:
@@ -465,9 +461,6 @@ def install_runtime_scroll_frames(registry, runtime_module):
                 _fit_runtime_field_inside_frame(
                     control,
                     frame
-                )
-                frame.setStyleSheet(
-                    _RUNTIME_FIELD_FRAME_STYLE
                 )
 
         return result

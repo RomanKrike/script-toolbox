@@ -37,6 +37,14 @@ SCROLLBAR_EXTENT = 11
 SCROLLBAR_HANDLE_MINIMUM = 24
 SCROLLBAR_HANDLE_MARGIN = 2
 
+# Scroll surface compatibility geometry -------------------------------------
+# The external frame replaces QAbstractScrollArea borders on Maya/Qt4.
+# Keep these pixels as a dedicated compatibility role rather than merging
+# them with generic control geometry just because the values currently match.
+SCROLL_SURFACE_BORDER_WIDTH = 1
+SCROLL_SURFACE_CONTENT_INSET = 1
+SCROLL_SURFACE_BORDER_RADIUS = 2
+
 # Technical icon buttons ----------------------------------------------------
 ICON_BUTTON_COMPACT_ICON_SIZE = 16
 ICON_BUTTON_COMPACT_SIZE = 25
@@ -122,6 +130,9 @@ __all__ = [
     "SCROLLBAR_EXTENT",
     "SCROLLBAR_HANDLE_MINIMUM",
     "SCROLLBAR_HANDLE_MARGIN",
+    "SCROLL_SURFACE_BORDER_WIDTH",
+    "SCROLL_SURFACE_CONTENT_INSET",
+    "SCROLL_SURFACE_BORDER_RADIUS",
     "ICON_BUTTON_COMPACT_ICON_SIZE",
     "ICON_BUTTON_COMPACT_SIZE",
     "ICON_BUTTON_TOOLBAR_ICON_SIZE",

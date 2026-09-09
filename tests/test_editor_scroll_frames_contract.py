@@ -37,7 +37,8 @@ def test_editor_trees_use_shared_external_scroll_frames():
     assert "from ..style.palette import BORDER_PRESSED" in source
 
     assert 'frame.setObjectName("ScrollSurfaceFrame")' in shared
-    assert "layout.setContentsMargins(1, 1, 1, 1)" in shared
+    assert "metrics.SCROLL_SURFACE_CONTENT_INSET" in shared
+    assert "layout.setContentsMargins(1, 1, 1, 1)" not in shared
     assert "widget.setFrameShape(QtGui.QFrame.NoFrame)" in shared
     assert "border: 0px;" in shared
 

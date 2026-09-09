@@ -14,9 +14,10 @@ from ..core.text_transform import indent_line
 from ..core.text_transform import uncomment_line
 from ..core.text_transform import unindent_line
 from ..pycompat import text_type
-from ..style import toolbar_icon
 from .code_editor import CodeEditor
 from .code_editor import ScriptHighlighter
+from .icon_button import ICON_BUTTON_TOOLBAR
+from .icon_button import create_icon_button
 
 
 class ScriptEditorWidget(QtGui.QWidget):
@@ -222,8 +223,8 @@ class ScriptEditorWidget(QtGui.QWidget):
             4
         )
 
-        clear_output = self._tool_button(
-            "clear",
+        self.clear_output_button = self._tool_button(
+            "delete",
             "Clear Output",
             self.output.clear
         )
@@ -243,7 +244,7 @@ class ScriptEditorWidget(QtGui.QWidget):
         )
 
         status_row.addWidget(
-            clear_output
+            self.clear_output_button
         )
         status_row.addWidget(
             self.status_label
@@ -272,32 +273,13 @@ class ScriptEditorWidget(QtGui.QWidget):
         tooltip,
         callback
     ):
-        button = QtGui.QToolButton()
-        button.setObjectName(
-            "IconButton"
+        return create_icon_button(
+            icon_kind,
+            tooltip,
+            callback,
+            parent=self,
+            preset=ICON_BUTTON_TOOLBAR
         )
-        button.setIcon(
-            toolbar_icon(
-                icon_kind
-            )
-        )
-        button.setIconSize(
-            QtCore.QSize(
-                18,
-                18
-            )
-        )
-        button.setFixedSize(
-            26,
-            26
-        )
-        button.setToolTip(
-            tooltip
-        )
-        button.clicked.connect(
-            callback
-        )
-        return button
 
     def _add_tool_button(
         self,

@@ -12,52 +12,23 @@ def _read(relative_path):
     return (ROOT / relative_path).read_text(encoding="utf-8")
 
 
-def test_create_and_existing_search_fields_use_embedded_solar_controls():
+def test_search_ux_is_not_owned_by_editor_polish_hooks():
     source = _read(
         "scripts/script_toolbox/ui/editor_polish_hooks.py"
     )
-
-    assert "_hide_palette_hint(" in source
-    assert '"HintText"' in source
-    assert "_search_control(" in source
-    assert 'builtin_icon("find")' in source
-    assert 'builtin_icon("close")' in source
-    assert '"EditorSearchIcon"' in source
-    assert '"EditorSearchClear"' in source
-    assert "QtGui.QToolButton(\n        line_edit" in source
-    assert "QtCore.QSize(9, 9)" in source
-    assert "_CLEAR_BUTTON_SIZE = 20" in source
-    assert "line_edit.setTextMargins(" in source
-    assert "class SearchFieldDecorationFilter" in source
-    assert "QtCore.QEvent.Resize" in source
-    assert "search_icon.move(" in source
-    assert "clear_button.move(" in source
-    assert "clear_button.clicked.connect(" in source
-    assert "line_edit.clear" in source
-    assert "palette_search_control" in source
-    assert "existing_search_control" in source
-    assert '"ExistingParametersFilter"' in source
-    assert '"Filter existing parameters..."' in source
-    assert "self.filter_existing_parameters" in source
-    assert "_filter_tree_branch(" in source
-    assert "child_match" in source
-
-
-def test_existing_parameter_filter_is_reapplied_after_tree_rebuild():
-    source = _read(
-        "scripts/script_toolbox/ui/editor_polish_hooks.py"
+    ui_source = _read(
+        "scripts/script_toolbox/ui/__init__.py"
     )
 
-    populate_source = source.split(
-        "    def populate_tree(self):",
-        1
-    )[1].split(
-        "    editor_class.filter_existing_parameters",
-        1
-    )[0]
-
-    assert "original_populate_tree(self)" in populate_source
-    assert "self.filter_existing_parameters(" in populate_source
+    assert "install_editor_search_ux" not in source
+    assert "SearchFieldDecorationFilter" not in source
+    assert "_EXISTING_FILTER_STYLE" not in source
+    assert "_TECH_ICON_STYLE" not in source
+    assert "EditorSearchIcon" not in source
+    assert "EditorSearchClear" not in source
+    assert "_search_control(" not in source
+    assert "install_editor_search_ux" not in ui_source
+    assert "build_search_interface_editor_class" in ui_source
 
 
 def test_button_without_visible_label_uses_exact_centered_icon_renderer():
@@ -99,12 +70,9 @@ def test_editor_polish_theme_colors_use_shared_palette():
     )
 
     assert "from ..style import palette" in source
-    assert "%(FILTER_BG)s" in source
-    assert "%(BORDER_SOFT)s" in source
-    assert "%(FOCUS_BORDER)s" in source
-    assert "%(ICON_BUTTON_HOVER_BG)s" in source
-    assert "%(ICON_BUTTON_PRESSED_BG)s" in source
+    assert "palette.ICON_BUTTON_HOVER_BG" in source
     assert "palette.ICON_BUTTON_HOVER_BORDER" in source
+    assert "palette.ICON_BUTTON_PRESSED_BG" in source
     assert "palette.BORDER_INSET" in source
 
     # Theme colors must come from style/palette.py. Dynamic user-configurable

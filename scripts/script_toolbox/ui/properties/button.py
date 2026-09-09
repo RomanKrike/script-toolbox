@@ -6,6 +6,7 @@ from ...model.bindings import normalize_bindings
 from ...model.items import clamp
 from ...model.items import safe_color
 from ...pycompat import text_type
+from ..icon_browse import install_icon_browse
 from ..language_script_editor import LanguageScriptEditor
 from ..layout_helpers import configure_property_group_form
 from .base import PropertyEditorBase
@@ -49,6 +50,10 @@ class ButtonPropertyEditor(PropertyEditorBase):
         self.form.addRow("Icon Path", self.icon_path)
         self.form.addRow("Icon Size", self.icon_size)
         self.form.addRow("", self.icon_only)
+        self.icon_browse_button = install_icon_browse(
+            self,
+            self.icon_path
+        )
 
         self.action_group = QtGui.QGroupBox("Action Appearance")
         action_form = configure_property_group_form(

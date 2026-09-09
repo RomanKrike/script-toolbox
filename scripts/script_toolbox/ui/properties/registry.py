@@ -18,6 +18,7 @@ from .folder import FolderPropertyEditor
 from .icon import IconPropertyEditor
 from .row import RowPropertyEditor
 from .toggle_button import ToggleButtonPropertyEditor
+from .toggle_icon import ToggleIconPropertyEditor
 
 
 class SeparatorPropertyEditor(_SeparatorPropertyEditor):
@@ -48,6 +49,7 @@ PROPERTY_EDITORS = {
     "button": ActionButtonPropertyEditor,
     "toggle_button": ToggleButtonPropertyEditor,
     "icon": IconPropertyEditor,
+    "toggle_icon": ToggleIconPropertyEditor,
     "string": StringPropertyEditor,
     "integer": IntegerPropertyEditor,
     "float": FloatPropertyEditor,

@@ -8,6 +8,7 @@ from ..model import create_item
 from ..model import is_container_kind
 from ..model import is_layout_kind
 from ..pycompat import text_type
+from ..style.palette import TEXT_STRUCTURE_COLUMN
 
 
 _LAYOUT_ADAPTER_MARKER = "_script_toolbox_layout_editor_adapter"
@@ -88,7 +89,7 @@ def make_layout_tree_item(
         tree_item.setForeground(
             column,
             QtGui.QBrush(
-                QtGui.QColor("#c7b7d7")
+                QtGui.QColor(TEXT_STRUCTURE_COLUMN)
             )
         )
 

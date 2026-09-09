@@ -13,7 +13,6 @@ from .editor_search import build_search_interface_editor_class
 from .icon_clip_fix import install_icon_clip_fix
 from .layout_editor_adapter import build_layout_editor_class
 from .layout_context import install_layout_property_context
-from .share_hooks import build_share_interface_editor_class
 from .interface_tree import ExistingInterfaceTree
 from .scroll_surface_frames import install_property_editor_scroll_frames
 from .scroll_surface_frames import install_runtime_scroll_frames
@@ -77,9 +76,6 @@ InterfaceEditor = build_interface_editor_class(
     _layout_editor_class
 )
 InterfaceEditor = build_search_interface_editor_class(
-    InterfaceEditor
-)
-InterfaceEditor = build_share_interface_editor_class(
     InterfaceEditor
 )
 install_property_editor_scroll_frames()

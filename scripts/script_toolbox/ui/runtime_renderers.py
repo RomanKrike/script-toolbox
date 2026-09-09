@@ -11,6 +11,7 @@ from ..model.items import create_item
 from ..model.items import safe_component_labels
 from ..model.items import safe_numeric_size
 from ..pycompat import text_type
+from ..style.palette import TEXT_SUBTLE
 
 
 _INSTALL_MARKER = "_script_toolbox_runtime_registry_installed"
@@ -308,7 +309,9 @@ def _render_label(owner, item, compact=False):
         owner._tooltip(item)
     )
     label.setStyleSheet(
-        "color:#bdbdbd; padding:2px 3px;"
+        "color:{0}; padding:2px 3px;".format(
+            TEXT_SUBTLE
+        )
     )
     return label
 

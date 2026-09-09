@@ -19,6 +19,9 @@ def test_search_ux_is_not_owned_by_editor_polish_hooks():
     ui_source = _read(
         "scripts/script_toolbox/ui/__init__.py"
     )
+    adapter_source = _read(
+        "scripts/script_toolbox/ui/editor_document_adapter.py"
+    )
 
     assert "install_editor_search_ux" not in source
     assert "SearchFieldDecorationFilter" not in source
@@ -28,7 +31,9 @@ def test_search_ux_is_not_owned_by_editor_polish_hooks():
     assert "EditorSearchClear" not in source
     assert "_search_control(" not in source
     assert "install_editor_search_ux" not in ui_source
-    assert "build_search_interface_editor_class" in ui_source
+    assert "build_search_interface_editor_class" not in ui_source
+    assert "from .editor_search" not in ui_source
+    assert "apply_editor_presentation(self)" in adapter_source
 
 
 def test_button_without_visible_label_uses_exact_centered_icon_renderer():

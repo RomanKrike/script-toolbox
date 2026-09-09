@@ -24,6 +24,8 @@ def test_create_and_existing_search_fields_use_embedded_solar_controls():
     assert '"EditorSearchIcon"' in source
     assert '"EditorSearchClear"' in source
     assert "QtGui.QToolButton(\n        line_edit" in source
+    assert "QtCore.QSize(9, 9)" in source
+    assert "_CLEAR_BUTTON_SIZE = 20" in source
     assert "line_edit.setTextMargins(" in source
     assert "class SearchFieldDecorationFilter" in source
     assert "QtCore.QEvent.Resize" in source
@@ -57,7 +59,7 @@ def test_existing_parameter_filter_is_reapplied_after_tree_rebuild():
     assert "self.filter_existing_parameters(" in populate_source
 
 
-def test_icon_only_button_paints_qicon_at_exact_widget_center():
+def test_button_without_visible_label_uses_exact_centered_icon_renderer():
     source = _read(
         "scripts/script_toolbox/ui/editor_polish_hooks.py"
     )
@@ -72,17 +74,22 @@ def test_icon_only_button_paints_qicon_at_exact_widget_center():
     assert "(self.height() - height) // 2" in source
     assert "self._centered_icon.paint(" in source
     assert "icon.pixmap(" not in source
-    assert "QtGui.QHBoxLayout(" not in source
+    assert "_button_should_center_icon(" in source
+    assert 'item.get("icon_path")' in source
+    assert 'item.get("icon_only", False)' in source
+    assert 'item.get("show_label", True)' in source
     assert "_render_centered_icon_button(" in source
-    assert 'bool(\n            item.get("icon_only", False)' in source
     assert "install_icon_only_state_refresh(" in source
     assert "widget.setText(\"\")" in source
     assert "install_icon_only_state_refresh(" in ui_source
-    assert ui_source.index(
+
+    install_center = ui_source.rindex(
         "install_icon_only_button_centering("
-    ) < ui_source.index(
+    )
+    install_bindings = ui_source.rindex(
         "install_event_binding_hooks("
     )
+    assert install_center < install_bindings
 
 
 def test_runtime_icon_feedback_matches_technical_icon_states():

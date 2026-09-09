@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
 
+from .palette import LIST_BG
+from .palette import SELECTION_BG
+from .palette import SELECTION_TEXT
+from .palette import SEPARATOR
+from .palette import TEXT_LIST
+from .palette import WINDOW_BG
+
+
 # Runtime-only QSS fixes that must override the base theme. Keeping these
 # rules separate makes host-specific Qt4/Qt5 rendering quirks explicit.
 RUNTIME_OVERRIDES = """
@@ -8,61 +16,68 @@ RUNTIME_OVERRIDES = """
    line was clipped until the cursor moves to another control. Keep tooltip
    colors/border from the base theme, but let the native style own its text
    margins so geometry is stable in Maya 2015 and newer hosts. */
-QToolTip {
+QToolTip {{
     padding: 0px;
-}
+}}
 
 /* Keep Parameter Description on the same surface as the main dialog. The
-   base theme historically used #303030 here, which reads as a light slab
-   against the #292929 editor window. Explicit palette fallbacks are installed
-   separately for Maya 2015 / Qt4, where viewport QSS is not reliable. */
+   base theme historically used the lighter panel surface here. Explicit
+   palette fallbacks are installed separately for Maya 2015 / Qt4, where
+   viewport QSS is not reliable. */
 QWidget#PropertyPane,
 QScrollArea#PropertyScroll,
 QWidget#PropertyViewport,
 QWidget#PropertyHost,
-QWidget#PropertyEditor {
-    background-color: #292929;
+QWidget#PropertyEditor {{
+    background-color: {window_bg};
     border: 0px;
-}
+}}
 
-QFrame#RuntimeSeparatorLine {
+QFrame#RuntimeSeparatorLine {{
     background-color: transparent;
     border: 0px;
-    border-top: 1px solid #414346;
-}
+    border-top: 1px solid {separator};
+}}
 
-QFrame#RuntimeSeparatorLineVertical {
+QFrame#RuntimeSeparatorLineVertical {{
     background-color: transparent;
     border: 0px;
-    border-left: 1px solid #414346;
-}
+    border-left: 1px solid {separator};
+}}
 
 /* Runtime Field keeps the editor list surface without row decoration:
    one flat background, no alternating rows or separators, and only the
    selected row receives the editor's orange highlight. The visible outer
    pane border is owned by ScrollSurfaceFrame so Maya/Qt4 scrollbars cannot
    cover its bottom/right edge. */
-QListWidget#RuntimeFieldList {
-    background-color: #242424;
-    alternate-background-color: #242424;
-    color: #d4d4d4;
+QListWidget#RuntimeFieldList {{
+    background-color: {list_bg};
+    alternate-background-color: {list_bg};
+    color: {text_list};
     border: 0px;
     border-radius: 0px;
     outline: 0px;
     padding: 0px;
-}
+}}
 
-QListWidget#RuntimeFieldList::item {
+QListWidget#RuntimeFieldList::item {{
     min-height: 20px;
     padding: 3px 4px;
     border: 0px;
-}
+}}
 
-QListWidget#RuntimeFieldList::item:selected {
-    background-color: #68462c;
-    color: #ffffff;
-}
+QListWidget#RuntimeFieldList::item:selected {{
+    background-color: {selection_bg};
+    color: {selection_text};
+}}
 
-"""
+""".format(
+    window_bg=WINDOW_BG,
+    separator=SEPARATOR,
+    list_bg=LIST_BG,
+    text_list=TEXT_LIST,
+    selection_bg=SELECTION_BG,
+    selection_text=SELECTION_TEXT,
+)
 
 __all__ = ["RUNTIME_OVERRIDES"]

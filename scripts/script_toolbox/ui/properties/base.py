@@ -5,7 +5,10 @@ from ...compat import QtCore
 from ...compat import QtGui
 from ...model.items import sanitize_name
 from ...pycompat import text_type
+from ...style.metrics import PROPERTY_EDITOR_SPACING
 from ...style.palette import WINDOW_BG
+from ..layout_helpers import configure_property_form
+from ..layout_helpers import configure_property_group_form
 from .bindings import BindingPanel
 
 
@@ -41,21 +44,10 @@ class PropertyEditorBase(QtGui.QWidget):
 
         self.root_layout = QtGui.QVBoxLayout(self)
         self.root_layout.setContentsMargins(0, 0, 0, 0)
-        self.root_layout.setSpacing(8)
+        self.root_layout.setSpacing(PROPERTY_EDITOR_SPACING)
 
         self.form = QtGui.QFormLayout()
-        self.form.setHorizontalSpacing(8)
-        self.form.setVerticalSpacing(6)
-        try:
-            self.form.setFieldGrowthPolicy(
-                QtGui.QFormLayout.AllNonFixedFieldsGrow
-            )
-        except Exception:
-            pass
-        self.form.setLabelAlignment(
-            QtCore.Qt.AlignLeft |
-            QtCore.Qt.AlignVCenter
-        )
+        configure_property_form(self.form)
         self.root_layout.addLayout(self.form)
 
         self.name_edit = QtGui.QLineEdit()
@@ -71,15 +63,7 @@ class PropertyEditorBase(QtGui.QWidget):
         # Immediate-parent Row layout --------------------------------------
         self.row_group = QtGui.QGroupBox("Row Item Layout")
         row_form = QtGui.QFormLayout(self.row_group)
-        row_form.setContentsMargins(7, 7, 7, 7)
-        row_form.setHorizontalSpacing(8)
-        row_form.setVerticalSpacing(5)
-        try:
-            row_form.setFieldGrowthPolicy(
-                QtGui.QFormLayout.AllNonFixedFieldsGrow
-            )
-        except Exception:
-            pass
+        configure_property_group_form(row_form)
 
         self.row_width_mode = QtGui.QComboBox()
         self.row_width_mode.addItems([
@@ -114,15 +98,7 @@ class PropertyEditorBase(QtGui.QWidget):
         # Immediate-parent Column layout -----------------------------------
         self.column_group = QtGui.QGroupBox("Column Item Layout")
         column_form = QtGui.QFormLayout(self.column_group)
-        column_form.setContentsMargins(7, 7, 7, 7)
-        column_form.setHorizontalSpacing(8)
-        column_form.setVerticalSpacing(5)
-        try:
-            column_form.setFieldGrowthPolicy(
-                QtGui.QFormLayout.AllNonFixedFieldsGrow
-            )
-        except Exception:
-            pass
+        configure_property_group_form(column_form)
 
         self.column_height_mode = QtGui.QComboBox()
         self.column_height_mode.addItems([

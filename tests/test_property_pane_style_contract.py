@@ -38,6 +38,9 @@ def test_parameter_description_uses_shared_dialog_surface():
     search_source = _read(
         "scripts/script_toolbox/ui/editor_search.py"
     )
+    adapter_source = _read(
+        "scripts/script_toolbox/ui/editor_document_adapter.py"
+    )
     property_source = _read(
         "scripts/script_toolbox/ui/properties/base.py"
     )
@@ -67,7 +70,8 @@ def test_parameter_description_uses_shared_dialog_surface():
     assert "QtGui.QPalette.Base" in pane_source
     assert 'pane.setObjectName("PropertyPane")' in pane_source
     assert "def apply_property_pane_style(editor):" in pane_source
-    assert "apply_property_pane_style(self)" in search_source
+    assert "apply_property_pane_style(editor)" in search_source
+    assert "apply_editor_presentation(self)" in adapter_source
     assert "install_property_pane_style(" not in ui_source
 
     assert "from ..style.palette import WINDOW_BG" in editor_source

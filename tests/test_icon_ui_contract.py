@@ -48,6 +48,21 @@ def test_toolbar_icon_mappings_match_ui_contract():
     assert '"folder-open.svg"' in source
 
 
+def test_share_actions_use_same_technical_icon_contract_as_import_export():
+    share_source = _read(
+        "scripts/script_toolbox/ui/share_hooks.py"
+    )
+    hook_source = _read(
+        "scripts/script_toolbox/ui/icon_ui_hooks.py"
+    )
+
+    assert 'button.setObjectName("IconButton")' in share_source
+    assert "button._script_toolbox_share_role = share_role" in share_source
+    assert '"SharePasteButton": "cloud-download"' in hook_source
+    assert '"ShareButton": "cloud-upload"' in hook_source
+    assert '"_script_toolbox_share_role"' in hook_source
+
+
 def test_icon_ui_hooks_are_wired():
     hook_source = _read(
         "scripts/script_toolbox/ui/icon_ui_hooks.py"
@@ -58,8 +73,6 @@ def test_icon_ui_hooks_are_wired():
 
     assert "QFileDialog.getOpenFileName" in hook_source
     assert "solar_icon_directory()" in hook_source
-    assert '"SharePasteButton", "cloud-download"' in hook_source
-    assert '"ShareButton", "cloud-upload"' in hook_source
     assert 'toolbar_icon("delete")' in hook_source
     assert "install_property_icon_browse(" in ui_source
     assert "install_script_editor_icons(" in ui_source

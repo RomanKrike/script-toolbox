@@ -6,6 +6,8 @@ from . import interface_editor as _interface_editor_module
 from . import editor_document_adapter as _editor_document_adapter_module
 from ..core.layout_document import LayoutEditorDocumentController
 from .editor_document_adapter import build_interface_editor_class
+from .editor_polish_hooks import install_editor_search_ux
+from .editor_polish_hooks import install_icon_only_button_centering
 from .editor_view_state import build_editor_view_state_class
 from .icon_ui_hooks import build_icon_interface_editor_class
 from .icon_ui_hooks import install_property_icon_browse
@@ -101,6 +103,9 @@ install_property_icon_browse(
     IconPropertyEditor
 )
 install_property_editor_scroll_frames()
+install_editor_search_ux(
+    InterfaceEditor
+)
 
 # Keep direct imports from script_toolbox.ui.interface_editor compatible while
 # the legacy Qt dialog is gradually decomposed across STEP 07/08.
@@ -166,6 +171,9 @@ install_event_binding_hooks(
     get_runtime_renderer_registry(),
     _runtime_renderers_module,
     ScriptToolbox
+)
+install_icon_only_button_centering(
+    get_runtime_renderer_registry()
 )
 
 __all__ = [

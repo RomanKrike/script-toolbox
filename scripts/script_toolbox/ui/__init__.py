@@ -7,6 +7,7 @@ from . import editor_document_adapter as _editor_document_adapter_module
 from ..core.layout_document import LayoutEditorDocumentController
 from .editor_document_adapter import build_interface_editor_class
 from .editor_view_state import build_editor_view_state_class
+from .icon_file_browser import install_icon_path_browse
 from .layout_editor_adapter import build_layout_editor_class
 from .layout_context import install_layout_property_context
 from .share_hooks import build_share_interface_editor_class
@@ -14,9 +15,13 @@ from .editor_scroll_frames import build_scroll_frame_interface_editor_class
 from .interface_tree import ExistingInterfaceTree
 from .property_pane_style import install_property_pane_style
 from .properties.base import PropertyEditorBase
+from .properties.button import ButtonPropertyEditor
 from .scroll_surface_frames import install_property_editor_scroll_frames
 from .scroll_surface_frames import install_runtime_scroll_frames
 from .scroll_surface_frames import install_script_editor_scroll_frames
+from .toolbar_icon_overrides import install_interface_share_icons
+from .toolbar_icon_overrides import install_script_editor_clear_icon
+from .toolbar_icon_overrides import install_toolbox_settings_icon
 
 
 def _install_controls_v2_palette(editor_class):
@@ -89,6 +94,13 @@ install_property_pane_style(
     PropertyEditorBase
 )
 install_property_editor_scroll_frames()
+install_icon_path_browse(
+    ButtonPropertyEditor,
+    "icon_path"
+)
+install_interface_share_icons(
+    InterfaceEditor
+)
 
 # Keep direct imports from script_toolbox.ui.interface_editor compatible while
 # the legacy Qt dialog is gradually decomposed across STEP 07/08.
@@ -140,6 +152,12 @@ ScriptToolbox = build_update_channel_toolbox_class(
 
 install_script_editor_scroll_frames(
     ScriptEditorWidget
+)
+install_script_editor_clear_icon(
+    ScriptEditorWidget
+)
+install_toolbox_settings_icon(
+    ScriptToolbox
 )
 
 install_controls_v2_hooks(

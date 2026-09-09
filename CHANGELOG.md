@@ -133,81 +133,141 @@ Collapsible card hierarchy release.
 
 ### Changed
 
-- Replace text-only Collapsible Folder sections with bordered cards that have a compact header and nested content area.
-- Use a small disclosure chevron in the Collapsible Folder header and update it together with the collapsed state.
-- Add a subtle left accent to Collapsible Folder headers while keeping nested content visually subordinate.
+- Draw every Collapsible Folder as one outlined card, including top-level sections.
+- Visually attach the Collapsible header to the card outline with a subtle divider.
+- Replace Maya's oversized native disclosure arrow with compact text chevrons.
+- Keep nested Collapsible cards quieter than top-level sections while preserving clear ownership.
+- Increase content padding inside Collapsible cards so controls do not sit directly on the outline.
 
 ## 0.3.3
 
-Folder hierarchy polish release.
+Runtime grouping polish release.
 
 ### Changed
 
-- Keep the main toolbox canvas and folder content background visually continuous instead of drawing separate content cards.
-- Use compact uppercase section titles for Simple Section headers.
-- Use a subtle header border and a compact left accent for Collapsible Folder titles.
-- Reduce nested folder spacing and padding so nested layouts stay compact.
+- Tighten Collapsible Section headers so the native chevron and header bar are less visually heavy.
+- Draw nested Folders as subtle bordered group cards so subsection ownership is immediately visible.
+- Give nested Collapsible and Simple section headers a quieter visual treatment than top-level sections.
+- Make Runtime Folder content backgrounds transparent so nested group cards read as real containers.
 
 ## 0.3.2
 
-Field and compact-row polish release.
+Interface polish release.
 
 ### Changed
 
-- Match selection-backed Field controls to the same compact height as String and Menu controls.
-- Keep Field text selectable without showing a persistent selection highlight when it is not focused.
-- Allow compact Row controls to shrink naturally instead of inheriting full-width runtime minimums.
-- Keep fixed-width Row child sizing available for deliberately wide controls.
+- Redesign Collapsible Folder headers as full-width clickable section bars with native chevrons.
+- Make the complete Collapsible header clickable instead of only the arrow.
+- Improve folder content indentation and visual hierarchy.
+- Rename Folder types to clearer Collapsible Section / Simple Section labels.
+- Group Interface Editor parameters into Layout, Inputs, Actions and Display.
+- Add a parameter filter field to the Interface Editor.
+- Improve Folder and Row hierarchy styling in the Existing Parameters tree.
 
 ## 0.3.1
 
-Runtime control consistency release.
+Python 2 script-source compatibility release.
 
-### Changed
+### Fixed
 
-- Use the same field height for String, Menu, Integer, Float, Color and Field controls.
-- Match checkbox vertical alignment to neighboring field controls.
-- Remove redundant top-level runtime margins and tighten Folder content spacing.
-- Keep nested folder indentation while reducing unnecessary empty space.
+- Normalize Unicode Python source before compile so encoding cookies do not fail in Maya/Nuke Python 2.
+- Apply the same source preparation in Button execution and the embedded Script Editor.
+- Add regression coverage for first-line and second-line encoding cookies.
 
 ## 0.3.0
 
-Interface layout and control release.
+First multi-DCC release.
 
 ### Added
 
-- Add typed interface controls for String, Integer, Float, Checkbox, Menu, Color, Field, Label, Separator and Row.
-- Add Folder display types: Collapsible, Simple Section, Tabs and Radio Buttons.
-- Add drag-and-drop reordering in the Interface Editor.
-- Add per-item display labels, tooltips and row-width settings.
-- Add selection-backed Field controls with scene selection support.
+- DCC host abstraction with Maya and Nuke adapters.
+- Nuke 12 / Python 2.7 / PySide2 runtime support.
+- Nuke selection-aware Fields.
+- Nuke Python button namespace with `nuke`, `nukescripts`, `host`, and `toolbox`.
+- Nuke application-menu registration and dock-panel registration.
+- Host-specific config locations while preserving the existing Maya config path.
+- Nuke startup example included in release packages.
+
+### Fixed
+
+- Avoid the Python 2 implicit-relative-import collision between the Nuke host adapter and Nuke's built-in `nuke` module by using `nuke_host.py` and an explicit validated Nuke API resolver.
 
 ### Changed
 
-- Replace the legacy flat folder/button editor with a typed interface model and runtime renderer.
-- Upgrade the config schema to version 15 with backward compatibility for legacy button/folder data.
+- Core config and script execution no longer depend directly on Maya.
+- Qt compatibility layer now supports PySide1/Qt4 in Maya and PySide2/Qt5 in Nuke.
+- Interface Editor and runtime labels identify the active DCC host.
+
+## 0.2.5
+
+Hot-update verification release.
+
+### Changed
+
+- Version bump used to verify the complete in-place updater flow from 0.2.4 to 0.2.5 without restarting Maya.
+- No functional config changes; existing Toolbox settings remain compatible.
+
+## 0.2.4
+
+Hot-reload updater release.
+
+### Added
+
+- Reload Script Toolbox in-place after a successful Python package update.
+- Close the old Toolbox UI, unload all `script_toolbox.*` child modules, reload the package root in place, and reopen the Toolbox from the newly installed files.
+- Preserve existing external `import script_toolbox` references while refreshing `script_toolbox.__version__`.
+
+### Changed
+
+- Successful updates no longer require a Maya restart under the current pure-Python/PySide architecture.
+- If hot reload fails, the installed update is kept and the user is asked to restart Maya as a fallback.
+
+## 0.2.3
+
+Updater UX fix for Windows.
+
+### Fixed
+
+- Run the PowerShell/.NET TLS fallback without opening a visible console window.
+- Keep update checks and downloads fully background-only from the user's perspective.
+
+## 0.2.2
+
+Updater compatibility fix for Maya 2015 on Windows.
+
+### Fixed
+
+- Fall back to Windows PowerShell/.NET TLS 1.2 when Maya 2015 Python 2.7 `urllib` cannot reach GitHub.
+- Prefer public GitHub release `browser_download_url` assets.
+- Show update-check failures in the Toolbox status bar instead of failing silently.
+- Add a manual Check for Updates button.
+
+## 0.2.1
+
+Updater verification release.
+
+### Changed
+
+- Display the installed Script Toolbox version directly in the main window title and top bar.
+- Used as the first end-to-end update test from 0.2.0 to 0.2.1.
 
 ## 0.2.0
 
-Modular architecture release.
+First modular release of Script Toolbox for Autodesk Maya 2015.
 
 ### Added
 
-- Split the original single-file Script Toolbox into a modular package.
-- Add Maya, Nuke and Houdini host adapters behind a common host interface.
-- Add updater support, config backup/recovery and release packaging.
+- Modular package architecture for Python 2.7 / PySide 1.
+- Runtime renderer for nested Folder, Row, Tabs and Radio layouts.
+- Modular Interface Editor with staged Apply / Accept / Cancel.
+- Property-editor registry.
+- Reusable script editor with Python/MEL execution and captured output.
+- JSON import/export.
+- GitHub Releases updater with background checks, package backup/rollback and SHA-256 verification.
+- Automatic tested release packaging.
 
-### Changed
+### Compatibility
 
-- Move runtime UI, model, config, host integrations and update logic into separate modules.
-- Keep compatibility with Maya 2015 / Python 2.7 while supporting modern Python hosts.
-
-## 0.1.0
-
-Initial modular release.
-
-### Added
-
-- Add the Script Toolbox runtime window and JSON configuration.
-- Add script buttons with Python/MEL execution and Shift+Click alternate actions.
-- Add the Interface Editor for creating and arranging toolbox controls.
+- Autodesk Maya 2015
+- Python 2.7
+- PySide 1 / Qt 4

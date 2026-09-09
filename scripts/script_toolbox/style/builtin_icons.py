@@ -29,7 +29,6 @@ _ICON_ENTRIES = (
     ("run", "Run", "play.svg"),
     ("import", "Import", "download-minimalistic.svg"),
     ("export", "Export", "upload-minimalistic.svg"),
-    ("update", "Update", "download-minimalistic.svg"),
     ("cloud-download", "Cloud Download", "cloud-download.svg"),
     ("cloud-upload", "Cloud Upload", "cloud-upload.svg"),
     ("folder-open", "Browse Icons", "folder-open.svg"),
@@ -42,6 +41,7 @@ _ICON_ENTRIES = (
 )
 
 _ALIASES = {
+    "update": "import",
     "settings": "gear",
 }
 

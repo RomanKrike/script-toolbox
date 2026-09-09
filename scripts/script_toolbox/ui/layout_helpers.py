@@ -31,6 +31,20 @@ def _set_form_growth(form):
         pass
 
 
+def configure_layout(
+    layout,
+    margins=MARGINS_NONE,
+    spacing=INLINE_CONTROL_SPACING
+):
+    """Apply explicit shared margins and spacing to a layout."""
+    _set_contents_margins(
+        layout,
+        margins
+    )
+    layout.setSpacing(spacing)
+    return layout
+
+
 def configure_property_form(form):
     """Apply the existing top-level property form geometry."""
     form.setHorizontalSpacing(
@@ -68,16 +82,16 @@ def configure_inline_layout(
     spacing=INLINE_CONTROL_SPACING
 ):
     """Apply the flat zero-margin geometry used by inline controls."""
-    _set_contents_margins(
+    return configure_layout(
         layout,
-        MARGINS_NONE
+        margins=MARGINS_NONE,
+        spacing=spacing
     )
-    layout.setSpacing(spacing)
-    return layout
 
 
 __all__ = [
     "configure_inline_layout",
+    "configure_layout",
     "configure_property_form",
     "configure_property_group_form",
 ]

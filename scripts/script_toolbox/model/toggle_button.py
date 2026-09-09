@@ -132,9 +132,6 @@ def _toggle_button(data):
 
     item.update({
         "state_source": state_source,
-        "value": bool(
-            data.get("value", False)
-        ),
         "icon_path": text_type(
             data.get("icon_path") or ""
         ),
@@ -174,6 +171,16 @@ def _toggle_button(data):
             data.get("state_off_color") or [0.30, 0.30, 0.30]
         ),
     })
+
+    # Internal state is persisted in the document. Script-backed state has no
+    # stored value because its query is the only source of truth.
+    if state_source == "internal":
+        item["value"] = bool(
+            data.get("value", False)
+        )
+    else:
+        item.pop("value", None)
+
     return item
 
 

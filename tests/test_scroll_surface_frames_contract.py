@@ -119,10 +119,14 @@ def test_runtime_list_field_uses_plain_editor_surface_contract():
     for token in (
         "background-color: %(LIST_BG)s;",
         "border: 1px solid %(BORDER_PRESSED)s;",
-        "border-radius: 2px;",
     ):
         assert token in editor_list_rule
         assert token in frame_rule
+
+    # Base theme geometry is tokenized, while the external Maya/Qt4 frame
+    # keeps its explicit pixel contract separate from the design-system layer.
+    assert "border-radius: %(BORDER_RADIUS_CONTROL)spx;" in editor_list_rule
+    assert "border-radius: 2px;" in frame_rule
 
     assert "background=palette.LIST_BG" in source
     assert "border=palette.BORDER_PRESSED" in source

@@ -52,13 +52,25 @@ def test_technical_icon_buttons_use_shared_factory_and_presets():
     source = _read(
         "scripts/script_toolbox/ui/icon_button.py"
     )
+    metrics = _read(
+        "scripts/script_toolbox/style/metrics.py"
+    )
 
     assert 'ICON_BUTTON_COMPACT = "compact"' in source
     assert 'ICON_BUTTON_TOOLBAR = "toolbar"' in source
     assert 'ICON_BUTTON_HEADER = "header"' in source
-    assert "ICON_BUTTON_COMPACT: (16, 25)" in source
-    assert "ICON_BUTTON_TOOLBAR: (18, 26)" in source
-    assert "ICON_BUTTON_HEADER: (18, 28)" in source
+    assert "ICON_BUTTON_COMPACT_ICON_SIZE = 16" in metrics
+    assert "ICON_BUTTON_COMPACT_SIZE = 25" in metrics
+    assert "ICON_BUTTON_TOOLBAR_ICON_SIZE = 18" in metrics
+    assert "ICON_BUTTON_TOOLBAR_SIZE = 26" in metrics
+    assert "ICON_BUTTON_HEADER_ICON_SIZE = 18" in metrics
+    assert "ICON_BUTTON_HEADER_SIZE = 28" in metrics
+    assert "ICON_BUTTON_COMPACT_ICON_SIZE" in source
+    assert "ICON_BUTTON_COMPACT_SIZE" in source
+    assert "ICON_BUTTON_TOOLBAR_ICON_SIZE" in source
+    assert "ICON_BUTTON_TOOLBAR_SIZE" in source
+    assert "ICON_BUTTON_HEADER_ICON_SIZE" in source
+    assert "ICON_BUTTON_HEADER_SIZE" in source
     assert 'button.setObjectName("IconButton")' in source
     assert "toolbar_icon(icon_name)" in source
     assert "button.setIconSize(" in source

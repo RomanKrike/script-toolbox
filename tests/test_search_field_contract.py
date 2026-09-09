@@ -16,6 +16,9 @@ def test_search_field_owns_embedded_solar_controls_and_geometry():
     source = _read(
         "scripts/script_toolbox/ui/search_field.py"
     )
+    metrics = _read(
+        "scripts/script_toolbox/style/metrics.py"
+    )
 
     assert "class SearchField(QtGui.QLineEdit):" in source
     assert 'self.setObjectName(\n            "SearchField"' in source
@@ -25,11 +28,15 @@ def test_search_field_owns_embedded_solar_controls_and_geometry():
     assert 'builtin_icon("find")' in source
     assert 'builtin_icon("close")' in source
     assert "PaintedIconButton(" in source
-    assert "_SEARCH_ICON_SIZE = 18" in source
-    assert "_CLEAR_BUTTON_SIZE = 20" in source
+    assert "SEARCH_ICON_SIZE = 18" in metrics
+    assert "SEARCH_CLEAR_SIZE = 20" in metrics
+    assert "SEARCH_TEXT_MARGIN_LEFT = 26" in metrics
+    assert "SEARCH_TEXT_MARGIN_RIGHT = 30" in metrics
+    assert "SEARCH_ICON_SIZE" in source
+    assert "SEARCH_CLEAR_SIZE" in source
+    assert "SEARCH_TEXT_MARGIN_LEFT" in source
+    assert "SEARCH_TEXT_MARGIN_RIGHT" in source
     assert "self.setTextMargins(" in source
-    assert "26," in source
-    assert "30," in source
     assert "self.clear_button.clicked.connect(" in source
     assert "self.clear" in source
     assert "def resizeEvent(self, event):" in source
@@ -176,6 +183,8 @@ def test_search_component_styles_are_centralized_and_palette_driven():
     assert "%(FILTER_BG)s" in source
     assert "%(BORDER_SOFT)s" in source
     assert "%(FOCUS_BORDER)s" in source
+    assert "%(SEARCH_FIELD_MIN_HEIGHT)s" in source
+    assert "%(BORDER_RADIUS_CONTROL)s" in source
     assert "SearchFieldIcon" not in source
     assert "SearchFieldClear" not in source
     assert re.search(r"#[0-9a-fA-F]{6}\b", source) is None

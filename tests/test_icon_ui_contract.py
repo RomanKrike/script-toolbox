@@ -110,7 +110,8 @@ def test_share_actions_use_stable_references_and_final_icons():
     assert "_script_toolbox_share_role" not in share_source
     assert ".toolTip()" not in share_source
     assert "def _layout_for_widget(" not in share_source
-    assert "itemAt(" not in share_source
+    assert "layout.itemAt(" not in share_source
+    assert "self.layout()" not in share_source
     assert "findChildren(" not in share_source
     assert "_install_share_buttons" not in share_source
 

@@ -12,9 +12,7 @@ from .editor_polish_hooks import install_icon_only_state_refresh
 from .editor_polish_hooks import install_runtime_icon_feedback
 from .editor_view_state import build_editor_view_state_class
 from .icon_clip_fix import install_icon_clip_fix
-from .icon_ui_hooks import build_icon_interface_editor_class
 from .icon_ui_hooks import install_property_icon_browse
-from .icon_ui_hooks import install_script_editor_icons
 from .layout_editor_adapter import build_layout_editor_class
 from .layout_context import install_layout_property_context
 from .share_hooks import build_share_interface_editor_class
@@ -91,9 +89,6 @@ InterfaceEditor = build_editor_view_state_class(
 InterfaceEditor = build_share_interface_editor_class(
     InterfaceEditor
 )
-InterfaceEditor = build_icon_interface_editor_class(
-    InterfaceEditor
-)
 InterfaceEditor = build_scroll_frame_interface_editor_class(
     InterfaceEditor
 )
@@ -160,9 +155,6 @@ ScriptToolbox = build_update_channel_toolbox_class(
 )
 
 install_script_editor_scroll_frames(
-    ScriptEditorWidget
-)
-install_script_editor_icons(
     ScriptEditorWidget
 )
 

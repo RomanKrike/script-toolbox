@@ -124,9 +124,13 @@ class ToggleButtonPropertyEditor(ButtonPropertyEditor):
         item.pop("mode", None)
         item.pop("color", None)
         item["state_source"] = self.current_state_source()
-        item["value"] = bool(
-            self.internal_state.isChecked()
-        )
+
+        if item["state_source"] == "internal":
+            item["value"] = bool(
+                self.internal_state.isChecked()
+            )
+        else:
+            item.pop("value", None)
 
     def write_to_item(self):
         PropertyEditorBase.write_to_item(

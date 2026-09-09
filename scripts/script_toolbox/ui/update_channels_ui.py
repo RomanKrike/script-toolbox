@@ -43,25 +43,55 @@ def build_update_channel_toolbox_class(
             self._install_update_channel_menu()
 
         def _find_update_check_button(self):
+            button = getattr(
+                self,
+                "check_updates_button",
+                None
+            )
+            if button is not None:
+                return button
+
+            # Compatibility path for the legacy main-window implementation:
+            # resolve the control from the stable TopBar structure once, then
+            # expose a direct reference. Tooltip copy is never component ID.
             try:
-                buttons = self.findChildren(
-                    QtGui.QToolButton
+                frames = self.findChildren(
+                    QtGui.QFrame
                 )
             except Exception:
-                buttons = []
+                frames = []
 
-            for button in buttons:
+            topbar = None
+            for frame in frames:
                 try:
-                    tooltip = str(
-                        button.toolTip()
-                    )
+                    if str(frame.objectName()) == "TopBar":
+                        topbar = frame
+                        break
                 except Exception:
-                    tooltip = ""
+                    pass
 
-                if tooltip.startswith(
-                    "Check for Script Toolbox updates"
-                ):
-                    return button
+            if topbar is None:
+                return None
+
+            layout = topbar.layout()
+            if layout is None:
+                return None
+
+            found_update = False
+            for index in range(layout.count()):
+                entry = layout.itemAt(index)
+                widget = entry.widget() if entry is not None else None
+
+                if widget is self.update_button:
+                    found_update = True
+                    continue
+
+                if not found_update or widget is None:
+                    continue
+
+                if isinstance(widget, QtGui.QToolButton):
+                    self.check_updates_button = widget
+                    return widget
 
             return None
 

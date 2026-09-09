@@ -128,19 +128,19 @@ def test_runtime_list_field_uses_plain_editor_surface_contract():
     assert "border=palette.BORDER_PRESSED" in source
 
     runtime_rule = style.split(
-        "QListWidget#RuntimeFieldList {",
+        "QListWidget#RuntimeFieldList {{",
         1
-    )[1].split("}", 1)[0]
-    assert "background-color: %(LIST_BG)s;" in runtime_rule
-    assert "alternate-background-color: %(LIST_BG)s;" in runtime_rule
+    )[1].split("}}", 1)[0]
+    assert "background-color: {list_bg};" in runtime_rule
+    assert "alternate-background-color: {list_bg};" in runtime_rule
     assert "border: 0px;" in runtime_rule
     assert "border-radius: 0px;" in runtime_rule
     assert "outline: 0px;" in runtime_rule
 
     item_rule = style.split(
-        "QListWidget#RuntimeFieldList::item {",
+        "QListWidget#RuntimeFieldList::item {{",
         1
-    )[1].split("}", 1)[0]
+    )[1].split("}}", 1)[0]
     assert "border: 0px;" in item_rule
     assert "border-bottom" not in item_rule
 
@@ -148,11 +148,11 @@ def test_runtime_list_field_uses_plain_editor_surface_contract():
     assert "QListWidget#RuntimeFieldList::item:hover" not in style
 
     selected_rule = style.split(
-        "QListWidget#RuntimeFieldList::item:selected {",
+        "QListWidget#RuntimeFieldList::item:selected {{",
         1
-    )[1].split("}", 1)[0]
-    assert "background-color: %(SELECTION_BG)s;" in selected_rule
-    assert "color: %(SELECTION_TEXT)s;" in selected_rule
+    )[1].split("}}", 1)[0]
+    assert "background-color: {selection_bg};" in selected_rule
+    assert "color: {selection_text};" in selected_rule
 
     # Maya can keep the reparented QListWidget viewport on the host palette.
     # The runtime hook therefore applies the same surface directly and carries

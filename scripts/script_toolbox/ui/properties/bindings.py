@@ -16,7 +16,14 @@ from ...model.bindings import make_binding
 from ...model.bindings import normalize_binding
 from ...model.bindings import supports_bindings
 from ...pycompat import text_type
+from ...style.metrics import FORM_INLINE_SPACING
+from ...style.metrics import TRIGGER_PAGE_MARGINS
+from ...style.metrics import TRIGGER_PAGE_SPACING
+from ...style.metrics import TRIGGER_PANEL_MARGINS
+from ...style.metrics import TRIGGER_PANEL_SPACING
 from ..language_script_editor import LanguageScriptEditor
+from ..layout_helpers import configure_inline_layout
+from ..layout_helpers import configure_layout
 
 
 class AddBindingDialog(QtGui.QDialog):
@@ -69,8 +76,10 @@ class AddBindingDialog(QtGui.QDialog):
         modifier_layout = QtGui.QHBoxLayout(
             self.modifier_widget
         )
-        modifier_layout.setContentsMargins(0, 0, 0, 0)
-        modifier_layout.setSpacing(8)
+        configure_inline_layout(
+            modifier_layout,
+            spacing=FORM_INLINE_SPACING
+        )
         self.ctrl = QtGui.QCheckBox("Ctrl")
         self.alt = QtGui.QCheckBox("Alt")
         self.shift = QtGui.QCheckBox("Shift")
@@ -217,8 +226,11 @@ class BindingPage(QtGui.QWidget):
         self.binding = copy.deepcopy(binding)
 
         root = QtGui.QVBoxLayout(self)
-        root.setContentsMargins(2, 3, 2, 2)
-        root.setSpacing(4)
+        configure_layout(
+            root,
+            margins=TRIGGER_PAGE_MARGINS,
+            spacing=TRIGGER_PAGE_SPACING
+        )
 
         self.script_editor = None
         if self.binding.get("handler", "script") == "state_toggle":
@@ -303,8 +315,11 @@ class BindingPanel(QtGui.QGroupBox):
         self.loading = False
 
         root = QtGui.QVBoxLayout(self)
-        root.setContentsMargins(5, 5, 5, 5)
-        root.setSpacing(3)
+        configure_layout(
+            root,
+            margins=TRIGGER_PANEL_MARGINS,
+            spacing=TRIGGER_PANEL_SPACING
+        )
 
         self.tabs = QtGui.QTabWidget()
         self.tabs.setTabsClosable(True)

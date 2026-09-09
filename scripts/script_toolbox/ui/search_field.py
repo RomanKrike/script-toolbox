@@ -5,6 +5,7 @@ from ..compat import QtCore
 from ..compat import QtGui
 from ..pycompat import text_type
 from ..style.builtin_icons import builtin_icon
+from .painted_icon_button import PaintedIconButton
 
 
 _SEARCH_ICON_SIZE = 18
@@ -34,58 +35,40 @@ class SearchField(QtGui.QLineEdit):
         except Exception:
             pass
 
-        self.search_icon = QtGui.QToolButton(
-            self
+        # PaintedIconButton deliberately bypasses QToolButton/QStyle icon
+        # geometry. This preserves the Maya 2015 / Qt4 clipping workaround
+        # while keeping the search control self-contained.
+        self.search_icon = PaintedIconButton(
+            builtin_icon("find"),
+            12,
+            parent=self,
+            interactive=False,
+            hover_feedback=False
         )
         self.search_icon.setObjectName(
             "SearchFieldIcon"
-        )
-        self.search_icon.setAutoRaise(True)
-        self.search_icon.setIcon(
-            builtin_icon("find")
-        )
-        self.search_icon.setIconSize(
-            QtCore.QSize(12, 12)
         )
         self.search_icon.setFixedSize(
             _SEARCH_ICON_SIZE,
             _SEARCH_ICON_SIZE
         )
-        self.search_icon.setFocusPolicy(
-            QtCore.Qt.NoFocus
-        )
         self.search_icon.setToolTip(
             "Search"
         )
-        try:
-            self.search_icon.setAttribute(
-                QtCore.Qt.WA_TransparentForMouseEvents,
-                True
-            )
-        except Exception:
-            pass
 
-        self.clear_button = QtGui.QToolButton(
-            self
+        self.clear_button = PaintedIconButton(
+            builtin_icon("close"),
+            10,
+            parent=self,
+            interactive=True,
+            hover_feedback=True
         )
         self.clear_button.setObjectName(
             "SearchFieldClear"
         )
-        self.clear_button.setAutoRaise(True)
-        self.clear_button.setIcon(
-            builtin_icon("close")
-        )
-        # Keep extra breathing room around the Solar close glyph. Maya/Qt4
-        # can crop the antialiased edge at small odd icon sizes.
-        self.clear_button.setIconSize(
-            QtCore.QSize(9, 9)
-        )
         self.clear_button.setFixedSize(
             _CLEAR_BUTTON_SIZE,
             _CLEAR_BUTTON_SIZE
-        )
-        self.clear_button.setFocusPolicy(
-            QtCore.Qt.NoFocus
         )
         self.clear_button.setToolTip(
             "Clear search"
@@ -96,9 +79,9 @@ class SearchField(QtGui.QLineEdit):
 
         try:
             self.setTextMargins(
-                25,
+                26,
                 0,
-                28,
+                30,
                 0
             )
         except Exception:
@@ -122,13 +105,13 @@ class SearchField(QtGui.QLineEdit):
         )
 
         self.search_icon.move(
-            4,
+            5,
             search_top
         )
         self.clear_button.move(
             max(
-                4,
-                self.width() - _CLEAR_BUTTON_SIZE - 5
+                5,
+                self.width() - _CLEAR_BUTTON_SIZE - 7
             ),
             clear_top
         )

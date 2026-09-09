@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from .metrics import LIST_ITEM_MIN_HEIGHT
+from .metrics import LIST_ITEM_PADDING_HORIZONTAL
+from .metrics import LIST_ITEM_PADDING_VERTICAL
 from .palette import LIST_BG
 from .palette import SELECTION_BG
 from .palette import SELECTION_TEXT
@@ -61,8 +64,8 @@ QListWidget#RuntimeFieldList {{
 }}
 
 QListWidget#RuntimeFieldList::item {{
-    min-height: 20px;
-    padding: 3px 4px;
+    min-height: {list_item_min_height}px;
+    padding: {list_item_padding_vertical}px {list_item_padding_horizontal}px;
     border: 0px;
 }}
 
@@ -78,6 +81,9 @@ QListWidget#RuntimeFieldList::item:selected {{
     text_list=TEXT_LIST,
     selection_bg=SELECTION_BG,
     selection_text=SELECTION_TEXT,
+    list_item_min_height=LIST_ITEM_MIN_HEIGHT,
+    list_item_padding_vertical=LIST_ITEM_PADDING_VERTICAL,
+    list_item_padding_horizontal=LIST_ITEM_PADDING_HORIZONTAL,
 )
 
 __all__ = ["RUNTIME_OVERRIDES"]

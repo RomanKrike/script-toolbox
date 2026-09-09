@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 from ..compat import QtGui
+from ..style import metrics
 from ..style import palette
 
 
@@ -28,6 +29,9 @@ QFrame#ScrollSurfaceFrame {
 }
 """ % palette.__dict__
 
+_RUNTIME_FIELD_STYLE_VALUES = dict(palette.__dict__)
+_RUNTIME_FIELD_STYLE_VALUES.update(vars(metrics))
+
 _RUNTIME_FIELD_LIST_STYLE = """
 QListWidget#RuntimeFieldList {
     background-color: %(LIST_BG)s;
@@ -40,8 +44,8 @@ QListWidget#RuntimeFieldList {
 }
 
 QListWidget#RuntimeFieldList::item {
-    min-height: 20px;
-    padding: 3px 4px;
+    min-height: %(LIST_ITEM_MIN_HEIGHT)spx;
+    padding: %(LIST_ITEM_PADDING_VERTICAL)spx %(LIST_ITEM_PADDING_HORIZONTAL)spx;
     border: 0px;
 }
 
@@ -49,7 +53,7 @@ QListWidget#RuntimeFieldList::item:selected {
     background-color: %(SELECTION_BG)s;
     color: %(SELECTION_TEXT)s;
 }
-""" % palette.__dict__
+""" % _RUNTIME_FIELD_STYLE_VALUES
 
 _CHILD_STYLE = """
 border: 0px;

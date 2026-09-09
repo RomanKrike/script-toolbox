@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from script_toolbox.constants import CONFIG_VERSION
 from script_toolbox.core import event_bindings
 from script_toolbox.core.event_bindings import dispatch_item_event
 from script_toolbox.core.migrations import migrate_document
@@ -108,6 +109,38 @@ def test_button_can_mix_python_and_mel_per_trigger():
     assert item["bindings"][1]["language"] == "mel"
 
 
+def test_toggle_button_keeps_state_toggle_binding_separate_from_action_mode():
+    item = create_item(
+        "toggle_button",
+        {
+            "bindings": [
+                make_binding(
+                    "click",
+                    handler="state_toggle",
+                    button_mode="state",
+                    binding_id="toggle"
+                ),
+                make_binding(
+                    "click",
+                    script="should_not_run = True",
+                    button_mode="action",
+                    binding_id="legacy_action"
+                ),
+            ],
+        }
+    )
+
+    matched = matching_bindings(
+        item,
+        "click",
+        mouse_button="left",
+        modifiers=[]
+    )
+
+    assert [entry["id"] for entry in matched] == ["toggle"]
+    assert matched[0]["handler"] == "state_toggle"
+
+
 def test_schema17_migrates_click_shift_callbacks_and_folder_events():
     source = {
         "version": 17,
@@ -151,7 +184,7 @@ def test_schema17_migrates_click_shift_callbacks_and_folder_events():
     button = folder["items"][0]
     value = folder["items"][1]
 
-    assert migrated["version"] == 18
+    assert migrated["version"] == CONFIG_VERSION
     assert "callbacks" not in folder
     assert "callbacks" not in button
     assert "language" not in button
@@ -185,7 +218,7 @@ def test_schema17_migrates_click_shift_callbacks_and_folder_events():
     assert value["bindings"][0]["script"] == "print(value)"
 
 
-def test_schema17_state_button_keeps_python_query_and_native_transitions():
+def test_schema17_state_button_becomes_toggle_and_keeps_native_transitions():
     source = {
         "version": 17,
         "sections": [
@@ -211,6 +244,8 @@ def test_schema17_state_button_keeps_python_query_and_native_transitions():
     migrated = migrate_document(source)
     item = migrated["sections"][0]["items"][0]
 
+    assert item["kind"] == "toggle_button"
+    assert item["state_source"] == "script"
     assert item["state_get_language"] == "python"
     assert item["state_on_language"] == "mel"
     assert item["state_off_language"] == "mel"

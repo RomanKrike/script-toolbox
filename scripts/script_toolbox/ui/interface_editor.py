@@ -19,6 +19,7 @@ from ..model import normalize_document
 from ..model import walk_items
 from ..pycompat import text_type
 from ..style import STYLE
+from ..style import metrics
 from ..style.palette import STRUCTURE_FOLDER_BG
 from ..style.palette import TEXT_PALETTE_GROUP
 from ..style.palette import TEXT_STRUCTURE_ROW
@@ -27,6 +28,8 @@ from .editor_search import filter_existing_parameters as filter_editor_structure
 from .icon_button import ICON_BUTTON_COMPACT
 from .icon_button import create_icon_button
 from .interface_tree import ExistingInterfaceTree
+from .layout_helpers import configure_layout
+from .layout_helpers import set_layout_margins
 from .properties import create_editor
 from .search_field import SearchField
 
@@ -138,14 +141,10 @@ class InterfaceEditor(QtGui.QDialog):
         root = QtGui.QVBoxLayout(
             self
         )
-        root.setContentsMargins(
-            8,
-            8,
-            8,
-            8
-        )
-        root.setSpacing(
-            7
+        configure_layout(
+            root,
+            margins=metrics.EDITOR_ROOT_MARGINS,
+            spacing=metrics.EDITOR_ROOT_SPACING
         )
 
         heading = QtGui.QLabel(
@@ -164,7 +163,7 @@ class InterfaceEditor(QtGui.QDialog):
             QtCore.Qt.Horizontal
         )
         splitter.setHandleWidth(
-            2
+            metrics.EDITOR_SPLITTER_HANDLE_WIDTH
         )
         splitter.setChildrenCollapsible(
             False
@@ -184,14 +183,10 @@ class InterfaceEditor(QtGui.QDialog):
         left_layout = QtGui.QVBoxLayout(
             left
         )
-        left_layout.setContentsMargins(
-            8,
-            8,
-            8,
-            8
-        )
-        left_layout.setSpacing(
-            6
+        configure_layout(
+            left_layout,
+            margins=metrics.EDITOR_PANE_MARGINS,
+            spacing=metrics.EDITOR_PANE_SPACING
         )
 
         left_title = QtGui.QLabel(
@@ -215,7 +210,7 @@ class InterfaceEditor(QtGui.QDialog):
             True
         )
         self.palette.setIndentation(
-            14
+            metrics.EDITOR_PALETTE_INDENT
         )
         self.palette.setAlternatingRowColors(
             True
@@ -320,19 +315,15 @@ class InterfaceEditor(QtGui.QDialog):
         center_layout = QtGui.QVBoxLayout(
             center
         )
-        center_layout.setContentsMargins(
-            8,
-            8,
-            8,
-            8
-        )
-        center_layout.setSpacing(
-            6
+        configure_layout(
+            center_layout,
+            margins=metrics.EDITOR_PANE_MARGINS,
+            spacing=metrics.EDITOR_PANE_SPACING
         )
 
         toolbar = QtGui.QHBoxLayout()
         toolbar.setSpacing(
-            2
+            metrics.TOOLBAR_SPACING
         )
 
         center_title = QtGui.QLabel(
@@ -386,7 +377,7 @@ class InterfaceEditor(QtGui.QDialog):
             True
         )
         self.tree.setIndentation(
-            18
+            metrics.EDITOR_TREE_INDENT
         )
         self.tree.currentItemChanged.connect(
             self.selection_changed
@@ -453,14 +444,10 @@ class InterfaceEditor(QtGui.QDialog):
         right_layout = QtGui.QVBoxLayout(
             right
         )
-        right_layout.setContentsMargins(
-            8,
-            8,
-            8,
-            8
-        )
-        right_layout.setSpacing(
-            6
+        configure_layout(
+            right_layout,
+            margins=metrics.EDITOR_PANE_MARGINS,
+            spacing=metrics.EDITOR_PANE_SPACING
         )
 
         right_title = QtGui.QLabel(
@@ -529,11 +516,9 @@ class InterfaceEditor(QtGui.QDialog):
         self.property_layout = QtGui.QVBoxLayout(
             self.property_host
         )
-        self.property_layout.setContentsMargins(
-            0,
-            0,
-            4,
-            0
+        set_layout_margins(
+            self.property_layout,
+            metrics.EDITOR_PROPERTY_HOST_MARGINS
         )
         self.property_scroll.setWidget(
             self.property_host
@@ -556,7 +541,7 @@ class InterfaceEditor(QtGui.QDialog):
         # Bottom -----------------------------------------------------------
         bottom = QtGui.QHBoxLayout()
         bottom.setSpacing(
-            6
+            metrics.EDITOR_BOTTOM_SPACING
         )
 
         import_button = self._icon_button(
@@ -577,7 +562,7 @@ class InterfaceEditor(QtGui.QDialog):
             export_button
         )
         bottom.addSpacing(
-            4
+            metrics.EDITOR_BOTTOM_GROUP_SPACING
         )
 
         self.status = QtGui.QLabel(
@@ -597,7 +582,7 @@ class InterfaceEditor(QtGui.QDialog):
             "Apply"
         )
         apply_button.setMinimumWidth(
-            78
+            metrics.EDITOR_ACTION_BUTTON_MIN_WIDTH
         )
         apply_button.clicked.connect(
             self.apply_changes
@@ -610,7 +595,7 @@ class InterfaceEditor(QtGui.QDialog):
             "AcceptButton"
         )
         accept_button.setMinimumWidth(
-            78
+            metrics.EDITOR_ACTION_BUTTON_MIN_WIDTH
         )
         accept_button.clicked.connect(
             self.accept_changes
@@ -620,7 +605,7 @@ class InterfaceEditor(QtGui.QDialog):
             "Cancel"
         )
         cancel_button.setMinimumWidth(
-            78
+            metrics.EDITOR_ACTION_BUTTON_MIN_WIDTH
         )
         cancel_button.clicked.connect(
             self.reject

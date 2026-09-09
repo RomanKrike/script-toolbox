@@ -15,8 +15,10 @@ from ..share import extract_share_code
 from ..share import fetch_shared_data
 from ..share import looks_like_share_code
 from ..share import share_data
+from ..style import metrics
 from .icon_button import ICON_BUTTON_COMPACT
 from .icon_button import create_icon_button
+from .layout_helpers import configure_layout
 
 
 class _ShareWorker(QtCore.QThread):
@@ -114,8 +116,11 @@ class ShareController(object):
         cluster = QtGui.QWidget(editor)
         cluster.setObjectName("ShareActionCluster")
         layout = QtGui.QHBoxLayout(cluster)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
+        configure_layout(
+            layout,
+            margins=metrics.MARGINS_NONE,
+            spacing=metrics.SHARE_ACTION_SPACING
+        )
 
         editor.export_button = create_icon_button(
             "export",

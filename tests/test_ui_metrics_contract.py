@@ -255,3 +255,55 @@ def test_search_and_icon_buttons_use_shared_component_geometry_metrics():
     assert "ICON_BUTTON_COMPACT: (16, 25)" not in icon_button
     assert "ICON_BUTTON_TOOLBAR: (18, 26)" not in icon_button
     assert "ICON_BUTTON_HEADER: (18, 28)" not in icon_button
+
+
+def test_application_layout_geometry_uses_shared_metrics():
+    metrics = _read(
+        "scripts/script_toolbox/style/metrics.py"
+    )
+    helpers = _read(
+        "scripts/script_toolbox/ui/layout_helpers.py"
+    )
+    interface = _read(
+        "scripts/script_toolbox/ui/interface_editor.py"
+    )
+    main_window = _read(
+        "scripts/script_toolbox/ui/main_window.py"
+    )
+    script_editor = _read(
+        "scripts/script_toolbox/ui/script_editor.py"
+    )
+    share = _read(
+        "scripts/script_toolbox/ui/share_hooks.py"
+    )
+
+    for definition in (
+        "EDITOR_ROOT_MARGINS = (8, 8, 8, 8)",
+        "EDITOR_ROOT_SPACING = 7",
+        "EDITOR_PANE_MARGINS = (8, 8, 8, 8)",
+        "EDITOR_PANE_SPACING = 6",
+        "EDITOR_PALETTE_INDENT = 14",
+        "EDITOR_TREE_INDENT = 18",
+        "EDITOR_ACTION_BUTTON_MIN_WIDTH = 78",
+        "TOOLBAR_SPACING = 2",
+        "TOOLBAR_GROUP_SPACING = 4",
+        "TOOLBOX_TOPBAR_MARGINS = (6, 4, 6, 4)",
+        "TOOLBOX_CONTENT_MARGINS = (6, 6, 6, 6)",
+        "SCRIPT_EDITOR_ROOT_SPACING = 4",
+        "SHARE_ACTION_SPACING = 6",
+    ):
+        assert definition in metrics
+
+    assert "def set_layout_margins(layout, margins):" in helpers
+    assert "metrics.EDITOR_ROOT_MARGINS" in interface
+    assert interface.count("metrics.EDITOR_PANE_MARGINS") == 3
+    assert "metrics.EDITOR_ACTION_BUTTON_MIN_WIDTH" in interface
+    assert "metrics.TOOLBOX_TOPBAR_MARGINS" in main_window
+    assert "metrics.TOOLBOX_CONTENT_MARGINS" in main_window
+    assert "metrics.SCRIPT_EDITOR_ROOT_SPACING" in script_editor
+    assert script_editor.count("metrics.TOOLBAR_GROUP_SPACING") == 4
+    assert "metrics.SHARE_ACTION_SPACING" in share
+
+    assert "setMinimumWidth(\n            78" not in interface
+    assert "layout.setSpacing(6)" not in share
+

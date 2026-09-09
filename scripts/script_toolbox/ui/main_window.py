@@ -19,10 +19,12 @@ from ..model import walk_items
 from ..model.items import safe_color
 from ..pycompat import text_type
 from ..style import STYLE
+from ..style import metrics
 from ..style import toolbar_icon
 from ..style.palette import CONTENT_BG
 from .icon_button import ICON_BUTTON_HEADER
 from .icon_button import create_icon_button
+from .layout_helpers import configure_layout
 from .runtime import build_folder_widgets
 from .update_ui import UpdateCheckThread
 from .update_ui import UpdateInstallThread
@@ -110,14 +112,10 @@ class ScriptToolbox(QtGui.QMainWindow):
         root = QtGui.QVBoxLayout(
             central
         )
-        root.setContentsMargins(
-            0,
-            0,
-            0,
-            0
-        )
-        root.setSpacing(
-            0
+        configure_layout(
+            root,
+            margins=metrics.MARGINS_NONE,
+            spacing=0
         )
 
         topbar = QtGui.QFrame()
@@ -128,14 +126,10 @@ class ScriptToolbox(QtGui.QMainWindow):
         top_layout = QtGui.QHBoxLayout(
             topbar
         )
-        top_layout.setContentsMargins(
-            6,
-            4,
-            6,
-            4
-        )
-        top_layout.setSpacing(
-            4
+        configure_layout(
+            top_layout,
+            margins=metrics.TOOLBOX_TOPBAR_MARGINS,
+            spacing=metrics.TOOLBOX_TOPBAR_SPACING
         )
 
         title = QtGui.QLabel(
@@ -253,14 +247,10 @@ class ScriptToolbox(QtGui.QMainWindow):
         self.content_layout = QtGui.QVBoxLayout(
             self.content
         )
-        self.content_layout.setContentsMargins(
-            6,
-            6,
-            6,
-            6
-        )
-        self.content_layout.setSpacing(
-            5
+        configure_layout(
+            self.content_layout,
+            margins=metrics.TOOLBOX_CONTENT_MARGINS,
+            spacing=metrics.TOOLBOX_CONTENT_SPACING
         )
         self.content_layout.addStretch(
             1

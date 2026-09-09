@@ -22,6 +22,15 @@ def _set_contents_margins(layout, margins):
     )
 
 
+def set_layout_margins(layout, margins):
+    """Apply shared margins without changing a layout's spacing."""
+    _set_contents_margins(
+        layout,
+        margins
+    )
+    return layout
+
+
 def _set_form_growth(form):
     try:
         form.setFieldGrowthPolicy(
@@ -94,4 +103,5 @@ __all__ = [
     "configure_layout",
     "configure_property_form",
     "configure_property_group_form",
+    "set_layout_margins",
 ]

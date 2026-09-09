@@ -14,10 +14,12 @@ from ..core.text_transform import indent_line
 from ..core.text_transform import uncomment_line
 from ..core.text_transform import unindent_line
 from ..pycompat import text_type
+from ..style import metrics
 from .code_editor import CodeEditor
 from .code_editor import ScriptHighlighter
 from .icon_button import ICON_BUTTON_TOOLBAR
 from .icon_button import create_icon_button
+from .layout_helpers import configure_layout
 
 
 class ScriptEditorWidget(QtGui.QWidget):
@@ -55,19 +57,15 @@ class ScriptEditorWidget(QtGui.QWidget):
         root = QtGui.QVBoxLayout(
             self
         )
-        root.setContentsMargins(
-            0,
-            0,
-            0,
-            0
-        )
-        root.setSpacing(
-            4
+        configure_layout(
+            root,
+            margins=metrics.MARGINS_NONE,
+            spacing=metrics.SCRIPT_EDITOR_ROOT_SPACING
         )
 
         toolbar = QtGui.QHBoxLayout()
         toolbar.setSpacing(
-            2
+            metrics.TOOLBAR_SPACING
         )
 
         self._add_tool_button(
@@ -84,7 +82,7 @@ class ScriptEditorWidget(QtGui.QWidget):
         )
 
         toolbar.addSpacing(
-            4
+            metrics.TOOLBAR_GROUP_SPACING
         )
 
         self._add_tool_button(
@@ -107,7 +105,7 @@ class ScriptEditorWidget(QtGui.QWidget):
         )
 
         toolbar.addSpacing(
-            4
+            metrics.TOOLBAR_GROUP_SPACING
         )
 
         self._add_tool_button(
@@ -124,7 +122,7 @@ class ScriptEditorWidget(QtGui.QWidget):
         )
 
         toolbar.addSpacing(
-            4
+            metrics.TOOLBAR_GROUP_SPACING
         )
 
         self._add_tool_button(
@@ -153,7 +151,7 @@ class ScriptEditorWidget(QtGui.QWidget):
         )
 
         toolbar.addSpacing(
-            4
+            metrics.TOOLBAR_GROUP_SPACING
         )
 
         self.run_button = self._add_tool_button(
@@ -220,7 +218,7 @@ class ScriptEditorWidget(QtGui.QWidget):
 
         status_row = QtGui.QHBoxLayout()
         status_row.setSpacing(
-            4
+            metrics.SCRIPT_EDITOR_STATUS_SPACING
         )
 
         self.clear_output_button = self._tool_button(

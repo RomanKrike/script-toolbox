@@ -18,6 +18,7 @@ LIST_ALT_BG = "#282828"
 FILTER_BG = "#262626"
 STATUS_BG = "#232323"
 TOOLTIP_BG = "#1d1d1d"
+STRUCTURE_FOLDER_BG = "#302d2a"
 
 # Folder surfaces -----------------------------------------------------------
 FOLDER_CARD_BG = "#292b2c"
@@ -68,6 +69,7 @@ TEXT_TAB = "#aaaaaa"
 TEXT_TAB_SELECTED = "#f0f0f0"
 TEXT_SUBTLE = "#bdbdbd"
 TEXT_PALETTE_GROUP = "#bda88f"
+TEXT_STRUCTURE_ROW = "#b6c4cf"
 TEXT_DISABLED = "#686868"
 TEXT_INPUT_DISABLED = "#6f6f6f"
 TEXT_ON_ACCENT = "#ffffff"
@@ -118,6 +120,7 @@ __all__ = [
     "FILTER_BG",
     "STATUS_BG",
     "TOOLTIP_BG",
+    "STRUCTURE_FOLDER_BG",
     "FOLDER_CARD_BG",
     "FOLDER_NESTED_BG",
     "FOLDER_HEADER_BG",
@@ -162,6 +165,7 @@ __all__ = [
     "TEXT_TAB_SELECTED",
     "TEXT_SUBTLE",
     "TEXT_PALETTE_GROUP",
+    "TEXT_STRUCTURE_ROW",
     "TEXT_DISABLED",
     "TEXT_INPUT_DISABLED",
     "TEXT_ON_ACCENT",

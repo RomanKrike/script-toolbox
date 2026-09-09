@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+import re
 from pathlib import Path
 
 
@@ -92,6 +93,25 @@ def test_button_without_visible_label_uses_exact_centered_icon_renderer():
     assert install_center < install_bindings
 
 
+def test_editor_polish_theme_colors_use_shared_palette():
+    source = _read(
+        "scripts/script_toolbox/ui/editor_polish_hooks.py"
+    )
+
+    assert "from ..style import palette" in source
+    assert "%(FILTER_BG)s" in source
+    assert "%(BORDER_SOFT)s" in source
+    assert "%(FOCUS_BORDER)s" in source
+    assert "%(ICON_BUTTON_HOVER_BG)s" in source
+    assert "%(ICON_BUTTON_PRESSED_BG)s" in source
+    assert "palette.ICON_BUTTON_HOVER_BORDER" in source
+    assert "palette.BORDER_INSET" in source
+
+    # Theme colors must come from style/palette.py. Dynamic user-configurable
+    # button colors remain rgb(...) values and are intentionally local.
+    assert re.search(r"#[0-9a-fA-F]{6}\b", source) is None
+
+
 def test_runtime_icon_feedback_matches_technical_icon_states():
     source = _read(
         "scripts/script_toolbox/ui/editor_polish_hooks.py"
@@ -105,8 +125,9 @@ def test_runtime_icon_feedback_matches_technical_icon_states():
     assert "QtCore.QEvent.Leave" in source
     assert "QtCore.QEvent.MouseButtonPress" in source
     assert "QtCore.QEvent.MouseButtonRelease" in source
-    assert "background-color: #404040;" in source
-    assert "border: 1px solid #545454;" in source
-    assert "background-color: #272727;" in source
+    assert "palette.ICON_BUTTON_HOVER_BG" in source
+    assert "palette.ICON_BUTTON_HOVER_BORDER" in source
+    assert "palette.ICON_BUTTON_PRESSED_BG" in source
+    assert "palette.BORDER_INSET" in source
     assert "install_runtime_icon_feedback(" in source
     assert "install_runtime_icon_feedback(" in ui_source

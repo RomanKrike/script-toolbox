@@ -82,7 +82,7 @@ def test_editor_tree_nested_structure_matches_golden_baseline():
                 ["menu", "quality"],
                 ["color", "tint"],
                 ["field", "nodes"],
-                ["button", "render_state"],
+                ["toggle_button", "render_state"],
                 [
                     "row",
                     "actions",

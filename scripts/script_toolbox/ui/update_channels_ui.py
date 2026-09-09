@@ -42,61 +42,12 @@ def build_update_channel_toolbox_class(
             )
             self._install_update_channel_menu()
 
-        def _find_update_check_button(self):
+        def _install_update_channel_menu(self):
             button = getattr(
                 self,
                 "check_updates_button",
                 None
             )
-            if button is not None:
-                return button
-
-            # Compatibility path for the legacy main-window implementation:
-            # resolve the control from the stable TopBar structure once, then
-            # expose a direct reference. Tooltip copy is never component ID.
-            try:
-                frames = self.findChildren(
-                    QtGui.QFrame
-                )
-            except Exception:
-                frames = []
-
-            topbar = None
-            for frame in frames:
-                try:
-                    if str(frame.objectName()) == "TopBar":
-                        topbar = frame
-                        break
-                except Exception:
-                    pass
-
-            if topbar is None:
-                return None
-
-            layout = topbar.layout()
-            if layout is None:
-                return None
-
-            found_update = False
-            for index in range(layout.count()):
-                entry = layout.itemAt(index)
-                widget = entry.widget() if entry is not None else None
-
-                if widget is self.update_button:
-                    found_update = True
-                    continue
-
-                if not found_update or widget is None:
-                    continue
-
-                if isinstance(widget, QtGui.QToolButton):
-                    self.check_updates_button = widget
-                    return widget
-
-            return None
-
-        def _install_update_channel_menu(self):
-            button = self._find_update_check_button()
 
             if button is None:
                 return

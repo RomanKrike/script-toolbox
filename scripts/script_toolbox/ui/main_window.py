@@ -21,6 +21,8 @@ from ..pycompat import text_type
 from ..style import STYLE
 from ..style import toolbar_icon
 from ..style.palette import CONTENT_BG
+from .icon_button import ICON_BUTTON_HEADER
+from .icon_button import create_icon_button
 from .runtime import build_folder_widgets
 from .update_ui import UpdateCheckThread
 from .update_ui import UpdateInstallThread
@@ -190,95 +192,39 @@ class ScriptToolbox(QtGui.QMainWindow):
             self.install_available_update
         )
 
-        check_updates_button = QtGui.QToolButton()
-        check_updates_button.setObjectName(
-            "IconButton"
+        self.check_updates_button = create_icon_button(
+            "update",
+            "Check for Script Toolbox updates",
+            self.manual_check_for_updates,
+            parent=self,
+            preset=ICON_BUTTON_HEADER
         )
-        check_updates_button.setIcon(
-            toolbar_icon(
-                "update"
-            )
+        self.reload_button = create_icon_button(
+            "reload",
+            "Reload toolbox config",
+            self.reload_config,
+            parent=self,
+            preset=ICON_BUTTON_HEADER
         )
-        check_updates_button.setIconSize(
-            QtCore.QSize(
-                18,
-                18
-            )
-        )
-        check_updates_button.setFixedSize(
-            28,
-            28
-        )
-        check_updates_button.setToolTip(
-            "Check for Script Toolbox updates"
-        )
-        check_updates_button.clicked.connect(
-            self.manual_check_for_updates
-        )
-
-        reload_button = QtGui.QToolButton()
-        reload_button.setObjectName(
-            "IconButton"
-        )
-        reload_button.setIcon(
-            toolbar_icon(
-                "reload"
-            )
-        )
-        reload_button.setIconSize(
-            QtCore.QSize(
-                18,
-                18
-            )
-        )
-        reload_button.setFixedSize(
-            28,
-            28
-        )
-        reload_button.setToolTip(
-            "Reload toolbox config"
-        )
-        reload_button.clicked.connect(
-            self.reload_config
-        )
-
-        gear = QtGui.QToolButton()
-        gear.setObjectName(
-            "IconButton"
-        )
-        gear.setIcon(
-            toolbar_icon(
-                "gear"
-            )
-        )
-        gear.setIconSize(
-            QtCore.QSize(
-                18,
-                18
-            )
-        )
-        gear.setFixedSize(
-            28,
-            28
-        )
-        gear.setToolTip(
-            "Edit Interface"
-        )
-        gear.clicked.connect(
-            self.open_interface_editor
+        self.interface_editor_button = create_icon_button(
+            "gear",
+            "Edit Interface",
+            self.open_interface_editor,
+            parent=self,
+            preset=ICON_BUTTON_HEADER
         )
 
         top_layout.addWidget(
             self.update_button
         )
         top_layout.addWidget(
-            check_updates_button
+            self.check_updates_button
         )
         top_layout.addWidget(
-            reload_button
+            self.reload_button
         )
         top_layout.addWidget(
-            gear
+            self.interface_editor_button
         )
 
         root.addWidget(
@@ -1022,7 +968,6 @@ class ScriptToolbox(QtGui.QMainWindow):
         )
         self._manual_update_check = False
 
-
     def install_available_update(self):
         if not self.update_info:
             return
@@ -1181,7 +1126,6 @@ class ScriptToolbox(QtGui.QMainWindow):
                     )
                 )
             )
-
 
     # ------------------------------------------------------------------
     # Editor / reload

@@ -3,7 +3,6 @@ from __future__ import print_function
 
 import os
 
-from ..compat import QtCore
 from ..compat import QtGui
 from ..pycompat import text_type
 from ..style import toolbar_icon
@@ -112,7 +111,7 @@ def _install_browse_field(editor, line_edit):
         return False
 
     try:
-        row, role = form.getWidgetPosition(line_edit)
+        row = form.getWidgetPosition(line_edit)[0]
     except Exception:
         return False
 

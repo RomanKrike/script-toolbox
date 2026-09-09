@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import re
 
 
 ROOT = os.path.dirname(
@@ -25,11 +26,31 @@ def test_scroll_surface_frame_supports_all_scrollable_control_hosts():
     )
 
     assert 'frame.setObjectName("ScrollSurfaceFrame")' in source
-    assert "border: 1px solid #151515;" in source
+    assert "from ..style import palette" in source
+    assert "border: 1px solid %(BORDER_DARK)s;" in source
     assert "layout.setContentsMargins(1, 1, 1, 1)" in source
     assert "widget.setFrameShape(QtGui.QFrame.NoFrame)" in source
     assert "isinstance(parent, QtGui.QSplitter)" in source
     assert "isinstance(owner_layout, QtGui.QFormLayout)" in source
+
+
+def test_scroll_surface_theme_colors_use_shared_palette():
+    source = _read(
+        "scripts/script_toolbox/ui/scroll_surface_frames.py"
+    )
+
+    assert "%(CONTROL_BG)s" in source
+    assert "%(BORDER_DARK)s" in source
+    assert "%(LIST_BG)s" in source
+    assert "%(BORDER_PRESSED)s" in source
+    assert "%(TEXT_LIST)s" in source
+    assert "%(SELECTION_BG)s" in source
+    assert "%(SELECTION_TEXT)s" in source
+    assert "palette.CONTROL_BG" in source
+    assert "palette.BORDER_DARK" in source
+    assert "palette.LIST_BG" in source
+    assert "palette.BORDER_PRESSED" in source
+    assert re.search(r"#[0-9a-fA-F]{6}\b", source) is None
 
 
 def test_scroll_surface_frame_preserves_original_outer_constraints():
@@ -81,7 +102,7 @@ def test_runtime_list_field_uses_plain_editor_surface_contract():
 
     assert 'registry.renderer_for("field")' in source
     assert "runtime_module.DisplayFieldList" in source
-    assert '_apply_runtime_field_surface(control)' in source
+    assert "_apply_runtime_field_surface(control)" in source
 
     # The requested visual target is the editor's QListWidget/QTreeWidget
     # surface (palette + Existing Interface), not the surrounding EditorPane.
@@ -96,22 +117,22 @@ def test_runtime_list_field_uses_plain_editor_surface_contract():
     )[1].split('"""', 2)[1]
 
     for token in (
-        "background-color: #242424;",
-        "border: 1px solid #161616;",
+        "background-color: %(LIST_BG)s;",
+        "border: 1px solid %(BORDER_PRESSED)s;",
         "border-radius: 2px;",
     ):
         assert token in editor_list_rule
         assert token in frame_rule
 
-    assert 'background="#242424"' in source
-    assert 'border="#161616"' in source
+    assert "background=palette.LIST_BG" in source
+    assert "border=palette.BORDER_PRESSED" in source
 
     runtime_rule = style.split(
         "QListWidget#RuntimeFieldList {",
         1
     )[1].split("}", 1)[0]
-    assert "background-color: #242424;" in runtime_rule
-    assert "alternate-background-color: #242424;" in runtime_rule
+    assert "background-color: %(LIST_BG)s;" in runtime_rule
+    assert "alternate-background-color: %(LIST_BG)s;" in runtime_rule
     assert "border: 0px;" in runtime_rule
     assert "border-radius: 0px;" in runtime_rule
     assert "outline: 0px;" in runtime_rule
@@ -130,8 +151,8 @@ def test_runtime_list_field_uses_plain_editor_surface_contract():
         "QListWidget#RuntimeFieldList::item:selected {",
         1
     )[1].split("}", 1)[0]
-    assert "background-color: #68462c;" in selected_rule
-    assert "color: #ffffff;" in selected_rule
+    assert "background-color: %(SELECTION_BG)s;" in selected_rule
+    assert "color: %(SELECTION_TEXT)s;" in selected_rule
 
     # Maya can keep the reparented QListWidget viewport on the host palette.
     # The runtime hook therefore applies the same surface directly and carries
@@ -140,9 +161,10 @@ def test_runtime_list_field_uses_plain_editor_surface_contract():
     assert "control.setStyleSheet(" in source
     assert "QtGui.QPalette.Base" in source
     assert "QtGui.QPalette.AlternateBase" in source
-    assert 'QtGui.QColor("#242424")' in source
+    assert "QtGui.QColor(palette.LIST_BG)" in source
     assert "QtGui.QPalette.Highlight" in source
-    assert 'QtGui.QColor("#68462c")' in source
+    assert "QtGui.QColor(palette.SELECTION_BG)" in source
+    assert "QtGui.QColor(palette.SELECTION_TEXT)" in source
     assert "viewport.setAutoFillBackground(True)" in source
 
 

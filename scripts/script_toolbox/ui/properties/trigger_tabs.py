@@ -4,36 +4,35 @@ from __future__ import print_function
 from ...compat import QtCore
 from ...compat import QtGui
 from ...pycompat import text_type
-from ...style import palette
 from ...style.builtin_icons import builtin_icon
+from ..painted_icon_button import PaintedIconButton
 from . import base as base_module
 from . import bindings as bindings_module
 
 
 _BaseBindingPanel = bindings_module.BindingPanel
 
+# Trigger-tab geometry is a local Maya/Qt4 compatibility contract. These
+# values intentionally stay beside the QTabBar implementation instead of
+# becoming generic button metrics: the holder/offset exist specifically to
+# prevent old host styles from clipping right-side tab glyphs.
+_TRIGGER_TAB_PADDING_HORIZONTAL = 7
+_TRIGGER_CLOSE_HOLDER_SIZE = (22, 20)
+_TRIGGER_CLOSE_BUTTON_SIZE = 18
+_TRIGGER_CLOSE_GLYPH_SIZE = 10
+_TRIGGER_CLOSE_OFFSET = (2, 1)
+_TRIGGER_ADD_BUTTON_SIZE = 16
+_TRIGGER_ADD_GLYPH_SIZE = 12
+_TRIGGER_ADD_SPACER_WIDTH = 12
+
 _TRIGGER_TAB_STYLE = """
 QTabBar::tab {
-    padding-left: 7px;
-    padding-right: 7px;
+    padding-left: %(padding)spx;
+    padding-right: %(padding)spx;
 }
-QToolButton#TriggerCloseButton,
-QToolButton#TriggerAddButton {
-    background-color: transparent;
-    border: 0px;
-    padding: 0px;
+""" % {
+    "padding": _TRIGGER_TAB_PADDING_HORIZONTAL,
 }
-QToolButton#TriggerCloseButton:hover {
-    background-color: %(ICON_BUTTON_HOVER_BG)s;
-    border: 1px solid %(ICON_BUTTON_HOVER_BORDER)s;
-    border-radius: 3px;
-}
-QToolButton#TriggerCloseButton:pressed {
-    background-color: %(ICON_BUTTON_PRESSED_BG)s;
-    border: 1px solid %(BORDER_INSET)s;
-    border-radius: 3px;
-}
-""" % vars(palette)
 
 
 class TriggerTabBindingPanel(_BaseBindingPanel):
@@ -112,37 +111,37 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
         index = self.pages.index(page)
         bar = self.tabs.tabBar()
 
-        # QTabBar can crop a right-side tool button by one pixel under older
-        # Maya/Qt styles. Give the close control its own holder so the glyph
-        # always has real space on both sides instead of touching tab chrome.
+        # Maya/Qt4 can crop a QTabBar right-side control by one pixel. Keep the
+        # proven holder geometry, but paint the glyph ourselves so QToolButton
+        # and host QStyle no longer control its icon rectangle.
         holder = QtGui.QWidget(bar)
         holder.setObjectName(
             "TriggerCloseHolder"
         )
-        holder.setFixedSize(20, 18)
+        holder.setFixedSize(
+            *_TRIGGER_CLOSE_HOLDER_SIZE
+        )
 
-        button = QtGui.QToolButton(holder)
+        button = PaintedIconButton(
+            builtin_icon("close"),
+            _TRIGGER_CLOSE_GLYPH_SIZE,
+            parent=holder,
+            interactive=True,
+            hover_feedback=True
+        )
         button.setObjectName(
             "TriggerCloseButton"
         )
-        button.setAutoRaise(True)
-        button.setIcon(
-            builtin_icon("close")
+        button.setFixedSize(
+            _TRIGGER_CLOSE_BUTTON_SIZE,
+            _TRIGGER_CLOSE_BUTTON_SIZE
         )
-        button.setIconSize(
-            QtCore.QSize(10, 10)
-        )
-        button.setFixedSize(16, 16)
-        button.move(2, 1)
-        button.setFocusPolicy(
-            QtCore.Qt.NoFocus
+        button.move(
+            *_TRIGGER_CLOSE_OFFSET
         )
         button.setToolTip("Remove trigger")
-        button.setStyleSheet(
-            _TRIGGER_TAB_STYLE
-        )
         button.clicked.connect(
-            lambda checked=False, current=page:
+            lambda current=page:
             self.remove_binding(current)
         )
 
@@ -160,34 +159,23 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
             return
 
         bar = self.tabs.tabBar()
-        button = QtGui.QToolButton(bar)
+        button = PaintedIconButton(
+            builtin_icon("add"),
+            _TRIGGER_ADD_GLYPH_SIZE,
+            parent=bar,
+            interactive=False,
+            hover_feedback=False
+        )
         button.setObjectName("TriggerAddButton")
-        button.setAutoRaise(True)
-        button.setIcon(
-            builtin_icon("add")
-        )
-        button.setIconSize(
-            QtCore.QSize(12, 12)
-        )
-        button.setFixedSize(16, 16)
-        button.setFocusPolicy(
-            QtCore.Qt.NoFocus
+        button.setFixedSize(
+            _TRIGGER_ADD_BUTTON_SIZE,
+            _TRIGGER_ADD_BUTTON_SIZE
         )
         button.setToolTip("Add trigger")
-        button.setStyleSheet(
-            _TRIGGER_TAB_STYLE
-        )
 
-        # The plus is only a glyph. Mouse input falls through to QTabBar so
-        # the normal add-tab hover/pressed feedback is the only indication.
-        try:
-            button.setAttribute(
-                QtCore.Qt.WA_TransparentForMouseEvents,
-                True
-            )
-        except Exception:
-            pass
-
+        # PaintedIconButton makes non-interactive glyphs transparent for mouse
+        # events. Input therefore continues to fall through to QTabBar so the
+        # whole trailing tab owns hover/press/click behaviour.
         self._add_tab_button = button
 
     def _install_add_tab_spacer(self, index):
@@ -200,7 +188,10 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
                 pass
 
         spacer = QtGui.QWidget(bar)
-        spacer.setFixedSize(12, 1)
+        spacer.setFixedSize(
+            _TRIGGER_ADD_SPACER_WIDTH,
+            1
+        )
         try:
             spacer.setAttribute(
                 QtCore.Qt.WA_TransparentForMouseEvents,

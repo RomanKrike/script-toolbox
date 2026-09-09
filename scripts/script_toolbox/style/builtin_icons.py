@@ -32,6 +32,8 @@ _ICON_ENTRIES = (
     ("cloud-download", "Cloud Download", "cloud-download.svg"),
     ("cloud-upload", "Cloud Upload", "cloud-upload.svg"),
     ("folder-open", "Browse Icons", "folder-open.svg"),
+    ("add-circle", "Add", "add-circle.svg"),
+    ("close-circle", "Close", "close-circle.svg"),
     ("up", "Move Up", "alt-arrow-up.svg"),
     ("down", "Move Down", "alt-arrow-down.svg"),
     ("delete", "Delete", "trash-bin-minimalistic-2.svg"),

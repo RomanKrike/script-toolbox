@@ -155,7 +155,7 @@ def test_schema_18_state_button_becomes_toggle_button():
     assert migrated["version"] == 19
     assert item["kind"] == "toggle_button"
     assert item["state_source"] == "script"
-    assert item["value"] is False
+    assert "value" not in item
     assert "mode" not in item
     assert item["state_get_script"] == "state = True"
     assert item["bindings"][0]["handler"] == "state_toggle"

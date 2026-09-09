@@ -11,6 +11,7 @@ from .editor_polish_hooks import install_icon_only_button_centering
 from .editor_polish_hooks import install_icon_only_state_refresh
 from .editor_polish_hooks import install_runtime_icon_feedback
 from .editor_view_state import build_editor_view_state_class
+from .icon_clip_fix import install_icon_clip_fix
 from .icon_ui_hooks import build_icon_interface_editor_class
 from .icon_ui_hooks import install_property_icon_browse
 from .icon_ui_hooks import install_script_editor_icons
@@ -108,6 +109,7 @@ install_property_editor_scroll_frames()
 install_editor_search_ux(
     InterfaceEditor
 )
+install_icon_clip_fix()
 
 # Keep direct imports from script_toolbox.ui.interface_editor compatible while
 # the legacy Qt dialog is gradually decomposed across STEP 07/08.

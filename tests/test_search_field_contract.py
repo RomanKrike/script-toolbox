@@ -80,6 +80,24 @@ def test_interface_editor_uses_one_search_component_for_both_lists():
     assert "install_editor_search_ux" not in ui_source
 
 
+def test_editor_presentation_policies_are_applied_without_extra_wrappers():
+    source = _read(
+        "scripts/script_toolbox/ui/editor_search.py"
+    )
+    ui_source = _read(
+        "scripts/script_toolbox/ui/__init__.py"
+    )
+
+    assert "from .editor_scroll_frames import install_interface_editor_scroll_frames" in source
+    assert "from .property_pane_style import apply_property_pane_style" in source
+    assert "apply_property_pane_style(self)" in source
+    assert "install_interface_editor_scroll_frames(self)" in source
+
+    assert "build_scroll_frame_interface_editor_class" not in ui_source
+    assert "install_property_pane_style" not in ui_source
+    assert "PropertyEditorBase" not in ui_source
+
+
 def test_existing_filter_is_reapplied_after_tree_rebuild():
     source = _read(
         "scripts/script_toolbox/ui/editor_search.py"

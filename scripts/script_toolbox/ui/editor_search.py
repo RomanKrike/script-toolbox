@@ -3,6 +3,8 @@ from __future__ import print_function
 
 from ..compat import QtGui
 from ..pycompat import text_type
+from .editor_scroll_frames import install_interface_editor_scroll_frames
+from .property_pane_style import apply_property_pane_style
 from .search_field import SearchField
 
 
@@ -71,7 +73,7 @@ def _hide_legacy_palette_hint(parent):
 
 
 def build_search_interface_editor_class(base_class):
-    """Add the shared SearchField controls to the Interface Editor."""
+    """Add search and direct presentation policies to Interface Editor."""
 
     class InterfaceEditor(base_class):
 
@@ -80,6 +82,8 @@ def build_search_interface_editor_class(base_class):
                 self
             )
             self._install_search_fields()
+            apply_property_pane_style(self)
+            install_interface_editor_scroll_frames(self)
 
         def _install_search_fields(self):
             self.search_fields = {}

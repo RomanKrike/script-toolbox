@@ -63,6 +63,9 @@ def test_interface_editor_builds_shared_search_fields_directly():
     search_source = _read(
         "scripts/script_toolbox/ui/editor_search.py"
     )
+    base_style_source = _read(
+        "scripts/script_toolbox/style/stylesheet.py"
+    )
 
     assert "from .search_field import SearchField" in editor_source
     assert "self.search_fields = {}" in editor_source
@@ -104,6 +107,9 @@ def test_interface_editor_builds_shared_search_fields_directly():
     assert "_hide_legacy_palette_hint" not in search_source
     assert "findChildren(" not in search_source
     assert "SearchField(" not in search_source
+
+    assert "QLineEdit#PaletteFilter" not in base_style_source
+    assert "QLabel#HintText" not in base_style_source
 
 
 def test_editor_presentation_is_composed_without_search_wrapper():

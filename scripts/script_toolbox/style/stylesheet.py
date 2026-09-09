@@ -116,7 +116,7 @@ QScrollArea#PropertyScroll,
 QWidget#PropertyViewport,
 QWidget#PropertyHost,
 QWidget#PropertyEditor {
-    background-color: %(PANEL_BG)s;
+    background-color: %(WINDOW_BG)s;
     border: 0px;
 }
 
@@ -145,7 +145,7 @@ QFormLayout QLabel {
 }
 
 QStackedWidget#PropertyStack {
-    background-color: %(PANEL_BG)s;
+    background-color: %(WINDOW_BG)s;
     border: 0px;
 }
 
@@ -534,7 +534,7 @@ QScrollBar::handle:horizontal:hover {
 }
 
 QScrollBar:add-line:horizontal,
-QScrollBar:sub-line:horizontal {
+QScrollBar::sub-line:horizontal {
     width: 0px;
 }
 """ % vars(palette)

@@ -4,6 +4,7 @@ from __future__ import print_function
 from ...compat import QtCore
 from ...compat import QtGui
 from ...pycompat import text_type
+from ...style import palette
 from ...style.builtin_icons import builtin_icon
 from . import base as base_module
 from . import bindings as bindings_module
@@ -23,16 +24,16 @@ QToolButton#TriggerAddButton {
     padding: 0px;
 }
 QToolButton#TriggerCloseButton:hover {
-    background-color: #404040;
-    border: 1px solid #545454;
+    background-color: %(ICON_BUTTON_HOVER_BG)s;
+    border: 1px solid %(ICON_BUTTON_HOVER_BORDER)s;
     border-radius: 3px;
 }
 QToolButton#TriggerCloseButton:pressed {
-    background-color: #272727;
-    border: 1px solid #171717;
+    background-color: %(ICON_BUTTON_PRESSED_BG)s;
+    border: 1px solid %(BORDER_INSET)s;
     border-radius: 3px;
 }
-"""
+""" % vars(palette)
 
 
 class TriggerTabBindingPanel(_BaseBindingPanel):

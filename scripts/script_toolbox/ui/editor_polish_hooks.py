@@ -7,6 +7,7 @@ from ..compat import QtCore
 from ..compat import QtGui
 from ..model.items import safe_color
 from ..pycompat import text_type
+from ..style import palette
 from ..style.builtin_icons import builtin_icon
 
 
@@ -17,16 +18,16 @@ _ICON_FEEDBACK_MARKER = "_script_toolbox_runtime_icon_feedback"
 
 _EXISTING_FILTER_STYLE = """
 QLineEdit#ExistingParametersFilter {
-    background-color: #262626;
-    border: 1px solid #191919;
+    background-color: %(FILTER_BG)s;
+    border: 1px solid %(BORDER_SOFT)s;
     border-radius: 2px;
     min-height: 24px;
     padding: 2px 7px;
 }
 QLineEdit#ExistingParametersFilter:focus {
-    border: 1px solid #78604a;
+    border: 1px solid %(FOCUS_BORDER)s;
 }
-"""
+""" % palette.__dict__
 
 _TECH_ICON_STYLE = """
 QToolButton#EditorSearchIcon,
@@ -36,16 +37,16 @@ QToolButton#EditorSearchClear {
     padding: 0px;
 }
 QToolButton#EditorSearchClear:hover {
-    background-color: #404040;
+    background-color: %(ICON_BUTTON_HOVER_BG)s;
     border: 0px;
     border-radius: 3px;
 }
 QToolButton#EditorSearchClear:pressed {
-    background-color: #272727;
+    background-color: %(ICON_BUTTON_PRESSED_BG)s;
     border: 0px;
     border-radius: 3px;
 }
-"""
+""" % palette.__dict__
 
 _ICON_FEEDBACK_BASE = (
     "background-color: transparent;"
@@ -54,16 +55,22 @@ _ICON_FEEDBACK_BASE = (
     "padding: 3px;"
 )
 _ICON_FEEDBACK_HOVER = (
-    "background-color: #404040;"
-    "border: 1px solid #545454;"
+    "background-color: %s;"
+    "border: 1px solid %s;"
     "border-radius: 3px;"
     "padding: 3px;"
+) % (
+    palette.ICON_BUTTON_HOVER_BG,
+    palette.ICON_BUTTON_HOVER_BORDER
 )
 _ICON_FEEDBACK_PRESSED = (
-    "background-color: #272727;"
-    "border: 1px solid #171717;"
+    "background-color: %s;"
+    "border: 1px solid %s;"
     "border-radius: 3px;"
     "padding: 3px;"
+) % (
+    palette.ICON_BUTTON_PRESSED_BG,
+    palette.BORDER_INSET
 )
 
 _SEARCH_ICON_SIZE = 18

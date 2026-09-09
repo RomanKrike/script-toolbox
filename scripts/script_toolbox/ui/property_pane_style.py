@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
 from ..compat import QtGui
+from ..style.palette import WINDOW_BG
 
 
-PROPERTY_PANE_BACKGROUND = "#292929"
+PROPERTY_PANE_BACKGROUND = WINDOW_BG
 
 
 def _apply_background(widget):

@@ -15,7 +15,8 @@ from ..share import extract_share_code
 from ..share import fetch_shared_data
 from ..share import looks_like_share_code
 from ..share import share_data
-from ..style import toolbar_icon
+from .icon_button import ICON_BUTTON_COMPACT
+from .icon_button import create_icon_button
 
 
 class _ShareWorker(QtCore.QThread):
@@ -84,6 +85,10 @@ def build_share_interface_editor_class(base_class):
         def __init__(self, toolbox, parent=None):
             self._share_workers = []
             self._share_callbacks = {}
+            self.import_button = None
+            self.export_button = None
+            self.share_paste_button = None
+            self.share_button = None
             base_class.__init__(
                 self,
                 toolbox,
@@ -94,28 +99,33 @@ def build_share_interface_editor_class(base_class):
         # UI integration
         # --------------------------------------------------------------
 
+        def _icon_button(
+            self,
+            icon_name,
+            tooltip,
+            callback
+        ):
+            button = create_icon_button(
+                icon_name,
+                tooltip,
+                callback,
+                parent=self,
+                preset=ICON_BUTTON_COMPACT
+            )
+
+            if icon_name == "import":
+                self.import_button = button
+            elif icon_name == "export":
+                self.export_button = button
+
+            return button
+
         def build_ui(self):
             base_class.build_ui(self)
             self._install_share_buttons()
 
         def _install_share_buttons(self):
-            export_button = None
-
-            try:
-                candidates = self.findChildren(
-                    QtGui.QToolButton
-                )
-            except Exception:
-                candidates = []
-
-            for button in candidates:
-                try:
-                    if text_type(button.toolTip()) == "Export Toolbox Settings":
-                        export_button = button
-                        break
-                except Exception:
-                    pass
-
+            export_button = self.export_button
             if export_button is None:
                 return
 
@@ -126,51 +136,29 @@ def build_share_interface_editor_class(base_class):
             if layout is None:
                 return
 
-            paste_button = self._share_icon_button(
-                "paste",
+            self.share_paste_button = create_icon_button(
+                "cloud-download",
                 "Paste Shared Toolbox from Clipboard",
                 self.paste_shared_settings,
-                "SharePasteButton"
+                parent=self,
+                preset=ICON_BUTTON_COMPACT
             )
-            share_button = self._share_icon_button(
-                "copy",
+            self.share_button = create_icon_button(
+                "cloud-upload",
                 "Share Toolbox and Copy STB1 Code",
                 self.share_settings,
-                "ShareButton"
+                parent=self,
+                preset=ICON_BUTTON_COMPACT
             )
 
             layout.insertWidget(
                 index + 1,
-                paste_button
+                self.share_paste_button
             )
             layout.insertWidget(
                 index + 2,
-                share_button
+                self.share_button
             )
-
-        def _share_icon_button(
-            self,
-            icon_name,
-            tooltip,
-            callback,
-            share_role
-        ):
-            button = QtGui.QToolButton()
-            # Import/Export use the exact same technical-icon contract. Keep
-            # the share identity as a Python attribute instead of using the
-            # object name, otherwise the generic QToolButton chrome wins.
-            button.setObjectName("IconButton")
-            button._script_toolbox_share_role = share_role
-            button.setIcon(
-                toolbar_icon(icon_name)
-            )
-            button.setIconSize(
-                QtCore.QSize(16, 16)
-            )
-            button.setFixedSize(25, 25)
-            button.setToolTip(tooltip)
-            button.clicked.connect(callback)
-            return button
 
         def show_tree_context_menu(self, point):
             item = self.tree.itemAt(point)

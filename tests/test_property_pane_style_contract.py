@@ -35,6 +35,9 @@ def test_parameter_description_uses_shared_dialog_surface():
     editor_source = _read(
         "scripts/script_toolbox/ui/interface_editor.py"
     )
+    search_source = _read(
+        "scripts/script_toolbox/ui/editor_search.py"
+    )
     property_source = _read(
         "scripts/script_toolbox/ui/properties/base.py"
     )
@@ -63,12 +66,15 @@ def test_parameter_description_uses_shared_dialog_surface():
     assert "QtGui.QPalette.Window" in pane_source
     assert "QtGui.QPalette.Base" in pane_source
     assert 'pane.setObjectName("PropertyPane")' in pane_source
-    assert "install_property_pane_style(" in ui_source
+    assert "def apply_property_pane_style(editor):" in pane_source
+    assert "apply_property_pane_style(self)" in search_source
+    assert "install_property_pane_style(" not in ui_source
 
     assert "from ..style.palette import WINDOW_BG" in editor_source
     assert "QtGui.QColor(WINDOW_BG)" in editor_source
     assert "from ...style.palette import WINDOW_BG" in property_source
     assert "QtGui.QColor(WINDOW_BG)" in property_source
+    assert ".__init__ =" not in pane_source
 
 
 def test_runtime_field_surface_uses_shared_palette_tokens():

@@ -11,6 +11,10 @@ from ..core.editor_commands import build_document_delta
 from ..core.editor_document import EditorDocumentController
 from ..model import normalize_document
 from ..pycompat import text_type
+from .editor_search import apply_editor_presentation
+from .editor_search import filter_existing_parameters as filter_editor_structure
+from .editor_search import reapply_existing_filter
+from .share_hooks import install_share_controller
 
 
 _ADAPTER_MARKER = "_script_toolbox_document_controller_adapter"
@@ -178,6 +182,10 @@ def build_interface_editor_class(base_class):
             self._pending_document_selection = None
             self._next_tree_label = None
 
+            # Share must exist before the legacy constructor calls build_ui(),
+            # where _icon_button() resolves dynamically on this instance.
+            install_share_controller(self)
+
             base_class.__init__(
                 self,
                 toolbox,
@@ -199,6 +207,59 @@ def build_interface_editor_class(base_class):
                 del self._history_current
             except Exception:
                 pass
+
+        # --------------------------------------------------------------
+        # Direct UI feature composition
+        # --------------------------------------------------------------
+
+        def build_ui(self):
+            base_class.build_ui(
+                self
+            )
+            apply_editor_presentation(self)
+
+        def _icon_button(
+            self,
+            icon_name,
+            tooltip,
+            callback
+        ):
+            return self.share_controller.icon_button(
+                icon_name,
+                tooltip,
+                callback
+            )
+
+        def show_tree_context_menu(self, point):
+            return self.share_controller.show_tree_context_menu(
+                point
+            )
+
+        def share_settings(self):
+            return self.share_controller.share_settings()
+
+        def paste_shared_settings(self):
+            return self.share_controller.paste_shared_settings()
+
+        def share_selected(self, target_item=None):
+            return self.share_controller.share_selected(
+                target_item
+            )
+
+        def paste_shared_selected(self):
+            return self.share_controller.paste_shared_selected()
+
+        def filter_existing_parameters(self, value):
+            return filter_editor_structure(
+                self,
+                value
+            )
+
+        def populate_tree(self):
+            base_class.populate_tree(
+                self
+            )
+            reapply_existing_filter(self)
 
         # --------------------------------------------------------------
         # Document ownership compatibility

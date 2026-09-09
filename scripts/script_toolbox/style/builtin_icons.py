@@ -29,16 +29,19 @@ _ICON_ENTRIES = (
     ("run", "Run", "play.svg"),
     ("import", "Import", "download-minimalistic.svg"),
     ("export", "Export", "upload-minimalistic.svg"),
+    ("update", "Update", "download-minimalistic.svg"),
+    ("cloud-download", "Cloud Download", "cloud-download.svg"),
+    ("cloud-upload", "Cloud Upload", "cloud-upload.svg"),
+    ("folder-open", "Browse Icons", "folder-open.svg"),
     ("up", "Move Up", "alt-arrow-up.svg"),
     ("down", "Move Down", "alt-arrow-down.svg"),
     ("delete", "Delete", "trash-bin-minimalistic-2.svg"),
     ("clear", "Clear", "broom.svg"),
     ("reload", "Reload", "restart.svg"),
-    ("gear", "Settings", "settings-minimalistic.svg"),
+    ("gear", "Settings", "settings.svg"),
 )
 
 _ALIASES = {
-    "update": "reload",
     "settings": "gear",
 }
 
@@ -63,6 +66,10 @@ def _register_search_path():
 
 
 _register_search_path()
+
+
+def solar_icon_directory():
+    return _RESOURCE_ROOT
 
 
 def builtin_icon_entries():
@@ -111,4 +118,5 @@ __all__ = [
     "builtin_icon_entries",
     "builtin_icon_id_from_path",
     "builtin_icon_resource",
+    "solar_icon_directory",
 ]

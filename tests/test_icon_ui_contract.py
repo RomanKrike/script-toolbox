@@ -97,13 +97,21 @@ def test_share_actions_use_stable_references_and_final_icons():
     share_source = _read(
         "scripts/script_toolbox/ui/share_hooks.py"
     )
+    presentation_source = _read(
+        "scripts/script_toolbox/ui/editor_search.py"
+    )
+    ui_source = _read(
+        "scripts/script_toolbox/ui/__init__.py"
+    )
 
+    assert "class ShareController(object):" in share_source
+    assert "def install_share_controller(editor):" in share_source
     assert "create_icon_button(" in share_source
-    assert "self.export_button" in share_source
-    assert "self.share_paste_button" in share_source
-    assert "self.share_button" in share_source
-    assert "self.share_action_widget" in share_source
-    assert "self.share_action_layout" in share_source
+    assert "editor.export_button" in share_source
+    assert "editor.share_paste_button" in share_source
+    assert "editor.share_button" in share_source
+    assert "editor.share_action_widget" in share_source
+    assert "editor.share_action_layout" in share_source
     assert 'cluster.setObjectName("ShareActionCluster")' in share_source
     assert '"cloud-download"' in share_source
     assert '"cloud-upload"' in share_source
@@ -114,6 +122,13 @@ def test_share_actions_use_stable_references_and_final_icons():
     assert "self.layout()" not in share_source
     assert "findChildren(" not in share_source
     assert "_install_share_buttons" not in share_source
+
+    assert "from .share_hooks import install_share_controller" in presentation_source
+    assert "install_share_controller(self)" in presentation_source
+    assert "self.share_controller.icon_button(" in presentation_source
+    assert "self.share_controller.show_tree_context_menu(" in presentation_source
+    assert "build_share_interface_editor_class(" not in ui_source
+    assert "from .share_hooks import build_share_interface_editor_class" not in ui_source
 
 
 def test_script_editor_creates_final_clear_output_button_directly():

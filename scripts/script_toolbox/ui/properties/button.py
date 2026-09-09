@@ -7,6 +7,7 @@ from ...model.items import clamp
 from ...model.items import safe_color
 from ...pycompat import text_type
 from ..language_script_editor import LanguageScriptEditor
+from ..layout_helpers import configure_property_group_form
 from .base import PropertyEditorBase
 
 
@@ -50,12 +51,16 @@ class ButtonPropertyEditor(PropertyEditorBase):
         self.form.addRow("", self.icon_only)
 
         self.action_group = QtGui.QGroupBox("Action Appearance")
-        action_form = QtGui.QFormLayout(self.action_group)
+        action_form = configure_property_group_form(
+            QtGui.QFormLayout(self.action_group)
+        )
         action_form.addRow("Button Color", self.color_button)
         self.root_layout.addWidget(self.action_group)
 
         self.state_group = QtGui.QGroupBox("State Appearance")
-        state_form = QtGui.QFormLayout(self.state_group)
+        state_form = configure_property_group_form(
+            QtGui.QFormLayout(self.state_group)
+        )
         state_form.addRow("ON Label", self.state_on_label)
         state_form.addRow("OFF Label", self.state_off_label)
         state_form.addRow("ON Color", self.state_on_color_button)

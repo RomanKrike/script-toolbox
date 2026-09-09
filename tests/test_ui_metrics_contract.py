@@ -179,3 +179,79 @@ def test_trigger_panel_layouts_use_shared_metrics():
     assert "root.setContentsMargins(5, 5, 5, 5)" not in bindings
     assert "root.setSpacing(4)" not in bindings
     assert "root.setSpacing(3)" not in bindings
+
+
+def test_base_stylesheet_uses_shared_control_geometry_metrics():
+    metrics = _read(
+        "scripts/script_toolbox/style/metrics.py"
+    )
+    stylesheet = _read(
+        "scripts/script_toolbox/style/stylesheet.py"
+    )
+
+    for definition in (
+        "BORDER_RADIUS_CONTROL = 2",
+        "BORDER_RADIUS_PANEL = 3",
+        "BORDER_RADIUS_CARD = 4",
+        "BUTTON_MIN_HEIGHT = 20",
+        "INPUT_MIN_HEIGHT = 22",
+        "LIST_ITEM_MIN_HEIGHT = 20",
+        "TAB_PADDING_HORIZONTAL = 11",
+        "SCROLLBAR_EXTENT = 11",
+        "SCROLLBAR_HANDLE_MINIMUM = 24",
+    ):
+        assert definition in metrics
+
+    assert "from . import metrics" in stylesheet
+    assert "_STYLE_VALUES.update(vars(metrics))" in stylesheet
+    assert "min-height: %(BUTTON_MIN_HEIGHT)spx;" in stylesheet
+    assert "min-height: %(INPUT_MIN_HEIGHT)spx;" in stylesheet
+    assert "min-height: %(LIST_ITEM_MIN_HEIGHT)spx;" in stylesheet
+    assert "padding: %(TAB_PADDING_VERTICAL)spx %(TAB_PADDING_HORIZONTAL)spx;" in stylesheet
+    assert "width: %(SCROLLBAR_EXTENT)spx;" in stylesheet
+    assert "height: %(SCROLLBAR_EXTENT)spx;" in stylesheet
+
+
+def test_search_and_icon_buttons_use_shared_component_geometry_metrics():
+    metrics = _read(
+        "scripts/script_toolbox/style/metrics.py"
+    )
+    components = _read(
+        "scripts/script_toolbox/style/components.py"
+    )
+    search = _read(
+        "scripts/script_toolbox/ui/search_field.py"
+    )
+    icon_button = _read(
+        "scripts/script_toolbox/ui/icon_button.py"
+    )
+
+    for definition in (
+        "ICON_BUTTON_COMPACT_ICON_SIZE = 16",
+        "ICON_BUTTON_COMPACT_SIZE = 25",
+        "ICON_BUTTON_TOOLBAR_ICON_SIZE = 18",
+        "ICON_BUTTON_TOOLBAR_SIZE = 26",
+        "ICON_BUTTON_HEADER_SIZE = 28",
+        "SEARCH_FIELD_MIN_HEIGHT = 24",
+        "SEARCH_ICON_SIZE = 18",
+        "SEARCH_CLEAR_SIZE = 20",
+        "SEARCH_TEXT_MARGIN_LEFT = 26",
+        "SEARCH_TEXT_MARGIN_RIGHT = 30",
+    ):
+        assert definition in metrics
+
+    assert "_STYLE_VALUES.update(vars(metrics))" in components
+    assert "min-height: %(SEARCH_FIELD_MIN_HEIGHT)spx;" in components
+    assert "SEARCH_ICON_GLYPH_SIZE" in search
+    assert "SEARCH_CLEAR_GLYPH_SIZE" in search
+    assert "SEARCH_TEXT_MARGIN_LEFT" in search
+    assert "SEARCH_TEXT_MARGIN_RIGHT" in search
+    assert "_SEARCH_ICON_SIZE = 18" not in search
+    assert "_CLEAR_BUTTON_SIZE = 20" not in search
+
+    assert "ICON_BUTTON_COMPACT_ICON_SIZE" in icon_button
+    assert "ICON_BUTTON_TOOLBAR_ICON_SIZE" in icon_button
+    assert "ICON_BUTTON_HEADER_ICON_SIZE" in icon_button
+    assert "ICON_BUTTON_COMPACT: (16, 25)" not in icon_button
+    assert "ICON_BUTTON_TOOLBAR: (18, 26)" not in icon_button
+    assert "ICON_BUTTON_HEADER: (18, 28)" not in icon_button

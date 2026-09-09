@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 
+from . import metrics
 from . import palette
+
+
+_STYLE_VALUES = dict(vars(palette))
+_STYLE_VALUES.update(vars(metrics))
 
 
 STYLE = """
@@ -39,7 +44,7 @@ QFrame#RuntimeFolder {
 QFrame#RuntimeFolder[folderType="collapsible"] {
     background-color: %(FOLDER_CARD_BG)s;
     border: 1px solid %(SEPARATOR)s;
-    border-radius: 4px;
+    border-radius: %(BORDER_RADIUS_CARD)spx;
 }
 
 QFrame#RuntimeFolder[folderType="collapsible"][nested="true"] {
@@ -52,7 +57,7 @@ QFrame#RuntimeFolder[folderType="collapsible"][nested="true"] {
 QFrame#RuntimeFolder[folderType="simple"][nested="true"] {
     background-color: %(FOLDER_NESTED_BG)s;
     border: 1px solid %(BORDER_FOLDER_NESTED)s;
-    border-radius: 4px;
+    border-radius: %(BORDER_RADIUS_CARD)spx;
 }
 
 QWidget#RuntimeFolderContent {
@@ -102,14 +107,14 @@ QLabel#DialogHeading {
     font-weight: bold;
     font-size: 12px;
     border: 1px solid %(BORDER_INSET)s;
-    border-radius: 3px;
+    border-radius: %(BORDER_RADIUS_PANEL)spx;
     padding: 7px 9px;
 }
 
 QWidget#EditorPane {
     background-color: %(PANEL_BG)s;
     border: 1px solid %(BORDER_PANEL)s;
-    border-radius: 3px;
+    border-radius: %(BORDER_RADIUS_PANEL)spx;
 }
 
 QScrollArea#PropertyScroll,
@@ -149,7 +154,7 @@ QPushButton#RuntimeFolderHeader {
     background-color: %(FOLDER_HEADER_BG)s;
     color: %(TEXT_HEADING)s;
     border: 0px;
-    border-radius: 3px;
+    border-radius: %(BORDER_RADIUS_PANEL)spx;
     min-height: 18px;
     padding: 2px 7px;
     font-weight: bold;
@@ -196,7 +201,7 @@ QFrame#SimpleSectionHeader {
 QFrame#RuntimeFolder[nested="true"] QFrame#SimpleSectionHeader {
     background-color: %(SIMPLE_SECTION_NESTED_BG)s;
     border: 0px;
-    border-radius: 2px;
+    border-radius: %(BORDER_RADIUS_CONTROL)spx;
 }
 
 QLabel#SectionTitle {
@@ -233,12 +238,12 @@ QToolButton {
     background-color: %(BUTTON_BG)s;
     color: %(TEXT_BUTTON)s;
     border: 1px solid %(BORDER_PANEL)s;
-    border-radius: 3px;
-    padding: 4px 8px;
+    border-radius: %(BORDER_RADIUS_PANEL)spx;
+    padding: %(BUTTON_PADDING_VERTICAL)spx %(BUTTON_PADDING_HORIZONTAL)spx;
 }
 
 QPushButton {
-    min-height: 20px;
+    min-height: %(BUTTON_MIN_HEIGHT)spx;
 }
 
 QPushButton:hover,
@@ -280,7 +285,7 @@ QToolButton#UpdateButton {
     background-color: %(UPDATE_BG)s;
     color: %(TEXT_ON_ACCENT)s;
     border: 1px solid %(UPDATE_BORDER)s;
-    border-radius: 3px;
+    border-radius: %(BORDER_RADIUS_PANEL)spx;
     padding: 3px 7px;
     font-weight: bold;
 }
@@ -329,7 +334,7 @@ QPlainTextEdit {
     background-color: %(CONTROL_BG)s;
     color: %(TEXT_INPUT)s;
     border: 1px solid %(BORDER_DARK)s;
-    border-radius: 2px;
+    border-radius: %(BORDER_RADIUS_CONTROL)spx;
     selection-background-color: %(INPUT_SELECTION_BG)s;
     selection-color: %(TEXT_ON_ACCENT)s;
 }
@@ -338,8 +343,8 @@ QLineEdit,
 QComboBox,
 QSpinBox,
 QDoubleSpinBox {
-    min-height: 22px;
-    padding: 2px 5px;
+    min-height: %(INPUT_MIN_HEIGHT)spx;
+    padding: %(INPUT_PADDING_VERTICAL)spx %(INPUT_PADDING_HORIZONTAL)spx;
 }
 
 QLineEdit:focus,
@@ -377,7 +382,7 @@ QTreeWidget {
     background-color: %(LIST_BG)s;
     color: %(TEXT_LIST)s;
     border: 1px solid %(BORDER_PRESSED)s;
-    border-radius: 2px;
+    border-radius: %(BORDER_RADIUS_CONTROL)spx;
     outline: 0px;
     alternate-background-color: %(LIST_ALT_BG)s;
 }
@@ -390,8 +395,8 @@ QTreeWidget#ParameterPalette {
 
 QListWidget::item,
 QTreeWidget::item {
-    min-height: 20px;
-    padding: 3px 4px;
+    min-height: %(LIST_ITEM_MIN_HEIGHT)spx;
+    padding: %(LIST_ITEM_PADDING_VERTICAL)spx %(LIST_ITEM_PADDING_HORIZONTAL)spx;
     border: 0px;
 }
 
@@ -430,8 +435,8 @@ QTabBar::tab {
     color: %(TEXT_TAB)s;
     border: 1px solid %(BORDER_TAB)s;
     border-bottom: 0px;
-    padding: 5px 11px;
-    margin-right: 1px;
+    padding: %(TAB_PADDING_VERTICAL)spx %(TAB_PADDING_HORIZONTAL)spx;
+    margin-right: %(TAB_MARGIN_RIGHT)spx;
 }
 
 QTabBar::tab:hover {
@@ -451,7 +456,7 @@ QTabBar::tab:selected {
 QGroupBox {
     background-color: transparent;
     border: 1px solid %(BORDER_GROUP)s;
-    border-radius: 3px;
+    border-radius: %(BORDER_RADIUS_PANEL)spx;
     margin-top: 10px;
     padding-top: 8px;
 }
@@ -482,15 +487,15 @@ QScrollArea#ToolboxScroll {
 
 QScrollBar:vertical {
     background-color: %(LIST_BG)s;
-    width: 11px;
+    width: %(SCROLLBAR_EXTENT)spx;
     margin: 0px;
 }
 
 QScrollBar::handle:vertical {
     background-color: %(SCROLL_HANDLE_BG)s;
-    min-height: 24px;
-    border-radius: 4px;
-    margin: 2px;
+    min-height: %(SCROLLBAR_HANDLE_MINIMUM)spx;
+    border-radius: %(BORDER_RADIUS_CARD)spx;
+    margin: %(SCROLLBAR_HANDLE_MARGIN)spx;
 }
 
 QScrollBar::handle:vertical:hover {
@@ -504,15 +509,15 @@ QScrollBar:sub-line:vertical {
 
 QScrollBar:horizontal {
     background-color: %(LIST_BG)s;
-    height: 11px;
+    height: %(SCROLLBAR_EXTENT)spx;
     margin: 0px;
 }
 
 QScrollBar::handle:horizontal {
     background-color: %(SCROLL_HANDLE_BG)s;
-    min-width: 24px;
-    border-radius: 4px;
-    margin: 2px;
+    min-width: %(SCROLLBAR_HANDLE_MINIMUM)spx;
+    border-radius: %(BORDER_RADIUS_CARD)spx;
+    margin: %(SCROLLBAR_HANDLE_MARGIN)spx;
 }
 
 QScrollBar::handle:horizontal:hover {
@@ -523,6 +528,6 @@ QScrollBar:add-line:horizontal,
 QScrollBar::sub-line:horizontal {
     width: 0px;
 }
-""" % vars(palette)
+""" % _STYLE_VALUES
 
 __all__ = ["STYLE"]

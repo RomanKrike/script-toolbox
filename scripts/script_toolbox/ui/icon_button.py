@@ -4,6 +4,12 @@ from __future__ import print_function
 from ..compat import QtCore
 from ..compat import QtGui
 from ..style import toolbar_icon
+from ..style.metrics import ICON_BUTTON_COMPACT_ICON_SIZE
+from ..style.metrics import ICON_BUTTON_COMPACT_SIZE
+from ..style.metrics import ICON_BUTTON_HEADER_ICON_SIZE
+from ..style.metrics import ICON_BUTTON_HEADER_SIZE
+from ..style.metrics import ICON_BUTTON_TOOLBAR_ICON_SIZE
+from ..style.metrics import ICON_BUTTON_TOOLBAR_SIZE
 
 
 ICON_BUTTON_COMPACT = "compact"
@@ -11,9 +17,18 @@ ICON_BUTTON_TOOLBAR = "toolbar"
 ICON_BUTTON_HEADER = "header"
 
 _ICON_BUTTON_PRESETS = {
-    ICON_BUTTON_COMPACT: (16, 25),
-    ICON_BUTTON_TOOLBAR: (18, 26),
-    ICON_BUTTON_HEADER: (18, 28),
+    ICON_BUTTON_COMPACT: (
+        ICON_BUTTON_COMPACT_ICON_SIZE,
+        ICON_BUTTON_COMPACT_SIZE
+    ),
+    ICON_BUTTON_TOOLBAR: (
+        ICON_BUTTON_TOOLBAR_ICON_SIZE,
+        ICON_BUTTON_TOOLBAR_SIZE
+    ),
+    ICON_BUTTON_HEADER: (
+        ICON_BUTTON_HEADER_ICON_SIZE,
+        ICON_BUTTON_HEADER_SIZE
+    ),
 }
 
 

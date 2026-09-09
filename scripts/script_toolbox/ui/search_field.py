@@ -4,11 +4,15 @@ from __future__ import print_function
 from ..compat import QtGui
 from ..pycompat import text_type
 from ..style.builtin_icons import builtin_icon
+from ..style.metrics import SEARCH_CLEAR_GLYPH_SIZE
+from ..style.metrics import SEARCH_CLEAR_RIGHT_OFFSET
+from ..style.metrics import SEARCH_CLEAR_SIZE
+from ..style.metrics import SEARCH_EDGE_OFFSET
+from ..style.metrics import SEARCH_ICON_GLYPH_SIZE
+from ..style.metrics import SEARCH_ICON_SIZE
+from ..style.metrics import SEARCH_TEXT_MARGIN_LEFT
+from ..style.metrics import SEARCH_TEXT_MARGIN_RIGHT
 from .painted_icon_button import PaintedIconButton
-
-
-_SEARCH_ICON_SIZE = 18
-_CLEAR_BUTTON_SIZE = 20
 
 
 class SearchField(QtGui.QLineEdit):
@@ -39,7 +43,7 @@ class SearchField(QtGui.QLineEdit):
         # while keeping the search control self-contained.
         self.search_icon = PaintedIconButton(
             builtin_icon("find"),
-            12,
+            SEARCH_ICON_GLYPH_SIZE,
             parent=self,
             interactive=False,
             hover_feedback=False
@@ -48,8 +52,8 @@ class SearchField(QtGui.QLineEdit):
             "SearchFieldIcon"
         )
         self.search_icon.setFixedSize(
-            _SEARCH_ICON_SIZE,
-            _SEARCH_ICON_SIZE
+            SEARCH_ICON_SIZE,
+            SEARCH_ICON_SIZE
         )
         self.search_icon.setToolTip(
             "Search"
@@ -57,7 +61,7 @@ class SearchField(QtGui.QLineEdit):
 
         self.clear_button = PaintedIconButton(
             builtin_icon("close"),
-            10,
+            SEARCH_CLEAR_GLYPH_SIZE,
             parent=self,
             interactive=True,
             hover_feedback=True
@@ -66,8 +70,8 @@ class SearchField(QtGui.QLineEdit):
             "SearchFieldClear"
         )
         self.clear_button.setFixedSize(
-            _CLEAR_BUTTON_SIZE,
-            _CLEAR_BUTTON_SIZE
+            SEARCH_CLEAR_SIZE,
+            SEARCH_CLEAR_SIZE
         )
         self.clear_button.setToolTip(
             "Clear search"
@@ -78,9 +82,9 @@ class SearchField(QtGui.QLineEdit):
 
         try:
             self.setTextMargins(
-                26,
+                SEARCH_TEXT_MARGIN_LEFT,
                 0,
-                30,
+                SEARCH_TEXT_MARGIN_RIGHT,
                 0
             )
         except Exception:
@@ -96,21 +100,21 @@ class SearchField(QtGui.QLineEdit):
     def _position_buttons(self):
         search_top = max(
             0,
-            (self.height() - _SEARCH_ICON_SIZE) // 2
+            (self.height() - SEARCH_ICON_SIZE) // 2
         )
         clear_top = max(
             0,
-            (self.height() - _CLEAR_BUTTON_SIZE) // 2
+            (self.height() - SEARCH_CLEAR_SIZE) // 2
         )
 
         self.search_icon.move(
-            5,
+            SEARCH_EDGE_OFFSET,
             search_top
         )
         self.clear_button.move(
             max(
-                5,
-                self.width() - _CLEAR_BUTTON_SIZE - 7
+                SEARCH_EDGE_OFFSET,
+                self.width() - SEARCH_CLEAR_SIZE - SEARCH_CLEAR_RIGHT_OFFSET
             ),
             clear_top
         )

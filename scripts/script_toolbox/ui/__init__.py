@@ -114,9 +114,14 @@ install_script_editor_scroll_frames(
     ScriptEditorWidget
 )
 
+# Runtime main-window hooks must be installed on the shared base class.
+# bootstrap.py instantiates debounced_main_window.ScriptToolbox, which inherits
+# from this base instead of the wrapper exported from script_toolbox.ui.
+# Installing only on the wrapper leaves the live runtime without methods such
+# as dispatch_binding_event.
 install_controls_v2_hooks(
     _runtime_module,
-    ScriptToolbox
+    _BaseScriptToolbox
 )
 
 # Build the icon-only renderer before event bindings wrap the registry. This
@@ -127,13 +132,13 @@ install_icon_only_button_centering(
 install_event_binding_hooks(
     get_runtime_renderer_registry(),
     _runtime_renderers_module,
-    ScriptToolbox
+    _BaseScriptToolbox
 )
 install_runtime_icon_feedback(
     get_runtime_renderer_registry()
 )
 install_icon_only_state_refresh(
-    ScriptToolbox
+    _BaseScriptToolbox
 )
 
 __all__ = [

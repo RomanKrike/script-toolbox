@@ -41,7 +41,16 @@ class StringPropertyEditor(ValuePropertyEditorBase):
         item["value"] = text_type(self.value.text())
 
 
-class IntegerPropertyEditor(ValuePropertyEditorBase):
+class NumericPropertyEditorBase(ValuePropertyEditorBase):
+
+    SPINBOX_CLASS = None
+    VALUE_DEFAULT = None
+    MINIMUM_DEFAULT = None
+    MAXIMUM_DEFAULT = None
+    STEP_DEFAULT = None
+    STEP_MINIMUM = None
+    DISPLAY_DECIMALS = None
+    DECIMALS_DEFAULT = None
 
     def __init__(self, toolbox=None, parent=None):
         ValuePropertyEditorBase.__init__(self, toolbox, parent)
@@ -52,9 +61,8 @@ class IntegerPropertyEditor(ValuePropertyEditorBase):
         values_layout = QtGui.QHBoxLayout(self.values_widget)
         configure_inline_layout(values_layout)
         self.values = []
-        for index in range(4):
-            widget = QtGui.QSpinBox()
-            widget.setRange(-1000000, 1000000)
+        for unused_index in range(4):
+            widget = self._create_spin_box()
             self.values.append(widget)
             values_layout.addWidget(widget, 1)
 
@@ -64,17 +72,13 @@ class IntegerPropertyEditor(ValuePropertyEditorBase):
         except Exception:
             pass
         self.show_slider = QtGui.QCheckBox("Show Slider")
-        self.minimum = QtGui.QSpinBox()
-        self.maximum = QtGui.QSpinBox()
-        self.step = QtGui.QSpinBox()
+        self.minimum = self._create_spin_box()
+        self.maximum = self._create_spin_box()
+        self.step = self._create_spin_box(step=True)
 
-        for widget in (
-            self.minimum,
-            self.maximum
-        ):
-            widget.setRange(-1000000, 1000000)
-
-        self.step.setRange(1, 1000000)
+        if self.DECIMALS_DEFAULT is not None:
+            self.decimals = QtGui.QSpinBox()
+            self.decimals.setRange(0, 8)
 
         self.form.addRow("Size", self.size)
         self.form.addRow("Value", self.values_widget)
@@ -83,6 +87,8 @@ class IntegerPropertyEditor(ValuePropertyEditorBase):
         self.form.addRow("Minimum", self.minimum)
         self.form.addRow("Maximum", self.maximum)
         self.form.addRow("Step", self.step)
+        if self.DECIMALS_DEFAULT is not None:
+            self.form.addRow("Decimals", self.decimals)
         self.add_stretch()
 
         self.size.currentIndexChanged.connect(self._size_changed)
@@ -93,134 +99,28 @@ class IntegerPropertyEditor(ValuePropertyEditorBase):
         self.minimum.valueChanged.connect(self._control_changed)
         self.maximum.valueChanged.connect(self._control_changed)
         self.step.valueChanged.connect(self._control_changed)
+        if self.DECIMALS_DEFAULT is not None:
+            self.decimals.valueChanged.connect(self._decimals_changed)
 
-    def current_size(self):
-        return self.size.currentIndex() + 1
-
-    def _size_changed(self, *args):
-        self._refresh_size()
-        self._control_changed()
-
-    def _refresh_size(self):
-        size = self.current_size()
-        for index, widget in enumerate(self.values):
-            widget.setVisible(index < size)
-        self.component_labels.setEnabled(size > 1)
-
-    def load_specific(self, item):
-        size = safe_numeric_size(item.get("size", 1))
-        self.minimum.setValue(int(item.get("min", -1000000)))
-        self.maximum.setValue(int(item.get("max", 1000000)))
-        self.step.setValue(max(1, int(item.get("step", 1))))
-        self.size.setCurrentIndex(size - 1)
-        values = _value_list(item.get("value", 0), size, 0)
-        for index, widget in enumerate(self.values):
-            widget.setValue(
-                int(values[index]) if index < size else 0
+    def _create_spin_box(self, step=False):
+        widget = self.SPINBOX_CLASS()
+        if step:
+            widget.setRange(
+                self.STEP_MINIMUM,
+                self.MAXIMUM_DEFAULT
             )
-        self.component_labels.setText(
-            ", ".join(
-                safe_component_labels(
-                    item.get("component_labels"),
-                    size
-                )
+        else:
+            widget.setRange(
+                self.MINIMUM_DEFAULT,
+                self.MAXIMUM_DEFAULT
             )
-        )
-        self.show_slider.setChecked(
-            bool(item.get("show_slider", False))
-        )
-        self._refresh_size()
 
-    def write_specific(self, item):
-        minimum = int(self.minimum.value())
-        maximum = int(self.maximum.value())
+        if self.DISPLAY_DECIMALS is not None:
+            widget.setDecimals(self.DISPLAY_DECIMALS)
+        return widget
 
-        if minimum > maximum:
-            minimum, maximum = maximum, minimum
-
-        size = self.current_size()
-        values = [
-            clamp(
-                int(self.values[index].value()),
-                minimum,
-                maximum
-            )
-            for index in range(size)
-        ]
-
-        item["min"] = minimum
-        item["max"] = maximum
-        item["step"] = max(1, int(self.step.value()))
-        item["size"] = size
-        item["component_labels"] = safe_component_labels(
-            text_type(self.component_labels.text()),
-            size
-        )
-        item["show_slider"] = bool(
-            self.show_slider.isChecked()
-        )
-        item["value"] = values[0] if size == 1 else values
-
-
-class FloatPropertyEditor(ValuePropertyEditorBase):
-
-    def __init__(self, toolbox=None, parent=None):
-        ValuePropertyEditorBase.__init__(self, toolbox, parent)
-
-        self.size = QtGui.QComboBox()
-        self.size.addItems(["1", "2", "3", "4"])
-        self.values_widget = QtGui.QWidget()
-        values_layout = QtGui.QHBoxLayout(self.values_widget)
-        configure_inline_layout(values_layout)
-        self.values = []
-        for index in range(4):
-            widget = QtGui.QDoubleSpinBox()
-            widget.setRange(-1000000.0, 1000000.0)
-            widget.setDecimals(6)
-            self.values.append(widget)
-            values_layout.addWidget(widget, 1)
-
-        self.component_labels = QtGui.QLineEdit()
-        try:
-            self.component_labels.setPlaceholderText("X, Y, Z, W")
-        except Exception:
-            pass
-        self.show_slider = QtGui.QCheckBox("Show Slider")
-        self.minimum = QtGui.QDoubleSpinBox()
-        self.maximum = QtGui.QDoubleSpinBox()
-        self.step = QtGui.QDoubleSpinBox()
-        self.decimals = QtGui.QSpinBox()
-
-        for widget in (
-            self.minimum,
-            self.maximum
-        ):
-            widget.setRange(-1000000.0, 1000000.0)
-            widget.setDecimals(6)
-
-        self.step.setRange(0.000001, 1000000.0)
-        self.step.setDecimals(6)
-        self.decimals.setRange(0, 8)
-
-        self.form.addRow("Size", self.size)
-        self.form.addRow("Value", self.values_widget)
-        self.form.addRow("Component Labels", self.component_labels)
-        self.form.addRow("", self.show_slider)
-        self.form.addRow("Minimum", self.minimum)
-        self.form.addRow("Maximum", self.maximum)
-        self.form.addRow("Step", self.step)
-        self.form.addRow("Decimals", self.decimals)
-        self.add_stretch()
-
-        self.size.currentIndexChanged.connect(self._size_changed)
-        for widget in self.values:
-            widget.valueChanged.connect(self._control_changed)
-        self.component_labels.textEdited.connect(self._control_changed)
-        self.show_slider.toggled.connect(self._control_changed)
-        self.minimum.valueChanged.connect(self._control_changed)
-        self.maximum.valueChanged.connect(self._control_changed)
-        self.step.valueChanged.connect(self._control_changed)
-        self.decimals.valueChanged.connect(self._decimals_changed)
+    def _coerce(self, value):
+        raise NotImplementedError
 
     def current_size(self):
         return self.size.currentIndex() + 1
@@ -240,6 +140,9 @@ class FloatPropertyEditor(ValuePropertyEditorBase):
         self.component_labels.setEnabled(size > 1)
 
     def _refresh_decimals(self):
+        if self.DECIMALS_DEFAULT is None:
+            return
+
         decimals = int(self.decimals.value())
         for widget in self.values + [
             self.minimum,
@@ -249,18 +152,47 @@ class FloatPropertyEditor(ValuePropertyEditorBase):
             widget.setDecimals(decimals)
 
     def load_specific(self, item):
-        decimals = int(item.get("decimals", 3))
+        if self.DECIMALS_DEFAULT is not None:
+            self.decimals.setValue(
+                int(
+                    item.get(
+                        "decimals",
+                        self.DECIMALS_DEFAULT
+                    )
+                )
+            )
+            self._refresh_decimals()
+
         size = safe_numeric_size(item.get("size", 1))
-        self.decimals.setValue(decimals)
-        self._refresh_decimals()
-        self.minimum.setValue(float(item.get("min", -1000000.0)))
-        self.maximum.setValue(float(item.get("max", 1000000.0)))
-        self.step.setValue(max(0.000001, float(item.get("step", 0.1))))
+        self.minimum.setValue(
+            self._coerce(
+                item.get("min", self.MINIMUM_DEFAULT)
+            )
+        )
+        self.maximum.setValue(
+            self._coerce(
+                item.get("max", self.MAXIMUM_DEFAULT)
+            )
+        )
+        self.step.setValue(
+            max(
+                self.STEP_MINIMUM,
+                self._coerce(
+                    item.get("step", self.STEP_DEFAULT)
+                )
+            )
+        )
         self.size.setCurrentIndex(size - 1)
-        values = _value_list(item.get("value", 0.0), size, 0.0)
+        values = _value_list(
+            item.get("value", self.VALUE_DEFAULT),
+            size,
+            self.VALUE_DEFAULT
+        )
         for index, widget in enumerate(self.values):
             widget.setValue(
-                float(values[index]) if index < size else 0.0
+                self._coerce(values[index])
+                if index < size
+                else self.VALUE_DEFAULT
             )
         self.component_labels.setText(
             ", ".join(
@@ -276,10 +208,13 @@ class FloatPropertyEditor(ValuePropertyEditorBase):
         self._refresh_size()
 
     def write_specific(self, item):
-        decimals = int(self.decimals.value())
-        self._refresh_decimals()
-        minimum = float(self.minimum.value())
-        maximum = float(self.maximum.value())
+        decimals = None
+        if self.DECIMALS_DEFAULT is not None:
+            decimals = int(self.decimals.value())
+            self._refresh_decimals()
+
+        minimum = self._coerce(self.minimum.value())
+        maximum = self._coerce(self.maximum.value())
 
         if minimum > maximum:
             minimum, maximum = maximum, minimum
@@ -287,7 +222,7 @@ class FloatPropertyEditor(ValuePropertyEditorBase):
         size = self.current_size()
         values = [
             clamp(
-                float(self.values[index].value()),
+                self._coerce(self.values[index].value()),
                 minimum,
                 maximum
             )
@@ -297,10 +232,11 @@ class FloatPropertyEditor(ValuePropertyEditorBase):
         item["min"] = minimum
         item["max"] = maximum
         item["step"] = max(
-            0.000001,
-            float(self.step.value())
+            self.STEP_MINIMUM,
+            self._coerce(self.step.value())
         )
-        item["decimals"] = decimals
+        if decimals is not None:
+            item["decimals"] = decimals
         item["size"] = size
         item["component_labels"] = safe_component_labels(
             text_type(self.component_labels.text()),
@@ -310,6 +246,34 @@ class FloatPropertyEditor(ValuePropertyEditorBase):
             self.show_slider.isChecked()
         )
         item["value"] = values[0] if size == 1 else values
+
+
+class IntegerPropertyEditor(NumericPropertyEditorBase):
+
+    SPINBOX_CLASS = QtGui.QSpinBox
+    VALUE_DEFAULT = 0
+    MINIMUM_DEFAULT = -1000000
+    MAXIMUM_DEFAULT = 1000000
+    STEP_DEFAULT = 1
+    STEP_MINIMUM = 1
+
+    def _coerce(self, value):
+        return int(value)
+
+
+class FloatPropertyEditor(NumericPropertyEditorBase):
+
+    SPINBOX_CLASS = QtGui.QDoubleSpinBox
+    VALUE_DEFAULT = 0.0
+    MINIMUM_DEFAULT = -1000000.0
+    MAXIMUM_DEFAULT = 1000000.0
+    STEP_DEFAULT = 0.1
+    STEP_MINIMUM = 0.000001
+    DISPLAY_DECIMALS = 6
+    DECIMALS_DEFAULT = 3
+
+    def _coerce(self, value):
+        return float(value)
 
 
 class CheckboxPropertyEditor(ValuePropertyEditorBase):

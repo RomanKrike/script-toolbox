@@ -194,21 +194,26 @@ def build_icon_interface_editor_class(base_class):
             self._refresh_share_icons()
 
         def _refresh_share_icons(self):
-            mapping = (
-                ("SharePasteButton", "cloud-download"),
-                ("ShareButton", "cloud-upload"),
-            )
+            mapping = {
+                "SharePasteButton": "cloud-download",
+                "ShareButton": "cloud-upload",
+            }
 
-            for object_name, icon_name in mapping:
-                try:
-                    button = self.findChild(
-                        QtGui.QToolButton,
-                        object_name
-                    )
-                except Exception:
-                    button = None
+            try:
+                buttons = self.findChildren(
+                    QtGui.QToolButton
+                )
+            except Exception:
+                buttons = []
 
-                if button is not None:
+            for button in buttons:
+                role = getattr(
+                    button,
+                    "_script_toolbox_share_role",
+                    ""
+                )
+                icon_name = mapping.get(role)
+                if icon_name:
                     button.setIcon(
                         toolbar_icon(icon_name)
                     )

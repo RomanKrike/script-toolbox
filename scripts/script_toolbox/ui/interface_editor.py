@@ -23,10 +23,12 @@ from ..style.palette import STRUCTURE_FOLDER_BG
 from ..style.palette import TEXT_PALETTE_GROUP
 from ..style.palette import TEXT_STRUCTURE_ROW
 from ..style.palette import WINDOW_BG
+from .editor_search import filter_existing_parameters as filter_editor_structure
 from .icon_button import ICON_BUTTON_COMPACT
 from .icon_button import create_icon_button
 from .interface_tree import ExistingInterfaceTree
 from .properties import create_editor
+from .search_field import SearchField
 
 
 ROLE_KIND = QtCore.Qt.UserRole
@@ -172,6 +174,8 @@ class InterfaceEditor(QtGui.QDialog):
             1
         )
 
+        self.search_fields = {}
+
         # Create Parameters -------------------------------------------------
         left = QtGui.QWidget()
         left.setObjectName(
@@ -198,22 +202,6 @@ class InterfaceEditor(QtGui.QDialog):
         )
         left_layout.addWidget(
             left_title
-        )
-
-        self.palette_filter = QtGui.QLineEdit()
-        self.palette_filter.setObjectName(
-            "PaletteFilter"
-        )
-
-        try:
-            self.palette_filter.setPlaceholderText(
-                "Filter parameters..."
-            )
-        except Exception:
-            pass
-
-        left_layout.addWidget(
-            self.palette_filter
         )
 
         self.palette = QtGui.QTreeWidget()
@@ -299,27 +287,25 @@ class InterfaceEditor(QtGui.QDialog):
         self.palette.itemDoubleClicked.connect(
             self.create_from_palette
         )
-        self.palette_filter.textChanged.connect(
-            self.filter_palette
-        )
 
         left_layout.addWidget(
             self.palette,
             1
         )
 
-        hint = QtGui.QLabel(
-            "Double-click an item to create it. Drag existing items to reorder or nest.\n"
-            "Folders organize sections; Rows keep controls on one line."
+        self.palette_filter = SearchField(
+            "Filter parameters...",
+            parent=left
         )
-        hint.setObjectName(
-            "HintText"
+        self.palette_filter.textChanged.connect(
+            self.filter_palette
         )
-        hint.setWordWrap(
-            True
-        )
+        self.palette_search_control = self.palette_filter
+        self.search_fields[
+            "palette"
+        ] = self.palette_filter
         left_layout.addWidget(
-            hint
+            self.palette_filter
         )
 
         splitter.addWidget(
@@ -438,6 +424,21 @@ class InterfaceEditor(QtGui.QDialog):
         center_layout.addWidget(
             self.tree,
             1
+        )
+
+        self.existing_filter = SearchField(
+            "Filter existing parameters...",
+            parent=center
+        )
+        self.existing_filter.textChanged.connect(
+            self.filter_existing_parameters
+        )
+        self.existing_search_control = self.existing_filter
+        self.search_fields[
+            "structure"
+        ] = self.existing_filter
+        center_layout.addWidget(
+            self.existing_filter
         )
 
         splitter.addWidget(
@@ -1588,6 +1589,15 @@ class InterfaceEditor(QtGui.QDialog):
                 group.setExpanded(
                     True
                 )
+
+    def filter_existing_parameters(
+        self,
+        value
+    ):
+        return filter_editor_structure(
+            self,
+            value
+        )
 
     def create_from_palette(
         self,

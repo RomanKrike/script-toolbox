@@ -395,8 +395,7 @@ def _install_toolbox_methods(toolbox_class):
 
 
 def _install_store_wrapper(toolbox_class):
-    if getattr(
-        toolbox_class,
+    if toolbox_class.__dict__.get(
         _TOOLBOX_INSTALL_MARKER,
         False
     ):
@@ -429,8 +428,7 @@ def _install_store_wrapper(toolbox_class):
 
 
 def _install_rebuild_wrapper(toolbox_class):
-    if getattr(
-        toolbox_class,
+    if toolbox_class.__dict__.get(
         _REBUILD_INSTALL_MARKER,
         False
     ):

@@ -19,14 +19,17 @@ def test_search_field_owns_embedded_solar_controls_and_geometry():
 
     assert "class SearchField(QtGui.QLineEdit):" in source
     assert 'self.setObjectName(\n            "SearchField"' in source
+    assert "from .painted_icon_button import PaintedIconButton" in source
     assert '"SearchFieldIcon"' in source
     assert '"SearchFieldClear"' in source
     assert 'builtin_icon("find")' in source
     assert 'builtin_icon("close")' in source
-    assert "QtCore.QSize(9, 9)" in source
+    assert "PaintedIconButton(" in source
     assert "_SEARCH_ICON_SIZE = 18" in source
     assert "_CLEAR_BUTTON_SIZE = 20" in source
     assert "self.setTextMargins(" in source
+    assert "26," in source
+    assert "30," in source
     assert "self.clear_button.clicked.connect(" in source
     assert "self.clear" in source
     assert "def resizeEvent(self, event):" in source
@@ -34,6 +37,23 @@ def test_search_field_owns_embedded_solar_controls_and_geometry():
     assert "self.search_icon.move(" in source
     assert "self.clear_button.move(" in source
     assert "installEventFilter(" not in source
+    assert "QtGui.QToolButton" not in source
+
+
+def test_painted_search_controls_keep_qt4_clip_workaround_palette_driven():
+    source = _read(
+        "scripts/script_toolbox/ui/painted_icon_button.py"
+    )
+
+    assert "class PaintedIconButton(QtGui.QWidget):" in source
+    assert "self._icon.paint(" in source
+    assert "self._icon_rect()" in source
+    assert "QtGui.QToolButton" not in source
+    assert "palette.ICON_BUTTON_PRESSED_BG" in source
+    assert "palette.BORDER_INSET" in source
+    assert "palette.ICON_BUTTON_HOVER_BG" in source
+    assert "palette.ICON_BUTTON_HOVER_BORDER" in source
+    assert re.search(r"#[0-9a-fA-F]{6}\b", source) is None
 
 
 def test_interface_editor_uses_one_search_component_for_both_lists():
@@ -87,13 +107,11 @@ def test_search_component_styles_are_centralized_and_palette_driven():
     )
 
     assert "QLineEdit#SearchField" in source
-    assert "QToolButton#SearchFieldIcon" in source
-    assert "QToolButton#SearchFieldClear" in source
     assert "%(FILTER_BG)s" in source
     assert "%(BORDER_SOFT)s" in source
     assert "%(FOCUS_BORDER)s" in source
-    assert "%(ICON_BUTTON_HOVER_BG)s" in source
-    assert "%(ICON_BUTTON_PRESSED_BG)s" in source
+    assert "SearchFieldIcon" not in source
+    assert "SearchFieldClear" not in source
     assert re.search(r"#[0-9a-fA-F]{6}\b", source) is None
 
     assert "from .components import COMPONENT_STYLES" in style_init

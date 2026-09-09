@@ -35,7 +35,7 @@ def test_runtime_tooltip_override_avoids_qss_padding_geometry_bug():
     assert "padding: 0px;" in tooltip_rule
 
 
-def test_trigger_add_action_is_installed_as_trailing_tab():
+def test_trigger_add_action_is_installed_as_trailing_solar_tab():
     source = _read(
         "scripts/script_toolbox/ui/properties/trigger_tabs.py"
     )
@@ -44,7 +44,9 @@ def test_trigger_add_action_is_installed_as_trailing_tab():
     )
 
     assert 'self.tabs.addTab(' in source
-    assert '"+"' in source
+    assert 'builtin_icon("add-circle")' in source
+    assert 'builtin_icon("close-circle")' in source
+    assert "self.tabs.setTabsClosable(False)" in source
     assert '"Add trigger"' in source
     assert "self.add_button.hide()" in source
     assert "self.tabs.setCornerWidget(" in source
@@ -69,6 +71,7 @@ def test_trigger_add_tab_stays_after_real_binding_pages():
 
     assert "self._remove_add_tab()" in add_page_source
     assert "_BaseBindingPanel._add_page(" in add_page_source
+    assert "self._install_trigger_close_button(" in add_page_source
     assert "self._ensure_add_tab()" in add_page_source
 
 

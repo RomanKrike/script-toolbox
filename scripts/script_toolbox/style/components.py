@@ -18,25 +18,6 @@ QLineEdit#SearchField {
 QLineEdit#SearchField:focus {
     border: 1px solid %(FOCUS_BORDER)s;
 }
-
-QToolButton#SearchFieldIcon,
-QToolButton#SearchFieldClear {
-    background-color: transparent;
-    border: 0px;
-    padding: 0px;
-}
-
-QToolButton#SearchFieldClear:hover {
-    background-color: %(ICON_BUTTON_HOVER_BG)s;
-    border: 0px;
-    border-radius: 3px;
-}
-
-QToolButton#SearchFieldClear:pressed {
-    background-color: %(ICON_BUTTON_PRESSED_BG)s;
-    border: 0px;
-    border-radius: 3px;
-}
 """ % vars(palette)
 
 

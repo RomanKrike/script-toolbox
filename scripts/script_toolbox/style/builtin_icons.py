@@ -29,18 +29,20 @@ _ICON_ENTRIES = (
     ("run", "Run", "play.svg"),
     ("import", "Import", "download-minimalistic.svg"),
     ("export", "Export", "upload-minimalistic.svg"),
+    ("cloud-download", "Cloud Download", "cloud-download.svg"),
+    ("cloud-upload", "Cloud Upload", "cloud-upload.svg"),
     ("up", "Move Up", "alt-arrow-up.svg"),
     ("down", "Move Down", "alt-arrow-down.svg"),
     ("delete", "Delete", "trash-bin-minimalistic-2.svg"),
     ("clear", "Clear", "broom.svg"),
     ("reload", "Reload", "restart.svg"),
-    ("gear", "Settings", "settings-minimalistic.svg"),
+    ("gear", "Settings Minimalistic", "settings-minimalistic.svg"),
+    ("settings", "Settings", "settings.svg"),
 )
 
-_ALIASES = {
-    "update": "reload",
-    "settings": "gear",
-}
+# Keep aliases limited to genuine synonyms. In particular, ``update`` must not
+# map to ``reload``: the legacy update glyph is the download arrow over a bar.
+_ALIASES = {}
 
 _ICON_FILES = dict(
     (key, filename)
@@ -63,6 +65,11 @@ def _register_search_path():
 
 
 _register_search_path()
+
+
+def builtin_icons_directory():
+    """Return the physical directory containing bundled Solar SVG files."""
+    return _RESOURCE_ROOT
 
 
 def builtin_icon_entries():
@@ -97,6 +104,31 @@ def builtin_icon_id_from_path(value):
     return _FILENAME_KEYS.get(filename, "")
 
 
+def builtin_icon_resource_from_file_path(value):
+    """Convert a bundled Solar file path to a portable stsolar resource."""
+    value = text_type(value or "").strip()
+    if not value:
+        return ""
+
+    absolute = os.path.abspath(
+        os.path.normpath(value)
+    )
+    root = os.path.abspath(
+        os.path.normpath(_RESOURCE_ROOT)
+    )
+
+    if os.path.normcase(os.path.dirname(absolute)) != os.path.normcase(root):
+        return ""
+
+    key = _FILENAME_KEYS.get(
+        os.path.basename(absolute)
+    )
+    if not key:
+        return ""
+
+    return builtin_icon_resource(key)
+
+
 def builtin_icon(name):
     resource = builtin_icon_resource(name)
 
@@ -111,4 +143,6 @@ __all__ = [
     "builtin_icon_entries",
     "builtin_icon_id_from_path",
     "builtin_icon_resource",
+    "builtin_icon_resource_from_file_path",
+    "builtin_icons_directory",
 ]

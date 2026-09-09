@@ -8,6 +8,7 @@ from ...model.items import safe_component_labels
 from ...model.items import safe_menu_items
 from ...model.items import safe_numeric_size
 from ...pycompat import text_type
+from ..layout_helpers import configure_inline_layout
 from .base import PropertyEditorBase
 from .base import ValuePropertyEditorBase
 
@@ -49,8 +50,7 @@ class IntegerPropertyEditor(ValuePropertyEditorBase):
         self.size.addItems(["1", "2", "3", "4"])
         self.values_widget = QtGui.QWidget()
         values_layout = QtGui.QHBoxLayout(self.values_widget)
-        values_layout.setContentsMargins(0, 0, 0, 0)
-        values_layout.setSpacing(4)
+        configure_inline_layout(values_layout)
         self.values = []
         for index in range(4):
             widget = QtGui.QSpinBox()
@@ -171,8 +171,7 @@ class FloatPropertyEditor(ValuePropertyEditorBase):
         self.size.addItems(["1", "2", "3", "4"])
         self.values_widget = QtGui.QWidget()
         values_layout = QtGui.QHBoxLayout(self.values_widget)
-        values_layout.setContentsMargins(0, 0, 0, 0)
-        values_layout.setSpacing(4)
+        configure_inline_layout(values_layout)
         self.values = []
         for index in range(4):
             widget = QtGui.QDoubleSpinBox()

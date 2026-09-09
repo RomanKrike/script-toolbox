@@ -23,17 +23,32 @@ def test_parameter_description_uses_shared_dialog_surface():
     palette_source = _read(
         "scripts/script_toolbox/style/palette.py"
     )
+    base_style_source = _read(
+        "scripts/script_toolbox/style/stylesheet.py"
+    )
     style_source = _read(
         "scripts/script_toolbox/style/runtime_overrides.py"
     )
     pane_source = _read(
         "scripts/script_toolbox/ui/property_pane_style.py"
     )
+    editor_source = _read(
+        "scripts/script_toolbox/ui/interface_editor.py"
+    )
+    property_source = _read(
+        "scripts/script_toolbox/ui/properties/base.py"
+    )
     ui_source = _read(
         "scripts/script_toolbox/ui/__init__.py"
     )
 
     assert 'WINDOW_BG = "#292929"' in palette_source
+
+    base_rule = base_style_source.split(
+        "QScrollArea#PropertyScroll,",
+        1
+    )[1].split("}", 1)[0]
+    assert "background-color: %(WINDOW_BG)s;" in base_rule
 
     assert "QWidget#PropertyPane" in style_source
     assert "QScrollArea#PropertyScroll" in style_source
@@ -49,6 +64,11 @@ def test_parameter_description_uses_shared_dialog_surface():
     assert "QtGui.QPalette.Base" in pane_source
     assert 'pane.setObjectName("PropertyPane")' in pane_source
     assert "install_property_pane_style(" in ui_source
+
+    assert "from ..style.palette import WINDOW_BG" in editor_source
+    assert "QtGui.QColor(WINDOW_BG)" in editor_source
+    assert "from ...style.palette import WINDOW_BG" in property_source
+    assert "QtGui.QColor(WINDOW_BG)" in property_source
 
 
 def test_runtime_field_surface_uses_shared_palette_tokens():

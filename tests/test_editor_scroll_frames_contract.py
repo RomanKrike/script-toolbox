@@ -49,7 +49,12 @@ def test_interface_editor_installs_scroll_frames_without_active_wrapper():
     search_source = _read(
         "scripts/script_toolbox/ui/editor_search.py"
     )
+    adapter_source = _read(
+        "scripts/script_toolbox/ui/editor_document_adapter.py"
+    )
 
     assert "build_scroll_frame_interface_editor_class" not in ui_source
-    assert "install_interface_editor_scroll_frames(self)" in search_source
+    assert "build_search_interface_editor_class(" not in ui_source
+    assert "install_interface_editor_scroll_frames(editor)" in search_source
     assert "from .editor_scroll_frames import install_interface_editor_scroll_frames" in search_source
+    assert "apply_editor_presentation(self)" in adapter_source

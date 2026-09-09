@@ -59,7 +59,7 @@ def test_full_v16_golden_config_preserves_kind_and_traversal_order():
         ("quality", "menu"),
         ("tint", "color"),
         ("nodes", "field"),
-        ("render_state", "button"),
+        ("render_state", "toggle_button"),
         ("actions", "row"),
         ("run_render", "button"),
         ("frames", "integer"),

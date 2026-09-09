@@ -139,6 +139,21 @@ install_icon_only_state_refresh(
     _BaseScriptToolbox
 )
 
+# Runtime value synchronization is installed after the renderer decorators so
+# every active value renderer registers its final Qt control tree. Patch both
+# the base store_value() implementation and the debounced runtime override;
+# bootstrap.py uses the latter in Maya, Nuke and Houdini.
+from .runtime_value_sync import install_runtime_value_sync
+from . import debounced_main_window as _debounced_main_window_module
+
+install_runtime_value_sync(
+    get_runtime_renderer_registry(),
+    _BaseScriptToolbox,
+    store_toolbox_classes=(
+        _debounced_main_window_module._DebouncedScriptToolbox,
+    )
+)
+
 __all__ = [
     "CodeEditor",
     "ScriptHighlighter",

@@ -19,12 +19,18 @@ def _source(*parts):
         return handle.read()
 
 
-def test_apply_view_state_wrapper_is_installed():
+def test_apply_view_state_is_integrated_into_document_adapter():
     ui_init = _source(
         "scripts",
         "script_toolbox",
         "ui",
         "__init__.py"
+    )
+    adapter = _source(
+        "scripts",
+        "script_toolbox",
+        "ui",
+        "editor_document_adapter.py"
     )
     view_state = _source(
         "scripts",
@@ -33,12 +39,19 @@ def test_apply_view_state_wrapper_is_installed():
         "editor_view_state.py"
     )
 
-    assert "build_editor_view_state_class" in ui_init
-    assert "_capture_tree_view_state" in view_state
-    assert "_restore_tree_view_state" in view_state
-    assert '"current_id"' in view_state
-    assert '"expanded"' in view_state
-    assert "base_class.apply_changes(self)" in view_state
+    assert "build_editor_view_state_class" not in ui_init
+    assert "_capture_tree_view_state" in adapter
+    assert "_restore_tree_view_state" in adapter
+    assert '"current_id"' in adapter
+    assert '"expanded"' in adapter
+    assert "view_state = self._capture_tree_view_state()" in adapter
+    assert "self._restore_tree_view_state(" in adapter
+
+    # Older direct imports still receive the historical builder API, but the
+    # active package no longer adds it as an InterfaceEditor inheritance layer.
+    assert "build_editor_view_state_class" in view_state
+    assert "capture_editor_view_state" in view_state
+    assert "restore_editor_view_state" in view_state
 
 
 def test_row_gives_nested_layouts_cross_axis_height():

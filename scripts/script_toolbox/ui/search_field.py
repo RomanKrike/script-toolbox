@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-from ..compat import QtCore
 from ..compat import QtGui
 from ..pycompat import text_type
 from ..style.builtin_icons import builtin_icon

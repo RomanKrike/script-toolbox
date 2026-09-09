@@ -34,17 +34,39 @@ def _install_controls_v2_palette(editor_class):
                     ))
             entries = tuple(updated)
 
-        if group_label == "ACTIONS" and not any(
-            entry[1] == "icon"
-            for entry in entries
-        ):
-            entries = entries + (
-                (
+        if group_label == "ACTIONS":
+            updated = list(entries)
+
+            if not any(
+                entry[1] == "toggle_button"
+                for entry in updated
+            ):
+                insert_at = len(updated)
+                for index, entry in enumerate(updated):
+                    if entry[1] == "button":
+                        insert_at = index + 1
+                        break
+                updated.insert(
+                    insert_at,
+                    (
+                        "Toggle Button",
+                        "toggle_button",
+                        "Stateful ON/OFF action with internal or scripted state."
+                    )
+                )
+
+            if not any(
+                entry[1] == "icon"
+                for entry in updated
+            ):
+                updated.append((
                     "Icon",
                     "icon",
                     "Standalone image with optional event bindings."
-                ),
-            )
+                ))
+
+            entries = tuple(updated)
+
         groups.append((group_label, entries))
     editor_class.PALETTE_GROUPS = tuple(groups)
 
@@ -76,6 +98,9 @@ from .runtime_renderers import get_runtime_renderer_registry
 from .runtime_renderers import install_runtime_renderer_registry
 from .runtime_renderers import register_runtime_renderer
 from .runtime_renderers import unregister_runtime_renderer
+from .toggle_button_runtime import install_toggle_button_event_hooks
+from .toggle_button_runtime import install_toggle_button_main_window
+from .toggle_button_runtime import render_toggle_button
 
 install_runtime_renderer_registry(
     _runtime_module
@@ -89,6 +114,10 @@ register_runtime_renderer(
     "column",
     render_column
 )
+register_runtime_renderer(
+    "toggle_button",
+    render_toggle_button
+)
 install_runtime_scroll_frames(
     get_runtime_renderer_registry(),
     _runtime_module
@@ -97,6 +126,7 @@ install_runtime_scroll_frames(
 from .main_window import ScriptToolbox as _BaseScriptToolbox
 from .update_channels_ui import build_update_channel_toolbox_class
 from .controls_v2_hooks import install_controls_v2_hooks
+from . import event_binding_hooks as _event_binding_hooks_module
 from .event_binding_hooks import install_event_binding_hooks
 from .script_editor import ScriptEditorWidget
 from .runtime import DisplayField
@@ -127,9 +157,15 @@ install_controls_v2_hooks(
 install_icon_only_button_centering(
     get_runtime_renderer_registry()
 )
+install_toggle_button_event_hooks(
+    _event_binding_hooks_module
+)
 install_event_binding_hooks(
     get_runtime_renderer_registry(),
     _runtime_renderers_module,
+    _BaseScriptToolbox
+)
+install_toggle_button_main_window(
     _BaseScriptToolbox
 )
 install_runtime_icon_feedback(

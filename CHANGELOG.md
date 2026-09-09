@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Add a dedicated `Toggle Button` item with independent ON/OFF actions, labels, colors and icon settings.
+- Add `Internal` state for persisted boolean toggles and `Script` state for host-driven/query-driven toggles.
+
+### Changed
+
+- Make the regular `Button` item action-only instead of combining action and state behavior in one control type.
+- Upgrade config schema to version 19 and migrate existing `button` items with `mode: state` to `toggle_button` with scripted state automatically.
+- Keep scripted Toggle Button state external: only Internal toggles persist a boolean `value` in the document.
+
 ## 0.4.4
 
 Configuration and updater safety maintenance release.

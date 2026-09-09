@@ -7,6 +7,7 @@ from ...constants import CONFIG_VERSION
 from .v15_to_v16 import migrate as migrate_v15_to_v16
 from .v16_to_v17 import migrate as migrate_v16_to_v17
 from .v17_to_v18 import migrate as migrate_v17_to_v18
+from .v18_to_v19 import migrate as migrate_v18_to_v19
 
 
 # Schema 15 is the compatibility baseline used by the first modular release.
@@ -27,6 +28,7 @@ _MIGRATIONS = {
     15: (16, migrate_v15_to_v16),
     16: (17, migrate_v16_to_v17),
     17: (18, migrate_v17_to_v18),
+    18: (19, migrate_v18_to_v19),
 }
 
 

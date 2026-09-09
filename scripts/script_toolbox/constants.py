@@ -15,7 +15,7 @@ EDITOR_OBJECT_NAME = "MayaScriptToolboxInterfaceEditor"
 
 CONFIG_FILENAME = "maya_script_toolbox.json"
 CONFIG_PATH_ENV = "SCRIPT_TOOLBOX_CONFIG_PATH"
-CONFIG_VERSION = 18
+CONFIG_VERSION = 19
 
 SETTINGS_FILENAME = "script_toolbox_settings.json"
 SETTINGS_PATH_ENV = "SCRIPT_TOOLBOX_SETTINGS_PATH"
@@ -38,6 +38,7 @@ FOLDER_TYPES = (
 
 ITEM_KINDS = (
     "button",
+    "toggle_button",
     "icon",
     "string",
     "integer",

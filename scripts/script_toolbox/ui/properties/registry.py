@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from ...pycompat import text_type
+from .action_button import ActionButtonPropertyEditor
 from .base import EmptyPropertyEditor
 from .base import PropertyEditorBase
 from .basic import CheckboxPropertyEditor
@@ -11,16 +12,16 @@ from .basic import LabelPropertyEditor
 from .basic import MenuPropertyEditor
 from .basic import SeparatorPropertyEditor as _SeparatorPropertyEditor
 from .basic import StringPropertyEditor
-from .button import ButtonPropertyEditor
 from .column import ColumnPropertyEditor
 from .field import FieldPropertyEditor
 from .folder import FolderPropertyEditor
 from .icon import IconPropertyEditor
 from .row import RowPropertyEditor
+from .toggle_button import ToggleButtonPropertyEditor
 
 
 class SeparatorPropertyEditor(_SeparatorPropertyEditor):
-    """Schema-18 separator editor without the removed callbacks payload."""
+    """Schema-19 separator editor without the removed callbacks payload."""
 
     def write_to_item(self):
         if self.item is None:
@@ -44,7 +45,8 @@ PROPERTY_EDITORS = {
     "folder": FolderPropertyEditor,
     "row": RowPropertyEditor,
     "column": ColumnPropertyEditor,
-    "button": ButtonPropertyEditor,
+    "button": ActionButtonPropertyEditor,
+    "toggle_button": ToggleButtonPropertyEditor,
     "icon": IconPropertyEditor,
     "string": StringPropertyEditor,
     "integer": IntegerPropertyEditor,

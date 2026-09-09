@@ -28,7 +28,7 @@ from script_toolbox.model.items import create_item
 
 
 def main():
-    assert CONFIG_VERSION == 18
+    assert CONFIG_VERSION == 19
 
     icon = create_item(
         "icon",
@@ -47,6 +47,16 @@ def main():
     )
     assert icon["kind"] == "icon"
     assert icon["bindings"][0]["event"] == "click"
+
+    toggle = create_item(
+        "toggle_button",
+        {
+            "name": "toggle_test",
+        }
+    )
+    assert toggle["kind"] == "toggle_button"
+    assert toggle["state_source"] == "internal"
+    assert toggle["bindings"][0]["handler"] == "state_toggle"
 
     vector = create_item(
         "integer",
@@ -116,13 +126,14 @@ def main():
     assert layout["items"][0]["items"][1]["kind"] == "row"
 
     document = {
-        "version": 18,
+        "version": CONFIG_VERSION,
         "sections": [
             create_item(
                 "folder",
                 {
                     "name": "root",
                     "items": [
+                        toggle,
                         vector,
                         layout,
                     ],
@@ -134,6 +145,7 @@ def main():
         item.get("name")
         for item in walk_items(document)
     ]
+    assert "toggle_test" in names
     assert "column_a" in names
     assert "actions_a" in names
     assert "remove_a" in names
@@ -183,13 +195,13 @@ def main():
         ],
     })
     legacy_value = migrated["sections"][0]["items"][0]
-    assert migrated["version"] == 18
+    assert migrated["version"] == CONFIG_VERSION
     assert legacy_value["bindings"][0]["event"] == "value_changed"
     assert legacy_value["bindings"][0]["script"] == "print(value)"
     assert "callbacks" not in legacy_value
     assert "on_change_script" not in legacy_value
 
-    print("Controls v2 / event bindings / columns Python 2.7 smoke passed")
+    print("Controls v2 / event bindings / toggle button / columns Python 2.7 smoke passed")
 
 
 if __name__ == "__main__":

@@ -85,6 +85,62 @@ def test_float_normalizes_decimals_and_step():
     assert item["decimals"] == 8
 
 
+def test_button_is_action_only_after_toggle_split():
+    item = create_item(
+        "button",
+        {
+            "label": "Freeze",
+            "mode": "state",
+            "state_get_script": "state = True",
+        }
+    )
+
+    assert item["kind"] == "button"
+    assert "mode" not in item
+    assert "state_get_script" not in item
+    assert len(item["bindings"]) == 1
+    assert item["bindings"][0]["handler"] == "script"
+    assert item["bindings"][0]["button_mode"] == "action"
+
+
+def test_toggle_button_defaults_to_internal_boolean_state():
+    item = create_item(
+        "toggle_button",
+        {
+            "label": "Wireframe",
+        }
+    )
+
+    assert item["kind"] == "toggle_button"
+    assert item["state_source"] == "internal"
+    assert item["value"] is False
+    assert item["state_on_label"] == "Wireframe"
+    assert item["state_off_label"] == "Wireframe"
+    assert len(item["bindings"]) == 1
+    assert item["bindings"][0]["handler"] == "state_toggle"
+    assert item["bindings"][0]["button_mode"] == "state"
+
+
+def test_toggle_button_preserves_script_state_configuration():
+    item = create_item(
+        "toggle_button",
+        {
+            "state_source": "script",
+            "state_get_script": "state = cmds.grid(q=True, toggle=True)",
+            "state_on_script": "cmds.grid(toggle=True)",
+            "state_off_script": "cmds.grid(toggle=False)",
+            "state_on_language": "python",
+            "state_off_language": "python",
+        }
+    )
+
+    assert item["state_source"] == "script"
+    assert item["state_get_language"] == "python"
+    assert item["state_get_script"].startswith("state =")
+    assert item["state_on_script"]
+    assert item["state_off_script"]
+
+
 def test_unknown_kind_falls_back_to_button():
     item = create_item(
         "does_not_exist",

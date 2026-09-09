@@ -17,7 +17,7 @@ from script_toolbox.core.migrations import migrate_document
 
 def test_schema_15_is_legacy_migration_baseline():
     assert LEGACY_CONFIG_VERSION == 15
-    assert CONFIG_VERSION == 18
+    assert CONFIG_VERSION == 19
 
 
 def test_versionless_document_is_treated_as_schema_15():
@@ -56,6 +56,8 @@ def test_schema_15_migrates_to_current_without_mutating_source():
     assert migrated["sections"][0]["name"] == "tools"
 
     button = migrated["sections"][0]["items"][0]
+    assert button["kind"] == "button"
+    assert "mode" not in button
     assert "click_script" not in button
     assert "callbacks" not in button
     assert len(button["bindings"]) == 1
@@ -102,13 +104,92 @@ def test_schema_16_on_change_migrates_to_value_changed_binding():
     migrated = migrate_document(source)
     item = migrated["sections"][0]["items"][0]
 
-    assert migrated["version"] == 18
+    assert migrated["version"] == CONFIG_VERSION
     assert "callbacks" not in item
     assert "on_change_script" not in item
     assert len(item["bindings"]) == 1
     assert item["bindings"][0]["event"] == "value_changed"
     assert item["bindings"][0]["language"] == "python"
     assert item["bindings"][0]["script"] == "print(value)"
+
+
+def test_schema_18_state_button_becomes_toggle_button():
+    source = {
+        "version": 18,
+        "sections": [
+            {
+                "kind": "folder",
+                "name": "tools",
+                "items": [
+                    {
+                        "kind": "button",
+                        "name": "wireframe",
+                        "label": "Wireframe",
+                        "mode": "state",
+                        "state_get_script": "state = True",
+                        "state_on_script": "print('on')",
+                        "state_off_script": "print('off')",
+                        "bindings": [
+                            {
+                                "id": "toggle-click",
+                                "event": "click",
+                                "handler": "state_toggle",
+                                "button_mode": "state",
+                                "language": "python",
+                                "script": "",
+                                "label": "",
+                                "mouse_button": "left",
+                                "modifiers": [],
+                                "modifier_policy": "exact",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+
+    migrated = migrate_document(source)
+    item = migrated["sections"][0]["items"][0]
+
+    assert migrated["version"] == 19
+    assert item["kind"] == "toggle_button"
+    assert item["state_source"] == "script"
+    assert "value" not in item
+    assert "mode" not in item
+    assert item["state_get_script"] == "state = True"
+    assert item["bindings"][0]["handler"] == "state_toggle"
+
+
+def test_schema_18_action_button_drops_state_only_payload():
+    source = {
+        "version": 18,
+        "sections": [
+            {
+                "kind": "folder",
+                "items": [
+                    {
+                        "kind": "button",
+                        "name": "freeze",
+                        "mode": "action",
+                        "state_get_script": "state = True",
+                        "state_on_script": "unused",
+                        "state_off_script": "unused",
+                        "bindings": [],
+                    }
+                ],
+            }
+        ],
+    }
+
+    migrated = migrate_document(source)
+    item = migrated["sections"][0]["items"][0]
+
+    assert item["kind"] == "button"
+    assert "mode" not in item
+    assert "state_get_script" not in item
+    assert "state_on_script" not in item
+    assert "state_off_script" not in item
 
 
 def test_current_schema_is_returned_as_independent_copy():

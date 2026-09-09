@@ -6,31 +6,33 @@ from script_toolbox.model.bindings import matching_bindings
 from script_toolbox.model.items import create_item
 
 
-def test_config_schema_is_18():
-    assert CONFIG_VERSION == 18
+def test_config_schema_is_19():
+    assert CONFIG_VERSION == 19
 
 
-def test_state_button_normalizes_state_fields_and_default_trigger():
+def test_toggle_button_normalizes_state_fields_and_default_trigger():
     item = create_item(
-        "button",
+        "toggle_button",
         {
             "label": "Visibility",
-            "mode": "state",
+            "state_source": "script",
             "state_get_script": "state = True",
             "state_on_script": "result = 'on'",
             "state_off_script": "result = 'off'",
         }
     )
 
-    assert item["mode"] == "state"
+    assert item["kind"] == "toggle_button"
+    assert item["state_source"] == "script"
+    assert "value" not in item
     assert item["state_get_script"] == "state = True"
     assert item["state_on_script"] == "result = 'on'"
     assert item["state_off_script"] == "result = 'off'"
     assert item["state_get_language"] == "python"
     assert item["state_on_language"] == "python"
     assert item["state_off_language"] == "python"
-    assert item["state_on_label"] == "Visibility: ON"
-    assert item["state_off_label"] == "Visibility: OFF"
+    assert item["state_on_label"] == "Visibility"
+    assert item["state_off_label"] == "Visibility"
 
     triggers = matching_bindings(
         item,

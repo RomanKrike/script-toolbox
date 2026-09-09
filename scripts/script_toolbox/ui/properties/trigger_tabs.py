@@ -95,7 +95,7 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
         )
         button.setAutoRaise(True)
         button.setIcon(
-            builtin_icon("close-circle")
+            builtin_icon("close")
         )
         button.setIconSize(
             QtCore.QSize(14, 14)
@@ -138,7 +138,7 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
         if index < 0:
             index = self.tabs.addTab(
                 self._add_tab_page,
-                builtin_icon("add-circle"),
+                builtin_icon("add"),
                 ""
             )
 

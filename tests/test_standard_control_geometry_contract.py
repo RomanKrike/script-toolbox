@@ -112,13 +112,20 @@ def test_runtime_field_reuses_list_item_metrics_but_keeps_visible_rows_local():
     assert "LIST_ITEM_MIN_HEIGHT" not in runtime
 
 
-def test_scroll_frame_pixel_contract_is_not_absorbed_into_standard_metrics():
+def test_scroll_frame_pixel_contract_is_owned_by_scroll_surface_metrics():
+    metrics = _read(
+        "scripts/script_toolbox/style/metrics.py"
+    )
     scroll_frames = _read(
         "scripts/script_toolbox/ui/scroll_surface_frames.py"
     )
 
-    # Stage 5 owns these Maya/Qt4 border/inset pixels. Standard-control
-    # cleanup must not silently fold them into generic metrics first.
-    assert "border-radius: 2px;" in scroll_frames
-    assert "vertical_inset = 2" in scroll_frames
-    assert "layout.setContentsMargins(1, 1, 1, 1)" in scroll_frames
+    # Stage 5 owns these Maya/Qt4 pixels explicitly without folding them into
+    # the generic button/input geometry roles.
+    assert "SCROLL_SURFACE_BORDER_WIDTH = 1" in metrics
+    assert "SCROLL_SURFACE_CONTENT_INSET = 1" in metrics
+    assert "SCROLL_SURFACE_BORDER_RADIUS = 2" in metrics
+    assert "metrics.SCROLL_SURFACE_BORDER_WIDTH * 2" in scroll_frames
+    assert "metrics.SCROLL_SURFACE_CONTENT_INSET" in scroll_frames
+    assert "vertical_inset = 2" not in scroll_frames
+    assert "layout.setContentsMargins(1, 1, 1, 1)" not in scroll_frames

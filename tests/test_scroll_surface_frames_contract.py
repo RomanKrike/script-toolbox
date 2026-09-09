@@ -20,15 +20,39 @@ def _read(relative_path):
         return handle.read()
 
 
-def test_scroll_surface_frame_supports_all_scrollable_control_hosts():
+def test_scroll_surface_geometry_has_one_explicit_compatibility_contract():
+    metrics = _read(
+        "scripts/script_toolbox/style/metrics.py"
+    )
+    source = _read(
+        "scripts/script_toolbox/ui/scroll_surface_frames.py"
+    )
+
+    for definition in (
+        "SCROLL_SURFACE_BORDER_WIDTH = 1",
+        "SCROLL_SURFACE_CONTENT_INSET = 1",
+        "SCROLL_SURFACE_BORDER_RADIUS = 2",
+    ):
+        assert definition in metrics
+
+    assert source.count("QFrame#ScrollSurfaceFrame {") == 1
+    assert "_FRAME_STYLE_TEMPLATE" in source
+    assert "%(SCROLL_SURFACE_BORDER_WIDTH)spx solid %(border)s" in source
+    assert "%(SCROLL_SURFACE_BORDER_RADIUS)spx" in source
+    assert "_RUNTIME_FIELD_FRAME_STYLE" not in source
+    assert "border-radius: 2px;" not in source
+    assert "border: 1px solid" not in source
+
+
+def test_scroll_surface_frame_supports_all_layout_host_types():
     source = _read(
         "scripts/script_toolbox/ui/scroll_surface_frames.py"
     )
 
     assert 'frame.setObjectName("ScrollSurfaceFrame")' in source
+    assert "from ..style import metrics" in source
     assert "from ..style import palette" in source
-    assert "border: 1px solid %(BORDER_DARK)s;" in source
-    assert "layout.setContentsMargins(1, 1, 1, 1)" in source
+    assert "inset = metrics.SCROLL_SURFACE_CONTENT_INSET" in source
     assert "widget.setFrameShape(QtGui.QFrame.NoFrame)" in source
     assert "isinstance(parent, QtGui.QSplitter)" in source
     assert "isinstance(owner_layout, QtGui.QFormLayout)" in source
@@ -39,21 +63,17 @@ def test_scroll_surface_theme_colors_use_shared_palette():
         "scripts/script_toolbox/ui/scroll_surface_frames.py"
     )
 
-    assert "%(CONTROL_BG)s" in source
-    assert "%(BORDER_DARK)s" in source
-    assert "%(LIST_BG)s" in source
-    assert "%(BORDER_PRESSED)s" in source
-    assert "%(TEXT_LIST)s" in source
-    assert "%(SELECTION_BG)s" in source
-    assert "%(SELECTION_TEXT)s" in source
     assert "palette.CONTROL_BG" in source
     assert "palette.BORDER_DARK" in source
     assert "palette.LIST_BG" in source
     assert "palette.BORDER_PRESSED" in source
+    assert "palette.TEXT_LIST" in source
+    assert "palette.SELECTION_BG" in source
+    assert "palette.SELECTION_TEXT" in source
     assert re.search(r"#[0-9a-fA-F]{6}\b", source) is None
 
 
-def test_scroll_surface_frame_preserves_original_outer_constraints():
+def test_scroll_surface_frame_preserves_original_outer_constraints_without_growth():
     source = _read(
         "scripts/script_toolbox/ui/scroll_surface_frames.py"
     )
@@ -62,28 +82,36 @@ def test_scroll_surface_frame_preserves_original_outer_constraints():
     assert "frame.setMaximumHeight(maximum_height)" in source
     assert "frame.setMinimumWidth(minimum_width)" in source
     assert "frame.setMaximumWidth(maximum_width)" in source
-    assert "minimum_height + 2" not in source
-    assert "maximum_height + 2" not in source
-    assert "minimum_width + 2" not in source
-    assert "maximum_width + 2" not in source
+
+    for forbidden in (
+        "minimum_height +",
+        "maximum_height +",
+        "minimum_width +",
+        "maximum_width +",
+    ):
+        assert forbidden not in source
+
+    # Border and layout inset are consumed from the child, never added to the
+    # outer fixed extent copied to ScrollSurfaceFrame.
+    assert "minimum_height - _frame_vertical_inset(frame)" in source
 
 
-def test_runtime_field_consumes_frame_border_and_layout_insets():
+def test_runtime_field_consumes_explicit_frame_border_and_layout_insets():
     source = _read(
         "scripts/script_toolbox/ui/scroll_surface_frames.py"
     )
 
-    assert "def _fit_runtime_field_inside_frame(control, frame):" in source
-    assert "minimum_height != maximum_height" in source
-    assert "vertical_inset = 2" in source
+    assert "def _frame_vertical_inset(frame):" in source
+    assert "metrics.SCROLL_SURFACE_BORDER_WIDTH * 2" in source
     assert "margins = frame.layout().contentsMargins()" in source
     assert "vertical_inset += int(margins.top())" in source
     assert "vertical_inset += int(margins.bottom())" in source
-    assert "minimum_height - vertical_inset" in source
-    assert "minimum_height - 2" not in source
+    assert "metrics.SCROLL_SURFACE_CONTENT_INSET * 2" in source
+    assert "def _fit_runtime_field_inside_frame(control, frame):" in source
+    assert "minimum_height != maximum_height" in source
     assert "control.setMinimumHeight(inner_height)" in source
     assert "control.setMaximumHeight(inner_height)" in source
-    assert "_fit_runtime_field_inside_frame(" in source
+    assert "vertical_inset = 2" not in source
 
 
 def test_runtime_list_field_uses_plain_editor_surface_contract():
@@ -104,32 +132,17 @@ def test_runtime_list_field_uses_plain_editor_surface_contract():
     assert "runtime_module.DisplayFieldList" in source
     assert "_apply_runtime_field_surface(control)" in source
 
-    # The requested visual target is the editor's QListWidget/QTreeWidget
-    # surface (palette + Existing Interface), not the surrounding EditorPane.
     editor_list_rule = base_style.split(
         "QListWidget,\nQTreeWidget {",
         1
     )[1].split("}", 1)[0]
-
-    frame_rule = source.split(
-        "_RUNTIME_FIELD_FRAME_STYLE =",
-        1
-    )[1].split('"""', 2)[1]
-
-    for token in (
-        "background-color: %(LIST_BG)s;",
-        "border: 1px solid %(BORDER_PRESSED)s;",
-    ):
-        assert token in editor_list_rule
-        assert token in frame_rule
-
-    # Base theme geometry is tokenized, while the external Maya/Qt4 frame
-    # keeps its explicit pixel contract separate from the design-system layer.
+    assert "background-color: %(LIST_BG)s;" in editor_list_rule
+    assert "border: 1px solid %(BORDER_PRESSED)s;" in editor_list_rule
     assert "border-radius: %(BORDER_RADIUS_CONTROL)spx;" in editor_list_rule
-    assert "border-radius: 2px;" in frame_rule
 
     assert "background=palette.LIST_BG" in source
     assert "border=palette.BORDER_PRESSED" in source
+    assert "_RUNTIME_FIELD_FRAME_STYLE" not in source
 
     runtime_rule = style.split(
         "QListWidget#RuntimeFieldList {{",
@@ -158,9 +171,6 @@ def test_runtime_list_field_uses_plain_editor_surface_contract():
     assert "background-color: {selection_bg};" in selected_rule
     assert "color: {selection_text};" in selected_rule
 
-    # Maya can keep the reparented QListWidget viewport on the host palette.
-    # The runtime hook therefore applies the same surface directly and carries
-    # a QPalette fallback for the background and orange selection.
     assert "_RUNTIME_FIELD_LIST_STYLE" in source
     assert "control.setStyleSheet(" in source
     assert "QtGui.QPalette.Base" in source
@@ -170,6 +180,20 @@ def test_runtime_list_field_uses_plain_editor_surface_contract():
     assert "QtGui.QColor(palette.SELECTION_BG)" in source
     assert "QtGui.QColor(palette.SELECTION_TEXT)" in source
     assert "viewport.setAutoFillBackground(True)" in source
+
+
+def test_editor_palette_and_tree_reuse_the_same_scroll_surface_wrapper():
+    editor_frames = _read(
+        "scripts/script_toolbox/ui/editor_scroll_frames.py"
+    )
+
+    assert "from .scroll_surface_frames import wrap_scroll_widget" in editor_frames
+    assert "def install_interface_editor_scroll_frames(editor):" in editor_frames
+    assert 'getattr(editor, "palette", None)' in editor_frames
+    assert 'getattr(editor, "tree", None)' in editor_frames
+    assert editor_frames.count("wrap_scroll_widget(") >= 2
+    assert "background=LIST_BG" in editor_frames
+    assert "border=BORDER_PRESSED" in editor_frames
 
 
 def test_runtime_folder_pane_override_is_removed():
@@ -205,13 +229,17 @@ def test_multiline_property_fields_use_external_frames():
 
 
 def test_ui_installs_unified_scroll_surface_contract():
-    source = _read(
+    ui_source = _read(
         "scripts/script_toolbox/ui/__init__.py"
     )
+    editor_search = _read(
+        "scripts/script_toolbox/ui/editor_search.py"
+    )
 
-    assert "install_property_editor_scroll_frames()" in source
-    assert "install_runtime_scroll_frames(" in source
-    assert "install_script_editor_scroll_frames(" in source
+    assert "install_property_editor_scroll_frames()" in ui_source
+    assert "install_runtime_scroll_frames(" in ui_source
+    assert "install_script_editor_scroll_frames(" in ui_source
+    assert "install_interface_editor_scroll_frames(editor)" in editor_search
 
 
 def test_panel_scroll_areas_remain_frameless_by_design():

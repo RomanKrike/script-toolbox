@@ -56,24 +56,54 @@ def test_painted_search_controls_keep_qt4_clip_workaround_palette_driven():
     assert re.search(r"#[0-9a-fA-F]{6}\b", source) is None
 
 
-def test_editor_search_exposes_reusable_helpers_for_both_lists():
-    source = _read(
+def test_interface_editor_builds_shared_search_fields_directly():
+    editor_source = _read(
+        "scripts/script_toolbox/ui/interface_editor.py"
+    )
+    search_source = _read(
         "scripts/script_toolbox/ui/editor_search.py"
     )
 
-    assert "from .search_field import SearchField" in source
-    assert "def install_editor_search(editor):" in source
-    assert "def filter_existing_parameters(editor, value):" in source
-    assert "def reapply_existing_filter(editor):" in source
-    assert "def apply_editor_presentation(editor):" in source
-    assert 'SearchField(\n            "Filter parameters..."' in source
-    assert 'SearchField(\n            "Filter existing parameters..."' in source
-    assert 'editor.search_fields[\n            "palette"' in source
-    assert 'editor.search_fields[\n            "structure"' in source
-    assert "editor.palette_search_control = editor.palette_filter" in source
-    assert "editor.existing_search_control = editor.existing_filter" in source
-    assert "_filter_tree_branch(" in source
-    assert "child_match" in source
+    assert "from .search_field import SearchField" in editor_source
+    assert "self.search_fields = {}" in editor_source
+    assert 'SearchField(\n            "Filter parameters..."' in editor_source
+    assert 'SearchField(\n            "Filter existing parameters..."' in editor_source
+    assert "self.palette_search_control = self.palette_filter" in editor_source
+    assert "self.existing_search_control = self.existing_filter" in editor_source
+    assert 'self.search_fields[\n            "palette"' in editor_source
+    assert 'self.search_fields[\n            "structure"' in editor_source
+    assert "self.palette_filter.textChanged.connect(" in editor_source
+    assert "self.existing_filter.textChanged.connect(" in editor_source
+    assert '"PaletteFilter"' not in editor_source
+    assert '"HintText"' not in editor_source
+
+    build_source = editor_source.split(
+        "    def build_ui(self):",
+        1
+    )[1].split(
+        "    def _icon_button(",
+        1
+    )[0]
+    assert build_source.index(
+        "left_layout.addWidget(\n            self.palette,"
+    ) < build_source.index(
+        "self.palette_filter = SearchField("
+    )
+    assert build_source.index(
+        "center_layout.addWidget(\n            self.tree,"
+    ) < build_source.index(
+        "self.existing_filter = SearchField("
+    )
+
+    assert "def filter_existing_parameters(editor, value):" in search_source
+    assert "def reapply_existing_filter(editor):" in search_source
+    assert "def apply_editor_presentation(editor):" in search_source
+    assert "_filter_tree_branch(" in search_source
+    assert "child_match" in search_source
+    assert "def install_editor_search(editor):" not in search_source
+    assert "_hide_legacy_palette_hint" not in search_source
+    assert "findChildren(" not in search_source
+    assert "SearchField(" not in search_source
 
 
 def test_editor_presentation_is_composed_without_search_wrapper():
@@ -94,7 +124,6 @@ def test_editor_presentation_is_composed_without_search_wrapper():
 
     assert "from .editor_search import apply_editor_presentation" in adapter_source
     assert "apply_editor_presentation(self)" in adapter_source
-    assert "from .editor_search import filter_existing_parameters as filter_editor_structure" in adapter_source
     assert "from .editor_search import reapply_existing_filter" in adapter_source
 
     assert "build_search_interface_editor_class(" not in ui_source

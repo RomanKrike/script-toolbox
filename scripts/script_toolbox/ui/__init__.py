@@ -65,6 +65,24 @@ def _install_controls_v2_palette(editor_class):
                     "Standalone image with optional event bindings."
                 ))
 
+            if not any(
+                entry[1] == "toggle_icon"
+                for entry in updated
+            ):
+                insert_at = len(updated)
+                for index, entry in enumerate(updated):
+                    if entry[1] == "icon":
+                        insert_at = index + 1
+                        break
+                updated.insert(
+                    insert_at,
+                    (
+                        "Toggle Icon",
+                        "toggle_icon",
+                        "Stateful ON/OFF icon with independent images and actions."
+                    )
+                )
+
             entries = tuple(updated)
 
         groups.append((group_label, entries))
@@ -101,6 +119,9 @@ from .runtime_renderers import unregister_runtime_renderer
 from .toggle_button_runtime import install_toggle_button_event_hooks
 from .toggle_button_runtime import install_toggle_button_main_window
 from .toggle_button_runtime import render_toggle_button
+from .toggle_icon_runtime import install_toggle_icon_event_hooks
+from .toggle_icon_runtime import install_toggle_icon_main_window
+from .toggle_icon_runtime import render_toggle_icon
 
 install_runtime_renderer_registry(
     _runtime_module
@@ -117,6 +138,10 @@ register_runtime_renderer(
 register_runtime_renderer(
     "toggle_button",
     render_toggle_button
+)
+register_runtime_renderer(
+    "toggle_icon",
+    render_toggle_icon
 )
 install_runtime_scroll_frames(
     get_runtime_renderer_registry(),
@@ -160,12 +185,18 @@ install_icon_only_button_centering(
 install_toggle_button_event_hooks(
     _event_binding_hooks_module
 )
+install_toggle_icon_event_hooks(
+    _event_binding_hooks_module
+)
 install_event_binding_hooks(
     get_runtime_renderer_registry(),
     _runtime_renderers_module,
     _BaseScriptToolbox
 )
 install_toggle_button_main_window(
+    _BaseScriptToolbox
+)
+install_toggle_icon_main_window(
     _BaseScriptToolbox
 )
 install_runtime_icon_feedback(

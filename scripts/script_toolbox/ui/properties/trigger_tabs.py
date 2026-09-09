@@ -3,6 +3,7 @@ from __future__ import print_function
 
 from ...compat import QtCore
 from ...compat import QtGui
+from ...style.builtin_icons import builtin_icon
 from . import base as base_module
 from . import bindings as bindings_module
 
@@ -29,6 +30,17 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
             toolbox=toolbox,
             parent=parent
         )
+
+        # Native Qt tab close buttons vary between DCC hosts and do not match
+        # the bundled Solar toolbar set. Real trigger tabs get explicit Solar
+        # close buttons instead.
+        self.tabs.setTabsClosable(False)
+        try:
+            self.tabs.setIconSize(
+                QtCore.QSize(16, 16)
+            )
+        except Exception:
+            pass
 
         # Remove the legacy corner button. It is deliberately kept out of the
         # layout instead of restyling it, so there is only one visible Add UI.
@@ -70,6 +82,47 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
             except Exception:
                 pass
 
+    def _install_trigger_close_button(self, page):
+        if page not in self.pages:
+            return
+
+        index = self.pages.index(page)
+        button = QtGui.QToolButton(
+            self.tabs.tabBar()
+        )
+        button.setObjectName(
+            "TriggerCloseButton"
+        )
+        button.setAutoRaise(True)
+        button.setIcon(
+            builtin_icon("close-circle")
+        )
+        button.setIconSize(
+            QtCore.QSize(14, 14)
+        )
+        button.setFixedSize(18, 18)
+        button.setToolTip("Remove trigger")
+        button.setStyleSheet(
+            "QToolButton#TriggerCloseButton {"
+            "background: transparent;"
+            "border: 0px;"
+            "padding: 1px;"
+            "}"
+        )
+        button.clicked.connect(
+            lambda checked=False, current=page:
+            self.remove_binding(current)
+        )
+
+        try:
+            self.tabs.tabBar().setTabButton(
+                index,
+                QtGui.QTabBar.RightSide,
+                button
+            )
+        except Exception:
+            button.deleteLater()
+
     def _ensure_add_tab(self):
         if self._add_tab_page is None:
             self._add_tab_page = QtGui.QWidget(
@@ -85,7 +138,8 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
         if index < 0:
             index = self.tabs.addTab(
                 self._add_tab_page,
-                "+"
+                builtin_icon("add-circle"),
+                ""
             )
 
         self.tabs.setTabToolTip(
@@ -116,13 +170,17 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
         self._ensure_add_tab()
 
     def _add_page(self, binding):
-        # Real trigger tabs must always stay before the trailing '+' tab.
+        # Real trigger tabs must always stay before the trailing Add tab.
         self._remove_add_tab()
         try:
-            return _BaseBindingPanel._add_page(
+            page = _BaseBindingPanel._add_page(
                 self,
                 binding
             )
+            self._install_trigger_close_button(
+                page
+            )
+            return page
         finally:
             self._ensure_add_tab()
 

@@ -8,6 +8,7 @@ from ...style.builtin_icons import builtin_icon
 from ...style.builtin_icons import builtin_icon_entries
 from ...style.builtin_icons import builtin_icon_id_from_path
 from ...style.builtin_icons import builtin_icon_resource
+from ..icon_browse import install_icon_browse
 from .base import PropertyEditorBase
 
 
@@ -71,6 +72,24 @@ class IconPropertyEditor(PropertyEditorBase):
             "Content Alignment",
             self.alignment
         )
+
+        # The active editor exposes a single path-based icon source. Keep the
+        # legacy combo alive for config compatibility, but remove it from the
+        # visible form instead of patching these methods after construction.
+        try:
+            source_label = self.form.labelForField(
+                self.icon_source
+            )
+            if source_label is not None:
+                source_label.hide()
+        except Exception:
+            pass
+        self.icon_source.hide()
+        self.path.setEnabled(True)
+        self.icon_browse_button = install_icon_browse(
+            self,
+            self.path
+        )
         self.add_stretch()
 
         self.icon_source.currentIndexChanged.connect(
@@ -90,30 +109,15 @@ class IconPropertyEditor(PropertyEditorBase):
         )
 
     def _selected_builtin_icon(self):
-        value = self.icon_source.itemData(
-            self.icon_source.currentIndex()
-        )
-        return text_type(value or "")
+        # Built-in selection is retained only as a hidden legacy data source.
+        # The current UI persists the explicit path shown to the user.
+        return ""
 
     def _refresh_icon_source(self):
-        icon_id = self._selected_builtin_icon()
-        current_path = text_type(
-            self.path.text()
-        )
-
-        if icon_id:
-            if not builtin_icon_id_from_path(current_path):
-                self._custom_path = current_path
-            self.path.setText(
-                builtin_icon_resource(icon_id)
-            )
-            self.path.setEnabled(False)
-        else:
-            if builtin_icon_id_from_path(current_path):
-                self.path.setText(
-                    self._custom_path
-                )
+        try:
             self.path.setEnabled(True)
+        except Exception:
+            pass
 
     def _icon_source_changed(self, *args):
         self._refresh_icon_source()

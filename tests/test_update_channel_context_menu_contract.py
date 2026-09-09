@@ -34,13 +34,15 @@ def test_update_channel_uses_right_click_context_menu():
     assert "button.setMenu(" not in source
 
 
-def test_update_channel_does_not_use_tooltip_as_control_identity():
+def test_update_channel_uses_direct_control_reference_only():
     source = _read(
         "scripts/script_toolbox/ui/update_channels_ui.py"
     )
 
     assert '"check_updates_button"' in source
-    assert 'str(frame.objectName()) == "TopBar"' in source
-    assert "self.check_updates_button = widget" in source
+    assert "_find_update_check_button" not in source
+    assert "findChildren(" not in source
+    assert '"TopBar"' not in source
+    assert "self.check_updates_button = widget" not in source
     assert "button.toolTip()" not in source
     assert "tooltip.startswith(" not in source

@@ -27,9 +27,10 @@ def _document_with(item):
     }
 
 
-def test_controls_v2_schema_and_icon_kind_are_registered():
-    assert CONFIG_VERSION == 18
+def test_controls_v2_schema_and_action_kinds_are_registered():
+    assert CONFIG_VERSION == 19
     assert "icon" in ITEM_KINDS
+    assert "toggle_button" in ITEM_KINDS
 
 
 def test_icon_model_preserves_path_size_alignment_and_binding():
@@ -100,6 +101,10 @@ def test_binding_events_are_kind_specific_and_layout_is_hidden():
         "click",
         "double_click",
     )
+    assert binding_events("toggle_button") == (
+        "click",
+        "double_click",
+    )
     assert binding_events("folder") == ()
     assert binding_events(
         "folder",
@@ -126,7 +131,7 @@ def test_legacy_on_change_is_accepted_by_item_factory_as_binding():
     assert "callbacks" not in item
 
 
-def test_schema_16_migrates_recursively_through_schema_18():
+def test_schema_16_migrates_recursively_through_current_schema():
     source = {
         "version": 16,
         "sections": [
@@ -158,7 +163,7 @@ def test_schema_16_migrates_recursively_through_schema_18():
     migrated = migrate_document(source)
     value_item = migrated["sections"][0]["items"][0]["items"][0]
 
-    assert migrated["version"] == 18
+    assert migrated["version"] == CONFIG_VERSION
     assert value_item["bindings"][0]["event"] == "value_changed"
     assert value_item["bindings"][0]["script"] == (
         "toolbox.store_value('other', value)"

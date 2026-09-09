@@ -127,13 +127,6 @@ QLabel#PaneTitle {
     padding: 2px 1px 5px 1px;
 }
 
-QLabel#HintText {
-    background-color: transparent;
-    color: %(TEXT_MUTED)s;
-    font-size: 10px;
-    padding: 5px 2px 1px 2px;
-}
-
 QLabel#EditorStatus {
     background-color: transparent;
     color: %(TEXT_EDITOR_STATUS)s;
@@ -347,13 +340,6 @@ QSpinBox,
 QDoubleSpinBox {
     min-height: 22px;
     padding: 2px 5px;
-}
-
-QLineEdit#PaletteFilter {
-    background-color: %(FILTER_BG)s;
-    border-color: %(BORDER_SOFT)s;
-    min-height: 24px;
-    padding-left: 7px;
 }
 
 QLineEdit:focus,

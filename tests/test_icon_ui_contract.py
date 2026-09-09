@@ -102,10 +102,17 @@ def test_share_actions_use_stable_references_and_final_icons():
     assert "self.export_button" in share_source
     assert "self.share_paste_button" in share_source
     assert "self.share_button" in share_source
+    assert "self.share_action_widget" in share_source
+    assert "self.share_action_layout" in share_source
+    assert 'cluster.setObjectName("ShareActionCluster")' in share_source
     assert '"cloud-download"' in share_source
     assert '"cloud-upload"' in share_source
     assert "_script_toolbox_share_role" not in share_source
     assert ".toolTip()" not in share_source
+    assert "def _layout_for_widget(" not in share_source
+    assert "itemAt(" not in share_source
+    assert "findChildren(" not in share_source
+    assert "_install_share_buttons" not in share_source
 
 
 def test_script_editor_creates_final_clear_output_button_directly():

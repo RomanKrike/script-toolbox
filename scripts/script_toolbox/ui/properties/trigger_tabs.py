@@ -19,19 +19,18 @@ QTabBar::tab {
 QToolButton#TriggerCloseButton,
 QToolButton#TriggerAddButton {
     background-color: transparent;
-    border: 1px solid transparent;
-    border-radius: 3px;
+    border: 0px;
     padding: 0px;
 }
-QToolButton#TriggerCloseButton:hover,
-QToolButton#TriggerAddButton:hover {
+QToolButton#TriggerCloseButton:hover {
     background-color: #404040;
-    border-color: #545454;
+    border: 1px solid #545454;
+    border-radius: 3px;
 }
-QToolButton#TriggerCloseButton:pressed,
-QToolButton#TriggerAddButton:pressed {
+QToolButton#TriggerCloseButton:pressed {
     background-color: #272727;
-    border-color: #171717;
+    border: 1px solid #171717;
+    border-radius: 3px;
 }
 """
 
@@ -110,9 +109,18 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
             return
 
         index = self.pages.index(page)
-        button = QtGui.QToolButton(
-            self.tabs.tabBar()
+        bar = self.tabs.tabBar()
+
+        # QTabBar can crop a right-side tool button by one pixel under older
+        # Maya/Qt styles. Give the close control its own holder so the glyph
+        # always has real space on both sides instead of touching tab chrome.
+        holder = QtGui.QWidget(bar)
+        holder.setObjectName(
+            "TriggerCloseHolder"
         )
+        holder.setFixedSize(20, 18)
+
+        button = QtGui.QToolButton(holder)
         button.setObjectName(
             "TriggerCloseButton"
         )
@@ -121,9 +129,10 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
             builtin_icon("close")
         )
         button.setIconSize(
-            QtCore.QSize(11, 11)
+            QtCore.QSize(10, 10)
         )
         button.setFixedSize(16, 16)
+        button.move(2, 1)
         button.setFocusPolicy(
             QtCore.Qt.NoFocus
         )
@@ -137,13 +146,13 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
         )
 
         try:
-            self.tabs.tabBar().setTabButton(
+            bar.setTabButton(
                 index,
                 QtGui.QTabBar.RightSide,
-                button
+                holder
             )
         except Exception:
-            button.deleteLater()
+            holder.deleteLater()
 
     def _ensure_add_button(self):
         if self._add_tab_button is not None:
@@ -157,9 +166,9 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
             builtin_icon("add")
         )
         button.setIconSize(
-            QtCore.QSize(13, 13)
+            QtCore.QSize(12, 12)
         )
-        button.setFixedSize(18, 18)
+        button.setFixedSize(16, 16)
         button.setFocusPolicy(
             QtCore.Qt.NoFocus
         )
@@ -167,9 +176,17 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
         button.setStyleSheet(
             _TRIGGER_TAB_STYLE
         )
-        button.clicked.connect(
-            self.add_binding
-        )
+
+        # The plus is only a glyph. Mouse input falls through to QTabBar so
+        # the normal add-tab hover/pressed feedback is the only indication.
+        try:
+            button.setAttribute(
+                QtCore.Qt.WA_TransparentForMouseEvents,
+                True
+            )
+        except Exception:
+            pass
+
         self._add_tab_button = button
 
     def _install_add_tab_spacer(self, index):
@@ -182,7 +199,7 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
                 pass
 
         spacer = QtGui.QWidget(bar)
-        spacer.setFixedSize(14, 1)
+        spacer.setFixedSize(12, 1)
         try:
             spacer.setAttribute(
                 QtCore.Qt.WA_TransparentForMouseEvents,

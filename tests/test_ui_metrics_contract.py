@@ -61,11 +61,75 @@ def test_numeric_value_rows_use_shared_inline_layout_geometry():
     assert "MARGINS_NONE" in helpers
     assert "INLINE_CONTROL_SPACING" in helpers
 
-    assert (
-        basic.count("configure_inline_layout(values_layout)") == 2
-    )
+    assert basic.count("configure_inline_layout(values_layout)") == 1
     assert "values_layout.setContentsMargins(0, 0, 0, 0)" not in basic
     assert "values_layout.setSpacing(4)" not in basic
+
+
+def test_integer_and_float_share_numeric_property_editor_base():
+    basic = _read(
+        "scripts/script_toolbox/ui/properties/basic.py"
+    )
+
+    assert (
+        "class NumericPropertyEditorBase(ValuePropertyEditorBase):"
+        in basic
+    )
+    assert (
+        "class IntegerPropertyEditor(NumericPropertyEditorBase):"
+        in basic
+    )
+    assert (
+        "class FloatPropertyEditor(NumericPropertyEditorBase):"
+        in basic
+    )
+
+    shared = basic.split(
+        "class NumericPropertyEditorBase(ValuePropertyEditorBase):",
+        1
+    )[1].split(
+        "class IntegerPropertyEditor(NumericPropertyEditorBase):",
+        1
+    )[0]
+    integer = basic.split(
+        "class IntegerPropertyEditor(NumericPropertyEditorBase):",
+        1
+    )[1].split(
+        "class FloatPropertyEditor(NumericPropertyEditorBase):",
+        1
+    )[0]
+    floating = basic.split(
+        "class FloatPropertyEditor(NumericPropertyEditorBase):",
+        1
+    )[1].split(
+        "class CheckboxPropertyEditor(ValuePropertyEditorBase):",
+        1
+    )[0]
+
+    for method in (
+        "def current_size(self):",
+        "def _size_changed(self, *args):",
+        "def _refresh_size(self):",
+        "def load_specific(self, item):",
+        "def write_specific(self, item):",
+    ):
+        assert method in shared
+        assert method not in integer
+        assert method not in floating
+
+    assert "SPINBOX_CLASS = QtGui.QSpinBox" in integer
+    assert "VALUE_DEFAULT = 0" in integer
+    assert "STEP_DEFAULT = 1" in integer
+    assert "STEP_MINIMUM = 1" in integer
+    assert "return int(value)" in integer
+
+    assert "SPINBOX_CLASS = QtGui.QDoubleSpinBox" in floating
+    assert "VALUE_DEFAULT = 0.0" in floating
+    assert "STEP_DEFAULT = 0.1" in floating
+    assert "STEP_MINIMUM = 0.000001" in floating
+    assert "DISPLAY_DECIMALS = 6" in floating
+    assert "DECIMALS_DEFAULT = 3" in floating
+    assert "return float(value)" in floating
 
 
 def test_button_appearance_groups_use_shared_property_group_geometry():

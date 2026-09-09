@@ -20,6 +20,10 @@ from ..model import walk_items
 from ..pycompat import text_type
 from ..style import STYLE
 from ..style import toolbar_icon
+from ..style.palette import STRUCTURE_FOLDER_BG
+from ..style.palette import TEXT_PALETTE_GROUP
+from ..style.palette import TEXT_STRUCTURE_ROW
+from ..style.palette import WINDOW_BG
 from .interface_tree import ExistingInterfaceTree
 from .properties import create_editor
 
@@ -261,7 +265,7 @@ class InterfaceEditor(QtGui.QDialog):
                 0,
                 QtGui.QBrush(
                     QtGui.QColor(
-                        "#bda88f"
+                        TEXT_PALETTE_GROUP
                     )
                 )
             )
@@ -497,18 +501,19 @@ class InterfaceEditor(QtGui.QDialog):
 
         # Maya 2015 / Qt4 does not consistently honor QScrollArea viewport
         # background selectors. Set the viewport palette explicitly so the
-        # property pane stays visually identical to EditorPane.
+        # property pane stays visually identical to the final PropertyPane
+        # surface installed by property_pane_style.
         try:
             viewport = self.property_scroll.viewport()
             viewport.setObjectName("PropertyViewport")
             viewport_palette = viewport.palette()
             viewport_palette.setColor(
                 QtGui.QPalette.Window,
-                QtGui.QColor("#303030")
+                QtGui.QColor(WINDOW_BG)
             )
             viewport_palette.setColor(
                 QtGui.QPalette.Base,
-                QtGui.QColor("#303030")
+                QtGui.QColor(WINDOW_BG)
             )
             viewport.setPalette(viewport_palette)
             viewport.setAutoFillBackground(True)
@@ -523,11 +528,11 @@ class InterfaceEditor(QtGui.QDialog):
             host_palette = self.property_host.palette()
             host_palette.setColor(
                 QtGui.QPalette.Window,
-                QtGui.QColor("#303030")
+                QtGui.QColor(WINDOW_BG)
             )
             host_palette.setColor(
                 QtGui.QPalette.Base,
-                QtGui.QColor("#303030")
+                QtGui.QColor(WINDOW_BG)
             )
             self.property_host.setPalette(host_palette)
             self.property_host.setAutoFillBackground(True)
@@ -801,7 +806,7 @@ class InterfaceEditor(QtGui.QDialog):
                     column,
                     QtGui.QBrush(
                         QtGui.QColor(
-                            "#302d2a"
+                            STRUCTURE_FOLDER_BG
                         )
                     )
                 )
@@ -814,7 +819,7 @@ class InterfaceEditor(QtGui.QDialog):
                     column,
                     QtGui.QBrush(
                         QtGui.QColor(
-                            "#b6c4cf"
+                            TEXT_STRUCTURE_ROW
                         )
                     )
                 )

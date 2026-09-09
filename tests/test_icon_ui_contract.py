@@ -48,7 +48,24 @@ def test_toolbar_icon_mappings_match_ui_contract():
     assert '"folder-open.svg"' in source
 
 
-def test_share_actions_use_same_technical_icon_contract_as_import_export():
+def test_technical_icon_buttons_use_shared_factory_and_presets():
+    source = _read(
+        "scripts/script_toolbox/ui/icon_button.py"
+    )
+
+    assert 'ICON_BUTTON_COMPACT = "compact"' in source
+    assert 'ICON_BUTTON_TOOLBAR = "toolbar"' in source
+    assert 'ICON_BUTTON_HEADER = "header"' in source
+    assert "ICON_BUTTON_COMPACT: (16, 25)" in source
+    assert "ICON_BUTTON_TOOLBAR: (18, 26)" in source
+    assert "ICON_BUTTON_HEADER: (18, 28)" in source
+    assert 'button.setObjectName("IconButton")' in source
+    assert "toolbar_icon(icon_name)" in source
+    assert "button.setIconSize(" in source
+    assert "button.setFixedSize(" in source
+
+
+def test_share_actions_use_stable_references_and_final_icons():
     share_source = _read(
         "scripts/script_toolbox/ui/share_hooks.py"
     )
@@ -56,14 +73,37 @@ def test_share_actions_use_same_technical_icon_contract_as_import_export():
         "scripts/script_toolbox/ui/icon_ui_hooks.py"
     )
 
-    assert 'button.setObjectName("IconButton")' in share_source
-    assert "button._script_toolbox_share_role = share_role" in share_source
-    assert '"SharePasteButton": "cloud-download"' in hook_source
-    assert '"ShareButton": "cloud-upload"' in hook_source
-    assert '"_script_toolbox_share_role"' in hook_source
+    assert "create_icon_button(" in share_source
+    assert "self.export_button" in share_source
+    assert "self.share_paste_button" in share_source
+    assert "self.share_button" in share_source
+    assert '"cloud-download"' in share_source
+    assert '"cloud-upload"' in share_source
+    assert "_script_toolbox_share_role" not in share_source
+    assert ".toolTip()" not in share_source
+
+    assert "create_icon_button(" in hook_source
+    assert "findChildren(" not in hook_source
+    assert ".toolTip()" not in hook_source
 
 
-def test_icon_ui_hooks_are_wired():
+def test_script_editor_creates_final_clear_output_button_directly():
+    source = _read(
+        "scripts/script_toolbox/ui/script_editor.py"
+    )
+    ui_source = _read(
+        "scripts/script_toolbox/ui/__init__.py"
+    )
+
+    assert "ICON_BUTTON_TOOLBAR" in source
+    assert "create_icon_button(" in source
+    assert "self.clear_output_button" in source
+    assert '"delete"' in source
+    assert "install_script_editor_icons(" not in ui_source
+    assert "build_icon_interface_editor_class(" not in ui_source
+
+
+def test_property_icon_browse_still_uses_solar_icon_directory():
     hook_source = _read(
         "scripts/script_toolbox/ui/icon_ui_hooks.py"
     )
@@ -73,7 +113,5 @@ def test_icon_ui_hooks_are_wired():
 
     assert "QFileDialog.getOpenFileName" in hook_source
     assert "solar_icon_directory()" in hook_source
-    assert 'toolbar_icon("delete")' in hook_source
+    assert "create_icon_button(" in hook_source
     assert "install_property_icon_browse(" in ui_source
-    assert "install_script_editor_icons(" in ui_source
-    assert "build_icon_interface_editor_class(" in ui_source

@@ -7,6 +7,9 @@ from . import editor_document_adapter as _editor_document_adapter_module
 from ..core.layout_document import LayoutEditorDocumentController
 from .editor_document_adapter import build_interface_editor_class
 from .editor_view_state import build_editor_view_state_class
+from .icon_ui_hooks import build_icon_interface_editor_class
+from .icon_ui_hooks import install_property_icon_browse
+from .icon_ui_hooks import install_script_editor_icons
 from .layout_editor_adapter import build_layout_editor_class
 from .layout_context import install_layout_property_context
 from .share_hooks import build_share_interface_editor_class
@@ -14,6 +17,8 @@ from .editor_scroll_frames import build_scroll_frame_interface_editor_class
 from .interface_tree import ExistingInterfaceTree
 from .property_pane_style import install_property_pane_style
 from .properties.base import PropertyEditorBase
+from .properties.button import ButtonPropertyEditor
+from .properties.icon import IconPropertyEditor
 from .scroll_surface_frames import install_property_editor_scroll_frames
 from .scroll_surface_frames import install_runtime_scroll_frames
 from .scroll_surface_frames import install_script_editor_scroll_frames
@@ -81,12 +86,19 @@ InterfaceEditor = build_editor_view_state_class(
 InterfaceEditor = build_share_interface_editor_class(
     InterfaceEditor
 )
+InterfaceEditor = build_icon_interface_editor_class(
+    InterfaceEditor
+)
 InterfaceEditor = build_scroll_frame_interface_editor_class(
     InterfaceEditor
 )
 install_property_pane_style(
     InterfaceEditor,
     PropertyEditorBase
+)
+install_property_icon_browse(
+    ButtonPropertyEditor,
+    IconPropertyEditor
 )
 install_property_editor_scroll_frames()
 
@@ -139,6 +151,9 @@ ScriptToolbox = build_update_channel_toolbox_class(
 )
 
 install_script_editor_scroll_frames(
+    ScriptEditorWidget
+)
+install_script_editor_icons(
     ScriptEditorWidget
 )
 

@@ -38,7 +38,7 @@ def _migrate_item(item):
         if mode == "state":
             item["kind"] = "toggle_button"
             item["state_source"] = "script"
-            item.setdefault("value", False)
+            item.pop("value", None)
         else:
             item.pop("mode", None)
             for key in _STATE_FIELDS:
@@ -50,6 +50,9 @@ def _migrate_item(item):
         item.pop("language", None)
         item.pop("click_script", None)
         item.pop("shift_script", None)
+
+        if item.get("state_source") == "script":
+            item.pop("value", None)
 
     if item.get("kind") in (
         "folder",

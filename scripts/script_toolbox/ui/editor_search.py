@@ -6,6 +6,7 @@ from ..pycompat import text_type
 from .editor_scroll_frames import install_interface_editor_scroll_frames
 from .property_pane_style import apply_property_pane_style
 from .search_field import SearchField
+from .share_hooks import install_share_controller
 
 
 def _tree_item_matches(item, query):
@@ -73,9 +74,19 @@ def _hide_legacy_palette_hint(parent):
 
 
 def build_search_interface_editor_class(base_class):
-    """Add search and direct presentation policies to Interface Editor."""
+    """Add search, presentation policies and composed editor features."""
 
     class InterfaceEditor(base_class):
+
+        def __init__(self, toolbox, parent=None):
+            # Share must exist before the legacy constructor calls build_ui(),
+            # where _icon_button() is resolved dynamically on this instance.
+            install_share_controller(self)
+            base_class.__init__(
+                self,
+                toolbox,
+                parent=parent
+            )
 
         def build_ui(self):
             base_class.build_ui(
@@ -84,6 +95,45 @@ def build_search_interface_editor_class(base_class):
             self._install_search_fields()
             apply_property_pane_style(self)
             install_interface_editor_scroll_frames(self)
+
+        # --------------------------------------------------------------
+        # Explicit feature composition
+        # --------------------------------------------------------------
+
+        def _icon_button(
+            self,
+            icon_name,
+            tooltip,
+            callback
+        ):
+            return self.share_controller.icon_button(
+                icon_name,
+                tooltip,
+                callback
+            )
+
+        def show_tree_context_menu(self, point):
+            return self.share_controller.show_tree_context_menu(
+                point
+            )
+
+        def share_settings(self):
+            return self.share_controller.share_settings()
+
+        def paste_shared_settings(self):
+            return self.share_controller.paste_shared_settings()
+
+        def share_selected(self, target_item=None):
+            return self.share_controller.share_selected(
+                target_item
+            )
+
+        def paste_shared_selected(self):
+            return self.share_controller.paste_shared_selected()
+
+        # --------------------------------------------------------------
+        # Search
+        # --------------------------------------------------------------
 
         def _install_search_fields(self):
             self.search_fields = {}

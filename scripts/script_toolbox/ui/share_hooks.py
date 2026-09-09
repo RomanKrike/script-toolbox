@@ -40,30 +40,6 @@ class _ShareWorker(QtCore.QThread):
         self.completed.emit(result)
 
 
-def _layout_for_widget(layout, target):
-    if layout is None:
-        return None, -1
-
-    for index in range(layout.count()):
-        entry = layout.itemAt(index)
-        if entry is None:
-            continue
-
-        if entry.widget() is target:
-            return layout, index
-
-        child_layout = entry.layout()
-        if child_layout is not None:
-            found_layout, found_index = _layout_for_widget(
-                child_layout,
-                target
-            )
-            if found_layout is not None:
-                return found_layout, found_index
-
-    return None, -1
-
-
 def _clipboard_text():
     try:
         return text_type(
@@ -89,6 +65,8 @@ def build_share_interface_editor_class(base_class):
             self.export_button = None
             self.share_paste_button = None
             self.share_button = None
+            self.share_action_widget = None
+            self.share_action_layout = None
             base_class.__init__(
                 self,
                 toolbox,
@@ -105,6 +83,12 @@ def build_share_interface_editor_class(base_class):
             tooltip,
             callback
         ):
+            if icon_name == "export":
+                return self._build_share_action_cluster(
+                    tooltip,
+                    callback
+                )
+
             button = create_icon_button(
                 icon_name,
                 tooltip,
@@ -115,50 +99,49 @@ def build_share_interface_editor_class(base_class):
 
             if icon_name == "import":
                 self.import_button = button
-            elif icon_name == "export":
-                self.export_button = button
 
             return button
 
-        def build_ui(self):
-            base_class.build_ui(self)
-            self._install_share_buttons()
+        def _build_share_action_cluster(
+            self,
+            export_tooltip,
+            export_callback
+        ):
+            cluster = QtGui.QWidget(self)
+            cluster.setObjectName("ShareActionCluster")
+            layout = QtGui.QHBoxLayout(cluster)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(6)
 
-        def _install_share_buttons(self):
-            export_button = self.export_button
-            if export_button is None:
-                return
-
-            layout, index = _layout_for_widget(
-                self.layout(),
-                export_button
+            self.export_button = create_icon_button(
+                "export",
+                export_tooltip,
+                export_callback,
+                parent=cluster,
+                preset=ICON_BUTTON_COMPACT
             )
-            if layout is None:
-                return
-
             self.share_paste_button = create_icon_button(
                 "cloud-download",
                 "Paste Shared Toolbox from Clipboard",
                 self.paste_shared_settings,
-                parent=self,
+                parent=cluster,
                 preset=ICON_BUTTON_COMPACT
             )
             self.share_button = create_icon_button(
                 "cloud-upload",
                 "Share Toolbox and Copy STB1 Code",
                 self.share_settings,
-                parent=self,
+                parent=cluster,
                 preset=ICON_BUTTON_COMPACT
             )
 
-            layout.insertWidget(
-                index + 1,
-                self.share_paste_button
-            )
-            layout.insertWidget(
-                index + 2,
-                self.share_button
-            )
+            layout.addWidget(self.export_button)
+            layout.addWidget(self.share_paste_button)
+            layout.addWidget(self.share_button)
+
+            self.share_action_widget = cluster
+            self.share_action_layout = layout
+            return cluster
 
         def show_tree_context_menu(self, point):
             item = self.tree.itemAt(point)

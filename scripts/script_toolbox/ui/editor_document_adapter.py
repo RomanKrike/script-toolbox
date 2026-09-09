@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..compat import QtCore
 from ..compat import QtGui
 from ..core.editor_commands import CommandHistory
 from ..core.editor_commands import DocumentCapture
@@ -14,6 +15,140 @@ from ..pycompat import text_type
 
 _ADAPTER_MARKER = "_script_toolbox_document_controller_adapter"
 _LEGACY_BASE = "_script_toolbox_legacy_interface_editor"
+_VIEW_ROLE_ID = QtCore.Qt.UserRole + 1
+
+
+def capture_editor_view_state(editor):
+    """Capture selection, expansion and scroll state before an Apply rebuild."""
+    expanded = {}
+
+    def visit(tree_item):
+        item_id = editor.item_data(
+            tree_item,
+            _VIEW_ROLE_ID
+        )
+        if item_id:
+            expanded[text_type(item_id)] = bool(
+                tree_item.isExpanded()
+            )
+
+        for index in range(
+            tree_item.childCount()
+        ):
+            visit(
+                tree_item.child(index)
+            )
+
+    for index in range(
+        editor.tree.topLevelItemCount()
+    ):
+        visit(
+            editor.tree.topLevelItem(index)
+        )
+
+    current = editor.tree.currentItem()
+    current_id = (
+        editor.item_data(
+            current,
+            _VIEW_ROLE_ID
+        )
+        if current is not None
+        else editor.current_item_id
+    )
+
+    state = {
+        "current_id": text_type(current_id or ""),
+        "expanded": expanded,
+        "tree_vertical_scroll": 0,
+        "tree_horizontal_scroll": 0,
+        "property_vertical_scroll": 0,
+    }
+
+    try:
+        state["tree_vertical_scroll"] = int(
+            editor.tree.verticalScrollBar().value()
+        )
+        state["tree_horizontal_scroll"] = int(
+            editor.tree.horizontalScrollBar().value()
+        )
+    except Exception:
+        pass
+
+    try:
+        state["property_vertical_scroll"] = int(
+            editor.property_scroll.verticalScrollBar().value()
+        )
+    except Exception:
+        pass
+
+    return state
+
+
+def restore_editor_view_state(editor, state):
+    """Restore an Interface Editor view state after its tree is rebuilt."""
+    if not state:
+        return
+
+    expanded = state.get(
+        "expanded",
+        {}
+    )
+
+    def visit(tree_item):
+        item_id = editor.item_data(
+            tree_item,
+            _VIEW_ROLE_ID
+        )
+        item_id = text_type(
+            item_id or ""
+        )
+        if item_id in expanded:
+            tree_item.setExpanded(
+                bool(expanded[item_id])
+            )
+
+        for index in range(
+            tree_item.childCount()
+        ):
+            visit(
+                tree_item.child(index)
+            )
+
+    for index in range(
+        editor.tree.topLevelItemCount()
+    ):
+        visit(
+            editor.tree.topLevelItem(index)
+        )
+
+    current_id = text_type(
+        state.get("current_id", "") or ""
+    )
+    if current_id:
+        selected = editor.tree_item_by_id(
+            current_id
+        )
+        if selected is not None:
+            editor.tree.setCurrentItem(
+                selected
+            )
+
+    try:
+        editor.tree.verticalScrollBar().setValue(
+            int(state.get("tree_vertical_scroll", 0))
+        )
+        editor.tree.horizontalScrollBar().setValue(
+            int(state.get("tree_horizontal_scroll", 0))
+        )
+    except Exception:
+        pass
+
+    try:
+        editor.property_scroll.verticalScrollBar().setValue(
+            int(state.get("property_vertical_scroll", 0))
+        )
+    except Exception:
+        pass
 
 
 def _unwrap_base(base_class):
@@ -466,7 +601,24 @@ def build_interface_editor_class(base_class):
                 self._pending_document_selection = None
                 self._sync_property_baseline()
 
+        # --------------------------------------------------------------
+        # Apply view-state preservation
+        # --------------------------------------------------------------
+
+        def _capture_tree_view_state(self):
+            return capture_editor_view_state(
+                self
+            )
+
+        def _restore_tree_view_state(self, state):
+            restore_editor_view_state(
+                self,
+                state
+            )
+
         def apply_changes(self):
+            view_state = self._capture_tree_view_state()
+
             if self.history_timer.isActive():
                 self.commit_history()
 
@@ -492,6 +644,9 @@ def build_interface_editor_class(base_class):
             self.status.setText(
                 "Applied."
             )
+            self._restore_tree_view_state(
+                view_state
+            )
             self._sync_property_baseline()
             return True
 
@@ -511,4 +666,6 @@ def build_interface_editor_class(base_class):
 
 __all__ = [
     "build_interface_editor_class",
+    "capture_editor_view_state",
+    "restore_editor_view_state",
 ]

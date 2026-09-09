@@ -5,6 +5,7 @@ from ...compat import QtCore
 from ...compat import QtGui
 from ...model.items import sanitize_name
 from ...pycompat import text_type
+from ...style.palette import WINDOW_BG
 from .bindings import BindingPanel
 
 
@@ -20,11 +21,11 @@ class PropertyEditorBase(QtGui.QWidget):
             editor_palette = self.palette()
             editor_palette.setColor(
                 QtGui.QPalette.Window,
-                QtGui.QColor("#303030")
+                QtGui.QColor(WINDOW_BG)
             )
             editor_palette.setColor(
                 QtGui.QPalette.Base,
-                QtGui.QColor("#303030")
+                QtGui.QColor(WINDOW_BG)
             )
             self.setPalette(editor_palette)
             self.setAutoFillBackground(True)
@@ -172,9 +173,7 @@ class PropertyEditorBase(QtGui.QWidget):
         self.column_height_mode.currentIndexChanged.connect(
             self._column_layout_changed
         )
-        self.column_height.valueChanged.connect(
-            self._control_changed
-        )
+        self.column_height.valueChanged.connect(self._control_changed)
         self.column_stretch.valueChanged.connect(
             self._control_changed
         )
@@ -496,11 +495,11 @@ class EmptyPropertyEditor(QtGui.QWidget):
             editor_palette = self.palette()
             editor_palette.setColor(
                 QtGui.QPalette.Window,
-                QtGui.QColor("#303030")
+                QtGui.QColor(WINDOW_BG)
             )
             editor_palette.setColor(
                 QtGui.QPalette.Base,
-                QtGui.QColor("#303030")
+                QtGui.QColor(WINDOW_BG)
             )
             self.setPalette(
                 editor_palette

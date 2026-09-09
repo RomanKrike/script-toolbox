@@ -153,10 +153,14 @@ def build_share_interface_editor_class(base_class):
             icon_name,
             tooltip,
             callback,
-            object_name
+            share_role
         ):
             button = QtGui.QToolButton()
-            button.setObjectName(object_name)
+            # Import/Export use the exact same technical-icon contract. Keep
+            # the share identity as a Python attribute instead of using the
+            # object name, otherwise the generic QToolButton chrome wins.
+            button.setObjectName("IconButton")
+            button._script_toolbox_share_role = share_role
             button.setIcon(
                 toolbar_icon(icon_name)
             )

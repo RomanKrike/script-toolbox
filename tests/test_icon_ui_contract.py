@@ -97,9 +97,6 @@ def test_share_actions_use_stable_references_and_final_icons():
     share_source = _read(
         "scripts/script_toolbox/ui/share_hooks.py"
     )
-    hook_source = _read(
-        "scripts/script_toolbox/ui/icon_ui_hooks.py"
-    )
 
     assert "create_icon_button(" in share_source
     assert "self.export_button" in share_source
@@ -109,10 +106,6 @@ def test_share_actions_use_stable_references_and_final_icons():
     assert '"cloud-upload"' in share_source
     assert "_script_toolbox_share_role" not in share_source
     assert ".toolTip()" not in share_source
-
-    assert "create_icon_button(" in hook_source
-    assert "findChildren(" not in hook_source
-    assert ".toolTip()" not in hook_source
 
 
 def test_script_editor_creates_final_clear_output_button_directly():
@@ -131,15 +124,34 @@ def test_script_editor_creates_final_clear_output_button_directly():
     assert "build_icon_interface_editor_class(" not in ui_source
 
 
-def test_property_icon_browse_still_uses_solar_icon_directory():
+def test_property_icon_browse_is_installed_directly_by_editors():
+    browse_source = _read(
+        "scripts/script_toolbox/ui/icon_browse.py"
+    )
     hook_source = _read(
         "scripts/script_toolbox/ui/icon_ui_hooks.py"
+    )
+    button_source = _read(
+        "scripts/script_toolbox/ui/properties/button.py"
+    )
+    icon_source = _read(
+        "scripts/script_toolbox/ui/properties/icon.py"
     )
     ui_source = _read(
         "scripts/script_toolbox/ui/__init__.py"
     )
 
-    assert "QFileDialog.getOpenFileName" in hook_source
-    assert "solar_icon_directory()" in hook_source
-    assert "create_icon_button(" in hook_source
-    assert "install_property_icon_browse(" in ui_source
+    assert "QFileDialog.getOpenFileName" in browse_source
+    assert "solar_icon_directory()" in browse_source
+    assert "create_icon_button(" in browse_source
+    assert "configure_inline_layout(" in browse_source
+
+    assert "from ..icon_browse import install_icon_browse" in button_source
+    assert "self.icon_browse_button = install_icon_browse(" in button_source
+    assert "from ..icon_browse import install_icon_browse" in icon_source
+    assert "self.icon_browse_button = install_icon_browse(" in icon_source
+
+    assert "install_property_icon_browse(" not in ui_source
+    assert "from .icon_ui_hooks" not in ui_source
+    assert ".__init__ =" not in hook_source
+    assert "def install_property_icon_browse(" in hook_source

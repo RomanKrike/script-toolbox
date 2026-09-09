@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 from ..compat import QtGui
+from ..style import palette
 
 
 _INSTALLED_RUNTIME = False
@@ -10,28 +11,28 @@ _INSTALLED_PROPERTIES = False
 
 _FRAME_STYLE = """
 QFrame#ScrollSurfaceFrame {
-    background-color: #202020;
-    border: 1px solid #151515;
+    background-color: %(CONTROL_BG)s;
+    border: 1px solid %(BORDER_DARK)s;
     border-radius: 2px;
 }
-"""
+""" % palette.__dict__
 
 # Runtime Field should match the actual editor list/tree surface, not the
-# surrounding EditorPane container.  The list stays frameless because the
+# surrounding EditorPane container. The list stays frameless because the
 # external ScrollSurfaceFrame owns the visible outline in Maya/Qt4.
 _RUNTIME_FIELD_FRAME_STYLE = """
 QFrame#ScrollSurfaceFrame {
-    background-color: #242424;
-    border: 1px solid #161616;
+    background-color: %(LIST_BG)s;
+    border: 1px solid %(BORDER_PRESSED)s;
     border-radius: 2px;
 }
-"""
+""" % palette.__dict__
 
 _RUNTIME_FIELD_LIST_STYLE = """
 QListWidget#RuntimeFieldList {
-    background-color: #242424;
-    alternate-background-color: #242424;
-    color: #d4d4d4;
+    background-color: %(LIST_BG)s;
+    alternate-background-color: %(LIST_BG)s;
+    color: %(TEXT_LIST)s;
     border: 0px;
     border-radius: 0px;
     outline: 0px;
@@ -45,10 +46,10 @@ QListWidget#RuntimeFieldList::item {
 }
 
 QListWidget#RuntimeFieldList::item:selected {
-    background-color: #68462c;
-    color: #ffffff;
+    background-color: %(SELECTION_BG)s;
+    color: %(SELECTION_TEXT)s;
 }
-"""
+""" % palette.__dict__
 
 _CHILD_STYLE = """
 border: 0px;
@@ -57,7 +58,10 @@ border-radius: 0px;
 
 
 def _frame_style(background, border):
-    if background == "#202020" and border == "#151515":
+    if (
+        background == palette.CONTROL_BG and
+        border == palette.BORDER_DARK
+    ):
         return _FRAME_STYLE
 
     return """
@@ -76,7 +80,7 @@ def _apply_runtime_field_surface(control):
     """Apply the editor list surface directly to a runtime Field.
 
     The top-level toolbox stylesheet is inherited through Maya's host widget
-    hierarchy.  Some Qt4/Qt5 builds do not reliably repaint the viewport of a
+    hierarchy. Some Qt4/Qt5 builds do not reliably repaint the viewport of a
     QListWidget after it is reparented into ScrollSurfaceFrame, so keep a
     local QSS plus palette fallback on the concrete Field control.
     """
@@ -93,32 +97,32 @@ def _apply_runtime_field_surface(control):
         pass
 
     try:
-        palette = control.palette()
-        palette.setColor(
+        control_palette = control.palette()
+        control_palette.setColor(
             QtGui.QPalette.Base,
-            QtGui.QColor("#242424")
+            QtGui.QColor(palette.LIST_BG)
         )
-        palette.setColor(
+        control_palette.setColor(
             QtGui.QPalette.AlternateBase,
-            QtGui.QColor("#242424")
+            QtGui.QColor(palette.LIST_BG)
         )
-        palette.setColor(
+        control_palette.setColor(
             QtGui.QPalette.Text,
-            QtGui.QColor("#d4d4d4")
+            QtGui.QColor(palette.TEXT_LIST)
         )
-        palette.setColor(
+        control_palette.setColor(
             QtGui.QPalette.Highlight,
-            QtGui.QColor("#68462c")
+            QtGui.QColor(palette.SELECTION_BG)
         )
-        palette.setColor(
+        control_palette.setColor(
             QtGui.QPalette.HighlightedText,
-            QtGui.QColor("#ffffff")
+            QtGui.QColor(palette.SELECTION_TEXT)
         )
-        control.setPalette(palette)
+        control.setPalette(control_palette)
 
         viewport = control.viewport()
         if viewport is not None:
-            viewport.setPalette(palette)
+            viewport.setPalette(control_palette)
             viewport.setAutoFillBackground(True)
     except Exception:
         pass
@@ -130,7 +134,7 @@ def _bounded_maximum(value):
     except Exception:
         return None
 
-    # Qt's default QWidget maximum is 16777215.  Do not copy that as an
+    # Qt's default QWidget maximum is 16777215. Do not copy that as an
     # explicit constraint; it only matters when the source widget is bounded.
     if value >= 16777215:
         return None
@@ -141,9 +145,9 @@ def _copy_constraints(widget, frame):
     """Preserve the source control's *outer* geometry after framing.
 
     The external frame replaces the control's own 1 px border; it must not
-    make a fixed-height runtime control two pixels taller.  The frame keeps the
+    make a fixed-height runtime control two pixels taller. The frame keeps the
     exact original min/max bounds and its 1 px contents margin is consumed from
-    the inner viewport area instead.  This prevents cumulative layout growth
+    the inner viewport area instead. This prevents cumulative layout growth
     in long toolboxes while still keeping scrollbars away from the visible
     border.
     """
@@ -186,7 +190,7 @@ def _fit_runtime_field_inside_frame(control, frame):
 
     There are two independent vertical insets around the child: the QSS frame
     border itself (1 px top + 1 px bottom) and the QVBoxLayout contents margins
-    (another 1 px top + 1 px bottom).  The previous fix only accounted for the
+    (another 1 px top + 1 px bottom). The previous fix only accounted for the
     layout margins, leaving the child two pixels too tall and still able to
     cover the bottom border in Maya.
     """
@@ -259,8 +263,8 @@ def _find_layout(layout, target):
 def _make_frame(
     widget,
     parent,
-    background="#202020",
-    border="#151515"
+    background=palette.CONTROL_BG,
+    border=palette.BORDER_DARK
 ):
     frame = QtGui.QFrame(parent)
     frame.setObjectName("ScrollSurfaceFrame")
@@ -294,8 +298,8 @@ def _make_frame(
 
 def wrap_scroll_widget(
     widget,
-    background="#202020",
-    border="#151515"
+    background=palette.CONTROL_BG,
+    border=palette.BORDER_DARK
 ):
     """Move a framed QAbstractScrollArea into an external border frame.
 
@@ -450,8 +454,8 @@ def install_runtime_scroll_frames(registry, runtime_module):
 
             frame = wrap_scroll_widget(
                 control,
-                background="#242424",
-                border="#161616"
+                background=palette.LIST_BG,
+                border=palette.BORDER_PRESSED
             )
             if frame is not None:
                 _fit_runtime_field_inside_frame(

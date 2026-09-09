@@ -113,6 +113,31 @@ def test_apply_bypasses_legacy_history_snapshot_bookkeeping():
     assert "_history_current" not in apply_source
 
 
+def test_adapter_composes_presentation_and_share_without_extra_wrapper():
+    source = _read(
+        "scripts/script_toolbox/ui/editor_document_adapter.py"
+    )
+    ui_source = _read(
+        "scripts/script_toolbox/ui/__init__.py"
+    )
+
+    assert "from .editor_search import apply_editor_presentation" in source
+    assert "from .editor_search import filter_existing_parameters as filter_editor_structure" in source
+    assert "from .editor_search import reapply_existing_filter" in source
+    assert "from .share_hooks import install_share_controller" in source
+    assert "install_share_controller(self)" in source
+    assert "def build_ui(self):" in source
+    assert "apply_editor_presentation(self)" in source
+    assert "def filter_existing_parameters(self, value):" in source
+    assert "filter_editor_structure(" in source
+    assert "def populate_tree(self):" in source
+    assert "reapply_existing_filter(self)" in source
+
+    assert "build_search_interface_editor_class(" not in ui_source
+    assert "from .editor_search" not in ui_source
+    assert "build_share_interface_editor_class(" not in ui_source
+
+
 def test_apply_preserves_view_state_inside_document_adapter():
     source = _read(
         "scripts/script_toolbox/ui/editor_document_adapter.py"

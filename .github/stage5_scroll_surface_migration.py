@@ -17,7 +17,7 @@ def replace_once(text, old, new, label):
 
 
 # ---------------------------------------------------------------------------
-# Shared scroll-surface compatibility geometry
+# Shared ScrollSurfaceFrame compatibility geometry
 # ---------------------------------------------------------------------------
 metrics_path = "scripts/script_toolbox/style/metrics.py"
 text = read(metrics_path)
@@ -26,9 +26,9 @@ text = replace_once(
     "SCROLLBAR_HANDLE_MARGIN = 2\n\n# Technical icon buttons",
     "SCROLLBAR_HANDLE_MARGIN = 2\n\n"
     "# Scroll surface compatibility geometry -------------------------------------\n"
-    "# These values describe the external frame used around scrollable controls.\n"
-    "# Keep the role separate from generic control radii because Maya/Qt4 needs\n"
-    "# the border and child inset to remain an explicit compatibility contract.\n"
+    "# The external frame replaces QAbstractScrollArea borders on Maya/Qt4.\n"
+    "# Keep these pixels as a dedicated compatibility role rather than merging\n"
+    "# them with generic control geometry just because the values currently match.\n"
     "SCROLL_SURFACE_BORDER_WIDTH = 1\n"
     "SCROLL_SURFACE_CONTENT_INSET = 1\n"
     "SCROLL_SURFACE_BORDER_RADIUS = 2\n\n"
@@ -48,19 +48,10 @@ write(metrics_path, text)
 
 
 # ---------------------------------------------------------------------------
-# ScrollSurfaceFrame owns all border geometry in one place
+# One ScrollSurfaceFrame style owner + explicit inset math
 # ---------------------------------------------------------------------------
 source_path = "scripts/script_toolbox/ui/scroll_surface_frames.py"
 text = read(source_path)
-text = replace_once(
-    text,
-    "_INSTALLED_RUNTIME = False\n_INSTALLED_SCRIPT_EDITOR = False\n_INSTALLED_PROPERTIES = False\n",
-    "_INSTALLED_RUNTIME = False\n"
-    "_INSTALLED_INTERFACE_EDITOR = False\n"
-    "_INSTALLED_SCRIPT_EDITOR = False\n"
-    "_INSTALLED_PROPERTIES = False\n",
-    "interface installer flag",
-)
 old_styles = '''_FRAME_STYLE = """
 QFrame#ScrollSurfaceFrame {
     background-color: %(CONTROL_BG)s;
@@ -84,8 +75,8 @@ _RUNTIME_FIELD_STYLE_VALUES = dict(palette.__dict__)
 _RUNTIME_FIELD_STYLE_VALUES.update(vars(metrics))
 '''
 new_styles = '''# All ScrollSurfaceFrame border geometry is rendered from this one template.
-# The colors vary by surface role, while border width/radius remain the same
-# explicit Maya/Qt4 compatibility contract.
+# Surface colors vary by caller; border width/radius are one explicit Qt4
+# compatibility contract shared by Runtime Field, editor trees and editors.
 _SCROLL_SURFACE_STYLE_VALUES = dict(palette.__dict__)
 _SCROLL_SURFACE_STYLE_VALUES.update(vars(metrics))
 
@@ -138,7 +129,7 @@ text = replace_once(text, old_frame_style, new_frame_style, "frame style functio
 marker = '''def _fit_runtime_field_inside_frame(control, frame):
 '''
 helper = '''def _frame_vertical_inset(frame):
-    """Return border + layout inset consumed inside a framed surface."""
+    """Return the border + layout inset consumed inside a framed surface."""
     vertical_inset = metrics.SCROLL_SURFACE_BORDER_WIDTH * 2
 
     try:
@@ -173,7 +164,7 @@ old_fit = '''    # The runtime Field frame has a 1 px QSS border on both vertica
 '''
 new_fit = '''    # Do not rely on QFrame.frameWidth(): QSS borders are unreliable there on
     # older Maya/Qt4 builds. The explicit ScrollSurfaceFrame contract owns the
-    # border width and layout inset used to derive the child viewport height.
+    # border width and child inset used to derive the viewport height.
     inner_height = max(
         1,
         minimum_height - _frame_vertical_inset(frame)
@@ -211,82 +202,11 @@ new_runtime_restyle = '''            if frame is not None:
                 )
 '''
 text = replace_once(text, old_runtime_restyle, new_runtime_restyle, "runtime duplicate frame style")
-script_installer = '''def install_script_editor_scroll_frames(script_editor_class):
-'''
-interface_installer = '''def install_interface_editor_scroll_frames(interface_editor_class):
-    """Frame Palette and Existing Interface trees with the shared contract."""
-    global _INSTALLED_INTERFACE_EDITOR
-    if _INSTALLED_INTERFACE_EDITOR:
-        return
-
-    original_build_ui = interface_editor_class.build_ui
-
-    def build_ui(self):
-        original_build_ui(self)
-        self.palette_scroll_frame = wrap_scroll_widget(
-            getattr(self, "palette", None),
-            background=palette.LIST_BG,
-            border=palette.BORDER_SOFT
-        )
-        self.tree_scroll_frame = wrap_scroll_widget(
-            getattr(self, "tree", None),
-            background=palette.LIST_BG,
-            border=palette.BORDER_PRESSED
-        )
-
-    interface_editor_class.build_ui = build_ui
-    _INSTALLED_INTERFACE_EDITOR = True
-
-
-'''
-text = replace_once(text, script_installer, interface_installer + script_installer, "interface frame installer")
-text = replace_once(
-    text,
-    '    "install_runtime_scroll_frames",\n    "install_script_editor_scroll_frames",\n',
-    '    "install_runtime_scroll_frames",\n'
-    '    "install_interface_editor_scroll_frames",\n'
-    '    "install_script_editor_scroll_frames",\n',
-    "interface installer export",
-)
 write(source_path, text)
 
 
 # ---------------------------------------------------------------------------
-# Install the same frame contract on editor Palette / Existing trees
-# ---------------------------------------------------------------------------
-ui_path = "scripts/script_toolbox/ui/__init__.py"
-text = read(ui_path)
-text = replace_once(
-    text,
-    "from .scroll_surface_frames import install_property_editor_scroll_frames\n",
-    "from .scroll_surface_frames import install_interface_editor_scroll_frames\n"
-    "from .scroll_surface_frames import install_property_editor_scroll_frames\n",
-    "interface frame import",
-)
-text = replace_once(
-    text,
-    "InterfaceEditor = build_interface_editor_class(\n"
-    "    _interface_editor_module.InterfaceEditor,\n"
-    "    controller_class=LayoutEditorDocumentController,\n"
-    "    layout_support=True\n"
-    ")\n"
-    "install_property_editor_scroll_frames()\n",
-    "InterfaceEditor = build_interface_editor_class(\n"
-    "    _interface_editor_module.InterfaceEditor,\n"
-    "    controller_class=LayoutEditorDocumentController,\n"
-    "    layout_support=True\n"
-    ")\n"
-    "install_interface_editor_scroll_frames(\n"
-    "    InterfaceEditor\n"
-    ")\n"
-    "install_property_editor_scroll_frames()\n",
-    "interface frame install",
-)
-write(ui_path, text)
-
-
-# ---------------------------------------------------------------------------
-# Contract tests
+# Source contracts for the shared wrapper and all current callers
 # ---------------------------------------------------------------------------
 scroll_test_path = "tests/test_scroll_surface_frames_contract.py"
 scroll_test = r'''# -*- coding: utf-8 -*-
@@ -335,7 +255,7 @@ def test_scroll_surface_geometry_has_one_explicit_compatibility_contract():
     assert "border: 1px solid" not in source
 
 
-def test_scroll_surface_frame_supports_all_scrollable_control_hosts():
+def test_scroll_surface_frame_supports_all_layout_host_types():
     source = _read(
         "scripts/script_toolbox/ui/scroll_surface_frames.py"
     )
@@ -357,7 +277,6 @@ def test_scroll_surface_theme_colors_use_shared_palette():
     assert "palette.CONTROL_BG" in source
     assert "palette.BORDER_DARK" in source
     assert "palette.LIST_BG" in source
-    assert "palette.BORDER_SOFT" in source
     assert "palette.BORDER_PRESSED" in source
     assert "palette.TEXT_LIST" in source
     assert "palette.SELECTION_BG" in source
@@ -370,8 +289,6 @@ def test_scroll_surface_frame_preserves_original_outer_constraints_without_growt
         "scripts/script_toolbox/ui/scroll_surface_frames.py"
     )
 
-    # The wrapper takes over the old border but must keep the same public
-    # min/max bounds. Border + inset are consumed from the child viewport.
     assert "frame.setMinimumHeight(minimum_height)" in source
     assert "frame.setMaximumHeight(maximum_height)" in source
     assert "frame.setMinimumWidth(minimum_width)" in source
@@ -385,6 +302,8 @@ def test_scroll_surface_frame_preserves_original_outer_constraints_without_growt
     ):
         assert forbidden not in source
 
+    # Border and layout inset are consumed from the child, never added to the
+    # outer fixed extent copied to ScrollSurfaceFrame.
     assert "minimum_height - _frame_vertical_inset(frame)" in source
 
 
@@ -432,8 +351,6 @@ def test_runtime_list_field_uses_plain_editor_surface_contract():
     assert "border: 1px solid %(BORDER_PRESSED)s;" in editor_list_rule
     assert "border-radius: %(BORDER_RADIUS_CONTROL)spx;" in editor_list_rule
 
-    # Runtime Field asks the same wrapper for the list surface. The frame's
-    # geometry comes from the one shared ScrollSurfaceFrame template.
     assert "background=palette.LIST_BG" in source
     assert "border=palette.BORDER_PRESSED" in source
     assert "_RUNTIME_FIELD_FRAME_STYLE" not in source
@@ -476,18 +393,18 @@ def test_runtime_list_field_uses_plain_editor_surface_contract():
     assert "viewport.setAutoFillBackground(True)" in source
 
 
-def test_interface_editor_palette_and_tree_use_scroll_surface_contract():
-    source = _read(
-        "scripts/script_toolbox/ui/scroll_surface_frames.py"
+def test_editor_palette_and_tree_reuse_the_same_scroll_surface_wrapper():
+    editor_frames = _read(
+        "scripts/script_toolbox/ui/editor_scroll_frames.py"
     )
 
-    assert "def install_interface_editor_scroll_frames(" in source
-    assert "self.palette_scroll_frame = wrap_scroll_widget(" in source
-    assert 'getattr(self, "palette", None)' in source
-    assert "border=palette.BORDER_SOFT" in source
-    assert "self.tree_scroll_frame = wrap_scroll_widget(" in source
-    assert 'getattr(self, "tree", None)' in source
-    assert "border=palette.BORDER_PRESSED" in source
+    assert "from .scroll_surface_frames import wrap_scroll_widget" in editor_frames
+    assert "def install_interface_editor_scroll_frames(editor):" in editor_frames
+    assert 'getattr(editor, "palette", None)' in editor_frames
+    assert 'getattr(editor, "tree", None)' in editor_frames
+    assert editor_frames.count("wrap_scroll_widget(") >= 2
+    assert "background=LIST_BG" in editor_frames
+    assert "border=BORDER_PRESSED" in editor_frames
 
 
 def test_runtime_folder_pane_override_is_removed():
@@ -523,14 +440,17 @@ def test_multiline_property_fields_use_external_frames():
 
 
 def test_ui_installs_unified_scroll_surface_contract():
-    source = _read(
+    ui_source = _read(
         "scripts/script_toolbox/ui/__init__.py"
     )
+    editor_search = _read(
+        "scripts/script_toolbox/ui/editor_search.py"
+    )
 
-    assert "install_interface_editor_scroll_frames(" in source
-    assert "install_property_editor_scroll_frames()" in source
-    assert "install_runtime_scroll_frames(" in source
-    assert "install_script_editor_scroll_frames(" in source
+    assert "install_property_editor_scroll_frames()" in ui_source
+    assert "install_runtime_scroll_frames(" in ui_source
+    assert "install_script_editor_scroll_frames(" in ui_source
+    assert "install_interface_editor_scroll_frames(editor)" in editor_search
 
 
 def test_panel_scroll_areas_remain_frameless_by_design():
@@ -549,6 +469,21 @@ def test_panel_scroll_areas_remain_frameless_by_design():
     assert "QScrollArea {\n    border: 0px;" in stylesheet
 '''
 write(scroll_test_path, scroll_test)
+
+
+# Existing editor-scroll contract should follow the shared metric rather than
+# pinning the implementation back to a raw 1 px layout literal.
+editor_test_path = "tests/test_editor_scroll_frames_contract.py"
+text = read(editor_test_path)
+text = replace_once(
+    text,
+    '    assert "layout.setContentsMargins(1, 1, 1, 1)" in shared\n',
+    '    assert "metrics.SCROLL_SURFACE_CONTENT_INSET" in shared\n'
+    '    assert "layout.setContentsMargins(1, 1, 1, 1)" not in shared\n',
+    "editor scroll shared inset contract",
+)
+write(editor_test_path, text)
+
 
 standard_test_path = "tests/test_standard_control_geometry_contract.py"
 text = read(standard_test_path)
@@ -571,8 +506,8 @@ new_test = '''def test_scroll_frame_pixel_contract_is_owned_by_scroll_surface_me
         "scripts/script_toolbox/ui/scroll_surface_frames.py"
     )
 
-    # Stage 5 now owns these Maya/Qt4 pixels explicitly without folding them
-    # into the generic button/input geometry roles.
+    # Stage 5 owns these Maya/Qt4 pixels explicitly without folding them into
+    # the generic button/input geometry roles.
     assert "SCROLL_SURFACE_BORDER_WIDTH = 1" in metrics
     assert "SCROLL_SURFACE_CONTENT_INSET = 1" in metrics
     assert "SCROLL_SURFACE_BORDER_RADIUS = 2" in metrics

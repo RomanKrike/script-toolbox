@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..compat import QtCore
 from ..compat import QtGui
 from ..pycompat import text_type
 
@@ -90,8 +91,25 @@ def _filter_existing_parameters(self, value):
         )
 
 
+def _hide_palette_hint(palette_parent):
+    try:
+        labels = palette_parent.findChildren(
+            QtGui.QLabel
+        )
+    except Exception:
+        labels = []
+
+    for label in labels:
+        try:
+            if text_type(label.objectName()) == "HintText":
+                label.hide()
+        except Exception:
+            pass
+
+
 def _install_search_fields(self):
     palette_layout = None
+    palette_parent = None
     try:
         palette_parent = self.palette.parentWidget()
         palette_layout = palette_parent.layout()
@@ -100,6 +118,12 @@ def _install_search_fields(self):
 
     if palette_layout is not None:
         try:
+            # Keep the filter at the bottom of Create Parameters but remove
+            # the redundant instructional copy below it. This leaves the
+            # search directly under the palette instead of under helper text.
+            _hide_palette_hint(
+                palette_parent
+            )
             palette_layout.removeWidget(
                 self.palette_filter
             )
@@ -184,6 +208,72 @@ def install_editor_search_ux(editor_class):
     )
 
 
+def _install_centered_button_icon(button):
+    icon = button.icon()
+    if icon.isNull():
+        return
+
+    icon_size = button.iconSize()
+    if (
+        icon_size.width() <= 0 or
+        icon_size.height() <= 0
+    ):
+        icon_size = QtCore.QSize(18, 18)
+
+    pixmap = icon.pixmap(
+        icon_size
+    )
+    if pixmap.isNull():
+        return
+
+    # QSS text-align does not reliably center QPushButton icons in older
+    # Qt/Maya styles. Render the icon as a child label in a symmetric layout
+    # so its geometry is centered independently of the host button style.
+    button.setIcon(
+        QtGui.QIcon()
+    )
+    button.setText("")
+
+    layout = QtGui.QHBoxLayout(
+        button
+    )
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(0)
+
+    icon_label = QtGui.QLabel(
+        button
+    )
+    icon_label.setObjectName(
+        "ScriptButtonCenteredIcon"
+    )
+    icon_label.setAlignment(
+        QtCore.Qt.AlignCenter
+    )
+    icon_label.setFixedSize(
+        icon_size
+    )
+    icon_label.setPixmap(
+        pixmap
+    )
+    try:
+        icon_label.setAttribute(
+            QtCore.Qt.WA_TransparentForMouseEvents,
+            True
+        )
+    except Exception:
+        pass
+
+    layout.addStretch(1)
+    layout.addWidget(
+        icon_label,
+        0,
+        QtCore.Qt.AlignCenter
+    )
+    layout.addStretch(1)
+
+    button._script_toolbox_centered_icon = icon_label
+
+
 def install_icon_only_button_centering(registry):
     if getattr(
         registry,
@@ -207,7 +297,6 @@ def install_icon_only_button_centering(registry):
             button is not None and
             bool(item.get("icon_only", False))
         ):
-            button.setText("")
             button.setProperty(
                 "iconOnly",
                 True
@@ -219,6 +308,9 @@ def install_icon_only_button_centering(registry):
                 current_style +
                 "\n" +
                 _ICON_ONLY_STYLE
+            )
+            _install_centered_button_icon(
+                button
             )
 
         return button

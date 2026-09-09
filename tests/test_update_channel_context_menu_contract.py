@@ -32,3 +32,15 @@ def test_update_channel_uses_right_click_context_menu():
 
     assert "QToolButton.MenuButtonPopup" not in source
     assert "button.setMenu(" not in source
+
+
+def test_update_channel_does_not_use_tooltip_as_control_identity():
+    source = _read(
+        "scripts/script_toolbox/ui/update_channels_ui.py"
+    )
+
+    assert '"check_updates_button"' in source
+    assert 'str(frame.objectName()) == "TopBar"' in source
+    assert "self.check_updates_button = widget" in source
+    assert "button.toolTip()" not in source
+    assert "tooltip.startswith(" not in source

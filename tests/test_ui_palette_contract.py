@@ -182,3 +182,19 @@ def test_code_editor_and_legacy_icons_use_palette_tokens():
 
     assert "TEXT_STRUCTURE_COLUMN" in layout_source
     assert "QtGui.QColor(TEXT_STRUCTURE_COLUMN)" in layout_source
+
+
+def test_solar_toolbar_icons_are_tinted_from_shared_palette():
+    source = _read(
+        "scripts/script_toolbox/style/builtin_icons.py"
+    )
+    palette_source = _read(
+        "scripts/script_toolbox/style/palette.py"
+    )
+
+    assert "from .palette import TOOLBAR_ICON" in source
+    assert "QtGui.QColor(TOOLBAR_ICON)" in source
+    assert "CompositionMode_SourceIn" in source
+    assert "painter.fillRect(" in source
+    assert "_tinted_icon(resource)" in source
+    assert "TOOLBAR_ICON = TEXT_PRIMARY" in palette_source

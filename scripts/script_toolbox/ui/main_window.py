@@ -20,6 +20,7 @@ from ..model.items import safe_color
 from ..pycompat import text_type
 from ..style import STYLE
 from ..style import toolbar_icon
+from ..style.palette import CONTENT_BG
 from .runtime import build_folder_widgets
 from .update_ui import UpdateCheckThread
 from .update_ui import UpdateInstallThread
@@ -293,7 +294,9 @@ class ScriptToolbox(QtGui.QMainWindow):
         )
 
         self.scroll.viewport().setStyleSheet(
-            "background-color: #2b2b2b;"
+            "background-color: {0};".format(
+                CONTENT_BG
+            )
         )
 
         self.content = QtGui.QWidget()

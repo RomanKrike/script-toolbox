@@ -56,64 +56,77 @@ def test_painted_search_controls_keep_qt4_clip_workaround_palette_driven():
     assert re.search(r"#[0-9a-fA-F]{6}\b", source) is None
 
 
-def test_interface_editor_uses_one_search_component_for_both_lists():
+def test_editor_search_exposes_reusable_helpers_for_both_lists():
     source = _read(
         "scripts/script_toolbox/ui/editor_search.py"
-    )
-    ui_source = _read(
-        "scripts/script_toolbox/ui/__init__.py"
     )
 
     assert "from .search_field import SearchField" in source
-    assert "build_search_interface_editor_class" in source
-    assert 'SearchField(\n                    "Filter parameters..."' in source
-    assert 'SearchField(\n                    "Filter existing parameters..."' in source
-    assert 'self.search_fields[\n                    "palette"' in source
-    assert 'self.search_fields[\n                    "structure"' in source
-    assert "self.palette_search_control = self.palette_filter" in source
-    assert "self.existing_search_control = self.existing_filter" in source
-    assert "self.filter_existing_parameters(" in source
+    assert "def install_editor_search(editor):" in source
+    assert "def filter_existing_parameters(editor, value):" in source
+    assert "def reapply_existing_filter(editor):" in source
+    assert "def apply_editor_presentation(editor):" in source
+    assert 'SearchField(\n            "Filter parameters..."' in source
+    assert 'SearchField(\n            "Filter existing parameters..."' in source
+    assert 'editor.search_fields[\n            "palette"' in source
+    assert 'editor.search_fields[\n            "structure"' in source
+    assert "editor.palette_search_control = editor.palette_filter" in source
+    assert "editor.existing_search_control = editor.existing_filter" in source
     assert "_filter_tree_branch(" in source
     assert "child_match" in source
 
-    assert "build_search_interface_editor_class" in ui_source
-    assert "install_editor_search_ux" not in ui_source
 
-
-def test_editor_presentation_policies_are_applied_without_extra_wrappers():
-    source = _read(
+def test_editor_presentation_is_composed_without_search_wrapper():
+    search_source = _read(
         "scripts/script_toolbox/ui/editor_search.py"
+    )
+    adapter_source = _read(
+        "scripts/script_toolbox/ui/editor_document_adapter.py"
     )
     ui_source = _read(
         "scripts/script_toolbox/ui/__init__.py"
     )
 
-    assert "from .editor_scroll_frames import install_interface_editor_scroll_frames" in source
-    assert "from .property_pane_style import apply_property_pane_style" in source
-    assert "apply_property_pane_style(self)" in source
-    assert "install_interface_editor_scroll_frames(self)" in source
+    assert "from .editor_scroll_frames import install_interface_editor_scroll_frames" in search_source
+    assert "from .property_pane_style import apply_property_pane_style" in search_source
+    assert "apply_property_pane_style(editor)" in search_source
+    assert "install_interface_editor_scroll_frames(editor)" in search_source
 
+    assert "from .editor_search import apply_editor_presentation" in adapter_source
+    assert "apply_editor_presentation(self)" in adapter_source
+    assert "from .editor_search import filter_existing_parameters as filter_editor_structure" in adapter_source
+    assert "from .editor_search import reapply_existing_filter" in adapter_source
+
+    assert "build_search_interface_editor_class(" not in ui_source
+    assert "from .editor_search" not in ui_source
     assert "build_scroll_frame_interface_editor_class" not in ui_source
     assert "install_property_pane_style" not in ui_source
     assert "PropertyEditorBase" not in ui_source
 
 
 def test_existing_filter_is_reapplied_after_tree_rebuild():
-    source = _read(
+    search_source = _read(
         "scripts/script_toolbox/ui/editor_search.py"
     )
+    adapter_source = _read(
+        "scripts/script_toolbox/ui/editor_document_adapter.py"
+    )
 
-    populate_source = source.split(
+    assert "def reapply_existing_filter(editor):" in search_source
+    assert "filter_existing_parameters(" in search_source
+    assert "search.text()" in search_source
+
+    populate_source = adapter_source.split(
         "        def populate_tree(self):",
         1
     )[1].split(
-        "    InterfaceEditor.__name__",
+        "        # --------------------------------------------------------------\n"
+        "        # Document ownership compatibility",
         1
     )[0]
 
     assert "base_class.populate_tree(" in populate_source
-    assert "self.filter_existing_parameters(" in populate_source
-    assert "search.text()" in populate_source
+    assert "reapply_existing_filter(self)" in populate_source
 
 
 def test_search_component_styles_are_centralized_and_palette_driven():

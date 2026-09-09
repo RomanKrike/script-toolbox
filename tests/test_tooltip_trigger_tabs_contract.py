@@ -44,8 +44,8 @@ def test_trigger_add_action_is_installed_as_trailing_solar_tab():
     )
 
     assert 'self.tabs.addTab(' in source
-    assert 'builtin_icon("add-circle")' in source
-    assert 'builtin_icon("close-circle")' in source
+    assert 'builtin_icon("add")' in source
+    assert 'builtin_icon("close")' in source
     assert "self.tabs.setTabsClosable(False)" in source
     assert '"Add trigger"' in source
     assert "self.add_button.hide()" in source

@@ -169,15 +169,17 @@ install_controls_v2_hooks(
     ScriptToolbox
 )
 
+# Build the icon-only renderer before event bindings wrap the registry. This
+# guarantees custom click/double-click bindings attach to the final button.
+install_icon_only_button_centering(
+    get_runtime_renderer_registry()
+)
 install_event_binding_hooks(
     get_runtime_renderer_registry(),
     _runtime_renderers_module,
     ScriptToolbox
 )
 install_runtime_icon_feedback(
-    get_runtime_renderer_registry()
-)
-install_icon_only_button_centering(
     get_runtime_renderer_registry()
 )
 install_icon_only_state_refresh(

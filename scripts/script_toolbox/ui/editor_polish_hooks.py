@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+import os
+
 from ..compat import QtCore
 from ..compat import QtGui
+from ..model.items import safe_color
 from ..pycompat import text_type
 from ..style.builtin_icons import builtin_icon
 
@@ -29,25 +32,18 @@ _TECH_ICON_STYLE = """
 QToolButton#EditorSearchIcon,
 QToolButton#EditorSearchClear {
     background-color: transparent;
-    border: 1px solid transparent;
-    border-radius: 3px;
-    padding: 2px;
+    border: 0px;
+    padding: 0px;
 }
 QToolButton#EditorSearchClear:hover {
     background-color: #404040;
-    border-color: #545454;
+    border: 1px solid #545454;
+    border-radius: 2px;
 }
 QToolButton#EditorSearchClear:pressed {
     background-color: #272727;
-    border-color: #171717;
-}
-"""
-
-_ICON_ONLY_STYLE = """
-QPushButton#ScriptButton {
-    text-align: center;
-    padding-left: 0px;
-    padding-right: 0px;
+    border: 1px solid #171717;
+    border-radius: 2px;
 }
 """
 
@@ -147,22 +143,82 @@ def _hide_palette_hint(palette_parent):
             pass
 
 
-def _search_control(line_edit, parent):
-    container = QtGui.QWidget(parent)
-    container.setObjectName("EditorSearchControl")
-    layout = QtGui.QHBoxLayout(container)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(2)
+def _position_search_icons(
+    line_edit,
+    search_icon,
+    clear_button
+):
+    button_size = 18
+    top = max(
+        0,
+        (line_edit.height() - button_size) // 2
+    )
 
-    search_icon = QtGui.QToolButton(container)
-    search_icon.setObjectName("EditorSearchIcon")
+    search_icon.move(
+        4,
+        top
+    )
+    clear_button.move(
+        max(
+            4,
+            line_edit.width() - button_size - 4
+        ),
+        top
+    )
+
+    try:
+        search_icon.raise_()
+        clear_button.raise_()
+    except Exception:
+        pass
+
+
+class SearchFieldDecorationFilter(QtCore.QObject):
+
+    def __init__(
+        self,
+        line_edit,
+        search_icon,
+        clear_button,
+        parent=None
+    ):
+        QtCore.QObject.__init__(
+            self,
+            parent
+        )
+        self.line_edit = line_edit
+        self.search_icon = search_icon
+        self.clear_button = clear_button
+
+    def eventFilter(self, watched, event):
+        if event.type() in (
+            QtCore.QEvent.Resize,
+            QtCore.QEvent.Show,
+        ):
+            _position_search_icons(
+                self.line_edit,
+                self.search_icon,
+                self.clear_button
+            )
+        return False
+
+
+def _search_control(line_edit, parent=None):
+    # The icons are real children of QLineEdit, not adjacent layout widgets.
+    # This keeps both affordances visually inside the search field in Qt4.
+    search_icon = QtGui.QToolButton(
+        line_edit
+    )
+    search_icon.setObjectName(
+        "EditorSearchIcon"
+    )
     search_icon.setIcon(
         builtin_icon("find")
     )
     search_icon.setIconSize(
-        QtCore.QSize(14, 14)
+        QtCore.QSize(13, 13)
     )
-    search_icon.setFixedSize(24, 24)
+    search_icon.setFixedSize(18, 18)
     search_icon.setFocusPolicy(
         QtCore.Qt.NoFocus
     )
@@ -178,15 +234,19 @@ def _search_control(line_edit, parent):
     except Exception:
         pass
 
-    clear_button = QtGui.QToolButton(container)
-    clear_button.setObjectName("EditorSearchClear")
+    clear_button = QtGui.QToolButton(
+        line_edit
+    )
+    clear_button.setObjectName(
+        "EditorSearchClear"
+    )
     clear_button.setIcon(
         builtin_icon("close")
     )
     clear_button.setIconSize(
-        QtCore.QSize(12, 12)
+        QtCore.QSize(11, 11)
     )
-    clear_button.setFixedSize(24, 24)
+    clear_button.setFixedSize(18, 18)
     clear_button.setFocusPolicy(
         QtCore.Qt.NoFocus
     )
@@ -198,25 +258,47 @@ def _search_control(line_edit, parent):
         line_edit.clear
     )
 
+    try:
+        line_edit.setTextMargins(
+            24,
+            0,
+            24,
+            0
+        )
+    except Exception:
+        pass
+
     def update_clear(value):
         clear_button.setVisible(
             bool(text_type(value or ""))
+        )
+        _position_search_icons(
+            line_edit,
+            search_icon,
+            clear_button
         )
 
     line_edit.textChanged.connect(
         update_clear
     )
+
+    decoration_filter = SearchFieldDecorationFilter(
+        line_edit,
+        search_icon,
+        clear_button,
+        parent=line_edit
+    )
+    line_edit.installEventFilter(
+        decoration_filter
+    )
+    line_edit._script_toolbox_search_icon = search_icon
+    line_edit._script_toolbox_clear_button = clear_button
+    line_edit._script_toolbox_search_filter = decoration_filter
+
     update_clear(
         line_edit.text()
     )
-
-    layout.addWidget(search_icon)
-    layout.addWidget(line_edit, 1)
-    layout.addWidget(clear_button)
-
-    container._script_toolbox_search_icon = search_icon
-    container._script_toolbox_clear_button = clear_button
-    return container
+    return line_edit
 
 
 def _install_search_fields(self):
@@ -328,73 +410,165 @@ def install_editor_search_ux(editor_class):
     )
 
 
-def _install_centered_button_icon(button):
-    icon = button.icon()
-    if icon.isNull():
-        return
+class CenteredIconPushButton(QtGui.QPushButton):
+    """QPushButton that paints its icon at the exact widget center."""
 
-    icon_size = button.iconSize()
-    if (
-        icon_size.width() <= 0 or
-        icon_size.height() <= 0
-    ):
-        icon_size = QtCore.QSize(18, 18)
+    def __init__(self, parent=None):
+        QtGui.QPushButton.__init__(
+            self,
+            "",
+            parent
+        )
+        self._centered_icon = QtGui.QIcon()
+        self._centered_icon_size = QtCore.QSize(18, 18)
 
-    # Do not convert QIcon to QPixmap here. Older Qt SVG engines used by Maya
-    # can return an empty pixmap before the widget is shown even though the
-    # QIcon itself paints correctly. A transparent child QToolButton keeps the
-    # original QIcon and lets Qt render it normally at an exact layout center.
-    button.setIcon(
-        QtGui.QIcon()
-    )
-    button.setText("")
+    def setCenteredIcon(self, icon, size):
+        self._centered_icon = QtGui.QIcon(icon)
+        self._centered_icon_size = QtCore.QSize(size)
+        QtGui.QPushButton.setIcon(
+            self,
+            QtGui.QIcon()
+        )
+        QtGui.QPushButton.setText(
+            self,
+            ""
+        )
+        self.update()
 
-    layout = QtGui.QHBoxLayout(
-        button
-    )
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(0)
+    def setText(self, value):
+        # State refreshes must not reintroduce a label on icon-only buttons.
+        QtGui.QPushButton.setText(
+            self,
+            ""
+        )
 
-    icon_button = QtGui.QToolButton(
-        button
-    )
-    icon_button.setObjectName(
-        "ScriptButtonCenteredIcon"
-    )
-    icon_button.setAutoRaise(True)
-    icon_button.setIcon(icon)
-    icon_button.setIconSize(icon_size)
-    icon_button.setFixedSize(
-        icon_size.width() + 2,
-        icon_size.height() + 2
-    )
-    icon_button.setFocusPolicy(
-        QtCore.Qt.NoFocus
-    )
-    icon_button.setStyleSheet(
-        "QToolButton#ScriptButtonCenteredIcon {"
-        "background: transparent;"
-        "border: 0px;"
-        "padding: 0px;"
-        "}"
+    def paintEvent(self, event):
+        # Let the host style draw only the button frame/background first.
+        QtGui.QPushButton.paintEvent(
+            self,
+            event
+        )
+
+        if self._centered_icon.isNull():
+            return
+
+        width = max(
+            1,
+            self._centered_icon_size.width()
+        )
+        height = max(
+            1,
+            self._centered_icon_size.height()
+        )
+        target = QtCore.QRect(
+            (self.width() - width) // 2,
+            (self.height() - height) // 2,
+            width,
+            height
+        )
+
+        mode = (
+            QtGui.QIcon.Disabled
+            if not self.isEnabled()
+            else QtGui.QIcon.Active
+            if self.underMouse()
+            else QtGui.QIcon.Normal
+        )
+        state = (
+            QtGui.QIcon.On
+            if self.isDown()
+            else QtGui.QIcon.Off
+        )
+
+        painter = QtGui.QPainter(self)
+        try:
+            self._centered_icon.paint(
+                painter,
+                target,
+                QtCore.Qt.AlignCenter,
+                mode,
+                state
+            )
+        except TypeError:
+            self._centered_icon.paint(
+                painter,
+                target
+            )
+        painter.end()
+
+
+def _render_centered_icon_button(
+    owner,
+    item
+):
+    state_mode = item.get(
+        "mode",
+        "action"
+    ) == "state"
+
+    button = CenteredIconPushButton()
+    button.setObjectName(
+        "ScriptButton"
     )
     try:
-        icon_button.setAttribute(
-            QtCore.Qt.WA_TransparentForMouseEvents,
-            True
+        button.setToolTip(
+            owner._tooltip(item)
         )
     except Exception:
-        pass
+        button.setToolTip(
+            item.get("tooltip", "")
+        )
 
-    layout.addStretch(1)
-    layout.addWidget(
-        icon_button,
-        0,
-        QtCore.Qt.AlignCenter
+    color = (
+        item.get("state_off_color")
+        if state_mode
+        else item.get("color")
     )
-    layout.addStretch(1)
+    rgb = [
+        int(value * 255)
+        for value in safe_color(color)
+    ]
+    button.setStyleSheet(
+        "QPushButton#ScriptButton {"
+        "background-color: rgb(%d,%d,%d);"
+        "}" % (
+            rgb[0],
+            rgb[1],
+            rgb[2]
+        )
+    )
 
-    button._script_toolbox_centered_icon = icon_button
+    icon_path = os.path.expanduser(
+        os.path.expandvars(
+            text_type(
+                item.get("icon_path") or ""
+            )
+        )
+    )
+    icon_size = int(
+        item.get("icon_size", 18)
+    )
+    if icon_path:
+        button.setCenteredIcon(
+            QtGui.QIcon(icon_path),
+            QtCore.QSize(
+                icon_size,
+                icon_size
+            )
+        )
+
+    button.clicked.connect(
+        lambda checked=False, item_id=item["id"]:
+        owner.toolbox.run_item(item_id)
+    )
+
+    if state_mode:
+        owner.toolbox.register_state_button(
+            item["id"],
+            button
+        )
+
+    return button
 
 
 def install_icon_only_button_centering(registry):
@@ -410,33 +584,19 @@ def install_icon_only_button_centering(registry):
         return
 
     def render_button(owner, item, compact=False):
-        button = original(
+        if bool(
+            item.get("icon_only", False)
+        ):
+            return _render_centered_icon_button(
+                owner,
+                item
+            )
+
+        return original(
             owner,
             item,
             compact=compact
         )
-
-        if (
-            button is not None and
-            bool(item.get("icon_only", False))
-        ):
-            button.setProperty(
-                "iconOnly",
-                True
-            )
-            current_style = text_type(
-                button.styleSheet() or ""
-            )
-            button.setStyleSheet(
-                current_style +
-                "\n" +
-                _ICON_ONLY_STYLE
-            )
-            _install_centered_button_icon(
-                button
-            )
-
-        return button
 
     registry.register(
         "button",
@@ -474,15 +634,6 @@ def install_icon_only_state_refresh(main_window_class):
             )
             if widget is not None:
                 widget.setText("")
-                current_style = text_type(
-                    widget.styleSheet() or ""
-                )
-                if "text-align: center;" not in current_style:
-                    widget.setStyleSheet(
-                        current_style +
-                        "\n" +
-                        _ICON_ONLY_STYLE
-                    )
 
         return result
 
@@ -617,7 +768,9 @@ def install_runtime_icon_feedback(registry):
 
 
 __all__ = [
+    "CenteredIconPushButton",
     "IconFeedbackFilter",
+    "SearchFieldDecorationFilter",
     "install_editor_search_ux",
     "install_icon_only_button_centering",
     "install_icon_only_state_refresh",

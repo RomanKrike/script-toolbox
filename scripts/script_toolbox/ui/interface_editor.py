@@ -19,11 +19,12 @@ from ..model import normalize_document
 from ..model import walk_items
 from ..pycompat import text_type
 from ..style import STYLE
-from ..style import toolbar_icon
 from ..style.palette import STRUCTURE_FOLDER_BG
 from ..style.palette import TEXT_PALETTE_GROUP
 from ..style.palette import TEXT_STRUCTURE_ROW
 from ..style.palette import WINDOW_BG
+from .icon_button import ICON_BUTTON_COMPACT
+from .icon_button import create_icon_button
 from .interface_tree import ExistingInterfaceTree
 from .properties import create_editor
 
@@ -361,6 +362,7 @@ class InterfaceEditor(QtGui.QDialog):
             1
         )
 
+        self.structure_toolbar_buttons = {}
         for icon_name, tooltip, callback in (
             ("undo", "Undo (Ctrl+Z)", self.undo),
             ("redo", "Redo (Ctrl+Y)", self.redo),
@@ -370,31 +372,16 @@ class InterfaceEditor(QtGui.QDialog):
             ("down", "Move Down", lambda: self.move_selected(1)),
             ("delete", "Delete", self.delete_selected),
         ):
-            button = QtGui.QToolButton()
-            button.setObjectName(
-                "IconButton"
+            button = create_icon_button(
+                icon_name,
+                tooltip,
+                callback,
+                parent=self,
+                preset=ICON_BUTTON_COMPACT
             )
-            button.setIcon(
-                toolbar_icon(
-                    icon_name
-                )
-            )
-            button.setIconSize(
-                QtCore.QSize(
-                    16,
-                    16
-                )
-            )
-            button.setFixedSize(
-                25,
-                25
-            )
-            button.setToolTip(
-                tooltip
-            )
-            button.clicked.connect(
-                callback
-            )
+            self.structure_toolbar_buttons[
+                icon_name
+            ] = button
             toolbar.addWidget(
                 button
             )
@@ -660,32 +647,13 @@ class InterfaceEditor(QtGui.QDialog):
         tooltip,
         callback
     ):
-        button = QtGui.QToolButton()
-        button.setObjectName(
-            "IconButton"
+        return create_icon_button(
+            icon_name,
+            tooltip,
+            callback,
+            parent=self,
+            preset=ICON_BUTTON_COMPACT
         )
-        button.setIcon(
-            toolbar_icon(
-                icon_name
-            )
-        )
-        button.setIconSize(
-            QtCore.QSize(
-                16,
-                16
-            )
-        )
-        button.setFixedSize(
-            25,
-            25
-        )
-        button.setToolTip(
-            tooltip
-        )
-        button.clicked.connect(
-            callback
-        )
-        return button
 
     # ------------------------------------------------------------------
     # Tree data

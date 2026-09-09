@@ -8,6 +8,8 @@ from ..core.layout_document import LayoutEditorDocumentController
 from .editor_document_adapter import build_interface_editor_class
 from .editor_polish_hooks import install_editor_search_ux
 from .editor_polish_hooks import install_icon_only_button_centering
+from .editor_polish_hooks import install_icon_only_state_refresh
+from .editor_polish_hooks import install_runtime_icon_feedback
 from .editor_view_state import build_editor_view_state_class
 from .icon_ui_hooks import build_icon_interface_editor_class
 from .icon_ui_hooks import install_property_icon_browse
@@ -172,8 +174,14 @@ install_event_binding_hooks(
     _runtime_renderers_module,
     ScriptToolbox
 )
+install_runtime_icon_feedback(
+    get_runtime_renderer_registry()
+)
 install_icon_only_button_centering(
     get_runtime_renderer_registry()
+)
+install_icon_only_state_refresh(
+    ScriptToolbox
 )
 
 __all__ = [

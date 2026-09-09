@@ -3,15 +3,14 @@ from __future__ import print_function
 
 import os
 
-from ..compat import QtCore
 from ..compat import QtGui
 from ..pycompat import text_type
-from ..style import toolbar_icon
 from ..style.builtin_icons import solar_icon_directory
+from .icon_button import ICON_BUTTON_COMPACT
+from .icon_button import create_icon_button
 
 
 _INSTALLED_PROPERTY_BROWSE = False
-_INSTALLED_SCRIPT_EDITOR_ICONS = False
 
 
 def _dialog_path(value):
@@ -95,23 +94,15 @@ def _install_browse_button(editor, line_edit):
     line_edit.setParent(container)
     layout.addWidget(line_edit, 1)
 
-    browse_button = QtGui.QToolButton(container)
-    browse_button.setObjectName("IconButton")
-    browse_button.setIcon(
-        toolbar_icon("folder-open")
-    )
-    browse_button.setIconSize(
-        QtCore.QSize(16, 16)
-    )
-    browse_button.setFixedSize(25, 25)
-    browse_button.setToolTip(
-        "Choose icon file"
-    )
-    browse_button.clicked.connect(
+    browse_button = create_icon_button(
+        "folder-open",
+        "Choose icon file",
         lambda: _choose_icon_file(
             editor,
             line_edit
-        )
+        ),
+        parent=container,
+        preset=ICON_BUTTON_COMPACT
     )
     layout.addWidget(browse_button)
 
@@ -187,70 +178,21 @@ def install_property_icon_browse(
 
 
 def build_icon_interface_editor_class(base_class):
-    class InterfaceEditor(base_class):
+    """Compatibility shim retained for older direct imports.
 
-        def build_ui(self):
-            base_class.build_ui(self)
-            self._refresh_share_icons()
-
-        def _refresh_share_icons(self):
-            mapping = {
-                "SharePasteButton": "cloud-download",
-                "ShareButton": "cloud-upload",
-            }
-
-            try:
-                buttons = self.findChildren(
-                    QtGui.QToolButton
-                )
-            except Exception:
-                buttons = []
-
-            for button in buttons:
-                role = getattr(
-                    button,
-                    "_script_toolbox_share_role",
-                    ""
-                )
-                icon_name = mapping.get(role)
-                if icon_name:
-                    button.setIcon(
-                        toolbar_icon(icon_name)
-                    )
-
-    InterfaceEditor.__name__ = "InterfaceEditor"
-    return InterfaceEditor
+    Share buttons now receive their final icons when they are created, so the
+    former post-build icon discovery wrapper is no longer required.
+    """
+    return base_class
 
 
 def install_script_editor_icons(script_editor_class):
-    global _INSTALLED_SCRIPT_EDITOR_ICONS
-    if _INSTALLED_SCRIPT_EDITOR_ICONS:
-        return
+    """Compatibility shim retained for older direct imports.
 
-    original_build_ui = script_editor_class.build_ui
-
-    def build_ui(self):
-        original_build_ui(self)
-
-        try:
-            buttons = self.findChildren(
-                QtGui.QToolButton
-            )
-        except Exception:
-            buttons = []
-
-        for button in buttons:
-            try:
-                if text_type(button.toolTip()) == "Clear Output":
-                    button.setIcon(
-                        toolbar_icon("delete")
-                    )
-                    break
-            except Exception:
-                pass
-
-    script_editor_class.build_ui = build_ui
-    _INSTALLED_SCRIPT_EDITOR_ICONS = True
+    ScriptEditorWidget now creates its clear-output button with the final icon
+    directly, so UI copy is no longer used to identify that control.
+    """
+    return script_editor_class
 
 
 __all__ = [

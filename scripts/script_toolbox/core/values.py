@@ -247,7 +247,10 @@ def normalize_value(item, value):
             safe_float
         )
 
-    if kind == "checkbox":
+    if kind in (
+        "checkbox",
+        "toggle_button",
+    ):
         return bool(
             value
         )

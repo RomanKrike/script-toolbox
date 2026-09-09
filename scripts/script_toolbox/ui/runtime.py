@@ -6,6 +6,7 @@ from ..compat import QtGui
 from ..model.items import create_item
 from ..model.items import safe_color
 from ..pycompat import text_type
+from ..style.palette import TEXT_SUBTLE
 
 
 class DisplayField(QtGui.QLineEdit):
@@ -1255,7 +1256,9 @@ class RuntimeFolder(QtGui.QFrame):
                 )
             )
             label.setStyleSheet(
-                "color:#bdbdbd; padding:2px 3px;"
+                "color:{0}; padding:2px 3px;".format(
+                    TEXT_SUBTLE
+                )
             )
             return label
 

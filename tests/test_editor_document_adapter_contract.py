@@ -111,3 +111,54 @@ def test_apply_bypasses_legacy_history_snapshot_bookkeeping():
     assert "self.document_controller.snapshot()" in apply_source
     assert "self.document_controller.replace(" in apply_source
     assert "_history_current" not in apply_source
+
+
+def test_apply_preserves_view_state_inside_document_adapter():
+    source = _read(
+        "scripts/script_toolbox/ui/editor_document_adapter.py"
+    )
+    ui_source = _read(
+        "scripts/script_toolbox/ui/__init__.py"
+    )
+
+    assert "def capture_editor_view_state(editor):" in source
+    assert "def restore_editor_view_state(editor, state):" in source
+    assert "def _capture_tree_view_state(self):" in source
+    assert "def _restore_tree_view_state(self, state):" in source
+
+    apply_source = source.split(
+        "        def apply_changes(self):",
+        1
+    )[1].split(
+        "    setattr(",
+        1
+    )[0]
+
+    assert "view_state = self._capture_tree_view_state()" in apply_source
+    assert "self.populate_tree()" in apply_source
+    assert "self._restore_tree_view_state(" in apply_source
+    assert apply_source.index(
+        "view_state = self._capture_tree_view_state()"
+    ) < apply_source.index(
+        "self.toolbox.rebuild()"
+    )
+    assert apply_source.index(
+        "self.populate_tree()"
+    ) < apply_source.index(
+        "self._restore_tree_view_state("
+    )
+
+    assert "build_editor_view_state_class" not in ui_source
+    assert "from .editor_view_state" not in ui_source
+
+
+def test_legacy_view_state_builder_delegates_to_adapter_helpers():
+    source = _read(
+        "scripts/script_toolbox/ui/editor_view_state.py"
+    )
+
+    assert "from .editor_document_adapter import capture_editor_view_state" in source
+    assert "from .editor_document_adapter import restore_editor_view_state" in source
+    assert "def build_editor_view_state_class(base_class):" in source
+    assert "capture_editor_view_state(" in source
+    assert "restore_editor_view_state(" in source

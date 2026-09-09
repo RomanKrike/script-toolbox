@@ -10,29 +10,41 @@ def _read(relative_path):
     return (ROOT / relative_path).read_text(encoding="utf-8")
 
 
-def test_close_controls_bypass_qtoolbutton_style_geometry():
+def test_clip_sensitive_controls_use_shared_painted_icon_component():
     source = _read(
         "scripts/script_toolbox/ui/icon_clip_fix.py"
     )
+    painted_source = _read(
+        "scripts/script_toolbox/ui/painted_icon_button.py"
+    )
 
-    assert "class PaintedIconButton(QtGui.QWidget):" in source
-    assert "self._icon.paint(" in source
-    assert "self._icon_rect()" in source
-    assert "QtGui.QToolButton" not in source
+    assert "from .painted_icon_button import PaintedIconButton" in source
+    assert "class PaintedIconButton(QtGui.QWidget):" in painted_source
+    assert "self._icon.paint(" in painted_source
+    assert "self._icon_rect()" in painted_source
+    assert "QtGui.QToolButton" not in painted_source
     assert 'builtin_icon("close")' in source
     assert 'builtin_icon("add")' in source
-    assert 'builtin_icon("find")' in source
 
 
-def test_search_clear_uses_painted_child_inside_line_edit():
+def test_search_clip_workaround_is_owned_by_search_field_not_monkeypatch():
     source = _read(
         "scripts/script_toolbox/ui/icon_clip_fix.py"
     )
+    search_source = _read(
+        "scripts/script_toolbox/ui/search_field.py"
+    )
 
-    assert "parent=line_edit" in source
-    assert "clear_button.clicked.connect(line_edit.clear)" in source
-    assert "line_edit.setTextMargins(" in source
-    assert "polish_module._search_control = _painted_search_control" in source
+    assert "PaintedIconButton(" in search_source
+    assert 'builtin_icon("find")' in search_source
+    assert 'builtin_icon("close")' in search_source
+    assert "self.clear_button.clicked.connect(" in search_source
+    assert "self.setTextMargins(" in search_source
+
+    assert "editor_polish_hooks" not in source
+    assert "polish_module" not in source
+    assert "_search_control" not in source
+    assert "SearchDecorationFilter" not in source
 
 
 def test_trigger_close_and_add_methods_are_replaced_before_instances():
@@ -46,8 +58,4 @@ def test_trigger_close_and_add_methods_are_replaced_before_instances():
     assert "TriggerTabBindingPanel._install_trigger_close_button" in source
     assert "TriggerTabBindingPanel._ensure_add_button" in source
     assert "install_icon_clip_fix()" in ui_source
-    assert ui_source.index(
-        "install_editor_search_ux("
-    ) < ui_source.index(
-        "install_icon_clip_fix()"
-    )
+    assert "TriggerTabBindingPanel,\n        _INSTALL_MARKER" in source

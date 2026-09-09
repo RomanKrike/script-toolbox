@@ -10,7 +10,6 @@ from .editor_polish_hooks import install_icon_only_button_centering
 from .editor_polish_hooks import install_icon_only_state_refresh
 from .editor_polish_hooks import install_runtime_icon_feedback
 from .editor_search import build_search_interface_editor_class
-from .editor_view_state import build_editor_view_state_class
 from .icon_clip_fix import install_icon_clip_fix
 from .layout_editor_adapter import build_layout_editor_class
 from .layout_context import install_layout_property_context
@@ -76,9 +75,6 @@ _editor_document_adapter_module.EditorDocumentController = (
 
 InterfaceEditor = build_interface_editor_class(
     _layout_editor_class
-)
-InterfaceEditor = build_editor_view_state_class(
-    InterfaceEditor
 )
 InterfaceEditor = build_search_interface_editor_class(
     InterfaceEditor

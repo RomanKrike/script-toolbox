@@ -64,3 +64,28 @@ def test_bootstrap_and_nuke_panel_use_debounced_window():
         "script_toolbox.ui.debounced_main_window.ScriptToolbox"
         in nuke
     )
+
+
+def test_runtime_hooks_are_installed_on_shared_main_window_base():
+    source = _source(
+        "scripts/script_toolbox/ui/__init__.py"
+    )
+
+    assert (
+        "install_controls_v2_hooks(\n"
+        "    _runtime_module,\n"
+        "    _BaseScriptToolbox\n"
+        ")"
+    ) in source
+    assert (
+        "install_event_binding_hooks(\n"
+        "    get_runtime_renderer_registry(),\n"
+        "    _runtime_renderers_module,\n"
+        "    _BaseScriptToolbox\n"
+        ")"
+    ) in source
+    assert (
+        "install_icon_only_state_refresh(\n"
+        "    _BaseScriptToolbox\n"
+        ")"
+    ) in source

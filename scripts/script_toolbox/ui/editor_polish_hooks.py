@@ -37,13 +37,13 @@ QToolButton#EditorSearchClear {
 }
 QToolButton#EditorSearchClear:hover {
     background-color: #404040;
-    border: 1px solid #545454;
-    border-radius: 2px;
+    border: 0px;
+    border-radius: 3px;
 }
 QToolButton#EditorSearchClear:pressed {
     background-color: #272727;
-    border: 1px solid #171717;
-    border-radius: 2px;
+    border: 0px;
+    border-radius: 3px;
 }
 """
 
@@ -65,6 +65,9 @@ _ICON_FEEDBACK_PRESSED = (
     "border-radius: 3px;"
     "padding: 3px;"
 )
+
+_SEARCH_ICON_SIZE = 18
+_CLEAR_BUTTON_SIZE = 20
 
 
 def _tree_item_matches(item, query):
@@ -148,22 +151,25 @@ def _position_search_icons(
     search_icon,
     clear_button
 ):
-    button_size = 18
-    top = max(
+    search_top = max(
         0,
-        (line_edit.height() - button_size) // 2
+        (line_edit.height() - _SEARCH_ICON_SIZE) // 2
+    )
+    clear_top = max(
+        0,
+        (line_edit.height() - _CLEAR_BUTTON_SIZE) // 2
     )
 
     search_icon.move(
         4,
-        top
+        search_top
     )
     clear_button.move(
         max(
             4,
-            line_edit.width() - button_size - 4
+            line_edit.width() - _CLEAR_BUTTON_SIZE - 5
         ),
-        top
+        clear_top
     )
 
     try:
@@ -204,21 +210,23 @@ class SearchFieldDecorationFilter(QtCore.QObject):
 
 
 def _search_control(line_edit, parent=None):
-    # The icons are real children of QLineEdit, not adjacent layout widgets.
-    # This keeps both affordances visually inside the search field in Qt4.
     search_icon = QtGui.QToolButton(
         line_edit
     )
     search_icon.setObjectName(
         "EditorSearchIcon"
     )
+    search_icon.setAutoRaise(True)
     search_icon.setIcon(
         builtin_icon("find")
     )
     search_icon.setIconSize(
-        QtCore.QSize(13, 13)
+        QtCore.QSize(12, 12)
     )
-    search_icon.setFixedSize(18, 18)
+    search_icon.setFixedSize(
+        _SEARCH_ICON_SIZE,
+        _SEARCH_ICON_SIZE
+    )
     search_icon.setFocusPolicy(
         QtCore.Qt.NoFocus
     )
@@ -240,13 +248,19 @@ def _search_control(line_edit, parent=None):
     clear_button.setObjectName(
         "EditorSearchClear"
     )
+    clear_button.setAutoRaise(True)
     clear_button.setIcon(
         builtin_icon("close")
     )
+    # Keep extra breathing room around the Solar close glyph. Maya/Qt4 can
+    # otherwise crop the left antialiased edge at small odd icon sizes.
     clear_button.setIconSize(
-        QtCore.QSize(11, 11)
+        QtCore.QSize(9, 9)
     )
-    clear_button.setFixedSize(18, 18)
+    clear_button.setFixedSize(
+        _CLEAR_BUTTON_SIZE,
+        _CLEAR_BUTTON_SIZE
+    )
     clear_button.setFocusPolicy(
         QtCore.Qt.NoFocus
     )
@@ -260,9 +274,9 @@ def _search_control(line_edit, parent=None):
 
     try:
         line_edit.setTextMargins(
-            24,
+            25,
             0,
-            24,
+            28,
             0
         )
     except Exception:
@@ -436,14 +450,12 @@ class CenteredIconPushButton(QtGui.QPushButton):
         self.update()
 
     def setText(self, value):
-        # State refreshes must not reintroduce a label on icon-only buttons.
         QtGui.QPushButton.setText(
             self,
             ""
         )
 
     def paintEvent(self, event):
-        # Let the host style draw only the button frame/background first.
         QtGui.QPushButton.paintEvent(
             self,
             event
@@ -495,6 +507,26 @@ class CenteredIconPushButton(QtGui.QPushButton):
                 target
             )
         painter.end()
+
+
+def _button_should_center_icon(item):
+    icon_path = text_type(
+        item.get("icon_path") or ""
+    ).strip()
+    if not icon_path:
+        return False
+
+    if bool(item.get("icon_only", False)):
+        return True
+
+    # The common editor workflow is to assign an icon and disable Show Label.
+    # In that case the native QPushButton still keeps its icon at the left.
+    if not bool(item.get("show_label", True)):
+        return True
+
+    return not bool(
+        text_type(item.get("label") or "").strip()
+    )
 
 
 def _render_centered_icon_button(
@@ -584,9 +616,7 @@ def install_icon_only_button_centering(registry):
         return
 
     def render_button(owner, item, compact=False):
-        if bool(
-            item.get("icon_only", False)
-        ):
+        if _button_should_center_icon(item):
             return _render_centered_icon_button(
                 owner,
                 item
@@ -627,7 +657,7 @@ def install_icon_only_state_refresh(main_window_class):
         if (
             item is not None and
             item.get("kind") == "button" and
-            bool(item.get("icon_only", False))
+            _button_should_center_icon(item)
         ):
             widget = self.state_button_widgets.get(
                 item.get("id")

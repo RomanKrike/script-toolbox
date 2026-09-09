@@ -12,8 +12,15 @@ from ..core.editor_document import EditorDocumentController
 from ..model import normalize_document
 from ..pycompat import text_type
 from .editor_search import apply_editor_presentation
-from .editor_search import filter_existing_parameters as filter_editor_structure
 from .editor_search import reapply_existing_filter
+from .layout_context import apply_layout_property_context
+from .layout_editor_adapter import create_layout_from_palette
+from .layout_editor_adapter import delete_layout_selected
+from .layout_editor_adapter import fix_layout_tree_structure
+from .layout_editor_adapter import insert_layout_cloned_tree_item
+from .layout_editor_adapter import make_layout_tree_item
+from .layout_editor_adapter import sync_layout_working_from_tree
+from .layout_editor_adapter import unwrap_layout_editor_base
 from .share_hooks import install_share_controller
 
 
@@ -156,23 +163,37 @@ def restore_editor_view_state(editor, state):
 
 
 def _unwrap_base(base_class):
-    while getattr(base_class, _ADAPTER_MARKER, False):
-        legacy = getattr(base_class, _LEGACY_BASE, None)
-        if legacy is None or legacy is base_class:
-            break
-        base_class = legacy
+    changed = True
+    while changed:
+        original = base_class
+
+        while getattr(base_class, _ADAPTER_MARKER, False):
+            legacy = getattr(base_class, _LEGACY_BASE, None)
+            if legacy is None or legacy is base_class:
+                break
+            base_class = legacy
+
+        base_class = unwrap_layout_editor_base(base_class)
+        changed = base_class is not original
+
     return base_class
 
 
-def build_interface_editor_class(base_class):
-    """Build a controller-backed adapter around the current legacy class."""
+def build_interface_editor_class(
+    base_class,
+    controller_class=None,
+    layout_support=False
+):
+    """Build the active controller-backed InterfaceEditor adapter."""
     base_class = _unwrap_base(base_class)
+    if controller_class is None:
+        controller_class = EditorDocumentController
 
     class InterfaceEditor(base_class):
         """Compatibility adapter moving editor state/history into core."""
 
         def __init__(self, toolbox, parent=None):
-            self.document_controller = EditorDocumentController(
+            self.document_controller = controller_class(
                 toolbox.config
             )
             self._command_ready = False
@@ -249,17 +270,54 @@ def build_interface_editor_class(base_class):
         def paste_shared_selected(self):
             return self.share_controller.paste_shared_selected()
 
-        def filter_existing_parameters(self, value):
-            return filter_editor_structure(
-                self,
-                value
-            )
-
         def populate_tree(self):
             base_class.populate_tree(
                 self
             )
             reapply_existing_filter(self)
+
+        # --------------------------------------------------------------
+        # Layout composition
+        # --------------------------------------------------------------
+
+        def make_tree_item(self, data):
+            if not layout_support:
+                return base_class.make_tree_item(
+                    self,
+                    data
+                )
+            return make_layout_tree_item(
+                self,
+                data,
+                base_class.make_tree_item
+            )
+
+        def fix_tree_structure(self):
+            if not layout_support:
+                return base_class.fix_tree_structure(self)
+            return fix_layout_tree_structure(self)
+
+        def sync_working_from_tree(self):
+            if not layout_support:
+                return base_class.sync_working_from_tree(self)
+            return sync_layout_working_from_tree(self)
+
+        def _insert_cloned_tree_item(
+            self,
+            data,
+            sibling=False
+        ):
+            if not layout_support:
+                return base_class._insert_cloned_tree_item(
+                    self,
+                    data,
+                    sibling=sibling
+                )
+            return insert_layout_cloned_tree_item(
+                self,
+                data,
+                sibling=sibling
+            )
 
         # --------------------------------------------------------------
         # Document ownership compatibility
@@ -560,6 +618,11 @@ def build_interface_editor_class(base_class):
                 current,
                 previous
             )
+            if layout_support:
+                apply_layout_property_context(
+                    self,
+                    current
+                )
             self._sync_property_baseline()
             return result
 
@@ -610,9 +673,14 @@ def build_interface_editor_class(base_class):
                     self._next_tree_label = previous
 
         def create_from_palette(self, palette_item, column=0):
+            callback = (
+                create_layout_from_palette
+                if layout_support
+                else base_class.create_from_palette
+            )
             return self._call_tree_action(
                 "Create Parameter",
-                base_class.create_from_palette,
+                callback,
                 palette_item,
                 column
             )
@@ -638,6 +706,12 @@ def build_interface_editor_class(base_class):
             )
 
         def delete_selected(self):
+            if layout_support:
+                return self._call_tree_action(
+                    "Delete Parameter",
+                    delete_layout_selected,
+                    base_class.delete_selected
+                )
             return self._call_tree_action(
                 "Delete Parameter",
                 base_class.delete_selected

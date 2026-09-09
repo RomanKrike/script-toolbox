@@ -53,12 +53,16 @@ def test_standard_buttons_share_chrome_without_overriding_role_owned_sizes():
     assert "QPushButton {\n    min-height: %(BUTTON_MIN_HEIGHT)spx;" in stylesheet
 
     # QToolButton size remains role-owned. Technical buttons use semantic
-    # presets, runtime icons use user width/height, and Trigger glyph buttons
-    # keep their Qt4 clipping contract until the Trigger-tab stage.
+    # presets and runtime icons use user width/height. Trigger glyphs no longer
+    # use QToolButton at all: their Maya/Qt4 painted geometry is local to the
+    # Trigger-tab implementation.
     assert "button.setFixedSize(" in icon_button
     assert 'width = int(item.get("width", 24))' in runtime_renderers
     assert 'height = int(item.get("height", 24))' in runtime_renderers
-    assert "button.setFixedSize(16, 16)" in trigger_tabs
+    assert "from ..painted_icon_button import PaintedIconButton" in trigger_tabs
+    assert "_TRIGGER_ADD_BUTTON_SIZE = 16" in trigger_tabs
+    assert "_TRIGGER_CLOSE_BUTTON_SIZE = 18" in trigger_tabs
+    assert "QtGui.QToolButton" not in trigger_tabs
 
 
 def test_search_and_icon_controls_keep_semantic_role_geometry():

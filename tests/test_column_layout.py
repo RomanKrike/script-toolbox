@@ -220,6 +220,12 @@ def test_column_editor_and_runtime_are_wired_without_layout_triggers():
         "ui",
         "layout_editor_adapter.py"
     )
+    document_adapter = _source(
+        "scripts",
+        "script_toolbox",
+        "ui",
+        "editor_document_adapter.py"
+    )
     column_renderer = _source(
         "scripts",
         "script_toolbox",
@@ -243,7 +249,9 @@ def test_column_editor_and_runtime_are_wired_without_layout_triggers():
     assert '"Column",' in ui_init
     assert '"column",' in ui_init
     assert 'register_runtime_renderer(\n    "column"' in ui_init
-    assert "build_layout_editor_class" in ui_init
+    assert "build_layout_editor_class" not in ui_init
+    assert "layout_support=True" in ui_init
+    assert "make_layout_tree_item" in document_adapter
     assert '"column": ColumnPropertyEditor' in registry
     assert "QVBoxLayout" in column_renderer
     assert '"horizontal_alignment"' in column_renderer

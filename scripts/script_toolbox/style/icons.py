@@ -3,6 +3,7 @@ from __future__ import print_function
 
 from ..compat import QtCore
 from ..compat import QtGui
+from .palette import TOOLBAR_ICON
 
 # ----------------------------------------------------------------------
 # Programmatic toolbar icons
@@ -14,7 +15,7 @@ def _icon_pixmap(size=18):
     return pixmap
 
 
-def _icon_pen(color="#d8d8d8", width=1.6):
+def _icon_pen(color=TOOLBAR_ICON, width=1.6):
     pen = QtGui.QPen(QtGui.QColor(color))
     pen.setWidthF(width)
     pen.setCapStyle(QtCore.Qt.RoundCap)
@@ -65,7 +66,7 @@ def toolbar_icon(kind, size=18):
         painter.drawPath(path)
 
         painter.setBrush(
-            QtGui.QColor("#d8d8d8")
+            QtGui.QColor(TOOLBAR_ICON)
         )
         painter.drawPolygon(
             QtGui.QPolygonF([
@@ -91,7 +92,7 @@ def toolbar_icon(kind, size=18):
         painter.drawPath(path)
 
         painter.setBrush(
-            QtGui.QColor("#d8d8d8")
+            QtGui.QColor(TOOLBAR_ICON)
         )
         painter.drawPolygon(
             QtGui.QPolygonF([
@@ -258,7 +259,7 @@ def toolbar_icon(kind, size=18):
         )
 
         painter.setBrush(
-            QtGui.QColor("#d8d8d8")
+            QtGui.QColor(TOOLBAR_ICON)
         )
         painter.drawPolygon(
             QtGui.QPolygonF([
@@ -283,7 +284,7 @@ def toolbar_icon(kind, size=18):
         )
 
         painter.setBrush(
-            QtGui.QColor("#d8d8d8")
+            QtGui.QColor(TOOLBAR_ICON)
         )
         painter.drawPolygon(
             QtGui.QPolygonF([
@@ -298,7 +299,7 @@ def toolbar_icon(kind, size=18):
             QtCore.Qt.NoPen
         )
         painter.setBrush(
-            QtGui.QColor("#d8d8d8")
+            QtGui.QColor(TOOLBAR_ICON)
         )
         painter.drawPolygon(
             QtGui.QPolygonF([
@@ -377,7 +378,7 @@ def toolbar_icon(kind, size=18):
             QtCore.Qt.NoPen
         )
         painter.setBrush(
-            QtGui.QColor("#d8d8d8")
+            QtGui.QColor(TOOLBAR_ICON)
         )
         painter.drawPolygon(
             QtGui.QPolygonF([
@@ -396,7 +397,7 @@ def toolbar_icon(kind, size=18):
             QtCore.Qt.NoPen
         )
         painter.setBrush(
-            QtGui.QColor("#d8d8d8")
+            QtGui.QColor(TOOLBAR_ICON)
         )
         painter.drawPolygon(
             QtGui.QPolygonF([
@@ -468,7 +469,7 @@ def toolbar_icon(kind, size=18):
         painter.drawPath(path)
 
         painter.setBrush(
-            QtGui.QColor("#d8d8d8")
+            QtGui.QColor(TOOLBAR_ICON)
         )
         painter.drawPolygon(
             QtGui.QPolygonF([

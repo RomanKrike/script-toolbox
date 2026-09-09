@@ -47,10 +47,16 @@ def test_trigger_tabs_use_compact_centered_solar_controls():
     assert 'builtin_icon("close")' in source
     assert '"TriggerAddButton"' in source
     assert '"TriggerCloseButton"' in source
-    assert "button.setIconSize(" in source
-    assert "QtCore.QSize(11, 11)" in source
+    assert '"TriggerCloseHolder"' in source
+    assert "holder.setFixedSize(20, 18)" in source
+    assert "QtCore.QSize(10, 10)" in source
     assert "button.setFixedSize(16, 16)" in source
-    assert "spacer.setFixedSize(14, 1)" in source
+    assert "button.move(2, 1)" in source
+    assert "QtCore.QSize(12, 12)" in source
+    assert "spacer.setFixedSize(12, 1)" in source
+    assert "QtCore.Qt.WA_TransparentForMouseEvents" in source
+    assert "QToolButton#TriggerAddButton:hover" not in source
+    assert "QToolButton#TriggerAddButton:pressed" not in source
     assert "bar.tabRect(index)" in source
     assert "(rect.width() - size.width()) // 2" in source
     assert "(rect.height() - size.height()) // 2" in source

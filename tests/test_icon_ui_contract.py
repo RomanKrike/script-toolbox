@@ -97,8 +97,8 @@ def test_share_actions_use_stable_references_and_final_icons():
     share_source = _read(
         "scripts/script_toolbox/ui/share_hooks.py"
     )
-    presentation_source = _read(
-        "scripts/script_toolbox/ui/editor_search.py"
+    adapter_source = _read(
+        "scripts/script_toolbox/ui/editor_document_adapter.py"
     )
     ui_source = _read(
         "scripts/script_toolbox/ui/__init__.py"
@@ -123,10 +123,10 @@ def test_share_actions_use_stable_references_and_final_icons():
     assert "findChildren(" not in share_source
     assert "_install_share_buttons" not in share_source
 
-    assert "from .share_hooks import install_share_controller" in presentation_source
-    assert "install_share_controller(self)" in presentation_source
-    assert "self.share_controller.icon_button(" in presentation_source
-    assert "self.share_controller.show_tree_context_menu(" in presentation_source
+    assert "from .share_hooks import install_share_controller" in adapter_source
+    assert "install_share_controller(self)" in adapter_source
+    assert "self.share_controller.icon_button(" in adapter_source
+    assert "self.share_controller.show_tree_context_menu(" in adapter_source
     assert "build_share_interface_editor_class(" not in ui_source
     assert "from .share_hooks import build_share_interface_editor_class" not in ui_source
 

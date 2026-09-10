@@ -13,7 +13,21 @@ host_version
 os
 ```
 
-No event in this catalog may include scene contents, filenames, file paths, object names, item labels/names, scripts, Autodesk account information, OS usernames, hostnames, config contents, or other arbitrary user-controlled strings.
+The PostHog provider additionally supplies the persisted pseudonymous installation `distinct_id` in the form:
+
+```text
+stb-install-<random uuid>
+```
+
+No event in this catalog may include scene contents, filenames, file paths, object names, item labels/names, scripts, Autodesk account information, OS usernames, hostnames, config contents, hardware identifiers, or other arbitrary user-controlled strings.
+
+## Client payload vs provider-side enrichment
+
+The fields listed in this document describe what Script Toolbox itself places into telemetry events.
+
+Script Toolbox does not explicitly send IP address, city, country, coordinates, postal code, or timezone as event properties. The telemetry request is delivered over HTTPS, however, so the receiving analytics service sees normal network request metadata such as the source IP. PostHog may use that information to add GeoIP/enrichment fields after ingestion.
+
+Those provider-generated fields are not read from Maya/Nuke/Houdini, the current scene, the operating-system user profile, or Script Toolbox configuration. They are outside the Script Toolbox event/property allowlist below.
 
 ## Product events
 

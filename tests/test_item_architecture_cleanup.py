@@ -4,7 +4,7 @@ import os
 
 from script_toolbox.constants import CONFIG_VERSION
 from script_toolbox.core.editor_document import EditorDocumentController
-from script_toolbox.core.migrations import migrate_document
+from script_toolbox.core.values import find_item
 from script_toolbox.core.values import normalize_value
 from script_toolbox.model import DocumentIndex
 from script_toolbox.model import create_item
@@ -70,8 +70,7 @@ def _nested_document():
                                                             script=(
                                                                 "toolbox.find_item('button_a')"
                                                             ),
-                                                            binding_id="link",
-                                                            button_mode="action"
+                                                            binding_id="link"
                                                         )
                                                     ],
                                                 },
@@ -89,8 +88,7 @@ def _nested_document():
                                 make_binding(
                                     "click",
                                     script="toolbox.find_item('button_a')",
-                                    binding_id="external_link",
-                                    button_mode="action"
+                                    binding_id="external_link"
                                 )
                             ],
                         },
@@ -107,6 +105,8 @@ def test_container_contract_and_factories_are_model_owned():
     assert is_container_kind("column") is True
     assert is_container_kind("button") is False
     assert get_item_factory("column") is not None
+    assert get_item_factory("toggle_button") is not None
+    assert get_item_factory("toggle_icon") is not None
     assert create_item("column", {})["kind"] == "column"
 
 
@@ -223,102 +223,96 @@ def test_numeric_factory_and_store_normalization_share_contract():
     ) == 0.5
 
 
-def test_icon_alignment_normalizes_legacy_alias_to_canonical_key():
-    legacy = create_item(
+def test_icon_alignment_uses_only_canonical_key():
+    old_key = create_item(
         "icon",
-        {
-            "alignment": "right",
-        }
+        {"alignment": "right"}
     )
     current = create_item(
         "icon",
-        {
-            "content_alignment": "center",
-            "alignment": "right",
-        }
+        {"content_alignment": "center"}
     )
 
-    assert legacy["content_alignment"] == "right"
-    assert "alignment" not in legacy
+    assert old_key["content_alignment"] == "left"
+    assert "alignment" not in old_key
     assert current["content_alignment"] == "center"
-    assert "alignment" not in current
 
 
-def test_legacy_callbacks_remain_migration_input_but_not_runtime_contract():
-    source = {
-        "version": 17,
+def test_label_is_presentation_only_not_lookup_identity():
+    item = create_item(
+        "string",
+        {
+            "id": "item-id",
+            "name": "symbolic_name",
+            "label": "Visible Label",
+            "value": "ok",
+        }
+    )
+    document = {
+        "version": CONFIG_VERSION,
         "sections": [
-            {
-                "kind": "folder",
-                "name": "root",
-                "items": [
-                    {
-                        "kind": "label",
-                        "name": "legacy_label",
-                        "callbacks": {
-                            "on_click": "print('legacy')",
-                        },
-                    },
-                ],
-            },
+            create_item(
+                "folder",
+                {"items": [item]}
+            )
         ],
     }
 
-    migrated = migrate_document(source)
-    label = migrated["sections"][0]["items"][0]
-    assert "callbacks" not in label
-    assert label["bindings"][0]["event"] == "click"
-
-    runtime_source = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "runtime_renderers.py"
-    )
-    hooks_source = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "event_binding_hooks.py"
-    )
-    assert "has_callback" not in runtime_source
-    assert "_invoke_callback" not in runtime_source
-    assert "runtime_renderers_module._invoke_callback" not in hooks_source
-    assert "_has_mouse_binding(item)" in runtime_source
+    assert find_item(document, "item-id") is not None
+    assert find_item(document, "symbolic_name") is not None
+    assert find_item(document, "Visible Label") is None
 
 
-def test_architecture_has_no_layout_monkey_patch_or_hardcoded_controller_tuple():
+def test_architecture_has_no_legacy_runtime_or_model_paths():
     layouts_source = _source(
-        "scripts",
-        "script_toolbox",
-        "model",
-        "layouts.py"
+        "scripts", "script_toolbox", "model", "layouts.py"
+    )
+    items_source = _source(
+        "scripts", "script_toolbox", "model", "items.py"
+    )
+    bindings_source = _source(
+        "scripts", "script_toolbox", "model", "bindings.py"
+    )
+    runtime_source = _source(
+        "scripts", "script_toolbox", "ui", "runtime.py"
+    )
+    renderers_source = _source(
+        "scripts", "script_toolbox", "ui", "runtime_renderers.py"
     )
     references_source = _source(
-        "scripts",
-        "script_toolbox",
-        "core",
-        "references.py"
+        "scripts", "script_toolbox", "core", "references.py"
     )
     controller_source = _source(
-        "scripts",
-        "script_toolbox",
-        "core",
-        "editor_document.py"
-    )
-    layout_controller_source = _source(
-        "scripts",
-        "script_toolbox",
-        "core",
-        "layout_document.py"
+        "scripts", "script_toolbox", "core", "editor_document.py"
     )
 
     assert "items_module.walk_items =" not in layouts_source
     assert "items_module.create_item =" not in layouts_source
     assert "._FACTORIES[" not in layouts_source
+    assert "LEGACY_CALLBACK_EVENT_MAP" not in bindings_source
+    assert "click_script" not in bindings_source
+    assert "shift_script" not in bindings_source
+    assert "on_change_script" not in bindings_source
+    assert '"toggle":' not in items_source
+    assert '"section":' not in items_source
+    assert 'data.get("folders")' not in items_source
+    assert "RuntimeSection" not in runtime_source
+    assert "_LEGACY_BUILD" not in renderers_source
+    assert "install_runtime_renderer_registry" not in renderers_source
     assert '("folder", "row")' not in references_source
     assert '("folder", "row")' not in controller_source
     assert "is_container_kind" in references_source
     assert "is_container_kind" in controller_source
-    assert "def clone_subtree" not in layout_controller_source
-    assert "def capture_topology" not in layout_controller_source
+
+    assert not os.path.exists(os.path.join(
+        ROOT, "scripts", "script_toolbox", "model", "callbacks.py"
+    ))
+    assert not os.path.exists(os.path.join(
+        ROOT, "scripts", "script_toolbox", "model", "toggle_button.py"
+    ))
+    assert not os.path.exists(os.path.join(
+        ROOT, "scripts", "script_toolbox", "model", "toggle_icon.py"
+    ))
+    assert not os.path.exists(os.path.join(
+        ROOT, "scripts", "script_toolbox", "core", "layout_document.py"
+    ))

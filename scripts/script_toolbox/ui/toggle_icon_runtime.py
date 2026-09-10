@@ -116,7 +116,7 @@ def render_toggle_icon(owner, item, compact=False):
 
     alignment = item.get(
         "content_alignment",
-        item.get("alignment", "left")
+        "left"
     )
     if alignment in ("center", "right"):
         layout.addStretch(1)

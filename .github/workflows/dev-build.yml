@@ -123,6 +123,12 @@ jobs:
           )
           PY
 
+      - name: Stamp telemetry client config
+        env:
+          POSTHOG_PROJECT_TOKEN: ${{ secrets.POSTHOG_PROJECT_TOKEN }}
+          POSTHOG_HOST: https://eu.i.posthog.com
+        run: python tools/stamp_telemetry_config.py
+
       - name: Build development package
         env:
           DEV_VERSION: ${{ steps.version.outputs.dev }}

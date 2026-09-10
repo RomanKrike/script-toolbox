@@ -100,6 +100,13 @@ jobs:
             echo "Release $TAG will be created."
           fi
 
+      - name: Stamp telemetry client config
+        if: steps.version.outputs.release_needed == 'true'
+        env:
+          POSTHOG_PROJECT_TOKEN: ${{ secrets.POSTHOG_PROJECT_TOKEN }}
+          POSTHOG_HOST: https://eu.i.posthog.com
+        run: python tools/stamp_telemetry_config.py
+
       - name: Build and validate release package
         if: steps.version.outputs.release_needed == 'true'
         shell: bash

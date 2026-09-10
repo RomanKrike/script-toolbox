@@ -14,11 +14,64 @@ The persisted preference is tri-state:
 - `True` — the user explicitly opted in;
 - `False` — the user explicitly opted out.
 
-A provider being configured does not imply consent. The application bootstrap must enable telemetry only when `get_telemetry_consent()` is exactly `True`.
+A provider being configured does not imply consent. The application bootstrap enables telemetry only when `get_telemetry_consent()` is exactly `True`.
 
 Telemetry must not collect scene contents, filenames, file paths, object names, scripts, Autodesk account information, OS usernames, hostnames, or other personal/project data.
 
-Provider failures must never affect normal Script Toolbox behavior. Event delivery is best-effort and failures are swallowed by the telemetry facade.
+Provider failures must never affect normal Script Toolbox behavior. Event delivery is best-effort and failures are swallowed by the telemetry facade/provider worker.
+
+## Current PostHog provider
+
+Official builds currently configure `PostHogProvider` for the EU ingestion host:
+
+```text
+https://eu.i.posthog.com
+```
+
+The public, write-only PostHog project token is not stored in git. GitHub Actions reads `POSTHOG_PROJECT_TOKEN` from repository secrets and stamps it into `telemetry/build_config.py` immediately before packaging Development and stable release artifacts.
+
+Source checkouts keep `POSTHOG_PROJECT_TOKEN` blank, so telemetry transport is unavailable unless an official build stamped the configuration.
+
+The provider uses PostHog's batch ingestion endpoint and sends in a background daemon thread so analytics does not block the DCC UI.
+
+PostHog requires a `distinct_id` for events. Script Toolbox generates a random **process-scoped** id such as `stb-session-...`. It is not persisted between application sessions and is not derived from hardware, usernames, hostnames, account data, scenes, or project data.
+
+Every event forces:
+
+```text
+$process_person_profile = false
+```
+
+so Script Toolbox telemetry does not create PostHog person profiles.
+
+## Runtime bootstrap
+
+`script_toolbox.bootstrap.show()` initializes telemetry before opening the UI. Runtime configuration combines:
+
+- the build-time provider configuration;
+- the persisted user consent value;
+- a reviewed set of low-cardinality technical properties.
+
+The first semantic event is:
+
+```text
+plugin_started
+```
+
+It is emitted at most once per loaded telemetry runtime and only when explicit consent is `True`.
+
+The current common property allowlist is:
+
+```text
+plugin_version
+build_channel
+build_number
+host
+host_version
+os
+```
+
+No filenames, paths, scene/object names, scripts, account information, usernames, or hostnames are included.
 
 ## Provider boundary
 
@@ -69,9 +122,9 @@ Changing from PostHog to a custom Script Toolbox analytics service should theref
 
 ## Built-in null provider
 
-`NullTelemetryProvider` is always registered as `none` and is the default provider. Fresh installs therefore have no active telemetry transport.
+`NullTelemetryProvider` is always registered as `none` and is the default provider. Fresh source installs therefore have no active telemetry transport.
 
-The null provider is also the safe fallback for development, tests, unavailable services, and builds that do not configure an analytics backend.
+The null provider is also the safe fallback for tests, unavailable services, missing build configuration, and any build that does not configure an analytics backend.
 
 ## Provider selection
 
@@ -116,4 +169,4 @@ A provider switch should follow this sequence:
 4. Select it in `telemetry.configure(...)`.
 5. Keep the event schema stable unless a product requirement explicitly changes it.
 
-This boundary is intended to support PostHog initially and a self-hosted/custom Script Toolbox analytics service later without coupling either backend to the rest of the plugin.
+This boundary supports PostHog now and a self-hosted/custom Script Toolbox analytics service later without coupling either backend to the rest of the plugin.

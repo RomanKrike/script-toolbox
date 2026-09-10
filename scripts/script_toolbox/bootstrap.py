@@ -13,6 +13,13 @@ PACKAGE_NAME = "script_toolbox"
 
 
 def show():
+    try:
+        from .telemetry import initialize_telemetry
+        initialize_telemetry()
+    except Exception:
+        # Telemetry must never prevent Script Toolbox from opening.
+        pass
+
     from .ui.debounced_main_window import show as _show
     return _show()
 
@@ -67,6 +74,14 @@ def purge_child_modules():
     return names
 
 
+def _close_telemetry():
+    try:
+        from .telemetry.service import close
+        close()
+    except Exception:
+        pass
+
+
 def _close_live_ui():
     try:
         from .compat import QtGui
@@ -77,6 +92,7 @@ def _close_live_ui():
     # debounced window flushes pending runtime values before it closes.
     from .ui.debounced_main_window import close_toolbox
     close_toolbox()
+    _close_telemetry()
 
     if QtGui is not None:
         try:
@@ -151,6 +167,7 @@ def reload_toolbox():
     """
     from .ui.debounced_main_window import close_toolbox
     close_toolbox()
+    _close_telemetry()
 
     prefix = "script_toolbox."
 

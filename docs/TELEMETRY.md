@@ -73,6 +73,29 @@ os
 
 No filenames, paths, scene/object names, scripts, account information, usernames, or hostnames are included.
 
+## Consent and Settings UI
+
+When an official build has a telemetry transport configured and the stored consent value is `None`, Script Toolbox shows a first-run consent dialog after the runtime window opens.
+
+The dialog presents two explicit choices:
+
+- `Enable` stores `True`, enables the configured provider immediately, and allows the current runtime to emit `plugin_started`;
+- `Don't Send` stores `False` and keeps telemetry disabled.
+
+Closing the dialog without choosing either option leaves consent as `None`. The prompt is shown at most once per host process, so dismissing it does not repeatedly interrupt the same Maya/Nuke/Houdini session.
+
+The main Script Toolbox header also exposes `Script Toolbox Settings`. Its Privacy section provides three states:
+
+```text
+Ask me next time
+Enabled
+Disabled
+```
+
+Changing this setting is applied immediately through `apply_telemetry_consent()`. The same Settings window also exposes the existing Stable/Development update-channel preference.
+
+Source builds with no configured analytics transport do not show the first-run prompt. Their Privacy setting remains available and the consent choice is persisted for a later official build.
+
 ## Provider boundary
 
 Concrete backends implement the small `TelemetryProvider` contract:

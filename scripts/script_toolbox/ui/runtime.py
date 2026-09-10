@@ -5,6 +5,17 @@ from ..compat import QtCore
 from ..compat import QtGui
 from ..model.items import safe_color
 from ..pycompat import text_type
+from ..style.metrics import RUNTIME_FOLDER_CONTENT_MARGINS
+from ..style.metrics import RUNTIME_FOLDER_CONTENT_SPACING
+from ..style.metrics import RUNTIME_FOLDER_ROOT_MARGINS
+from ..style.metrics import RUNTIME_FOLDER_ROOT_SPACING
+from ..style.metrics import RUNTIME_GROUP_MARGINS
+from ..style.metrics import RUNTIME_GROUP_SPACING
+from ..style.metrics import RUNTIME_PARAMETER_LABEL_WIDTH
+from ..style.metrics import RUNTIME_PARAMETER_ROW_MARGINS
+from ..style.metrics import RUNTIME_PARAMETER_SPACING
+from ..style.metrics import RUNTIME_SIMPLE_HEADER_MARGINS
+from ..style.metrics import RUNTIME_SIMPLE_HEADER_SPACING
 
 
 class DisplayField(QtGui.QLineEdit):
@@ -183,12 +194,8 @@ class RuntimeFolder(QtGui.QFrame):
         self.setProperty("nested", self.is_nested)
 
         root = QtGui.QVBoxLayout(self)
-        if self.folder_type == "collapsible":
-            root.setContentsMargins(0, 0, 0, 0)
-            root.setSpacing(0)
-        else:
-            root.setContentsMargins(0, 0, 0, 4)
-            root.setSpacing(3)
+        root.setContentsMargins(*RUNTIME_FOLDER_ROOT_MARGINS)
+        root.setSpacing(RUNTIME_FOLDER_ROOT_SPACING)
 
         self.arrow = None
         self.header = None
@@ -224,8 +231,8 @@ class RuntimeFolder(QtGui.QFrame):
                 self.header = QtGui.QFrame()
                 self.header.setObjectName("SimpleSectionHeader")
                 header_layout = QtGui.QHBoxLayout(self.header)
-                header_layout.setContentsMargins(5, 2, 5, 2)
-                header_layout.setSpacing(4)
+                header_layout.setContentsMargins(*RUNTIME_SIMPLE_HEADER_MARGINS)
+                header_layout.setSpacing(RUNTIME_SIMPLE_HEADER_SPACING)
                 title = QtGui.QLabel(label)
                 title.setObjectName("SectionTitle")
                 header_layout.addWidget(title)
@@ -235,13 +242,11 @@ class RuntimeFolder(QtGui.QFrame):
         self.content = QtGui.QWidget()
         self.content.setObjectName("RuntimeFolderContent")
         self.content_layout = QtGui.QVBoxLayout(self.content)
-        if self.folder_type == "collapsible":
-            self.content_layout.setContentsMargins(9, 6, 7, 7)
-        else:
-            self.content_layout.setContentsMargins(9, 4, 5, 3)
-        self.content_layout.setSpacing(3)
+        self.content_layout.setContentsMargins(*RUNTIME_FOLDER_CONTENT_MARGINS)
+        self.content_layout.setSpacing(RUNTIME_FOLDER_CONTENT_SPACING)
 
         self._populate_runtime_items(section["items"])
+        self.content_layout.addStretch(1)
         root.addWidget(self.content)
         self.update_state()
 
@@ -309,14 +314,14 @@ class RuntimeFolder(QtGui.QFrame):
     ):
         widget = QtGui.QWidget()
         layout = QtGui.QHBoxLayout(widget)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
+        layout.setContentsMargins(*RUNTIME_PARAMETER_ROW_MARGINS)
+        layout.setSpacing(RUNTIME_PARAMETER_SPACING)
 
         label_text = self._label(item)
         if label_text:
             label = QtGui.QLabel(label_text)
             if not compact:
-                label.setMinimumWidth(105)
+                label.setMinimumWidth(RUNTIME_PARAMETER_LABEL_WIDTH)
             layout.addWidget(label)
 
         widget.setToolTip(self._tooltip(item))
@@ -580,8 +585,8 @@ class RuntimeFolderTabs(QtGui.QFrame):
     ):
         QtGui.QFrame.__init__(self, parent)
         layout = QtGui.QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 4)
-        layout.setSpacing(0)
+        layout.setContentsMargins(*RUNTIME_GROUP_MARGINS)
+        layout.setSpacing(RUNTIME_GROUP_SPACING)
         self.tabs = QtGui.QTabWidget()
         layout.addWidget(self.tabs)
 
@@ -610,8 +615,8 @@ class RuntimeFolderRadio(QtGui.QFrame):
     ):
         QtGui.QFrame.__init__(self, parent)
         root = QtGui.QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 4)
-        root.setSpacing(4)
+        root.setContentsMargins(*RUNTIME_GROUP_MARGINS)
+        root.setSpacing(RUNTIME_FOLDER_CONTENT_SPACING)
 
         radio_row = QtGui.QHBoxLayout()
         radio_row.setContentsMargins(4, 2, 4, 0)

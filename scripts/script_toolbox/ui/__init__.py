@@ -109,6 +109,12 @@ _interface_editor_module.InterfaceEditor = InterfaceEditor
 # as a compatibility implementation, while active kind dispatch is registry-
 # based and can be extended without editing RuntimeFolder's if/elif chain.
 from . import runtime as _runtime_module
+from .collapsible_folder import install_runtime_folder_chrome
+
+install_runtime_folder_chrome(
+    _runtime_module
+)
+
 from . import runtime_renderers as _runtime_renderers_module
 from .column_layout import render_column
 from .row_layout import render_row

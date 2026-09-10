@@ -118,6 +118,8 @@ Only schema 20 is accepted by the current build. Older, newer, invalid and non-e
 
 Event behavior is persisted only in `bindings`. Callback dictionaries and direct script fields are not part of the current schema.
 
+Config paths are resolved centrally by `core/user_paths.py`. Stable and Development builds use the same host user-config directory; there is no separate test/dev config path. In Maya the canonical files are `maya_script_toolbox.json` and `script_toolbox_settings.json` under Maya's user preferences directory. Runtime config/settings paths are not overridden by environment variables.
+
 ## Continuous integration
 
 Every push and pull request runs GitHub Actions checks covering:

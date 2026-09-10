@@ -6,7 +6,6 @@ import os
 from ..compat import QtCore
 from ..compat import QtGui
 from ..core.runtime_registry import RuntimeRendererRegistry
-from ..model.callbacks import has_callback
 from ..model.items import create_item
 from ..model.items import safe_component_labels
 from ..model.items import safe_numeric_size
@@ -16,8 +15,6 @@ from ..style.palette import TEXT_SUBTLE
 
 _INSTALL_MARKER = "_script_toolbox_runtime_registry_installed"
 _LEGACY_BUILD = "_script_toolbox_legacy_build_runtime_widget"
-_LEGACY_TOGGLE = "_script_toolbox_legacy_toggle"
-_LEGACY_FIELD_DOUBLE_CLICK = "_script_toolbox_legacy_field_double_click"
 _RUNTIME_MODULE = "_script_toolbox_runtime_module"
 _ACTIVE_REGISTRY = None
 
@@ -38,26 +35,16 @@ def _expanded_path(value):
     )
 
 
-def _invoke_callback(
-    toolbox,
-    item,
-    event,
-    value=None,
-    old_value=None
-):
-    callback = getattr(
-        toolbox,
-        "run_item_callback",
-        None
-    )
-    if callback is None:
-        return None
-    return callback(
-        item,
-        event,
-        value=value,
-        old_value=old_value
-    )
+def _has_mouse_binding(item):
+    for binding in item.get("bindings", []) or []:
+        if not isinstance(binding, dict):
+            continue
+        if text_type(binding.get("event") or "").lower() in (
+            "click",
+            "double_click",
+        ):
+            return True
+    return False
 
 
 def _render_folder(owner, item, compact=False):
@@ -99,14 +86,6 @@ def _render_button(owner, item, compact=False):
     if item.get("icon_only", False):
         button.setText("")
 
-    button.clicked.connect(
-        lambda checked=False, current=item:
-        _invoke_callback(
-            owner.toolbox,
-            current,
-            "on_click"
-        )
-    )
     return button
 
 
@@ -114,7 +93,7 @@ def _render_icon(owner, item, compact=False):
     width = int(item.get("width", 24))
     height = int(item.get("height", 24))
     path = _expanded_path(item.get("path"))
-    clickable = bool(item.get("clickable", False))
+    clickable = _has_mouse_binding(item)
 
     if clickable:
         icon_widget = QtGui.QToolButton()
@@ -129,14 +108,6 @@ def _render_icon(owner, item, compact=False):
             )
         else:
             icon_widget.setText("?")
-        icon_widget.clicked.connect(
-            lambda checked=False, current=item:
-            _invoke_callback(
-                owner.toolbox,
-                current,
-                "on_click"
-            )
-        )
     else:
         icon_widget = QtGui.QLabel()
         icon_widget.setFixedSize(width, height)
@@ -164,7 +135,7 @@ def _render_icon(owner, item, compact=False):
     layout = QtGui.QHBoxLayout(container)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(0)
-    alignment = item.get("alignment", "left")
+    alignment = item.get("content_alignment", "left")
 
     if alignment in ("center", "right"):
         layout.addStretch(1)
@@ -190,36 +161,6 @@ def _render_checkbox(owner, item, compact=False):
     return owner._checkbox_widget(
         item,
         compact=compact
-    )
-
-
-def _field_selection_changed(toolbox, item, control):
-    value = control.selected_values()
-    old_value = getattr(
-        control,
-        "_script_toolbox_callback_selection",
-        []
-    )
-    if old_value == value:
-        return
-    control._script_toolbox_callback_selection = list(value)
-    _invoke_callback(
-        toolbox,
-        item,
-        "on_select",
-        value=value,
-        old_value=old_value
-    )
-
-
-def _field_double_clicked(toolbox, item, control):
-    values = control.selected_values()
-    _invoke_callback(
-        toolbox,
-        item,
-        "on_double_click",
-        value=values,
-        old_value=None
     )
 
 
@@ -261,44 +202,15 @@ def _render_field(owner, item, compact=False):
         control
     )
 
-    if list_mode:
-        control._script_toolbox_callback_selection = list(
-            control.selected_values()
-        )
-        control.itemSelectionChanged.connect(
-            lambda current=item, widget=control:
-            _field_selection_changed(
-                owner.toolbox,
-                current,
-                widget
-            )
-        )
-        control.itemDoubleClicked.connect(
-            lambda entry, current=item, widget=control:
-            _field_double_clicked(
-                owner.toolbox,
-                current,
-                widget
-            )
-        )
-
     return container
 
 
 def _render_label(owner, item, compact=False):
-    if has_callback(item, "on_click"):
+    if _has_mouse_binding(item):
         label = QtGui.QToolButton()
         label.setAutoRaise(True)
         label.setText(
             owner._label(item)
-        )
-        label.clicked.connect(
-            lambda checked=False, current=item:
-            _invoke_callback(
-                owner.toolbox,
-                current,
-                "on_click"
-            )
         )
     else:
         label = QtGui.QLabel(
@@ -658,67 +570,6 @@ def _registry_build_runtime_widget(
     )
 
 
-def _install_callback_hooks(runtime_module):
-    folder_class = runtime_module.RuntimeFolder
-    if not hasattr(folder_class, _LEGACY_TOGGLE):
-        setattr(
-            folder_class,
-            _LEGACY_TOGGLE,
-            folder_class.toggle
-        )
-
-        def callback_toggle(self):
-            old_collapsed = bool(
-                self.section.get("collapsed", False)
-            )
-            result = getattr(
-                self.__class__,
-                _LEGACY_TOGGLE
-            )(self)
-            new_collapsed = bool(
-                self.section.get("collapsed", False)
-            )
-            if old_collapsed != new_collapsed:
-                _invoke_callback(
-                    self.toolbox,
-                    self.section,
-                    "on_close" if new_collapsed else "on_open",
-                    value=not new_collapsed,
-                    old_value=not old_collapsed
-                )
-            return result
-
-        folder_class.toggle = callback_toggle
-
-    field_class = runtime_module.DisplayField
-    if not hasattr(field_class, _LEGACY_FIELD_DOUBLE_CLICK):
-        setattr(
-            field_class,
-            _LEGACY_FIELD_DOUBLE_CLICK,
-            field_class.mouseDoubleClickEvent
-        )
-
-        def callback_double_click(self, event):
-            result = getattr(
-                self.__class__,
-                _LEGACY_FIELD_DOUBLE_CLICK
-            )(self, event)
-            item = self.toolbox.find_item(
-                self.item_id
-            )
-            if item is not None:
-                _invoke_callback(
-                    self.toolbox,
-                    item,
-                    "on_double_click",
-                    value=self.selected_values(),
-                    old_value=None
-                )
-            return result
-
-        field_class.mouseDoubleClickEvent = callback_double_click
-
-
 def install_runtime_renderer_registry(runtime_module):
     """Route active RuntimeFolder rendering through the registry."""
     global _ACTIVE_REGISTRY
@@ -753,10 +604,6 @@ def install_runtime_renderer_registry(runtime_module):
         folder_class,
         _INSTALL_MARKER,
         True
-    )
-
-    _install_callback_hooks(
-        runtime_module
     )
 
     _ACTIVE_REGISTRY = registry

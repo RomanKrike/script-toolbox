@@ -18,11 +18,7 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
         toolbox=None,
         parent=None
     ):
-        PropertyEditorBase.__init__(
-            self,
-            toolbox,
-            parent
-        )
+        PropertyEditorBase.__init__(self, toolbox, parent)
 
         self.state_source = QtGui.QComboBox()
         self.state_source.addItems([
@@ -44,36 +40,15 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
             "Right",
         ])
 
-        self.behavior_section.addRow(
-            "State Source",
-            self.state_source
-        )
-        self.behavior_section.addRow(
-            "Internal State",
-            self.internal_state
-        )
+        self.behavior_section.addRow("State Source", self.state_source)
+        self.behavior_section.addRow("Internal State", self.internal_state)
 
         section = self.appearance_section
-        section.addRow(
-            "ON Icon",
-            self.state_on_path
-        )
-        section.addRow(
-            "OFF Icon",
-            self.state_off_path
-        )
-        section.addRow(
-            "Icon Width",
-            self.width
-        )
-        section.addRow(
-            "Icon Height",
-            self.height
-        )
-        section.addRow(
-            "Content Alignment",
-            self.alignment
-        )
+        section.addRow("ON Icon", self.state_on_path)
+        section.addRow("OFF Icon", self.state_off_path)
+        section.addRow("Icon Width", self.width)
+        section.addRow("Icon Height", self.height)
+        section.addRow("Content Alignment", self.alignment)
 
         self.state_on_browse_button = install_icon_browse(
             self,
@@ -104,56 +79,28 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
             toolbox=self.toolbox
         )
 
-        self.state_tabs.addTab(
-            self.state_get_editor,
-            "Get State"
-        )
-        self.state_tabs.addTab(
-            self.state_on_editor,
-            "Turn ON"
-        )
-        self.state_tabs.addTab(
-            self.state_off_editor,
-            "Turn OFF"
-        )
-        self.add_trigger_widget(
-            self.state_tabs,
-            1
-        )
+        self.state_tabs.addTab(self.state_get_editor, "Get State")
+        self.state_tabs.addTab(self.state_on_editor, "Turn ON")
+        self.state_tabs.addTab(self.state_off_editor, "Turn OFF")
+        self.add_trigger_widget(self.state_tabs, 1)
 
         self.state_source.currentIndexChanged.connect(
             self._state_source_changed
         )
-        self.internal_state.toggled.connect(
-            self._control_changed
-        )
-        self.state_on_path.textEdited.connect(
-            self._control_changed
-        )
-        self.state_off_path.textEdited.connect(
-            self._control_changed
-        )
-        self.width.valueChanged.connect(
-            self._control_changed
-        )
-        self.height.valueChanged.connect(
-            self._control_changed
-        )
-        self.alignment.currentIndexChanged.connect(
-            self._control_changed
-        )
+        self.internal_state.toggled.connect(self._control_changed)
+        self.state_on_path.textEdited.connect(self._control_changed)
+        self.state_off_path.textEdited.connect(self._control_changed)
+        self.width.valueChanged.connect(self._control_changed)
+        self.height.valueChanged.connect(self._control_changed)
+        self.alignment.currentIndexChanged.connect(self._control_changed)
 
         for editor in (
             self.state_get_editor,
             self.state_on_editor,
             self.state_off_editor,
         ):
-            editor.textChanged.connect(
-                self._control_changed
-            )
-            editor.languageChanged.connect(
-                self._control_changed
-            )
+            editor.textChanged.connect(self._control_changed)
+            editor.languageChanged.connect(self._control_changed)
 
         self._refresh_state_source()
 
@@ -175,22 +122,14 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
             not scripted,
             "Internal State is controlled by Get State when State Source is Script."
         )
-
         try:
-            self.state_tabs.setTabEnabled(
-                0,
-                scripted
-            )
+            self.state_tabs.setTabEnabled(0, scripted)
             self.state_tabs.setTabToolTip(
                 0,
-                ""
-                if scripted
-                else "Get State is used only when State Source is Script."
+                "" if scripted else "Get State is used only when State Source is Script."
             )
         except Exception:
-            self.state_get_editor.setEnabled(
-                scripted
-            )
+            self.state_get_editor.setEnabled(scripted)
 
     def load_specific(self, item):
         self.state_source.setCurrentIndex(
@@ -198,31 +137,21 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
             if item.get("state_source", "internal") == "script"
             else 0
         )
-        self.internal_state.setChecked(
-            bool(item.get("value", False))
-        )
+        self.internal_state.setChecked(bool(item.get("value", False)))
         self.state_on_path.setText(
             text_type(item.get("state_on_path", ""))
         )
         self.state_off_path.setText(
             text_type(item.get("state_off_path", ""))
         )
-        self.width.setValue(
-            int(item.get("width", 24))
-        )
-        self.height.setValue(
-            int(item.get("height", 24))
-        )
-        alignment = item.get(
-            "content_alignment",
-            item.get("alignment", "left")
-        )
+        self.width.setValue(int(item.get("width", 24)))
+        self.height.setValue(int(item.get("height", 24)))
         self.alignment.setCurrentIndex({
             "left": 0,
             "center": 1,
             "right": 2,
         }.get(
-            alignment,
+            item.get("content_alignment", "left"),
             0
         ))
 
@@ -247,37 +176,21 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
     def write_specific(self, item):
         item["state_source"] = self.current_state_source()
         if item["state_source"] == "internal":
-            item["value"] = bool(
-                self.internal_state.isChecked()
-            )
+            item["value"] = bool(self.internal_state.isChecked())
         else:
             item.pop("value", None)
 
-        item["state_on_path"] = text_type(
-            self.state_on_path.text()
-        )
-        item["state_off_path"] = text_type(
-            self.state_off_path.text()
-        )
-        item["width"] = clamp(
-            int(self.width.value()),
-            8,
-            512
-        )
-        item["height"] = clamp(
-            int(self.height.value()),
-            8,
-            512
-        )
-        alignment = (
+        item["state_on_path"] = text_type(self.state_on_path.text())
+        item["state_off_path"] = text_type(self.state_off_path.text())
+        item["width"] = clamp(int(self.width.value()), 8, 512)
+        item["height"] = clamp(int(self.height.value()), 8, 512)
+        item["content_alignment"] = (
             "right"
             if self.alignment.currentIndex() == 2
             else "center"
             if self.alignment.currentIndex() == 1
             else "left"
         )
-        item["content_alignment"] = alignment
-        item.pop("alignment", None)
 
         item["state_get_script"] = text_type(
             self.state_get_editor.toPlainText()
@@ -292,14 +205,8 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
         )
         item["state_off_language"] = self.state_off_editor.language()
 
-        item.pop("path", None)
-        item.pop("clickable", None)
-        item.pop("mode", None)
-
     def write_to_item(self):
-        PropertyEditorBase.write_to_item(
-            self
-        )
+        PropertyEditorBase.write_to_item(self)
         if self.item is not None:
             self.item["bindings"] = normalize_bindings(
                 "toggle_icon",

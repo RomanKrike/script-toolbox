@@ -3,6 +3,7 @@
 from .code_editor import CodeEditor
 from .code_editor import ScriptHighlighter
 from . import interface_editor as _interface_editor_module
+from . import editor_document_adapter as _editor_document_adapter_module
 from ..core.editor_document import EditorDocumentController
 from .editor_document_adapter import build_interface_editor_class
 from .editor_polish_hooks import install_icon_only_button_centering
@@ -11,6 +12,9 @@ from .interface_tree import ExistingInterfaceTree
 from .scroll_surface_frames import install_property_editor_scroll_frames
 from .scroll_surface_frames import install_runtime_scroll_frames
 from .scroll_surface_frames import install_script_editor_scroll_frames
+from .telemetry_hooks import build_telemetry_interface_editor_class
+from .telemetry_hooks import install_telemetry_share_controller
+from .telemetry_hooks import install_toolbox_telemetry
 
 
 def _install_current_palette(editor_class):
@@ -107,10 +111,21 @@ def _install_current_palette(editor_class):
 
 _install_current_palette(_interface_editor_module.InterfaceEditor)
 
+# The controller adapter resolves this module global when an editor instance is
+# constructed. Replacing it here ensures share-button signals are wired to the
+# telemetry-aware controller from the start rather than swapping controllers
+# after Qt signal connections already exist.
+_editor_document_adapter_module.install_share_controller = (
+    install_telemetry_share_controller
+)
+
 InterfaceEditor = build_interface_editor_class(
     _interface_editor_module.InterfaceEditor,
     controller_class=EditorDocumentController,
     layout_support=True
+)
+InterfaceEditor = build_telemetry_interface_editor_class(
+    InterfaceEditor
 )
 install_property_editor_scroll_frames()
 _interface_editor_module.InterfaceEditor = InterfaceEditor
@@ -151,6 +166,9 @@ from .runtime import RuntimeFolder
 from .runtime import RuntimeFolderRadio
 from .runtime import RuntimeFolderTabs
 
+install_toolbox_telemetry(
+    _BaseScriptToolbox
+)
 ScriptToolbox = build_update_channel_toolbox_class(_BaseScriptToolbox)
 
 install_script_editor_scroll_frames(ScriptEditorWidget)

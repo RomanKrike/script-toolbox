@@ -6,10 +6,7 @@ from ...compat import QtGui
 from ...pycompat import text_type
 from ...style.metrics import PROPERTY_EDITOR_SPACING
 from ...style.metrics import PROPERTY_GROUP_MARGINS
-from ..collapsible_folder import configure_collapsible_folder_content
-from ..collapsible_folder import configure_collapsible_folder_frame
-from ..collapsible_folder import configure_collapsible_folder_header
-from ..collapsible_folder import set_collapsible_folder_state
+from ..collapsible_folder import CollapsibleSection
 from ..layout_helpers import configure_layout
 from ..layout_helpers import configure_property_form
 
@@ -93,8 +90,8 @@ def is_property_available(widget):
     )
 
 
-class InspectorSection(QtGui.QFrame):
-    """Reusable collapsible section using the shared Folder chrome."""
+class InspectorSection(QtGui.QWidget):
+    """Thin Inspector form adapter around the shared CollapsibleSection."""
 
     collapsedChanged = QtCore.Signal(bool)
 
@@ -106,18 +103,13 @@ class InspectorSection(QtGui.QFrame):
         visible=False,
         parent=None
     ):
-        QtGui.QFrame.__init__(self, parent)
+        QtGui.QWidget.__init__(self, parent)
 
         self.key = text_type(key)
         self.title = text_type(title)
-        self._collapsed = False
+        self._collapsed = bool(collapsed)
         self._has_static_content = False
         self._row_labels = {}
-
-        configure_collapsible_folder_frame(
-            self,
-            nested=False
-        )
 
         root = QtGui.QVBoxLayout(self)
         configure_layout(
@@ -126,44 +118,44 @@ class InspectorSection(QtGui.QFrame):
             spacing=0
         )
 
-        self.header = QtGui.QPushButton(self)
-        configure_collapsible_folder_header(
-            self.header,
-            self.title
+        # InspectorSection owns only QFormLayout-specific convenience API.
+        # The complete folder chrome/interaction is one shared UI primitive.
+        self.section = CollapsibleSection(
+            title=self.title,
+            collapsed=collapsed,
+            nested=False,
+            content_margins=PROPERTY_GROUP_MARGINS,
+            content_spacing=PROPERTY_EDITOR_SPACING,
+            parent=self
         )
-        root.addWidget(self.header)
+        root.addWidget(self.section)
 
-        self.content = QtGui.QWidget(self)
-        self.content_layout = QtGui.QVBoxLayout(self.content)
-        configure_collapsible_folder_content(
-            self.content,
-            self.content_layout,
-            margins=PROPERTY_GROUP_MARGINS,
-            spacing=PROPERTY_EDITOR_SPACING
-        )
+        # Compatibility aliases for property-editor code that already targets
+        # these stable attributes.
+        self.header = self.section.header
+        self.content = self.section.content
+        self.content_layout = self.section.content_layout
 
         self.form = QtGui.QFormLayout()
         configure_property_form(self.form)
         self.content_layout.addLayout(self.form)
-        root.addWidget(self.content)
 
-        self.header.clicked.connect(self._header_clicked)
-        self.set_collapsed(collapsed, notify=False)
+        self.section.collapsedChanged.connect(
+            self._section_collapsed_changed
+        )
         self.setVisible(bool(visible))
 
     @property
     def collapsed(self):
-        return self._collapsed
+        return self.section.collapsed
 
     @property
     def has_static_content(self):
         return self._has_static_content
 
-    def _header_clicked(self, checked=False):
-        self.set_collapsed(
-            not self._collapsed,
-            notify=True
-        )
+    def _section_collapsed_changed(self, collapsed):
+        self._collapsed = bool(collapsed)
+        self.collapsedChanged.emit(bool(collapsed))
 
     def set_collapsed(
         self,
@@ -171,31 +163,13 @@ class InspectorSection(QtGui.QFrame):
         notify=False,
         sync_header=True
     ):
-        collapsed = bool(collapsed)
-        changed = collapsed != self._collapsed
-        self._collapsed = collapsed
-
-        set_collapsible_folder_state(
-            self,
-            self.header,
-            self.content,
-            self.title,
-            collapsed
+        # sync_header is retained for compatibility with the pre-extraction
+        # InspectorSection API. CollapsibleSection always owns header syncing.
+        self._collapsed = bool(collapsed)
+        self.section.set_collapsed(
+            collapsed,
+            notify=notify
         )
-
-        try:
-            policy = self.sizePolicy()
-            policy.setVerticalPolicy(
-                QtGui.QSizePolicy.Maximum
-                if collapsed
-                else QtGui.QSizePolicy.Preferred
-            )
-            self.setSizePolicy(policy)
-        except Exception:
-            pass
-
-        if changed and notify:
-            self.collapsedChanged.emit(collapsed)
 
     def addRow(self, label, widget):
         self.form.addRow(label, widget)

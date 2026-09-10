@@ -42,11 +42,11 @@ def test_inspector_section_order_and_reusable_contract_are_stable():
     assert "set_property_available" in source
 
 
-def test_inspector_and_runtime_share_collapsible_folder_presentation():
+def test_inspector_and_runtime_compose_one_collapsible_section_primitive():
     sections = _source(
         "scripts", "script_toolbox", "ui", "properties", "sections.py"
     )
-    chrome = _source(
+    component = _source(
         "scripts", "script_toolbox", "ui", "collapsible_folder.py"
     )
     builtin_icons = _source(
@@ -56,26 +56,53 @@ def test_inspector_and_runtime_share_collapsible_folder_presentation():
         "scripts", "script_toolbox", "ui", "__init__.py"
     )
 
-    assert "configure_collapsible_folder_frame" in sections
-    assert "configure_collapsible_folder_header" in sections
-    assert "configure_collapsible_folder_content" in sections
-    assert "set_collapsible_folder_state" in sections
+    # One visual primitive owns all collapse presentation and interaction.
+    assert "class CollapsibleSection(QtGui.QFrame):" in component
+    assert "collapsedChanged = QtCore.Signal(bool)" in component
+    assert 'self.setObjectName("RuntimeFolder")' in component
+    assert 'self.setProperty("folderType", "collapsible")' in component
+    assert 'self.content.setObjectName("RuntimeFolderContent")' in component
+    assert 'self.setProperty("collapsed", collapsed)' in component
+    assert 'self.header.setProperty("collapsed", collapsed)' in component
+    assert '"right" if self._collapsed else "down"' in component
+    assert "def _repolish(self):" in component
+
+    # InspectorSection is only a form adapter; it does not implement chrome.
+    assert "class InspectorSection(QtGui.QWidget):" in sections
+    assert "self.section = CollapsibleSection(" in sections
+    assert "self.header = self.section.header" in sections
+    assert "self.content = self.section.content" in sections
+    assert "self.section.set_collapsed(" in sections
+    assert "configure_collapsible_folder_frame" not in sections
+    assert "set_collapsible_folder_state" not in sections
     assert 'u"\\u25b8"' not in sections
     assert 'u"\\u25be"' not in sections
 
-    assert 'frame.setObjectName("RuntimeFolder")' in chrome
-    assert 'frame.setProperty("folderType", "collapsible")' in chrome
-    assert 'header.setObjectName("RuntimeFolderHeader")' in chrome
-    assert 'content.setObjectName("RuntimeFolderContent")' in chrome
-    assert '"right" if collapsed else "down"' in chrome
-    assert 'header.setProperty("collapsed", collapsed)' in chrome
-    assert "def install_runtime_folder_chrome(runtime_module):" in chrome
-    assert "runtime_module.RuntimeFolder = SharedRuntimeFolder" in chrome
-    assert "runtime_module.RuntimeSection = SharedRuntimeFolder" in chrome
+    # RuntimeFolder keeps its class identity and composes the same primitive.
+    assert "def install_runtime_folder_composition(runtime_module):" in component
+    assert "self.collapsible_section = CollapsibleSection(" in component
+    assert "self.collapsible_section.collapsedChanged.connect(" in component
+    assert "runtime_class.__init__ = runtime_folder_init" in component
+    assert "runtime_module.RuntimeFolder = SharedRuntimeFolder" not in component
+    assert "class SharedRuntimeFolder" not in component
+
+    # Persisted state is handled outside CollapsibleSection itself.
+    class_block = component.split(
+        "class CollapsibleSection(QtGui.QFrame):",
+        1
+    )[1].split(
+        "def install_runtime_folder_composition(runtime_module):",
+        1
+    )[0]
+    assert "toolbox.save" not in class_block
+    assert "preferences" not in class_block
+    assert "self.toolbox" not in class_block
 
     assert '("right", "Expand", "alt-arrow-right.svg")' in builtin_icons
-    assert "from .collapsible_folder import install_runtime_folder_chrome" in ui_source
-    assert "install_runtime_folder_chrome(" in ui_source
+    assert "from .collapsible_folder import CollapsibleSection" in ui_source
+    assert "from .collapsible_folder import install_runtime_folder_composition" in ui_source
+    assert "install_runtime_folder_composition(" in ui_source
+    assert "install_runtime_folder_chrome(" not in ui_source
 
 
 def test_property_editor_base_uses_sections_instead_of_one_shared_form():

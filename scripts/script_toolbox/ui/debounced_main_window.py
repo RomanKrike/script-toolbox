@@ -12,6 +12,7 @@ from ..hosts.callbacks import EVENT_SELECTION_CHANGED
 from ..hosts.callbacks import HostCallbackGroup
 from ..pycompat import text_type
 from . import main_window as base_main_window
+from .settings_ui import build_settings_toolbox_class
 from .update_channels_ui import build_update_channel_toolbox_class
 
 
@@ -365,8 +366,11 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
 
 
 _DebouncedScriptToolbox = ScriptToolbox
-ScriptToolbox = build_update_channel_toolbox_class(
+_UpdateChannelScriptToolbox = build_update_channel_toolbox_class(
     _DebouncedScriptToolbox
+)
+ScriptToolbox = build_settings_toolbox_class(
+    _UpdateChannelScriptToolbox
 )
 
 
@@ -399,6 +403,11 @@ def show():
     toolbox.show()
     toolbox.raise_()
     toolbox.activateWindow()
+
+    QtCore.QTimer.singleShot(
+        100,
+        toolbox.prompt_telemetry_consent
+    )
 
     return toolbox
 

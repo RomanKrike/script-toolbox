@@ -276,8 +276,8 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
             if self.alignment.currentIndex() == 1
             else "left"
         )
-        item["alignment"] = alignment
         item["content_alignment"] = alignment
+        item.pop("alignment", None)
 
         item["state_get_script"] = text_type(
             self.state_get_editor.toPlainText()

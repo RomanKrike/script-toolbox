@@ -1,23 +1,28 @@
 # Runtime Renderer Registry
 
-STEP 09 moves active runtime control dispatch behind a registry without changing the JSON schema or item payload semantics.
+The runtime renderer registry is the active dispatch mechanism for Script Toolbox item widgets.
 
 ## Boundary
 
-`core.runtime_registry.RuntimeRendererRegistry` is a Qt-independent mapping from an item `kind` to a renderer callable. The core registry does not import Maya, Nuke, Qt, the Interface Editor, or parameter-reference rewriting.
+`core.runtime_registry.RuntimeRendererRegistry` is a Qt-independent mapping from an item `kind` to a renderer callable. The core registry does not import Maya, Nuke, Qt, the Interface Editor or parameter-reference rewriting.
 
-UI renderers live in `ui.runtime_renderers`. They reuse the existing `RuntimeFolder` helper methods and reproduce the current widget behavior while the legacy `ui.runtime` implementation remains available as a compatibility layer.
+UI renderers live in `ui.runtime_renderers` and the specialized Row, Column, Toggle Button and Toggle Icon renderer modules.
 
-The active `RuntimeFolder.build_runtime_widget()` path is installed through the registry when `script_toolbox.ui` is imported. This happens before `main_window` imports and starts constructing runtime folders.
+`RuntimeFolder.build_runtime_widget()` reads the active registry directly. UI initialization creates the registry before the runtime main window is imported and then registers specialized current kinds.
 
-## Default kinds
+There is no stored legacy renderer path and no runtime replacement of `RuntimeFolder.build_runtime_widget()`.
 
-The registry currently installs the complete existing runtime set:
+## Current kinds
+
+The default/specialized registry covers the current renderable item set:
 
 - `folder`
 - `row`
+- `column`
 - `button`
-- `toggle` (legacy compatibility)
+- `toggle_button`
+- `icon`
+- `toggle_icon`
 - `checkbox`
 - `field`
 - `label`
@@ -28,7 +33,7 @@ The registry currently installs the complete existing runtime set:
 - `menu`
 - `color`
 
-An unknown kind preserves the previous behavior and returns no runtime widget.
+The removed `toggle` kind is not registered. Unknown model kinds are rejected during item construction rather than silently converted to another kind.
 
 ## Renderer contract
 
@@ -36,12 +41,10 @@ A renderer is a callable with this shape:
 
 ```python
 def render(owner, item, compact=False):
-    # owner is the RuntimeFolder responsible for the item.
-    # Return a QWidget-compatible object or None.
     return widget
 ```
 
-`compact=True` means the item is being rendered inside a Row and should preserve the existing compact layout semantics.
+`owner` is the `RuntimeFolder` responsible for the item. `compact=True` means the item is rendered inside a compact layout context such as a Row.
 
 ## Registration
 
@@ -51,23 +54,23 @@ The UI package exposes session-local registration helpers:
 from script_toolbox.ui import register_runtime_renderer
 
 register_runtime_renderer(
-    "vector3",
-    render_vector3
+    "custom_kind",
+    render_custom_kind
 )
 ```
 
-Duplicate registration is rejected unless `replace=True` is explicitly supplied. `unregister_runtime_renderer(kind)` removes a registration. Runtime registrations are process/session state; development reload and installed hot reload rebuild the default registry, so external registrations must be installed again after a reload.
+Duplicate registration is rejected unless `replace=True` is explicitly supplied. `unregister_runtime_renderer(kind)` removes a registration.
 
-The extension API is an architectural seam for upcoming control types. It does not bypass model normalization or introduce schema fields by itself. New controls still need their model/default/property-editor work in the roadmap feature that introduces them.
+A real new item kind must also define its model factory/schema behavior and, when editable, its property editor. The renderer registry alone does not bypass model validation.
+
+## Event integration
+
+Runtime renderers build widgets; event semantics remain separate. `ui.event_binding_hooks` decorates eligible rendered controls with mouse/editing/selection event filters and dispatches through the single bindings system.
+
+Toggle Button and Toggle Icon renderers only create/register their widgets. Stateful execution and refresh live in the main runtime API rather than being installed by renderer-specific monkey patches.
 
 ## Parameter links
 
 Parameter-link remapping is intentionally separate from renderer dispatch.
 
-`core.references` and `EditorDocumentController` own managed script references during rename, duplicate and paste. Runtime renderers receive the already-defined item payload and must not rewrite script references or technical names. This separation keeps the new link behavior independent from runtime widget creation and prevents renderer plugins from accidentally changing editor link semantics.
-
-## Compatibility strategy
-
-The large legacy `RuntimeFolder.build_runtime_widget()` if-chain remains in `ui.runtime` for now, but the active routed class method is replaced with registry dispatch during UI package initialization. Keeping the old method as a stored compatibility implementation minimizes risk for Maya 2015 / PySide1 while allowing the new architecture to be tested and extended incrementally.
-
-A later cleanup may physically remove the inactive dispatch chain after enough host-level validation. That cleanup is not part of STEP 09.
+`core.references` and `EditorDocumentController` own managed Python references during rename, duplicate and paste. Renderers receive the already-normalized current item payload and never rewrite script references or identity fields.

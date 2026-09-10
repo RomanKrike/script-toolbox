@@ -69,6 +69,9 @@ def test_posthog_capture_forces_anonymous_session_properties(monkeypatch):
         }
     ]
 
+    assert provider.close() is True
+    assert provider.flush() is True
+
 
 def test_posthog_provider_posts_to_batch_endpoint(monkeypatch):
     requests = []

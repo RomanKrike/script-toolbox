@@ -18,19 +18,45 @@ def _install_current_palette(editor_class):
     for group_label, entries in editor_class.PALETTE_GROUPS:
         entries = tuple(entries)
 
-        if group_label == "LAYOUT" and not any(
-            entry[1] == "column"
-            for entry in entries
-        ):
-            updated = []
-            for entry in entries:
-                updated.append(entry)
-                if entry[1] == "row":
-                    updated.append((
+        if group_label == "LAYOUT":
+            updated = list(entries)
+
+            if not any(
+                entry[1] == "column"
+                for entry in updated
+            ):
+                insert_at = len(updated)
+                for index, entry in enumerate(updated):
+                    if entry[1] == "row":
+                        insert_at = index + 1
+                        break
+                updated.insert(
+                    insert_at,
+                    (
                         "Column",
                         "column",
                         "Vertical layout for stacking controls, Rows and Columns."
-                    ))
+                    )
+                )
+
+            if not any(
+                entry[1] == "text"
+                for entry in updated
+            ):
+                insert_at = len(updated)
+                for index, entry in enumerate(updated):
+                    if entry[1] == "label":
+                        insert_at = index + 1
+                        break
+                updated.insert(
+                    insert_at,
+                    (
+                        "Text",
+                        "text",
+                        "Multiline static explanatory text with automatic word wrapping."
+                    )
+                )
+
             entries = tuple(updated)
 
         if group_label == "ACTIONS":
@@ -101,12 +127,14 @@ from .runtime_renderers import register_runtime_renderer
 from .runtime_renderers import unregister_runtime_renderer
 from .column_layout import render_column
 from .row_layout import render_row
+from .text_runtime import render_text
 from .toggle_button_runtime import render_toggle_button
 from .toggle_icon_runtime import render_toggle_icon
 
 initialize_runtime_renderer_registry(_runtime_module)
 register_runtime_renderer("row", render_row, replace=True)
 register_runtime_renderer("column", render_column)
+register_runtime_renderer("text", render_text)
 register_runtime_renderer("toggle_button", render_toggle_button)
 register_runtime_renderer("toggle_icon", render_toggle_icon)
 install_runtime_scroll_frames(

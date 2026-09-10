@@ -17,6 +17,7 @@ from .field import FieldPropertyEditor
 from .folder import FolderPropertyEditor
 from .icon import IconPropertyEditor
 from .row import RowPropertyEditor
+from .text import TextPropertyEditor
 from .toggle_button import ToggleButtonPropertyEditor
 from .toggle_icon import ToggleIconPropertyEditor
 
@@ -49,6 +50,7 @@ PROPERTY_EDITORS = {
     "color": ColorPropertyEditor,
     "field": FieldPropertyEditor,
     "label": LabelPropertyEditor,
+    "text": TextPropertyEditor,
     "separator": SeparatorPropertyEditor,
 }
 

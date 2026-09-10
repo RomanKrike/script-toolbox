@@ -56,9 +56,8 @@ def test_button_without_visible_label_uses_exact_centered_icon_renderer():
     assert 'item.get("icon_only", False)' in source
     assert 'item.get("show_label", True)' in source
     assert "_render_centered_icon_button(" in source
-    assert "install_icon_only_state_refresh(" in source
-    assert "widget.setText(\"\")" in source
-    assert "install_icon_only_state_refresh(" in ui_source
+    assert "install_icon_only_state_refresh" not in source
+    assert "install_icon_only_state_refresh" not in ui_source
 
     install_center = ui_source.rindex(
         "install_icon_only_button_centering("
@@ -80,8 +79,6 @@ def test_editor_polish_theme_colors_use_shared_palette():
     assert "palette.ICON_BUTTON_PRESSED_BG" in source
     assert "palette.BORDER_INSET" in source
 
-    # Theme colors must come from style/palette.py. Dynamic user-configurable
-    # button colors remain rgb(...) values and are intentionally local.
     assert re.search(r"#[0-9a-fA-F]{6}\b", source) is None
 
 

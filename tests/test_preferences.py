@@ -94,6 +94,37 @@ def test_invalid_telemetry_consent_is_treated_as_undecided(tmp_path):
     ) is None
 
 
+def test_telemetry_installation_id_round_trip(tmp_path):
+    path = tmp_path / "settings.json"
+    installation_id = "stb-install-0123456789abcdef0123456789abcdef"
+
+    assert preferences.get_telemetry_installation_id(
+        path=str(path)
+    ) is None
+    assert preferences.set_telemetry_installation_id(
+        installation_id,
+        path=str(path)
+    ) == installation_id
+    assert preferences.get_telemetry_installation_id(
+        path=str(path)
+    ) == installation_id
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["telemetry_installation_id"] == installation_id
+
+
+def test_invalid_telemetry_installation_id_is_not_persisted(tmp_path):
+    path = tmp_path / "settings.json"
+
+    assert preferences.set_telemetry_installation_id(
+        "workstation-roman",
+        path=str(path)
+    ) is None
+    assert preferences.get_telemetry_installation_id(
+        path=str(path)
+    ) is None
+
+
 def test_inspector_section_state_round_trip_is_editor_preference(tmp_path):
     path = tmp_path / "settings.json"
 

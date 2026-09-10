@@ -24,12 +24,12 @@ _TELEMETRY_CHOICES = (
 
 
 class TelemetryConsentDialog(QtGui.QDialog):
-    """Explicit first-run opt-in dialog for anonymous product telemetry."""
+    """Explicit first-run opt-in dialog for pseudonymous product telemetry."""
 
     def __init__(self, parent=None):
         QtGui.QDialog.__init__(self, parent)
 
-        self.setWindowTitle("Anonymous Usage Statistics")
+        self.setWindowTitle("Usage Statistics")
         self.setModal(True)
         self.setMinimumWidth(440)
 
@@ -45,7 +45,7 @@ class TelemetryConsentDialog(QtGui.QDialog):
         root.addWidget(title)
 
         intro = QtGui.QLabel(
-            "Script Toolbox can send anonymous usage statistics so we can "
+            "Script Toolbox can send pseudonymous usage statistics so we can "
             "understand which features are useful and which versions are "
             "actively used."
         )
@@ -54,15 +54,17 @@ class TelemetryConsentDialog(QtGui.QDialog):
 
         collected = QtGui.QLabel(
             "Collected: Script Toolbox version, build channel, host "
-            "application/version, operating system, and feature event names."
+            "application/version, operating system, feature event names, and "
+            "a random Script Toolbox installation identifier reused across "
+            "application sessions."
         )
         collected.setWordWrap(True)
         root.addWidget(collected)
 
         excluded = QtGui.QLabel(
             "Not collected: scene contents, filenames, paths, object names, "
-            "scripts, usernames, hostnames, Autodesk account data, or "
-            "persistent device identifiers."
+            "scripts, usernames, hostnames, Autodesk account data, hardware "
+            "identifiers, or identifiers derived from your device or account."
         )
         excluded.setWordWrap(True)
         root.addWidget(excluded)
@@ -123,7 +125,7 @@ class SettingsDialog(QtGui.QDialog):
         privacy_layout.setSpacing(8)
 
         row = QtGui.QHBoxLayout()
-        label = QtGui.QLabel("Anonymous usage statistics")
+        label = QtGui.QLabel("Usage statistics")
         self.telemetry_combo = QtGui.QComboBox()
         for choice_label, consent in _TELEMETRY_CHOICES:
             self.telemetry_combo.addItem(choice_label)
@@ -134,9 +136,10 @@ class SettingsDialog(QtGui.QDialog):
 
         privacy_text = QtGui.QLabel(
             "When enabled, Script Toolbox sends only reviewed technical "
-            "metadata and feature event names. Scene data, filenames, paths, "
-            "object names, scripts, usernames, hostnames, Autodesk account "
-            "data, and persistent device identifiers are never included."
+            "metadata, feature event names, and a random installation ID that "
+            "is stored locally and reused across sessions. It is not derived "
+            "from hardware, account, username, hostname, scene, or project "
+            "data."
         )
         privacy_text.setWordWrap(True)
         privacy_layout.addWidget(privacy_text)

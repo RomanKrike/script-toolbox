@@ -21,6 +21,10 @@ class FakeResponse(object):
         self.closed = True
 
 
+class FakeUuid(object):
+    hex = "0123456789abcdef0123456789abcdef"
+
+
 @pytest.fixture(autouse=True)
 def reset_telemetry_service():
     from script_toolbox.telemetry import service
@@ -32,11 +36,11 @@ def reset_telemetry_service():
     runtime._START_EVENT_SENT = False
 
 
-def test_posthog_capture_forces_anonymous_session_properties(monkeypatch):
+def test_posthog_capture_forces_provider_owned_identity_properties(monkeypatch):
     provider = telemetry.PostHogProvider(
         "phc_test",
         "https://eu.i.posthog.com",
-        distinct_id="stb-session-test",
+        distinct_id="stb-install-test",
     )
     captured = []
 
@@ -61,7 +65,7 @@ def test_posthog_capture_forces_anonymous_session_properties(monkeypatch):
             "event": "plugin_started",
             "properties": {
                 "plugin_version": "1.2.3",
-                "distinct_id": "stb-session-test",
+                "distinct_id": "stb-install-test",
                 "$process_person_profile": False,
                 "$lib": "script-toolbox",
                 "$lib_version": posthog_provider.PLUGIN_VERSION,
@@ -91,13 +95,13 @@ def test_posthog_provider_posts_to_batch_endpoint(monkeypatch):
         "phc_test",
         "https://eu.i.posthog.com/",
         timeout=4,
-        distinct_id="stb-session-test",
+        distinct_id="stb-install-test",
     )
 
     event = {
         "event": "plugin_started",
         "properties": {
-            "distinct_id": "stb-session-test",
+            "distinct_id": "stb-install-test",
             "$process_person_profile": False,
         },
     }
@@ -116,7 +120,7 @@ def test_posthog_provider_posts_to_batch_endpoint(monkeypatch):
     assert response.closed is True
 
 
-def test_default_runtime_never_enables_without_explicit_consent(monkeypatch):
+def test_default_runtime_never_creates_identity_without_explicit_consent(monkeypatch):
     monkeypatch.setattr(
         runtime,
         "POSTHOG_PROJECT_TOKEN",
@@ -133,6 +137,15 @@ def test_default_runtime_never_enables_without_explicit_consent(monkeypatch):
         lambda: None,
     )
 
+    def unexpected_get_installation_id():
+        raise AssertionError("installation id must not be read before opt-in")
+
+    monkeypatch.setattr(
+        runtime,
+        "get_telemetry_installation_id",
+        unexpected_get_installation_id,
+    )
+
     status = runtime.configure_default_telemetry()
 
     assert status["provider"] == "posthog"
@@ -140,7 +153,9 @@ def test_default_runtime_never_enables_without_explicit_consent(monkeypatch):
     assert telemetry.track("plugin_started") is False
 
 
-def test_default_runtime_enables_only_for_true_consent(monkeypatch):
+def test_default_runtime_reuses_persisted_installation_id(monkeypatch):
+    installation_id = "stb-install-0123456789abcdef0123456789abcdef"
+
     monkeypatch.setattr(
         runtime,
         "POSTHOG_PROJECT_TOKEN",
@@ -156,14 +171,64 @@ def test_default_runtime_enables_only_for_true_consent(monkeypatch):
         "get_telemetry_consent",
         lambda: True,
     )
+    monkeypatch.setattr(
+        runtime,
+        "get_telemetry_installation_id",
+        lambda: installation_id,
+    )
 
     status = runtime.configure_default_telemetry()
+    provider = telemetry.get_provider("posthog")
 
     assert status["provider"] == "posthog"
     assert status["enabled"] is True
+    assert provider.distinct_id == installation_id
 
 
-def test_missing_build_token_falls_back_to_null_provider(monkeypatch):
+def test_default_runtime_creates_installation_id_after_opt_in(monkeypatch):
+    persisted = []
+
+    monkeypatch.setattr(
+        runtime,
+        "POSTHOG_PROJECT_TOKEN",
+        "phc_test",
+    )
+    monkeypatch.setattr(
+        runtime,
+        "POSTHOG_HOST",
+        "https://eu.i.posthog.com",
+    )
+    monkeypatch.setattr(
+        runtime,
+        "get_telemetry_consent",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        runtime,
+        "get_telemetry_installation_id",
+        lambda: None,
+    )
+    monkeypatch.setattr(
+        runtime.uuid,
+        "uuid4",
+        lambda: FakeUuid(),
+    )
+    monkeypatch.setattr(
+        runtime,
+        "set_telemetry_installation_id",
+        lambda value: persisted.append(value) or value,
+    )
+
+    status = runtime.configure_default_telemetry()
+    provider = telemetry.get_provider("posthog")
+
+    expected = "stb-install-0123456789abcdef0123456789abcdef"
+    assert persisted == [expected]
+    assert status["enabled"] is True
+    assert provider.distinct_id == expected
+
+
+def test_missing_build_token_falls_back_without_creating_identity(monkeypatch):
     monkeypatch.setattr(
         runtime,
         "POSTHOG_PROJECT_TOKEN",
@@ -173,6 +238,15 @@ def test_missing_build_token_falls_back_to_null_provider(monkeypatch):
         runtime,
         "get_telemetry_consent",
         lambda: True,
+    )
+
+    def unexpected_get_installation_id():
+        raise AssertionError("identity must not be created without transport")
+
+    monkeypatch.setattr(
+        runtime,
+        "get_telemetry_installation_id",
+        unexpected_get_installation_id,
     )
 
     status = runtime.configure_default_telemetry()

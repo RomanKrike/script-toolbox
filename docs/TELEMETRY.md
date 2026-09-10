@@ -16,7 +16,9 @@ The persisted preference is tri-state:
 
 A provider being configured does not imply consent. The application bootstrap enables telemetry only when `get_telemetry_consent()` is exactly `True`.
 
-Telemetry must not collect scene contents, filenames, file paths, object names, scripts, Autodesk account information, OS usernames, hostnames, or other personal/project data.
+After explicit opt-in, Script Toolbox creates a random pseudonymous installation identifier. It is not derived from hardware, usernames, hostnames, Autodesk/account data, scenes, projects, or filesystem data. It is stored in the local Script Toolbox preferences and reused across application sessions so aggregate unique-install and retention metrics remain meaningful.
+
+Telemetry must not collect scene contents, filenames, file paths, object names, scripts, Autodesk account information, OS usernames, hostnames, hardware identifiers, or other personal/project data.
 
 Provider failures must never affect normal Script Toolbox behavior. Event delivery is best-effort and failures are swallowed by the telemetry facade/provider worker.
 
@@ -34,7 +36,13 @@ Source checkouts keep `POSTHOG_PROJECT_TOKEN` blank, so telemetry transport is u
 
 The provider uses PostHog's batch ingestion endpoint and sends in a background daemon thread so analytics does not block the DCC UI.
 
-PostHog requires a `distinct_id` for events. Script Toolbox generates a random **process-scoped** id such as `stb-session-...`. It is not persisted between application sessions and is not derived from hardware, usernames, hostnames, account data, scenes, or project data.
+PostHog requires a `distinct_id` for events. In official telemetry-enabled runtime, Script Toolbox uses the persisted random installation id:
+
+```text
+stb-install-<random uuid>
+```
+
+The id is created only when both a telemetry transport is configured and the user has explicitly opted in. It is reused across Maya/Nuke/Houdini application sessions on that installation. If no persisted installation id can be stored, telemetry remains disabled rather than silently falling back to a new identity on every process.
 
 Every event forces:
 
@@ -42,7 +50,7 @@ Every event forces:
 $process_person_profile = false
 ```
 
-so Script Toolbox telemetry does not create PostHog person profiles.
+so Script Toolbox telemetry does not create PostHog person profiles. The persistent random `distinct_id` is used only to count the same installation consistently across sessions.
 
 ## Runtime bootstrap
 
@@ -50,6 +58,7 @@ so Script Toolbox telemetry does not create PostHog person profiles.
 
 - the build-time provider configuration;
 - the persisted user consent value;
+- the persisted random installation id after consent;
 - a reviewed set of low-cardinality technical properties.
 
 The first semantic event is:
@@ -71,7 +80,7 @@ host_version
 os
 ```
 
-No filenames, paths, scene/object names, scripts, account information, usernames, or hostnames are included.
+No filenames, paths, scene/object names, scripts, account information, usernames, hostnames, or hardware identifiers are included.
 
 ## Consent and Settings UI
 
@@ -79,7 +88,7 @@ When an official build has a telemetry transport configured and the stored conse
 
 The dialog presents two explicit choices:
 
-- `Enable` stores `True`, enables the configured provider immediately, and allows the current runtime to emit `plugin_started`;
+- `Enable` stores `True`, creates/reuses the random installation id, enables the configured provider immediately, and allows the current runtime to emit `plugin_started`;
 - `Don't Send` stores `False` and keeps telemetry disabled.
 
 Closing the dialog without choosing either option leaves consent as `None`. The prompt is shown at most once per host process, so dismissing it does not repeatedly interrupt the same Maya/Nuke/Houdini session.
@@ -92,9 +101,9 @@ Enabled
 Disabled
 ```
 
-Changing this setting is applied immediately through `apply_telemetry_consent()`. The same Settings window also exposes the existing Stable/Development update-channel preference.
+Changing this setting is applied immediately through `apply_telemetry_consent()`. Disabling telemetry stops event delivery but does not delete the locally stored random installation id; re-enabling therefore resumes the same pseudonymous installation identity. The same Settings window also exposes the existing Stable/Development update-channel preference.
 
-Source builds with no configured analytics transport do not show the first-run prompt. Their Privacy setting remains available and the consent choice is persisted for a later official build.
+Source builds with no configured analytics transport do not show the first-run prompt. Their Privacy setting remains available and the consent choice is persisted for a later official build. A telemetry installation id is not created until an actual transport is available.
 
 ## Provider boundary
 
@@ -153,7 +162,7 @@ The null provider is also the safe fallback for tests, unavailable services, mis
 
 Provider selection is runtime/build configuration, not a user preference. This prevents an old persisted provider name from pinning users to a backend after Script Toolbox changes analytics services.
 
-The user's persisted setting controls only consent.
+The user's persisted privacy state contains consent plus, after opt-in, the random installation identifier. It does not contain a provider selection.
 
 ## Event design
 
@@ -195,4 +204,4 @@ A provider switch should follow this sequence:
 4. Select it in `telemetry.configure(...)`.
 5. Keep the event schema stable unless a product requirement explicitly changes it.
 
-This boundary supports PostHog now and a self-hosted/custom Script Toolbox analytics service later without coupling either backend to the rest of the plugin.
+The persisted random installation id is provider-independent and should be reused by future analytics backends when the user's consent remains enabled. This boundary supports PostHog now and a self-hosted/custom Script Toolbox analytics service later without coupling either backend to the rest of the plugin.

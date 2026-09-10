@@ -18,6 +18,8 @@ UPDATE_CHANNELS = (
 )
 INSPECTOR_SECTIONS_KEY = "inspector_sections"
 TELEMETRY_CONSENT_KEY = "telemetry_consent"
+TELEMETRY_INSTALLATION_ID_KEY = "telemetry_installation_id"
+_TELEMETRY_INSTALLATION_ID_PREFIX = "stb-install-"
 
 
 def normalize_update_channel(
@@ -60,12 +62,33 @@ def normalize_telemetry_consent(value):
     return None
 
 
+def normalize_telemetry_installation_id(value):
+    """Return a valid random Script Toolbox installation id or ``None``."""
+    value = text_type(
+        value or ""
+    ).strip().lower()
+
+    if not value.startswith(_TELEMETRY_INSTALLATION_ID_PREFIX):
+        return None
+
+    token = value[len(_TELEMETRY_INSTALLATION_ID_PREFIX):]
+    if len(token) != 32:
+        return None
+
+    for character in token:
+        if character not in "0123456789abcdef":
+            return None
+
+    return _TELEMETRY_INSTALLATION_ID_PREFIX + token
+
+
 def default_preferences():
     return {
         "update_channel": normalize_update_channel(
             BUILD_CHANNEL
         ),
         TELEMETRY_CONSENT_KEY: None,
+        TELEMETRY_INSTALLATION_ID_KEY: None,
     }
 
 
@@ -101,6 +124,11 @@ def load_preferences(
     result[TELEMETRY_CONSENT_KEY] = normalize_telemetry_consent(
         result.get(TELEMETRY_CONSENT_KEY)
     )
+    result[TELEMETRY_INSTALLATION_ID_KEY] = (
+        normalize_telemetry_installation_id(
+            result.get(TELEMETRY_INSTALLATION_ID_KEY)
+        )
+    )
     return result
 
 
@@ -123,6 +151,11 @@ def save_preferences(
     )
     payload[TELEMETRY_CONSENT_KEY] = normalize_telemetry_consent(
         payload.get(TELEMETRY_CONSENT_KEY)
+    )
+    payload[TELEMETRY_INSTALLATION_ID_KEY] = (
+        normalize_telemetry_installation_id(
+            payload.get(TELEMETRY_INSTALLATION_ID_KEY)
+        )
     )
 
     serialized = json.dumps(
@@ -193,6 +226,29 @@ def set_telemetry_consent(consent, path=None):
     return consent
 
 
+def get_telemetry_installation_id(path=None):
+    """Return the persisted pseudonymous installation id, if one exists."""
+    return load_preferences(
+        path=path
+    ).get(TELEMETRY_INSTALLATION_ID_KEY)
+
+
+def set_telemetry_installation_id(installation_id, path=None):
+    """Persist a validated random installation id without changing consent."""
+    installation_id = normalize_telemetry_installation_id(
+        installation_id
+    )
+    preferences = load_preferences(
+        path=path
+    )
+    preferences[TELEMETRY_INSTALLATION_ID_KEY] = installation_id
+    save_preferences(
+        preferences,
+        path=path
+    )
+    return installation_id
+
+
 def _inspector_section_states(preferences):
     states = preferences.get(
         INSPECTOR_SECTIONS_KEY,
@@ -249,19 +305,23 @@ def set_inspector_section_collapsed(
 __all__ = [
     "INSPECTOR_SECTIONS_KEY",
     "TELEMETRY_CONSENT_KEY",
+    "TELEMETRY_INSTALLATION_ID_KEY",
     "UPDATE_CHANNEL_DEVELOPMENT",
     "UPDATE_CHANNEL_STABLE",
     "UPDATE_CHANNELS",
     "default_preferences",
     "get_inspector_section_collapsed",
     "get_telemetry_consent",
+    "get_telemetry_installation_id",
     "get_update_channel",
     "load_preferences",
     "normalize_telemetry_consent",
+    "normalize_telemetry_installation_id",
     "normalize_update_channel",
     "save_preferences",
     "set_inspector_section_collapsed",
     "set_telemetry_consent",
+    "set_telemetry_installation_id",
     "set_update_channel",
     "settings_path",
 ]

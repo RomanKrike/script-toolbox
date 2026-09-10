@@ -111,6 +111,26 @@ A document whose schema is newer than the running Script Toolbox is rejected ins
 
 Future schema changes must add a new migration module and register exactly one forward step, for example `v16_to_v17.py`. Model normalization should continue to provide current defaults; migrations should contain only version-specific structural or semantic changes.
 
+## Item model contracts
+
+Container semantics are model-owned. `folder`, `row`, and `column` are the canonical container kinds; all document traversal, indexing, reference rewriting, cloning, topology and cache logic must use the shared container predicate and the canonical `walk_items()` implementation. Correctness must not depend on importing `ui` or on monkey-patching another model module during bootstrap.
+
+Item construction is owned by the model factory registry. Extensions register factories through the public registry API instead of mutating the private factory mapping or replacing `create_item()`/`walk_items()` in another module.
+
+Item lookup has three compatibility levels:
+
+- `id` is the canonical stable identifier and should be preferred for durable references.
+- `name` is the supported symbolic identifier for scripts and human-readable API usage.
+- `label` is a legacy compatibility lookup alias tied to presentation text. New code and tests must not recommend it as an API key; removal is deferred to a major release.
+
+Legacy `callbacks` are accepted only at migration/normalization boundaries. Current normalized documents and runtime event dispatch use `bindings` as the single event mechanism.
+
+For Icon alignment, `content_alignment` is the canonical current-schema key. Legacy `alignment` is read at the normalization/editor compatibility boundary and is not maintained as a second mutable runtime field.
+
+## Deferred schema cleanup
+
+Button, Field and Menu still have flat persisted shapes with historical invariants. The current cleanup intentionally does not redesign them because that would require a broader schema migration. Follow-up work may evaluate separating Button action/state payloads, making Field multiplicity/value shape a single explicit invariant, and disambiguating Menu option storage from container `items`, but any breaking JSON change requires a separately scoped migration and compatibility plan.
+
 ## Extracted now
 
 - normalized item/document model

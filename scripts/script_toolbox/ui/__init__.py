@@ -3,7 +3,7 @@
 from .code_editor import CodeEditor
 from .code_editor import ScriptHighlighter
 from . import interface_editor as _interface_editor_module
-from ..core.layout_document import LayoutEditorDocumentController
+from ..core.editor_document import EditorDocumentController
 from .editor_document_adapter import build_interface_editor_class
 from .editor_polish_hooks import install_icon_only_button_centering
 from .editor_polish_hooks import install_icon_only_state_refresh
@@ -95,19 +95,12 @@ _install_controls_v2_palette(
 
 InterfaceEditor = build_interface_editor_class(
     _interface_editor_module.InterfaceEditor,
-    controller_class=LayoutEditorDocumentController,
+    controller_class=EditorDocumentController,
     layout_support=True
 )
 install_property_editor_scroll_frames()
-
-# Keep direct imports from script_toolbox.ui.interface_editor compatible while
-# the legacy Qt dialog is gradually decomposed across STEP 07/08.
 _interface_editor_module.InterfaceEditor = InterfaceEditor
 
-# Install the runtime renderer registry before main_window imports
-# build_folder_widgets from runtime. RuntimeFolder remains the domain/runtime
-# renderer, while its collapsible mode composes the shared CollapsibleSection
-# UI primitive used by the Inspector as well.
 from . import runtime as _runtime_module
 from .collapsible_folder import CollapsibleSection
 from .collapsible_folder import install_runtime_folder_composition
@@ -120,7 +113,7 @@ from . import runtime_renderers as _runtime_renderers_module
 from .column_layout import render_column
 from .row_layout import render_row
 from .runtime_renderers import get_runtime_renderer_registry
-from .runtime_renderers import install_runtime_renderer_registry
+from .runtime_renderers import initialize_runtime_renderer_registry
 from .runtime_renderers import register_runtime_renderer
 from .runtime_renderers import unregister_runtime_renderer
 from .toggle_button_runtime import install_toggle_button_event_hooks
@@ -130,7 +123,7 @@ from .toggle_icon_runtime import install_toggle_icon_event_hooks
 from .toggle_icon_runtime import install_toggle_icon_main_window
 from .toggle_icon_runtime import render_toggle_icon
 
-install_runtime_renderer_registry(
+initialize_runtime_renderer_registry(
     _runtime_module
 )
 register_runtime_renderer(
@@ -174,18 +167,11 @@ install_script_editor_scroll_frames(
     ScriptEditorWidget
 )
 
-# Runtime main-window hooks must be installed on the shared base class.
-# bootstrap.py instantiates debounced_main_window.ScriptToolbox, which inherits
-# from this base instead of the wrapper exported from script_toolbox.ui.
-# Installing only on the wrapper leaves the live runtime without methods such
-# as dispatch_binding_event.
 install_controls_v2_hooks(
     _runtime_module,
     _BaseScriptToolbox
 )
 
-# Build the icon-only renderer before event bindings wrap the registry. This
-# guarantees custom click/double-click bindings attach to the final button.
 install_icon_only_button_centering(
     get_runtime_renderer_registry()
 )
@@ -213,10 +199,6 @@ install_icon_only_state_refresh(
     _BaseScriptToolbox
 )
 
-# Runtime value synchronization is installed after the renderer decorators so
-# every active value renderer registers its final Qt control tree. Patch both
-# the base store_value() implementation and the debounced runtime override;
-# bootstrap.py uses the latter in Maya, Nuke and Houdini.
 from .runtime_value_sync import install_runtime_value_sync
 from . import debounced_main_window as _debounced_main_window_module
 

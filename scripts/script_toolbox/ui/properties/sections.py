@@ -90,7 +90,7 @@ def is_property_available(widget):
 
 
 class InspectorSection(QtGui.QFrame):
-    """Reusable collapsible section used by every property editor."""
+    """Reusable collapsible section styled like a runtime Folder card."""
 
     collapsedChanged = QtCore.Signal(bool)
 
@@ -106,11 +106,16 @@ class InspectorSection(QtGui.QFrame):
 
         self.key = text_type(key)
         self.title = text_type(title)
+        self.header_label = self.title
         self._collapsed = False
         self._has_static_content = False
         self._row_labels = {}
 
-        self.setObjectName("InspectorSection")
+        # Reuse the exact runtime Folder styling hooks. Inspector sections are
+        # still editor-only objects; this only shares the presentation layer.
+        self.setObjectName("RuntimeFolder")
+        self.setProperty("folderType", "collapsible")
+        self.setProperty("nested", False)
 
         root = QtGui.QVBoxLayout(self)
         configure_layout(
@@ -119,28 +124,25 @@ class InspectorSection(QtGui.QFrame):
             spacing=0
         )
 
-        self.header = QtGui.QToolButton(self)
-        self.header.setObjectName("InspectorSectionHeader")
-        self.header.setText(self.title)
-        self.header.setCheckable(True)
-        self.header.setAutoRaise(True)
-        try:
-            self.header.setSizePolicy(
-                QtGui.QSizePolicy.Expanding,
-                QtGui.QSizePolicy.Fixed
-            )
-        except Exception:
-            pass
-        try:
-            self.header.setToolButtonStyle(
-                QtCore.Qt.ToolButtonTextBesideIcon
-            )
-        except Exception:
-            pass
+        # RuntimeFolder uses a full-width QPushButton plus text disclosure
+        # markers because host-native tool-button arrows are oversized in
+        # older Maya/Qt4. Mirror that behavior in the Inspector as well.
+        self.header = QtGui.QPushButton(self)
+        self.header.setObjectName("RuntimeFolderHeader")
+        self.header.setSizePolicy(
+            QtGui.QSizePolicy.Expanding,
+            QtGui.QSizePolicy.Preferred
+        )
+        self.header.setFocusPolicy(QtCore.Qt.NoFocus)
+        self.header.setStyleSheet(
+            "QPushButton#RuntimeFolderHeader {"
+            "text-align: left;"
+            "}"
+        )
         root.addWidget(self.header)
 
         self.content = QtGui.QWidget(self)
-        self.content.setObjectName("InspectorSectionContent")
+        self.content.setObjectName("RuntimeFolderContent")
         self.content_layout = QtGui.QVBoxLayout(self.content)
         configure_layout(
             self.content_layout,
@@ -153,7 +155,7 @@ class InspectorSection(QtGui.QFrame):
         self.content_layout.addLayout(self.form)
         root.addWidget(self.content)
 
-        self.header.toggled.connect(self._header_toggled)
+        self.header.clicked.connect(self._header_clicked)
         self.set_collapsed(collapsed, notify=False)
         self.setVisible(bool(visible))
 
@@ -165,11 +167,10 @@ class InspectorSection(QtGui.QFrame):
     def has_static_content(self):
         return self._has_static_content
 
-    def _header_toggled(self, expanded):
+    def _header_clicked(self, checked=False):
         self.set_collapsed(
-            not bool(expanded),
-            notify=True,
-            sync_header=False
+            not self._collapsed,
+            notify=True
         )
 
     def set_collapsed(
@@ -182,23 +183,31 @@ class InspectorSection(QtGui.QFrame):
         changed = collapsed != self._collapsed
         self._collapsed = collapsed
 
-        if sync_header:
-            previous = self.header.blockSignals(True)
-            try:
-                self.header.setChecked(not collapsed)
-            finally:
-                self.header.blockSignals(previous)
+        self.content.setVisible(not collapsed)
+        self.setProperty("collapsed", collapsed)
 
-        try:
-            self.header.setArrowType(
-                QtCore.Qt.RightArrow
-                if collapsed
-                else QtCore.Qt.DownArrow
+        marker = (
+            u"\u25b8"
+            if collapsed
+            else u"\u25be"
+        )
+        self.header.setText(
+            u"{0}  {1}".format(
+                marker,
+                self.header_label
             )
+        )
+        self.header.setProperty("collapsed", collapsed)
+
+        # Re-polish so Qt4/Qt5 style sheets immediately see the same dynamic
+        # collapsed properties used by RuntimeFolder.
+        try:
+            self.style().unpolish(self)
+            self.style().polish(self)
+            self.header.style().unpolish(self.header)
+            self.header.style().polish(self.header)
         except Exception:
             pass
-
-        self.content.setVisible(not collapsed)
 
         try:
             policy = self.sizePolicy()

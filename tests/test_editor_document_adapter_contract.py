@@ -78,15 +78,19 @@ def test_layout_behavior_is_composed_inside_document_adapter():
     assert "layout_support=False" in source
     assert "if not layout_support:" in source
     assert "apply_layout_property_context(" in source
+    assert "build_layout_editor_class" not in layout_source
+    assert "unwrap_layout_editor_base" not in layout_source
 
 
-def test_apply_preserves_editor_view_state():
+def test_apply_preserves_editor_view_state_without_forwarding_wrapper():
     source = _read("scripts/script_toolbox/ui/editor_document_adapter.py")
+    ui_dir = os.path.join(ROOT, "scripts", "script_toolbox", "ui")
 
     assert "def capture_editor_view_state(editor):" in source
     assert "def restore_editor_view_state(editor, state):" in source
     assert "def _capture_tree_view_state(self):" in source
     assert "def _restore_tree_view_state(self, state):" in source
+    assert not os.path.exists(os.path.join(ui_dir, "editor_view_state.py"))
 
     apply_source = source.split(
         "        def apply_changes(self):",
@@ -96,6 +100,15 @@ def test_apply_preserves_editor_view_state():
     assert "view_state = self._capture_tree_view_state()" in apply_source
     assert "self.populate_tree()" in apply_source
     assert "self._restore_tree_view_state(" in apply_source
+
+
+def test_adapter_reload_guard_is_current_adapter_only():
+    source = _read("scripts/script_toolbox/ui/editor_document_adapter.py")
+
+    assert '_ADAPTER_BASE = "_script_toolbox_interface_editor_adapter_base"' in source
+    assert "_LEGACY_BASE" not in source
+    assert "unwrap_layout_editor_base" not in source
+    assert "Avoid stacking this active adapter" in source
 
 
 def test_adapter_composes_search_and_share_directly():

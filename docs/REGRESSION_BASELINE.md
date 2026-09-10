@@ -1,6 +1,6 @@
 # Regression baseline
 
-The regression suite protects the current Script Toolbox architecture and config schema rather than historical migration behavior.
+The regression suite protects the current Script Toolbox architecture and config schema.
 
 ## Current configuration fixtures
 
@@ -8,7 +8,7 @@ The regression suite protects the current Script Toolbox architecture and config
 
 `tests/fixtures/golden_v20_current.json` is the compact schema-20 golden document used for load/save/idempotency checks.
 
-Historical schema fixtures are intentionally not retained as compatibility tests. The current build accepts schema 20 only.
+The current build accepts schema 20 only.
 
 ## Editor/model invariants
 

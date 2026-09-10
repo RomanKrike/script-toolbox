@@ -35,8 +35,10 @@ class PostHogProvider(TelemetryProvider):
     """Small dependency-free PostHog event provider.
 
     Events are queued onto a daemon worker so analytics can never block the DCC
-    UI. The distinct id is random and process-scoped; it is not persisted and
-    is not derived from hardware, usernames, hostnames, or project data.
+    UI. Official runtime configuration supplies a random installation-scoped
+    distinct id after explicit consent. The provider retains a process-scoped
+    random fallback only for direct/test construction; it is never derived
+    from hardware, usernames, hostnames, accounts, scenes, or project data.
     """
 
     name = "posthog"

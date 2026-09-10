@@ -34,12 +34,11 @@ EVENT_LABELS = {
     "closed": "Closed",
 }
 
-# Events exposed by the Interface Editor. Layout kinds intentionally expose no
-# triggers in schema 18, while the model can still preserve compatible hidden
-# bindings for future layout-event support.
 EVENT_CAPABILITIES = {
     "button": ("click", "double_click"),
+    "toggle_button": ("click", "double_click"),
     "icon": ("click", "double_click"),
+    "toggle_icon": ("click", "double_click"),
     "string": (
         "value_changed",
         "editing_finished",
@@ -70,6 +69,7 @@ EVENT_CAPABILITIES = {
     "label": ("click", "double_click"),
     "folder": (),
     "row": (),
+    "column": (),
     "separator": (),
 }
 
@@ -77,14 +77,10 @@ INTERNAL_EVENT_CAPABILITIES = {
     "folder": ("opened", "closed"),
 }
 
-LEGACY_CALLBACK_EVENT_MAP = {
-    "on_change": "value_changed",
-    "on_select": "selection_changed",
-    "on_double_click": "double_click",
-    "on_click": "click",
-    "on_open": "opened",
-    "on_close": "closed",
-}
+STATE_TOGGLE_KINDS = (
+    "toggle_button",
+    "toggle_icon",
+)
 
 
 def new_binding_id():
@@ -153,20 +149,16 @@ def make_binding(
     label="",
     binding_id=None,
     handler="script",
-    button_mode="all",
     modifier_policy="exact"
 ):
     event = text_type(event or "").lower()
     handler = text_type(handler or "script").lower()
-    button_mode = text_type(button_mode or "all").lower()
     modifier_policy = text_type(
         modifier_policy or "exact"
     ).lower()
 
     if handler not in ("script", "state_toggle"):
         handler = "script"
-    if button_mode not in ("all", "action", "state"):
-        button_mode = "all"
     if modifier_policy not in ("exact", "any"):
         modifier_policy = "exact"
 
@@ -174,7 +166,6 @@ def make_binding(
         "id": text_type(binding_id or new_binding_id()),
         "event": event,
         "handler": handler,
-        "button_mode": button_mode,
         "language": _normalize_language(language),
         "script": text_type(script or ""),
         "label": text_type(label or ""),
@@ -192,13 +183,14 @@ def normalize_binding(kind, value):
     if not isinstance(value, dict):
         return None
 
+    kind = text_type(kind or "").lower()
     event = text_type(value.get("event") or "").lower()
     allowed = binding_events(kind, include_internal=True)
     if event not in allowed:
         return None
 
-    handler = value.get("handler", "script")
-    if handler == "state_toggle" and text_type(kind) != "button":
+    handler = text_type(value.get("handler", "script")).lower()
+    if handler == "state_toggle" and kind not in STATE_TOGGLE_KINDS:
         handler = "script"
 
     return make_binding(
@@ -210,199 +202,53 @@ def normalize_binding(kind, value):
         label=value.get("label", ""),
         binding_id=value.get("id"),
         handler=handler,
-        button_mode=value.get("button_mode", "all"),
         modifier_policy=value.get("modifier_policy", "exact")
     )
 
 
-def _append_legacy_callback(result, kind, event, source):
-    source = text_type(source or "")
-    mapped = LEGACY_CALLBACK_EVENT_MAP.get(event)
-    if not source.strip() or mapped not in binding_events(
-        kind,
-        include_internal=True
-    ):
-        return
-
-    result.append(
-        make_binding(
-            mapped,
-            language="python",
-            script=source,
-            mouse_button="left",
-            modifiers=[],
-            label=(
-                "Click Callback"
-                if mapped == "click" and kind == "button"
-                else ""
-            ),
-            button_mode="all",
-            # Schema 17 callbacks did not distinguish modifier state.
-            modifier_policy=(
-                "any"
-                if is_mouse_event(mapped)
-                else "exact"
-            )
-        )
-    )
-
-
-def _legacy_bindings(kind, data):
-    result = []
-    kind = text_type(kind or "").lower()
-    mode = text_type(data.get("mode", "action")).lower()
-    old_language = _normalize_language(
-        data.get("language", "python")
-    )
-
+def _default_binding(kind):
     if kind == "button":
-        click_script = text_type(data.get("click_script") or "")
-        shift_script = text_type(data.get("shift_script") or "")
-
-        if click_script.strip():
-            result.append(
-                make_binding(
-                    "click",
-                    language=old_language,
-                    script=click_script,
-                    mouse_button="left",
-                    modifiers=[],
-                    button_mode="action"
-                )
-            )
-
-        if shift_script.strip():
-            result.append(
-                make_binding(
-                    "click",
-                    language=old_language,
-                    script=shift_script,
-                    mouse_button="left",
-                    modifiers=["shift"],
-                    button_mode="action"
-                )
-            )
-
-        if mode == "state":
-            result.insert(
-                0,
-                make_binding(
-                    "click",
-                    mouse_button="left",
-                    modifiers=[],
-                    handler="state_toggle",
-                    button_mode="state"
-                )
-            )
-
-    callbacks = data.get("callbacks")
-    if isinstance(callbacks, dict):
-        for event, source in callbacks.items():
-            _append_legacy_callback(
-                result,
-                kind,
-                text_type(event or ""),
-                source
-            )
-
-    # Pre-schema-17 direct payload compatibility.
-    on_change = text_type(data.get("on_change_script") or "")
-    if on_change.strip() and not any(
-        entry.get("event") == "value_changed"
-        for entry in result
-    ):
-        _append_legacy_callback(
-            result,
-            kind,
-            "on_change",
-            on_change
+        return make_binding(
+            "click",
+            handler="script"
         )
 
-    if kind == "icon" and data.get("clickable", False) and not any(
-        is_mouse_event(entry.get("event"))
-        for entry in result
-    ):
-        result.append(
-            make_binding(
-                "click",
-                mouse_button="left",
-                modifiers=[],
-                modifier_policy="any"
-            )
+    if kind in STATE_TOGGLE_KINDS:
+        return make_binding(
+            "click",
+            handler="state_toggle"
         )
 
-    if kind == "button":
-        if mode == "state":
-            if not any(
-                entry.get("handler") == "state_toggle"
-                for entry in result
-            ):
-                result.insert(
-                    0,
-                    make_binding(
-                        "click",
-                        handler="state_toggle",
-                        button_mode="state"
-                    )
-                )
-        elif not any(
-            entry.get("handler") == "script" and
-            entry.get("button_mode") in ("all", "action")
-            for entry in result
-        ):
-            result.insert(
-                0,
-                make_binding(
-                    "click",
-                    button_mode="action"
-                )
-            )
-
-    return result
+    return None
 
 
 def normalize_bindings(kind, data=None):
+    kind = text_type(kind or "").lower()
     data = data or {}
     raw = data.get("bindings")
+    result = []
 
     if isinstance(raw, list):
-        result = []
         for entry in raw:
             normalized = normalize_binding(kind, entry)
             if normalized is not None:
                 result.append(normalized)
-    else:
-        result = _legacy_bindings(kind, data)
-
-    kind = text_type(kind or "").lower()
-    mode = text_type(data.get("mode", "action")).lower()
 
     if kind == "button":
-        if mode == "state" and not any(
-            entry.get("handler") == "state_toggle" and
-            entry.get("button_mode") in ("all", "state")
-            for entry in result
-        ):
-            result.insert(
-                0,
-                make_binding(
-                    "click",
-                    handler="state_toggle",
-                    button_mode="state"
-                )
-            )
-        elif mode != "state" and not any(
+        if not any(
             entry.get("handler") == "script" and
-            entry.get("button_mode") in ("all", "action")
+            entry.get("event") == "click"
             for entry in result
         ):
-            result.insert(
-                0,
-                make_binding(
-                    "click",
-                    button_mode="action"
-                )
-            )
+            result.insert(0, _default_binding(kind))
+
+    elif kind in STATE_TOGGLE_KINDS:
+        if not any(
+            entry.get("handler") == "state_toggle" and
+            entry.get("event") == "click"
+            for entry in result
+        ):
+            result.insert(0, _default_binding(kind))
 
     return result
 
@@ -449,19 +295,6 @@ def binding_display_name(binding):
     return " + ".join(parts)
 
 
-def _mode_matches(binding, item):
-    if text_type(item.get("kind")) != "button":
-        return True
-
-    binding_mode = text_type(
-        binding.get("button_mode", "all")
-    )
-    item_mode = text_type(
-        item.get("mode", "action")
-    )
-    return binding_mode == "all" or binding_mode == item_mode
-
-
 def binding_matches(
     binding,
     item,
@@ -470,8 +303,6 @@ def binding_matches(
     modifiers=None
 ):
     if text_type(binding.get("event") or "") != text_type(event or ""):
-        return False
-    if not _mode_matches(binding, item):
         return False
 
     if not is_mouse_event(event):
@@ -511,8 +342,7 @@ def matching_bindings(
 
 def has_mouse_binding(item):
     return any(
-        is_mouse_event(binding.get("event")) and
-        _mode_matches(binding, item)
+        is_mouse_event(binding.get("event"))
         for binding in item.get("bindings", []) or []
     )
 
@@ -520,16 +350,11 @@ def has_mouse_binding(item):
 def bindings_for_editor(item):
     kind = text_type(item.get("kind") or "").lower()
     exposed = set(binding_events(kind))
-    result = []
-
-    for binding in item.get("bindings", []) or []:
-        if binding.get("event") not in exposed:
-            continue
-        if not _mode_matches(binding, item):
-            continue
-        result.append(binding)
-
-    return result
+    return [
+        binding
+        for binding in item.get("bindings", []) or []
+        if binding.get("event") in exposed
+    ]
 
 
 __all__ = [
@@ -539,6 +364,7 @@ __all__ = [
     "MODIFIERS",
     "MOUSE_BUTTONS",
     "MOUSE_EVENTS",
+    "STATE_TOGGLE_KINDS",
     "binding_display_name",
     "binding_events",
     "binding_matches",

@@ -1,8 +1,6 @@
 # Row / Column Layout Contract
 
-`Row` and `Column` are composable layout containers. They can contain normal
-controls and other Rows/Columns. `Folder` remains a structural section and is
-not a valid child of either layout container.
+`Row` and `Column` are composable layout containers. They can contain normal controls and other Rows/Columns. `Folder` remains a structural section and is not a valid child of either layout container.
 
 ```text
 Row
@@ -18,8 +16,7 @@ Row
         └── Button
 ```
 
-Columns still default to `Stretch` when placed in a Row so sibling columns
-share the available width.
+Columns default to `Stretch` when placed in a Row so sibling columns share available width.
 
 ## Row
 
@@ -30,31 +27,15 @@ Row owns horizontal placement of its children:
 - `Vertical Alignment`: Top, Center, or Bottom.
 - `Equal Widths`: gives every non-separator child the same horizontal share.
 
-A child directly inside a Row owns only its horizontal size:
+A child directly inside a Row owns its horizontal size:
 
 - `Item Width`: Auto, Stretch, or Fixed.
 - `Fixed Width`: used by Fixed.
 - `Stretch Weight`: relative share used by Stretch.
 
-`Stretch` describes the size of the item slot in the Row. The child renderer
-continues to decide how its internal content uses that slot. This keeps the
-layout contract consistent for buttons, fields, numeric controls, labels,
-icons, separators, and nested layouts.
+`Horizontal Distribution` consumes remaining free space. It therefore has no visible effect while a child uses Stretch or while Equal Widths consumes the Row.
 
-`Horizontal Distribution` uses remaining free space. It therefore has no
-visible effect while one or more children use `Stretch`, or while
-`Equal Widths` consumes the row.
-
-When `Equal Widths` is enabled, the child width controls are disabled in the
-Interface Editor to make the parent override explicit.
-
-### Legacy Row alignment
-
-Schema-18 configs may contain `row_alignment` on individual Row children.
-The field remains accepted for backward compatibility. When a Row does not
-yet contain `horizontal_distribution`, normalization preserves a common
-legacy Left/Center/Right value as the new Row distribution when that intent is
-unambiguous. The editor no longer exposes per-child horizontal placement.
+When Equal Widths is enabled, child width controls are disabled in the Interface Editor because the parent owns that sizing decision.
 
 ## Column
 
@@ -70,27 +51,28 @@ A child directly inside a Column owns its vertical size:
 - `Fixed Height`: used by Fixed.
 - `Stretch Weight`: relative share used by Stretch.
 
-`Vertical Distribution` uses remaining free space and therefore has no visible
-effect while one or more children use Stretch height.
+`Vertical Distribution` consumes remaining free space and therefore has no visible effect while one or more children use Stretch height.
 
-Column child height fields are optional in older JSON. Missing values normalize
-to `Auto`, fixed height `28`, and stretch weight `1`.
+Current-schema Column children normalize explicit height metadata to the supported modes and bounds. There is no older-schema fallback contract.
 
 ## Icon content alignment
 
-Standalone Icon alignment is content alignment inside the Icon item, not
-placement of the item inside a Row. The editor labels this explicitly as
-`Content Alignment`. The legacy `alignment` field remains synchronized for
-schema-18 runtime compatibility.
+Standalone Icon/Toggle Icon alignment is content alignment inside the item, not placement of the item inside a Row or Column.
 
-## Compatibility
+The schema key is only:
 
-This refactor is backward compatible with schema 18:
+```text
+content_alignment = left | center | right
+```
 
-- existing `row_width_mode`, `row_width`, and `row_stretch` remain valid;
-- legacy `row_alignment` remains accepted and can seed Row distribution;
-- existing Column configs default to Top vertical distribution and Auto child
-  heights;
-- legacy Icon `alignment` remains supported.
+`alignment` is not an alias in schema 20.
 
-No Folder, callback, binding, or execution semantics are changed.
+## Current-schema rules
+
+- `folder`, `row` and `column` share the model container predicate;
+- Row/Column may nest Row/Column and leaf items;
+- Folder cannot be nested inside Row/Column;
+- `row_width_mode`, `row_width` and `row_stretch` describe Row child sizing;
+- `column_height_mode`, `column_height` and `column_stretch` describe Column child sizing;
+- parent distribution/alignment is explicit and not inferred from historical per-child alignment fields;
+- layout containers do not expose public runtime event bindings.

@@ -3,10 +3,9 @@
 from .code_editor import CodeEditor
 from .code_editor import ScriptHighlighter
 from . import interface_editor as _interface_editor_module
-from ..core.layout_document import LayoutEditorDocumentController
+from ..core.editor_document import EditorDocumentController
 from .editor_document_adapter import build_interface_editor_class
 from .editor_polish_hooks import install_icon_only_button_centering
-from .editor_polish_hooks import install_icon_only_state_refresh
 from .editor_polish_hooks import install_runtime_icon_feedback
 from .interface_tree import ExistingInterfaceTree
 from .scroll_surface_frames import install_property_editor_scroll_frames
@@ -14,7 +13,7 @@ from .scroll_surface_frames import install_runtime_scroll_frames
 from .scroll_surface_frames import install_script_editor_scroll_frames
 
 
-def _install_controls_v2_palette(editor_class):
+def _install_current_palette(editor_class):
     groups = []
     for group_label, entries in editor_class.PALETTE_GROUPS:
         entries = tuple(entries)
@@ -37,10 +36,7 @@ def _install_controls_v2_palette(editor_class):
         if group_label == "ACTIONS":
             updated = list(entries)
 
-            if not any(
-                entry[1] == "toggle_button"
-                for entry in updated
-            ):
+            if not any(entry[1] == "toggle_button" for entry in updated):
                 insert_at = len(updated)
                 for index, entry in enumerate(updated):
                     if entry[1] == "button":
@@ -55,20 +51,14 @@ def _install_controls_v2_palette(editor_class):
                     )
                 )
 
-            if not any(
-                entry[1] == "icon"
-                for entry in updated
-            ):
+            if not any(entry[1] == "icon" for entry in updated):
                 updated.append((
                     "Icon",
                     "icon",
                     "Standalone image with optional event bindings."
                 ))
 
-            if not any(
-                entry[1] == "toggle_icon"
-                for entry in updated
-            ):
+            if not any(entry[1] == "toggle_icon" for entry in updated):
                 insert_at = len(updated)
                 for index, entry in enumerate(updated):
                     if entry[1] == "icon":
@@ -89,67 +79,36 @@ def _install_controls_v2_palette(editor_class):
     editor_class.PALETTE_GROUPS = tuple(groups)
 
 
-_install_controls_v2_palette(
-    _interface_editor_module.InterfaceEditor
-)
+_install_current_palette(_interface_editor_module.InterfaceEditor)
 
 InterfaceEditor = build_interface_editor_class(
     _interface_editor_module.InterfaceEditor,
-    controller_class=LayoutEditorDocumentController,
+    controller_class=EditorDocumentController,
     layout_support=True
 )
 install_property_editor_scroll_frames()
-
-# Keep direct imports from script_toolbox.ui.interface_editor compatible while
-# the legacy Qt dialog is gradually decomposed across STEP 07/08.
 _interface_editor_module.InterfaceEditor = InterfaceEditor
 
-# Install the runtime renderer registry before main_window imports
-# build_folder_widgets from runtime. RuntimeFolder remains the domain/runtime
-# renderer, while its collapsible mode composes the shared CollapsibleSection
-# UI primitive used by the Inspector as well.
 from . import runtime as _runtime_module
 from .collapsible_folder import CollapsibleSection
 from .collapsible_folder import install_runtime_folder_composition
 
-install_runtime_folder_composition(
-    _runtime_module
-)
+install_runtime_folder_composition(_runtime_module)
 
-from . import runtime_renderers as _runtime_renderers_module
-from .column_layout import render_column
-from .row_layout import render_row
 from .runtime_renderers import get_runtime_renderer_registry
-from .runtime_renderers import install_runtime_renderer_registry
+from .runtime_renderers import initialize_runtime_renderer_registry
 from .runtime_renderers import register_runtime_renderer
 from .runtime_renderers import unregister_runtime_renderer
-from .toggle_button_runtime import install_toggle_button_event_hooks
-from .toggle_button_runtime import install_toggle_button_main_window
+from .column_layout import render_column
+from .row_layout import render_row
 from .toggle_button_runtime import render_toggle_button
-from .toggle_icon_runtime import install_toggle_icon_event_hooks
-from .toggle_icon_runtime import install_toggle_icon_main_window
 from .toggle_icon_runtime import render_toggle_icon
 
-install_runtime_renderer_registry(
-    _runtime_module
-)
-register_runtime_renderer(
-    "row",
-    render_row,
-    replace=True
-)
-register_runtime_renderer(
-    "column",
-    render_column
-)
-register_runtime_renderer(
-    "toggle_button",
-    render_toggle_button
-)
-register_runtime_renderer(
-    "toggle_icon",
-    render_toggle_icon
-)
+initialize_runtime_renderer_registry(_runtime_module)
+register_runtime_renderer("row", render_row, replace=True)
+register_runtime_renderer("column", render_column)
+register_runtime_renderer("toggle_button", render_toggle_button)
+register_runtime_renderer("toggle_icon", render_toggle_icon)
 install_runtime_scroll_frames(
     get_runtime_renderer_registry(),
     _runtime_module
@@ -157,8 +116,6 @@ install_runtime_scroll_frames(
 
 from .main_window import ScriptToolbox as _BaseScriptToolbox
 from .update_channels_ui import build_update_channel_toolbox_class
-from .controls_v2_hooks import install_controls_v2_hooks
-from . import event_binding_hooks as _event_binding_hooks_module
 from .event_binding_hooks import install_event_binding_hooks
 from .script_editor import ScriptEditorWidget
 from .runtime import DisplayField
@@ -166,57 +123,13 @@ from .runtime import RuntimeFolder
 from .runtime import RuntimeFolderRadio
 from .runtime import RuntimeFolderTabs
 
-ScriptToolbox = build_update_channel_toolbox_class(
-    _BaseScriptToolbox
-)
+ScriptToolbox = build_update_channel_toolbox_class(_BaseScriptToolbox)
 
-install_script_editor_scroll_frames(
-    ScriptEditorWidget
-)
+install_script_editor_scroll_frames(ScriptEditorWidget)
+install_icon_only_button_centering(get_runtime_renderer_registry())
+install_event_binding_hooks(get_runtime_renderer_registry())
+install_runtime_icon_feedback(get_runtime_renderer_registry())
 
-# Runtime main-window hooks must be installed on the shared base class.
-# bootstrap.py instantiates debounced_main_window.ScriptToolbox, which inherits
-# from this base instead of the wrapper exported from script_toolbox.ui.
-# Installing only on the wrapper leaves the live runtime without methods such
-# as dispatch_binding_event.
-install_controls_v2_hooks(
-    _runtime_module,
-    _BaseScriptToolbox
-)
-
-# Build the icon-only renderer before event bindings wrap the registry. This
-# guarantees custom click/double-click bindings attach to the final button.
-install_icon_only_button_centering(
-    get_runtime_renderer_registry()
-)
-install_toggle_button_event_hooks(
-    _event_binding_hooks_module
-)
-install_toggle_icon_event_hooks(
-    _event_binding_hooks_module
-)
-install_event_binding_hooks(
-    get_runtime_renderer_registry(),
-    _runtime_renderers_module,
-    _BaseScriptToolbox
-)
-install_toggle_button_main_window(
-    _BaseScriptToolbox
-)
-install_toggle_icon_main_window(
-    _BaseScriptToolbox
-)
-install_runtime_icon_feedback(
-    get_runtime_renderer_registry()
-)
-install_icon_only_state_refresh(
-    _BaseScriptToolbox
-)
-
-# Runtime value synchronization is installed after the renderer decorators so
-# every active value renderer registers its final Qt control tree. Patch both
-# the base store_value() implementation and the debounced runtime override;
-# bootstrap.py uses the latter in Maya, Nuke and Houdini.
 from .runtime_value_sync import install_runtime_value_sync
 from . import debounced_main_window as _debounced_main_window_module
 

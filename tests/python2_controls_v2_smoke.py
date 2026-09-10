@@ -11,15 +11,11 @@ ROOT = os.path.dirname(
         os.path.abspath(__file__)
     )
 )
-SCRIPTS = os.path.join(
-    ROOT,
-    "scripts"
-)
+SCRIPTS = os.path.join(ROOT, "scripts")
 if SCRIPTS not in sys.path:
     sys.path.insert(0, SCRIPTS)
 
 from script_toolbox.constants import CONFIG_VERSION
-from script_toolbox.core.migrations import migrate_document
 from script_toolbox.core.references import rewrite_item_references
 from script_toolbox.core.values import store_value
 from script_toolbox.model import walk_items
@@ -28,13 +24,14 @@ from script_toolbox.model.items import create_item
 
 
 def main():
-    assert CONFIG_VERSION == 19
+    assert CONFIG_VERSION == 20
 
     icon = create_item(
         "icon",
         {
             "name": "icon_test",
             "path": "icon.png",
+            "content_alignment": "center",
             "bindings": [
                 make_binding(
                     "click",
@@ -46,6 +43,7 @@ def main():
         }
     )
     assert icon["kind"] == "icon"
+    assert icon["content_alignment"] == "center"
     assert icon["bindings"][0]["event"] == "click"
 
     toggle = create_item(
@@ -57,6 +55,7 @@ def main():
     assert toggle["kind"] == "toggle_button"
     assert toggle["state_source"] == "internal"
     assert toggle["bindings"][0]["handler"] == "state_toggle"
+    assert "button_mode" not in toggle["bindings"][0]
 
     vector = create_item(
         "integer",
@@ -165,8 +164,7 @@ def main():
                     "click",
                     language="python",
                     script="toolbox.store_value('inside', 1)",
-                    binding_id="button_click",
-                    button_mode="action"
+                    binding_id="button_click"
                 )
             ],
         }
@@ -178,28 +176,12 @@ def main():
     assert changed is True
     assert "inside_copy" in binding_item["bindings"][0]["script"]
 
-    migrated = migrate_document({
-        "version": 16,
-        "sections": [
-            {
-                "kind": "folder",
-                "name": "legacy",
-                "items": [
-                    {
-                        "kind": "string",
-                        "name": "value",
-                        "on_change_script": "print(value)",
-                    }
-                ],
-            }
-        ],
-    })
-    legacy_value = migrated["sections"][0]["items"][0]
-    assert migrated["version"] == CONFIG_VERSION
-    assert legacy_value["bindings"][0]["event"] == "value_changed"
-    assert legacy_value["bindings"][0]["script"] == "print(value)"
-    assert "callbacks" not in legacy_value
-    assert "on_change_script" not in legacy_value
+    try:
+        create_item("toggle", {})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Legacy toggle kind must be rejected")
 
     print("Controls v2 / event bindings / toggle button / columns Python 2.7 smoke passed")
 

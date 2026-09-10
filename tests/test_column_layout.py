@@ -2,8 +2,9 @@
 
 import os
 
+from script_toolbox.constants import CONFIG_VERSION
 from script_toolbox.constants import ITEM_KINDS
-from script_toolbox.core.layout_document import LayoutEditorDocumentController
+from script_toolbox.core.editor_document import EditorDocumentController
 from script_toolbox.model import DocumentIndex
 from script_toolbox.model import create_item
 from script_toolbox.model import normalize_document
@@ -56,8 +57,7 @@ def _column_example():
                                             script=(
                                                 "toolbox.get_value('field_a')"
                                             ),
-                                            binding_id="add_click",
-                                            button_mode="action"
+                                            binding_id="add_click"
                                         )
                                     ],
                                 },
@@ -89,7 +89,7 @@ def _column_example():
 
 def _document():
     return {
-        "version": 18,
+        "version": CONFIG_VERSION,
         "sections": [
             create_item(
                 "folder",
@@ -122,39 +122,19 @@ def test_layout_containers_reject_nested_folders_but_keep_rows_and_columns():
         "column",
         {
             "items": [
-                {
-                    "kind": "folder",
-                    "name": "invalid_folder",
-                },
-                {
-                    "kind": "row",
-                    "name": "valid_row",
-                },
-                {
-                    "kind": "column",
-                    "name": "valid_column",
-                },
+                {"kind": "folder", "name": "invalid_folder"},
+                {"kind": "row", "name": "valid_row"},
+                {"kind": "column", "name": "valid_column"},
             ]
         }
     )
 
-    assert [
-        item["kind"]
-        for item in column["items"]
-    ] == [
-        "row",
-        "column",
-    ]
+    assert [item["kind"] for item in column["items"]] == ["row", "column"]
 
 
 def test_normalize_walk_and_index_reach_controls_inside_columns():
-    normalized = normalize_document(
-        _document()
-    )
-    names = [
-        item["name"]
-        for item in walk_items(normalized)
-    ]
+    normalized = normalize_document(_document())
+    names = [item["name"] for item in walk_items(normalized)]
 
     assert "outer_row" in names
     assert "column_a" in names
@@ -167,10 +147,8 @@ def test_normalize_walk_and_index_reach_controls_inside_columns():
     assert index.find("field_b")["kind"] == "field"
 
 
-def test_layout_controller_clones_column_subtree_and_remaps_internal_links():
-    controller = LayoutEditorDocumentController(
-        _document()
-    )
+def test_base_controller_clones_column_subtree_and_remaps_internal_links():
+    controller = EditorDocumentController(_document())
     source = controller.find_by_id("outer_row")
     clone = controller.clone_subtree(source)
 
@@ -186,69 +164,40 @@ def test_layout_controller_clones_column_subtree_and_remaps_internal_links():
     assert "'field_a'" not in button["bindings"][0]["script"]
 
 
-def test_layout_controller_topology_tracks_nested_columns_and_rows():
-    controller = LayoutEditorDocumentController(
-        _document()
-    )
+def test_base_controller_topology_tracks_nested_columns_and_rows():
+    controller = EditorDocumentController(_document())
     topology = controller.capture_topology()
 
     assert topology["children"]["root"] == ["outer_row"]
-    assert topology["children"]["outer_row"] == [
-        "column_a",
-        "column_b",
-    ]
-    assert topology["children"]["column_a"] == [
-        "field_a",
-        "buttons_a",
-    ]
-    assert topology["children"]["buttons_a"] == [
-        "add_a",
-        "remove_a",
-    ]
+    assert topology["children"]["outer_row"] == ["column_a", "column_b"]
+    assert topology["children"]["column_a"] == ["field_a", "buttons_a"]
+    assert topology["children"]["buttons_a"] == ["add_a", "remove_a"]
 
 
 def test_column_editor_and_runtime_are_wired_without_layout_triggers():
-    ui_init = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "__init__.py"
-    )
+    ui_init = _source("scripts", "script_toolbox", "ui", "__init__.py")
     adapter = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "layout_editor_adapter.py"
+        "scripts", "script_toolbox", "ui", "layout_editor_adapter.py"
     )
     document_adapter = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "editor_document_adapter.py"
+        "scripts", "script_toolbox", "ui", "editor_document_adapter.py"
     )
     column_renderer = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "column_layout.py"
+        "scripts", "script_toolbox", "ui", "column_layout.py"
     )
     registry = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "properties",
-        "registry.py"
+        "scripts", "script_toolbox", "ui", "properties", "registry.py"
     )
     model_layouts = _source(
-        "scripts",
-        "script_toolbox",
-        "model",
-        "layouts.py"
+        "scripts", "script_toolbox", "model", "layouts.py"
+    )
+    model_items = _source(
+        "scripts", "script_toolbox", "model", "items.py"
     )
 
     assert '"Column",' in ui_init
     assert '"column",' in ui_init
-    assert 'register_runtime_renderer(\n    "column"' in ui_init
+    assert 'register_runtime_renderer("column", render_column)' in ui_init
     assert "build_layout_editor_class" not in ui_init
     assert "layout_support=True" in ui_init
     assert "make_layout_tree_item" in document_adapter
@@ -256,4 +205,5 @@ def test_column_editor_and_runtime_are_wired_without_layout_triggers():
     assert "QVBoxLayout" in column_renderer
     assert '"horizontal_alignment"' in column_renderer
     assert '"row", "column"' in adapter
-    assert 'EVENT_CAPABILITIES.setdefault(\n        "column"' in model_layouts
+    assert "items_module.create_item" not in model_layouts
+    assert '"column": _column' in model_items

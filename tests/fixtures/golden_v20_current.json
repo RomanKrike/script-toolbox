@@ -1,0 +1,112 @@
+{
+  "version": 20,
+  "sections": [
+    {
+      "kind": "folder",
+      "id": "folder_main",
+      "name": "main_tools",
+      "label": "Main Tools",
+      "folder_type": "collapsible",
+      "collapsed": false,
+      "items": [
+        {
+          "kind": "string",
+          "id": "string_asset",
+          "name": "asset_name",
+          "label": "Asset Name",
+          "value": "Dragon",
+          "bindings": [
+            {
+              "id": "asset_changed",
+              "event": "value_changed",
+              "handler": "script",
+              "language": "python",
+              "script": "toolbox.set_result('status_text', value)",
+              "label": ""
+            }
+          ]
+        },
+        {
+          "kind": "integer",
+          "id": "integer_samples",
+          "name": "samples",
+          "label": "Samples",
+          "min": 1,
+          "max": 64,
+          "step": 1,
+          "value": 8
+        },
+        {
+          "kind": "icon",
+          "id": "icon_status",
+          "name": "status_icon",
+          "label": "Status",
+          "path": "status.svg",
+          "width": 24,
+          "height": 24,
+          "content_alignment": "center"
+        },
+        {
+          "kind": "toggle_button",
+          "id": "toggle_render",
+          "name": "render_state",
+          "label": "Render State",
+          "state_source": "internal",
+          "value": false,
+          "state_on_label": "Rendering: ON",
+          "state_off_label": "Rendering: OFF",
+          "state_on_color": [0.2, 0.6, 0.3],
+          "state_off_color": [0.3, 0.3, 0.3]
+        },
+        {
+          "kind": "row",
+          "id": "row_actions",
+          "name": "actions",
+          "label": "Actions",
+          "spacing": 6,
+          "equal_widths": true,
+          "horizontal_distribution": "left",
+          "vertical_alignment": "center",
+          "items": [
+            {
+              "kind": "button",
+              "id": "button_run",
+              "name": "run_render",
+              "label": "Run",
+              "bindings": [
+                {
+                  "id": "run_click",
+                  "event": "click",
+                  "handler": "script",
+                  "language": "python",
+                  "script": "print('run')",
+                  "label": "",
+                  "mouse_button": "left",
+                  "modifiers": [],
+                  "modifier_policy": "exact"
+                }
+              ]
+            },
+            {
+              "kind": "column",
+              "id": "column_values",
+              "name": "values",
+              "label": "Values",
+              "items": [
+                {
+                  "kind": "field",
+                  "id": "field_selection",
+                  "name": "selection",
+                  "label": "Selection",
+                  "value": [],
+                  "multiple": true,
+                  "display_mode": "list"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

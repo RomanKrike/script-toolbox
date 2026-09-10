@@ -1,5 +1,5 @@
 {
-  "version": 16,
+  "version": 20,
   "sections": [
     {
       "kind": "folder",
@@ -21,7 +21,16 @@
           "name": "asset_name",
           "label": "Asset Name",
           "value": "Dragon",
-          "on_change_script": "toolbox.set_result('status_text', value)"
+          "bindings": [
+            {
+              "id": "asset_changed",
+              "event": "value_changed",
+              "handler": "script",
+              "language": "python",
+              "script": "toolbox.set_result('status_text', value)",
+              "label": ""
+            }
+          ]
         },
         {
           "kind": "integer",
@@ -81,19 +90,34 @@
           "visible_rows": 5
         },
         {
-          "kind": "button",
+          "kind": "toggle_button",
           "id": "button_state",
           "name": "render_state",
           "label": "Render State",
-          "mode": "state",
-          "language": "python",
-          "state_get_script": "result = toolbox.get_value('enabled')",
+          "state_source": "script",
+          "state_get_script": "state = toolbox.get_value('enabled')",
+          "state_get_language": "python",
           "state_on_script": "toolbox.set_value('enabled', True)",
+          "state_on_language": "python",
           "state_off_script": "toolbox.set_value('enabled', False)",
+          "state_off_language": "python",
           "state_on_label": "Rendering: ON",
           "state_off_label": "Rendering: OFF",
           "state_on_color": [0.2, 0.6, 0.3],
-          "state_off_color": [0.3, 0.3, 0.3]
+          "state_off_color": [0.3, 0.3, 0.3],
+          "bindings": [
+            {
+              "id": "render_state_toggle",
+              "event": "click",
+              "handler": "state_toggle",
+              "language": "python",
+              "script": "",
+              "label": "",
+              "mouse_button": "left",
+              "modifiers": [],
+              "modifier_policy": "exact"
+            }
+          ]
         },
         {
           "kind": "row",
@@ -109,9 +133,30 @@
               "id": "button_run",
               "name": "run_render",
               "label": "Run",
-              "language": "python",
-              "click_script": "print('run')",
-              "shift_script": "print('alternate')"
+              "bindings": [
+                {
+                  "id": "run_click",
+                  "event": "click",
+                  "handler": "script",
+                  "language": "python",
+                  "script": "print('run')",
+                  "label": "",
+                  "mouse_button": "left",
+                  "modifiers": [],
+                  "modifier_policy": "exact"
+                },
+                {
+                  "id": "run_shift_click",
+                  "event": "click",
+                  "handler": "script",
+                  "language": "python",
+                  "script": "print('alternate')",
+                  "label": "",
+                  "mouse_button": "left",
+                  "modifiers": ["shift"],
+                  "modifier_policy": "exact"
+                }
+              ]
             },
             {
               "kind": "integer",
@@ -164,8 +209,19 @@
           "id": "button_cleanup",
           "name": "cleanup",
           "label": "Cleanup",
-          "language": "python",
-          "click_script": "print('cleanup')"
+          "bindings": [
+            {
+              "id": "cleanup_click",
+              "event": "click",
+              "handler": "script",
+              "language": "python",
+              "script": "print('cleanup')",
+              "label": "",
+              "mouse_button": "left",
+              "modifiers": [],
+              "modifier_policy": "exact"
+            }
+          ]
         }
       ]
     }

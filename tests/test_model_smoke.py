@@ -1,31 +1,28 @@
 # -*- coding: utf-8 -*-
 
+import pytest
+
 from script_toolbox.model.items import create_item
 from script_toolbox.model.items import normalize_document
 from script_toolbox.model.items import walk_items
 
 
-def test_legacy_toggle_migrates_to_checkbox_left():
-    item = create_item(
-        "toggle",
-        {
-            "name": "enabled",
-            "label": "Enabled",
-            "value": True,
-        }
-    )
-
-    assert item["kind"] == "checkbox"
-    assert item["label_position"] == "left"
-    assert item["value"] is True
+def test_removed_toggle_kind_is_rejected():
+    with pytest.raises(ValueError):
+        create_item(
+            "toggle",
+            {
+                "name": "enabled",
+                "label": "Enabled",
+                "value": True,
+            }
+        )
 
 
 def test_checkbox_defaults_to_right_label():
     item = create_item(
         "checkbox",
-        {
-            "name": "enabled",
-        }
+        {"name": "enabled"}
     )
 
     assert item["kind"] == "checkbox"
@@ -68,30 +65,15 @@ def test_row_accepts_layout_containers_but_rejects_folders():
         "row",
         {
             "items": [
-                {
-                    "kind": "button",
-                    "name": "run",
-                },
-                {
-                    "kind": "folder",
-                    "name": "bad_folder",
-                },
-                {
-                    "kind": "row",
-                    "name": "nested_row",
-                },
-                {
-                    "kind": "column",
-                    "name": "nested_column",
-                },
+                {"kind": "button", "name": "run"},
+                {"kind": "folder", "name": "bad_folder"},
+                {"kind": "row", "name": "nested_row"},
+                {"kind": "column", "name": "nested_column"},
             ]
         }
     )
 
-    assert [
-        item["kind"]
-        for item in row["items"]
-    ] == [
+    assert [item["kind"] for item in row["items"]] == [
         "button",
         "row",
         "column",
@@ -131,14 +113,8 @@ def test_walk_items_recurses_folder_row_and_column():
                                         "kind": "column",
                                         "name": "left_column",
                                         "items": [
-                                            {
-                                                "kind": "float",
-                                                "name": "amount",
-                                            },
-                                            {
-                                                "kind": "checkbox",
-                                                "name": "enabled",
-                                            },
+                                            {"kind": "float", "name": "amount"},
+                                            {"kind": "checkbox", "name": "enabled"},
                                         ],
                                     }
                                 ],
@@ -150,16 +126,6 @@ def test_walk_items_recurses_folder_row_and_column():
         ]
     })
 
-    names = [
-        item["name"]
-        for item in walk_items(
-            document
-        )
-    ]
+    names = [item["name"] for item in walk_items(document)]
 
-    assert names == [
-        "controls",
-        "left_column",
-        "amount",
-        "enabled",
-    ]
+    assert names == ["controls", "left_column", "amount", "enabled"]

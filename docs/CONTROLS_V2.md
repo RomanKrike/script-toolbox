@@ -1,115 +1,82 @@
 # Controls v2
 
-STEP 13 extends Script Toolbox primitives instead of adding a separate model kind for every DCC workflow.
+Controls v2 defines the current primitive item set used to compose DCC tools without introducing a specialized model kind for every workflow.
 
 ## Schema
 
-Controls v2 uses config schema 17. Schema 16 `on_change_script` values migrate to `callbacks.on_change`. Plugin version remains unchanged by this development step.
+Controls v2 uses config schema **20**. Callback dictionaries, direct script fields and earlier config schemas are not translated by the current build.
 
-## Icons
+## Event bindings
 
-`icon` is a standalone item with:
+`bindings` are the single event contract for interactive items. A binding stores its own event, language, script, mouse button and modifier policy.
 
-- `path`
-- `width` / `height`
-- `alignment`: `left`, `center`, `right`
-- `tooltip`
-- `clickable`
-- optional Python `callbacks.on_click`
+Typical public events include:
 
-Runtime paths expand environment variables and `~`. A missing image renders a visible fallback marker rather than crashing the toolbox.
+- Button / Icon / Toggle Button / Toggle Icon: `click`, `double_click`
+- String / Integer / Float: `value_changed`, `editing_finished`, `click`, `double_click`
+- Checkbox / Menu / Color: `value_changed`, `click`, `double_click`
+- Field: `value_changed`, `selection_changed`, `click`, `double_click`
+- Label: `click`, `double_click`
+- Folder / Row / Column / Separator: no public runtime bindings
 
-Buttons retain their existing scripts/state behavior and add:
+Binding scripts execute with the standard runtime namespace including `toolbox`, `item`, `value`, `old_value`, `event` and `host`.
 
-- `icon_path`
-- `icon_size`
-- `icon_only`
-
-An icon-only state button remains icon-only after state refreshes.
-
-## Universal callbacks
-
-Callbacks are stored in one mapping:
-
-```json
-{
-  "callbacks": {
-    "on_change": "print(value)"
-  }
-}
-```
-
-Available events depend on the item kind:
-
-- button: `on_click`
-- icon: `on_click`
-- string/integer/float/checkbox/menu/color: `on_change`
-- field: `on_change`, `on_select`, `on_double_click`
-- label: `on_click`
-- folder: `on_open`, `on_close`
-- row/separator: no runtime events
-
-Callbacks are Python scripts even when a button's primary action is MEL. They execute through `ExecutionResult` diagnostics with this namespace:
-
-- `toolbox`
-- `item`
-- `value`
-- `old_value`
-- `event`
-- `host`
-
-A per-item/event guard prevents direct recursive callback loops.
-
-### Reference links
-
-Managed Script Toolbox references inside callback code are part of the existing Links system. Rename, duplicate and paste can therefore rewrite calls such as:
+Managed Python references inside binding scripts participate in the Links system, so rename and subtree duplication can rewrite calls such as:
 
 ```python
 toolbox.get_value("source")
 ```
 
-while leaving unrelated string literals unchanged.
+without changing unrelated string literals.
 
-## Numeric controls v2
+## Button and Toggle Button
 
-The existing `integer` and `float` kinds now have:
+`button` is action-only. Its appearance can include:
+
+- `icon_path`
+- `icon_size`
+- `icon_only`
+- `color`
+
+Stateful button behavior belongs to the dedicated `toggle_button` kind. Toggle Button supports internal or script-derived state, ON/OFF scripts, labels, colors and the native `state_toggle` binding handler.
+
+## Icon and Toggle Icon
+
+`icon` is a standalone image item with:
+
+- `path`
+- `width` / `height`
+- `content_alignment`: `left`, `center`, `right`
+- `tooltip`
+- optional bindings
+
+Runtime paths expand environment variables and `~`. Missing image content renders a visible fallback marker instead of crashing the toolbox.
+
+Stateful icon behavior belongs to `toggle_icon`, which has independent ON/OFF image paths and the same internal/script state model as Toggle Button.
+
+`alignment` and `clickable` are not schema aliases in the current model.
+
+## Numeric controls
+
+The `integer` and `float` kinds support:
 
 - `size`: 1, 2, 3 or 4
 - `component_labels`
 - `show_slider`
 
-Size 1 preserves the historical scalar value contract:
+Size 1 stores a scalar. Size 2–4 stores a list. Model construction and runtime value writes use the same numeric normalizer so component count, fallback values and min/max clamping cannot diverge.
 
-```python
-12
-```
-
-Size 2-4 returns a list:
-
-```python
-[1.0, 2.0, 3.0]
-```
-
-Values are normalized and clamped component-by-component. Default component labels are X/Y/Z/W, but labels can be customized, for example Width/Height or R/G/B/A.
-
-When `show_slider` is enabled, each component keeps its numeric spin box and receives a synchronized slider. Float sliders map their configured min/max range to an internal integer slider resolution; stored values remain floats.
+Default component labels are X/Y/Z/W but can be customized. When `show_slider` is enabled, each component receives a synchronized slider while the stored value keeps its native integer/float type.
 
 ## Composition instead of specialized kinds
 
-Controls v2 deliberately does not add these model kinds:
+Controls v2 deliberately does not add model kinds such as Selection Set, Node Picker, File Picker, Button Group, Vector2/3/4 or Slider.
 
-- Selection Set
-- Node Picker
-- File Picker / Folder Picker
-- Button Group
-- Vector2 / Vector3 / Vector4
-- Slider
-
-They are composed from primitives instead:
+Those workflows are composed from primitives, for example:
 
 - File Picker = Row + String + Icon
 - Node Picker = Row + String + Icon
 - Selection Set = Field + Row + Buttons
 - Button Group = Row + Buttons
 
-This keeps the document model small while the runtime renderer registry and universal callbacks provide the extensibility needed for DCC-specific tools.
+This keeps the document model small while item factories, layout containers, renderer registry and bindings provide the reusable mechanisms.

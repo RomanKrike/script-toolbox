@@ -20,12 +20,11 @@ from .layout_editor_adapter import fix_layout_tree_structure
 from .layout_editor_adapter import insert_layout_cloned_tree_item
 from .layout_editor_adapter import make_layout_tree_item
 from .layout_editor_adapter import sync_layout_working_from_tree
-from .layout_editor_adapter import unwrap_layout_editor_base
 from .share_hooks import install_share_controller
 
 
 _ADAPTER_MARKER = "_script_toolbox_document_controller_adapter"
-_LEGACY_BASE = "_script_toolbox_legacy_interface_editor"
+_ADAPTER_BASE = "_script_toolbox_interface_editor_adapter_base"
 _VIEW_ROLE_ID = QtCore.Qt.UserRole + 1
 
 
@@ -163,19 +162,16 @@ def restore_editor_view_state(editor, state):
 
 
 def _unwrap_base(base_class):
-    changed = True
-    while changed:
-        original = base_class
-
-        while getattr(base_class, _ADAPTER_MARKER, False):
-            legacy = getattr(base_class, _LEGACY_BASE, None)
-            if legacy is None or legacy is base_class:
-                break
-            base_class = legacy
-
-        base_class = unwrap_layout_editor_base(base_class)
-        changed = base_class is not original
-
+    """Avoid stacking this active adapter across development reloads."""
+    while getattr(base_class, _ADAPTER_MARKER, False):
+        previous = getattr(
+            base_class,
+            _ADAPTER_BASE,
+            None
+        )
+        if previous is None or previous is base_class:
+            break
+        base_class = previous
     return base_class
 
 
@@ -184,13 +180,13 @@ def build_interface_editor_class(
     controller_class=None,
     layout_support=False
 ):
-    """Build the active controller-backed InterfaceEditor adapter."""
+    """Build the active controller-backed InterfaceEditor."""
     base_class = _unwrap_base(base_class)
     if controller_class is None:
         controller_class = EditorDocumentController
 
     class InterfaceEditor(base_class):
-        """Compatibility adapter moving editor state/history into core."""
+        """Controller-backed Interface Editor with command history."""
 
         def __init__(self, toolbox, parent=None):
             self.document_controller = controller_class(
@@ -203,8 +199,8 @@ def build_interface_editor_class(
             self._pending_document_selection = None
             self._next_tree_label = None
 
-            # Share must exist before the legacy constructor calls build_ui(),
-            # where _icon_button() resolves dynamically on this instance.
+            # Share exists before the base constructor calls build_ui(), where
+            # _icon_button() resolves dynamically on this instance.
             install_share_controller(self)
 
             base_class.__init__(
@@ -217,8 +213,7 @@ def build_interface_editor_class(
                 self.document_controller,
                 limit=100
             )
-            # Preserve legacy UI checks such as bool(self.undo_stack) while
-            # changing the stack contents from documents to commands.
+            # Keep the active base UI wired to the command-history lists.
             self.undo_stack = self.command_history.undo_stack
             self.redo_stack = self.command_history.redo_stack
             self._command_ready = True
@@ -320,7 +315,7 @@ def build_interface_editor_class(
             )
 
         # --------------------------------------------------------------
-        # Document ownership compatibility
+        # Document ownership
         # --------------------------------------------------------------
 
         @property
@@ -329,9 +324,8 @@ def build_interface_editor_class(
 
         @working.setter
         def working(self, document):
-            # Legacy InterfaceEditor callers already copy/normalize external
-            # documents before assignment. Internal tree synchronization
-            # assembles current item dicts directly, so adopt preserves them.
+            # Tree synchronization assembles current item dictionaries
+            # directly, so adopt preserves their object identity.
             self.document_controller.adopt(document)
 
         @property
@@ -792,7 +786,7 @@ def build_interface_editor_class(
     )
     setattr(
         InterfaceEditor,
-        _LEGACY_BASE,
+        _ADAPTER_BASE,
         base_class
     )
     InterfaceEditor.__name__ = "InterfaceEditor"

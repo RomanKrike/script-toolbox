@@ -11,59 +11,6 @@ from ..pycompat import text_type
 from ..style.palette import TEXT_STRUCTURE_COLUMN
 
 
-_LAYOUT_ADAPTER_MARKER = "_script_toolbox_layout_editor_adapter"
-_LAYOUT_LEGACY_BASE = "_script_toolbox_layout_legacy_base"
-_DOCUMENT_ADAPTER_MARKER = "_script_toolbox_document_controller_adapter"
-_DOCUMENT_LEGACY_BASE = "_script_toolbox_legacy_interface_editor"
-
-
-def unwrap_layout_editor_base(base_class):
-    """Remove legacy layout wrappers left behind by hot reloads."""
-    while getattr(
-        base_class,
-        _LAYOUT_ADAPTER_MARKER,
-        False
-    ):
-        legacy = getattr(
-            base_class,
-            _LAYOUT_LEGACY_BASE,
-            None
-        )
-        if legacy is None or legacy is base_class:
-            break
-        base_class = legacy
-    return base_class
-
-
-def _unwrap_base(base_class):
-    """Compatibility unwrapping for the historical layout builder."""
-    changed = True
-    while changed:
-        changed = False
-
-        if getattr(
-            base_class,
-            _DOCUMENT_ADAPTER_MARKER,
-            False
-        ):
-            legacy = getattr(
-                base_class,
-                _DOCUMENT_LEGACY_BASE,
-                None
-            )
-            if legacy is not None and legacy is not base_class:
-                base_class = legacy
-                changed = True
-                continue
-
-        unwrapped = unwrap_layout_editor_base(base_class)
-        if unwrapped is not base_class:
-            base_class = unwrapped
-            changed = True
-
-    return base_class
-
-
 def make_layout_tree_item(
     editor,
     data,
@@ -436,7 +383,7 @@ def delete_layout_selected(
     editor,
     base_delete_selected
 ):
-    """Confirm destructive Row / Column deletion, then use legacy removal."""
+    """Confirm destructive Row / Column deletion, then remove the item."""
     item = editor.tree.currentItem()
     if item is None:
         return
@@ -466,78 +413,11 @@ def delete_layout_selected(
     return base_delete_selected(editor)
 
 
-def build_layout_editor_class(base_class):
-    """Compatibility wrapper for older direct builder imports.
-
-    Active Script Toolbox composition calls the helpers above from the document
-    adapter and no longer adds a dedicated layout inheritance layer.
-    """
-    base_class = _unwrap_base(base_class)
-
-    class InterfaceEditor(base_class):
-
-        def make_tree_item(self, data):
-            return make_layout_tree_item(
-                self,
-                data,
-                base_class.make_tree_item
-            )
-
-        def fix_tree_structure(self):
-            return fix_layout_tree_structure(self)
-
-        def sync_working_from_tree(self):
-            return sync_layout_working_from_tree(self)
-
-        def _insert_cloned_tree_item(
-            self,
-            data,
-            sibling=False
-        ):
-            return insert_layout_cloned_tree_item(
-                self,
-                data,
-                sibling=sibling
-            )
-
-        def create_from_palette(
-            self,
-            palette_item,
-            column=0
-        ):
-            return create_layout_from_palette(
-                self,
-                palette_item,
-                column
-            )
-
-        def delete_selected(self):
-            return delete_layout_selected(
-                self,
-                base_class.delete_selected
-            )
-
-    setattr(
-        InterfaceEditor,
-        _LAYOUT_ADAPTER_MARKER,
-        True
-    )
-    setattr(
-        InterfaceEditor,
-        _LAYOUT_LEGACY_BASE,
-        base_class
-    )
-    InterfaceEditor.__name__ = "InterfaceEditor"
-    return InterfaceEditor
-
-
 __all__ = [
-    "build_layout_editor_class",
     "create_layout_from_palette",
     "delete_layout_selected",
     "fix_layout_tree_structure",
     "insert_layout_cloned_tree_item",
     "make_layout_tree_item",
     "sync_layout_working_from_tree",
-    "unwrap_layout_editor_base",
 ]

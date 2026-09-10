@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from script_toolbox.constants import CONFIG_VERSION
 from script_toolbox.core import event_bindings
 from script_toolbox.core.event_bindings import dispatch_item_event
-from script_toolbox.core.migrations import migrate_document
 from script_toolbox.core.references import rewrite_item_references
 from script_toolbox.model.bindings import binding_display_name
 from script_toolbox.model.bindings import binding_events
@@ -15,6 +13,7 @@ from script_toolbox.model.items import create_item
 def test_layout_bindings_are_internal_only_for_now():
     assert binding_events("folder") == ()
     assert binding_events("row") == ()
+    assert binding_events("column") == ()
     assert binding_events("separator") == ()
     assert binding_events("folder", include_internal=True) == (
         "opened",
@@ -43,16 +42,14 @@ def test_modifier_matching_is_exact_by_default():
                     "click",
                     script="plain = True",
                     modifiers=[],
-                    binding_id="plain",
-                    button_mode="action"
+                    binding_id="plain"
                 ),
                 make_binding(
                     "click",
                     language="mel",
                     script="polyCube;",
                     modifiers=["ctrl", "alt"],
-                    binding_id="combo",
-                    button_mode="action"
+                    binding_id="combo"
                 ),
             ],
         }
@@ -90,26 +87,27 @@ def test_button_can_mix_python_and_mel_per_trigger():
                     "click",
                     language="python",
                     script="python_call = True",
-                    binding_id="python",
-                    button_mode="action"
+                    binding_id="python"
                 ),
                 make_binding(
                     "double_click",
                     language="mel",
                     script="polyCube;",
-                    binding_id="mel",
-                    button_mode="action"
+                    binding_id="mel"
                 ),
             ],
         }
     )
 
-    assert "language" not in item
     assert item["bindings"][0]["language"] == "python"
     assert item["bindings"][1]["language"] == "mel"
+    assert all(
+        "button_mode" not in binding
+        for binding in item["bindings"]
+    )
 
 
-def test_toggle_button_keeps_state_toggle_binding_separate_from_action_mode():
+def test_toggle_button_has_native_state_trigger_and_can_add_script_trigger():
     item = create_item(
         "toggle_button",
         {
@@ -117,14 +115,12 @@ def test_toggle_button_keeps_state_toggle_binding_separate_from_action_mode():
                 make_binding(
                     "click",
                     handler="state_toggle",
-                    button_mode="state",
                     binding_id="toggle"
                 ),
                 make_binding(
                     "click",
-                    script="should_not_run = True",
-                    button_mode="action",
-                    binding_id="legacy_action"
+                    script="after_toggle = True",
+                    binding_id="script"
                 ),
             ],
         }
@@ -137,119 +133,29 @@ def test_toggle_button_keeps_state_toggle_binding_separate_from_action_mode():
         modifiers=[]
     )
 
-    assert [entry["id"] for entry in matched] == ["toggle"]
+    assert [entry["id"] for entry in matched] == [
+        "toggle",
+        "script",
+    ]
     assert matched[0]["handler"] == "state_toggle"
+    assert matched[1]["handler"] == "script"
 
 
-def test_schema17_migrates_click_shift_callbacks_and_folder_events():
-    source = {
-        "version": 17,
-        "sections": [
-            {
-                "kind": "folder",
-                "id": "root",
-                "name": "root",
-                "callbacks": {
-                    "on_open": "print('open')",
-                    "on_close": "print('close')",
-                },
-                "items": [
-                    {
-                        "kind": "button",
-                        "id": "run",
-                        "name": "run",
-                        "mode": "action",
-                        "language": "mel",
-                        "click_script": "polyCube;",
-                        "shift_script": "polySphere;",
-                        "callbacks": {
-                            "on_click": "toolbox.get_value('value')",
-                        },
-                    },
-                    {
-                        "kind": "integer",
-                        "id": "value",
-                        "name": "value",
-                        "callbacks": {
-                            "on_change": "print(value)",
-                        },
-                    },
-                ],
-            }
-        ],
-    }
+def test_state_toggle_handler_is_not_valid_for_plain_button():
+    item = create_item(
+        "button",
+        {
+            "bindings": [
+                make_binding(
+                    "click",
+                    handler="state_toggle",
+                    binding_id="invalid"
+                )
+            ],
+        }
+    )
 
-    migrated = migrate_document(source)
-    folder = migrated["sections"][0]
-    button = folder["items"][0]
-    value = folder["items"][1]
-
-    assert migrated["version"] == CONFIG_VERSION
-    assert "callbacks" not in folder
-    assert "callbacks" not in button
-    assert "language" not in button
-    assert "click_script" not in button
-    assert "shift_script" not in button
-
-    assert [entry["event"] for entry in folder["bindings"]] == [
-        "opened",
-        "closed",
-    ]
-    assert binding_events("folder") == ()
-
-    mel_bindings = [
-        entry
-        for entry in button["bindings"]
-        if entry.get("language") == "mel"
-    ]
-    assert len(mel_bindings) == 2
-    assert mel_bindings[0]["script"] == "polyCube;"
-    assert mel_bindings[1]["modifiers"] == ["shift"]
-
-    callback_binding = [
-        entry
-        for entry in button["bindings"]
-        if entry.get("language") == "python"
-    ][0]
-    assert callback_binding["event"] == "click"
-    assert callback_binding["modifier_policy"] == "any"
-
-    assert value["bindings"][0]["event"] == "value_changed"
-    assert value["bindings"][0]["script"] == "print(value)"
-
-
-def test_schema17_state_button_becomes_toggle_and_keeps_native_transitions():
-    source = {
-        "version": 17,
-        "sections": [
-            {
-                "kind": "folder",
-                "name": "root",
-                "items": [
-                    {
-                        "kind": "button",
-                        "id": "state",
-                        "name": "state",
-                        "mode": "state",
-                        "language": "mel",
-                        "state_get_script": "state = True",
-                        "state_on_script": "showHidden -a;",
-                        "state_off_script": "hide;",
-                    }
-                ],
-            }
-        ],
-    }
-
-    migrated = migrate_document(source)
-    item = migrated["sections"][0]["items"][0]
-
-    assert item["kind"] == "toggle_button"
-    assert item["state_source"] == "script"
-    assert item["state_get_language"] == "python"
-    assert item["state_on_language"] == "mel"
-    assert item["state_off_language"] == "mel"
-    assert item["bindings"][0]["handler"] == "state_toggle"
+    assert item["bindings"][0]["handler"] == "script"
 
 
 def test_reference_rewrite_only_touches_python_binding_scripts():
@@ -261,15 +167,13 @@ def test_reference_rewrite_only_touches_python_binding_scripts():
                     "click",
                     language="python",
                     script="toolbox.get_value('old_name')",
-                    binding_id="python",
-                    button_mode="action"
+                    binding_id="python"
                 ),
                 make_binding(
                     "double_click",
                     language="mel",
                     script='python("toolbox.get_value(\\"old_name\\")");',
-                    binding_id="mel",
-                    button_mode="action"
+                    binding_id="mel"
                 ),
             ],
         }
@@ -342,8 +246,7 @@ def test_native_binding_uses_its_own_language(monkeypatch):
                     "click",
                     language="mel",
                     script="polyCube;",
-                    binding_id="mel",
-                    button_mode="action"
+                    binding_id="mel"
                 )
             ],
         }

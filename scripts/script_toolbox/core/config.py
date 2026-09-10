@@ -13,8 +13,8 @@ from ..pycompat import text_type
 from ..constants import CONFIG_FILENAME
 from ..constants import CONFIG_PATH_ENV
 from ..model import normalize_document
-from .migrations import ConfigMigrationError
-from .migrations import migrate_document
+from .config_schema import ConfigSchemaError
+from .config_schema import validate_document_schema
 
 
 CONFIG_BACKUP_COUNT = 3
@@ -93,7 +93,7 @@ def backup_path(
 
 def _prepare_document(document):
     return normalize_document(
-        migrate_document(
+        validate_document_schema(
             document
         )
     )
@@ -159,10 +159,7 @@ def load_config(path=None):
             path
         )
 
-    except ConfigMigrationError as exc:
-        # Do not silently replace a valid but unsupported configuration with
-        # defaults. In particular, a config created by a newer Script Toolbox
-        # must never be down-converted and later overwritten by this version.
+    except ConfigSchemaError as exc:
         warnings.warn(
             "Script Toolbox: cannot safely load config at {0!r}: {1}".format(
                 path,
@@ -282,10 +279,6 @@ def _rotate_backups(
         int(count)
     )
 
-    # Existing backups are moved, not copied, so each save copies only the
-    # current primary config once. This matters because runtime value controls
-    # currently persist frequently; debounced persistence is a later roadmap
-    # step and backup safety must not multiply that I/O cost.
     for index in range(
         count,
         1,
@@ -375,8 +368,6 @@ def restore_config_backup(
     )
 
     if source_backup not in backups:
-        # Validate explicitly supplied backup paths as well, while preventing
-        # accidental restoration from an unrelated file.
         expected = set([
             backup_path(path, index)
             for index in range(1, CONFIG_BACKUP_COUNT + 1)
@@ -412,7 +403,6 @@ def restore_config_backup(
             temp_path
         )
 
-        # Validate the exact bytes that will replace the primary config.
         _read_document(
             temp_path
         )
@@ -497,7 +487,7 @@ def save_config(document, path=None):
                 _read_document(
                     path
                 )
-            except ConfigMigrationError:
+            except ConfigSchemaError:
                 raise
             except Exception as exc:
                 raise ConfigRecoveryRequired(

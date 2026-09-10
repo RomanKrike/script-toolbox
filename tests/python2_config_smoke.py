@@ -19,6 +19,7 @@ sys.path.insert(
     )
 )
 
+from script_toolbox.constants import CONFIG_VERSION
 from script_toolbox.core import config
 from script_toolbox.core.config_store import ConfigStore
 from script_toolbox.core.editor_commands import CommandHistory
@@ -38,31 +39,19 @@ def main():
     )
 
     try:
-        config.save_config(
-            {},
-            path=path
-        )
-        document = config.load_config(
-            path=path
-        )
+        config.save_config({}, path=path)
+        document = config.load_config(path=path)
+        assert document["version"] == CONFIG_VERSION
         assert document["sections"]
         assert os.path.isfile(path)
 
-        store = ConfigStore(
-            document=document,
-            path=path
-        )
+        store = ConfigStore(document=document, path=path)
         store.mark_dirty()
         store.flush()
 
         assert store.dirty is False
         assert store.write_count == 1
-        assert os.path.isfile(
-            config.backup_path(
-                path,
-                1
-            )
-        )
+        assert os.path.isfile(config.backup_path(path, 1))
 
         refresh_queue = StateRefreshQueue()
         assert refresh_queue.request() is True
@@ -71,7 +60,7 @@ def main():
         assert refresh_queue.pending is False
 
         editor_document = {
-            "version": 16,
+            "version": CONFIG_VERSION,
             "sections": [
                 {
                     "kind": "folder",
@@ -90,9 +79,7 @@ def main():
                 }
             ],
         }
-        controller = EditorDocumentController(
-            editor_document
-        )
+        controller = EditorDocumentController(editor_document)
         assert controller.find_by_id("value")["value"] == "test"
 
         clone = controller.clone_subtree(
@@ -121,15 +108,9 @@ def main():
         registry = RuntimeRendererRegistry()
 
         def render(owner, item, compact=False):
-            return (
-                item["id"],
-                bool(compact)
-            )
+            return (item["id"], bool(compact))
 
-        registry.register(
-            "button",
-            render
-        )
+        registry.register("button", render)
         assert registry.render(
             None,
             {
@@ -137,10 +118,7 @@ def main():
                 "id": "button_a",
             },
             compact=True
-        ) == (
-            "button_a",
-            True,
-        )
+        ) == ("button_a", True)
     finally:
         shutil.rmtree(folder)
 

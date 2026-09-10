@@ -56,7 +56,6 @@ def test_inspector_and_runtime_compose_one_collapsible_section_primitive():
         "scripts", "script_toolbox", "ui", "__init__.py"
     )
 
-    # One visual primitive owns all collapse presentation and interaction.
     assert "class CollapsibleSection(QtGui.QFrame):" in component
     assert "collapsedChanged = QtCore.Signal(bool)" in component
     assert 'self.setObjectName("RuntimeFolder")' in component
@@ -67,7 +66,6 @@ def test_inspector_and_runtime_compose_one_collapsible_section_primitive():
     assert '"right" if self._collapsed else "down"' in component
     assert "def _repolish(self):" in component
 
-    # InspectorSection is only a form adapter; it does not implement chrome.
     assert "class InspectorSection(QtGui.QWidget):" in sections
     assert "self.section = CollapsibleSection(" in sections
     assert "self.header = self.section.header" in sections
@@ -78,7 +76,6 @@ def test_inspector_and_runtime_compose_one_collapsible_section_primitive():
     assert 'u"\\u25b8"' not in sections
     assert 'u"\\u25be"' not in sections
 
-    # RuntimeFolder keeps its class identity and composes the same primitive.
     assert "def install_runtime_folder_composition(runtime_module):" in component
     assert "self.collapsible_section = CollapsibleSection(" in component
     assert "self.collapsible_section.collapsedChanged.connect(" in component
@@ -86,7 +83,6 @@ def test_inspector_and_runtime_compose_one_collapsible_section_primitive():
     assert "runtime_module.RuntimeFolder = SharedRuntimeFolder" not in component
     assert "class SharedRuntimeFolder" not in component
 
-    # Persisted state is handled outside CollapsibleSection itself.
     class_block = component.split(
         "class CollapsibleSection(QtGui.QFrame):",
         1
@@ -178,18 +174,21 @@ def test_item_editors_route_controls_to_semantic_sections():
 
     assert "section = self.appearance_section" in button
     assert '"Icon Size"' in button
-    assert '"ON Color"' in button
-    assert "self.add_trigger_widget(" in button
-    assert '"Get State"' in button
-    assert '"Turn ON"' in button
-    assert '"Turn OFF"' in button
+    assert '"Color"' in button
+    assert '"ON Color"' not in button
+    assert '"Get State"' not in button
+    assert "state_get_script" not in button
 
     assert 'self.behavior_section.addRow(' in toggle_button
     assert '"State Source"' in toggle_button
     assert '"Internal State"' in toggle_button
-    assert "state_get_script" in button
-    assert "state_on_script" in button
-    assert "state_off_script" in button
+    assert '"ON Color"' in toggle_button
+    assert '"Get State"' in toggle_button
+    assert '"Turn ON"' in toggle_button
+    assert '"Turn OFF"' in toggle_button
+    assert "state_get_script" in toggle_button
+    assert "state_on_script" in toggle_button
+    assert "state_off_script" in toggle_button
 
     assert 'self.behavior_section.addRow(' in toggle_icon
     assert "section = self.appearance_section" in toggle_icon
@@ -222,7 +221,7 @@ def test_universal_applicability_disables_controls_without_schema_changes():
     assert "Controlled by parent Column > Cross Alignment." in adapter
     assert "self.set_property_available(" in basic
     assert "Separator does not display a label." in basic
-    assert "CONFIG_VERSION = 19" in constants
+    assert "CONFIG_VERSION = 20" in constants
 
     for forbidden in (
         "expression_language",

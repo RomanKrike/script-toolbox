@@ -4,8 +4,10 @@ import copy
 import json
 import os
 
+from script_toolbox.constants import CONFIG_VERSION
 from script_toolbox.core.editor_document import EditorDocumentController
 from script_toolbox.model import walk_items
+from script_toolbox.model.bindings import make_binding
 
 
 FIXTURES = os.path.join(
@@ -14,10 +16,10 @@ FIXTURES = os.path.join(
 )
 
 
-def _golden_document():
+def _current_document():
     path = os.path.join(
         FIXTURES,
-        "golden_v16_full.json"
+        "current_v20_full.json"
     )
     with open(path, "r") as handle:
         return json.load(handle)
@@ -34,7 +36,7 @@ def _all_items(document):
 
 def _linked_document():
     return {
-        "version": 16,
+        "version": CONFIG_VERSION,
         "sections": [
             {
                 "kind": "folder",
@@ -48,20 +50,24 @@ def _linked_document():
                         "name": "internal_value",
                         "label": "Internal",
                         "value": "inside",
-                        "on_change_script": "",
                     },
                     {
                         "kind": "button",
                         "id": "button_internal_id",
                         "name": "run_internal",
                         "label": "Run",
-                        "language": "python",
-                        "click_script": "\n".join([
-                            "a = toolbox.get_value('internal_value')",
-                            "b = toolbox.get_value('field_internal_id')",
-                            "c = toolbox.get_value('external_value')",
-                            "note = 'internal_value'",
-                        ]),
+                        "bindings": [
+                            make_binding(
+                                "click",
+                                script="\n".join([
+                                    "a = toolbox.get_value('internal_value')",
+                                    "b = toolbox.get_value('field_internal_id')",
+                                    "c = toolbox.get_value('external_value')",
+                                    "note = 'internal_value'",
+                                ]),
+                                binding_id="internal_click"
+                            )
+                        ],
                     },
                 ],
             },
@@ -77,17 +83,19 @@ def _linked_document():
                         "name": "external_value",
                         "label": "External",
                         "value": "outside",
-                        "on_change_script": "",
                     },
                     {
                         "kind": "button",
                         "id": "button_external_id",
                         "name": "external_reader",
                         "label": "External Reader",
-                        "language": "python",
-                        "click_script": (
-                            "toolbox.get_value('internal_value')"
-                        ),
+                        "bindings": [
+                            make_binding(
+                                "click",
+                                script="toolbox.get_value('internal_value')",
+                                binding_id="external_click"
+                            )
+                        ],
                     },
                 ],
             },
@@ -96,7 +104,7 @@ def _linked_document():
 
 
 def test_controller_owns_defensive_copy_and_indexes_nested_items():
-    source = _golden_document()
+    source = _current_document()
     controller = EditorDocumentController(source)
 
     source["sections"][0]["label"] = "Changed outside"
@@ -107,9 +115,7 @@ def test_controller_owns_defensive_copy_and_indexes_nested_items():
 
 
 def test_snapshot_is_independent_from_staged_document():
-    controller = EditorDocumentController(
-        _golden_document()
-    )
+    controller = EditorDocumentController(_current_document())
 
     snapshot = controller.snapshot()
     snapshot["sections"][0]["label"] = "Snapshot only"
@@ -118,9 +124,7 @@ def test_snapshot_is_independent_from_staged_document():
 
 
 def test_adopt_preserves_item_identity_for_qt_tree_sync():
-    controller = EditorDocumentController(
-        _golden_document()
-    )
+    controller = EditorDocumentController(_current_document())
     item = controller.find_by_id("integer_samples")
 
     adopted = {
@@ -134,42 +138,26 @@ def test_adopt_preserves_item_identity_for_qt_tree_sync():
 
 
 def test_replace_rebuilds_index_and_drops_old_ids():
-    controller = EditorDocumentController(
-        _golden_document()
-    )
-    replacement = copy.deepcopy(
-        controller.document
-    )
+    controller = EditorDocumentController(_current_document())
+    replacement = copy.deepcopy(controller.document)
     replacement["sections"][0]["items"] = []
 
     controller.replace(replacement)
 
     assert controller.find_by_id("integer_samples") is None
-    assert controller.find_by_id(
-        replacement["sections"][0]["id"]
-    ) is not None
+    assert controller.find_by_id(replacement["sections"][0]["id"]) is not None
 
 
-def test_unique_name_matches_legacy_suffix_and_sanitization_contract():
-    controller = EditorDocumentController(
-        _golden_document()
-    )
+def test_unique_name_suffix_and_sanitization_contract():
+    controller = EditorDocumentController(_current_document())
     used = set(["render_tools", "render_tools_2"])
 
-    assert controller.unique_name(
-        "Render Tools!",
-        used
-    ) == "Render_Tools"
-    assert controller.unique_name(
-        "render_tools",
-        used
-    ) == "render_tools_3"
+    assert controller.unique_name("Render Tools!", used) == "Render_Tools"
+    assert controller.unique_name("render_tools", used) == "render_tools_3"
 
 
 def test_clone_subtree_allocates_fresh_ids_and_unique_names_recursively():
-    controller = EditorDocumentController(
-        _golden_document()
-    )
+    controller = EditorDocumentController(_current_document())
     source = controller.document["sections"][0]
     clone = controller.clone_subtree(source)
 
@@ -195,34 +183,26 @@ def test_clone_subtree_allocates_fresh_ids_and_unique_names_recursively():
     assert clone["kind"] == source["kind"]
 
 
-def test_clone_subtree_remaps_internal_script_links_only():
-    controller = EditorDocumentController(
-        _linked_document()
-    )
+def test_clone_subtree_remaps_internal_binding_links_only():
+    controller = EditorDocumentController(_linked_document())
     source = controller.document["sections"][0]
     clone = controller.clone_subtree(source)
 
     cloned_field = clone["items"][0]
     cloned_button = clone["items"][1]
-    script = cloned_button["click_script"]
+    script = cloned_button["bindings"][0]["script"]
 
     assert cloned_field["name"] == "internal_value_2"
     assert cloned_field["id"] != "field_internal_id"
     assert "toolbox.get_value('internal_value_2')" in script
-    assert "toolbox.get_value('{0}')".format(
-        cloned_field["id"]
-    ) in script
+    assert "toolbox.get_value('{0}')".format(cloned_field["id"]) in script
     assert "toolbox.get_value('external_value')" in script
     assert "note = 'internal_value'" in script
 
 
-def test_rename_item_references_uses_stable_target_and_updates_managed_calls():
-    controller = EditorDocumentController(
-        _linked_document()
-    )
-    target = controller.find_by_id(
-        "field_internal_id"
-    )
+def test_rename_item_references_updates_managed_binding_calls():
+    controller = EditorDocumentController(_linked_document())
+    target = controller.find_by_id("field_internal_id")
     target["name"] = "renamed_value"
 
     changed_ids = controller.rename_item_references(
@@ -233,24 +213,19 @@ def test_rename_item_references_uses_stable_target_and_updates_managed_calls():
 
     internal_script = controller.find_by_id(
         "button_internal_id"
-    )["click_script"]
+    )["bindings"][0]["script"]
     external_script = controller.find_by_id(
         "button_external_id"
-    )["click_script"]
+    )["bindings"][0]["script"]
 
-    assert changed_ids == set([
-        "button_internal_id",
-        "button_external_id",
-    ])
+    assert changed_ids == set(["button_internal_id", "button_external_id"])
     assert "toolbox.get_value('renamed_value')" in internal_script
     assert "toolbox.get_value('renamed_value')" in external_script
     assert "note = 'internal_value'" in internal_script
 
 
 def test_rename_item_references_rejects_unknown_stable_id():
-    controller = EditorDocumentController(
-        _linked_document()
-    )
+    controller = EditorDocumentController(_linked_document())
 
     changed_ids = controller.rename_item_references(
         "missing_id",
@@ -261,13 +236,11 @@ def test_rename_item_references_rejects_unknown_stable_id():
     assert changed_ids == set()
     assert controller.find_by_id(
         "button_external_id"
-    )["click_script"] == "toolbox.get_value('internal_value')"
+    )["bindings"][0]["script"] == "toolbox.get_value('internal_value')"
 
 
 def test_cache_subtree_supports_detached_items_before_tree_sync():
-    controller = EditorDocumentController(
-        _golden_document()
-    )
+    controller = EditorDocumentController(_current_document())
     detached = controller.clone_subtree(
         controller.document["sections"][0]
     )
@@ -282,7 +255,7 @@ def test_cache_subtree_supports_detached_items_before_tree_sync():
 
 
 def test_duplicate_name_reports_first_duplicate_in_document_traversal():
-    document = _golden_document()
+    document = _current_document()
     controller = EditorDocumentController(document)
     items = _all_items(controller.document)
 

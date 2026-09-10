@@ -5,11 +5,10 @@ import copy
 
 from ..model import DocumentIndex
 from ..model import walk_items
-from ..model.items import clamp
+from ..model.items import normalize_numeric_value
 from ..model.items import safe_color
 from ..model.items import safe_float
 from ..model.items import safe_int
-from ..model.items import safe_numeric_size
 from ..pycompat import text_type
 
 
@@ -96,6 +95,8 @@ def _linear_find_item(document, key):
         if item.get("name") == key_text:
             return item
 
+    # ``label`` remains a legacy presentation-level lookup alias. New code
+    # should use stable IDs or supported symbolic names.
     for item in items:
         if item.get("label") == key_text:
             return item
@@ -160,52 +161,6 @@ def get_value(
     )
 
 
-def _normalize_numeric_vector(
-    item,
-    value,
-    caster
-):
-    size = safe_numeric_size(
-        item.get("size", 1)
-    )
-    current = item.get("value")
-
-    if isinstance(value, (list, tuple)):
-        incoming = list(value)
-    else:
-        incoming = [value] * size
-
-    if isinstance(current, (list, tuple)):
-        fallback_values = list(current)
-    else:
-        fallback_values = [current] * size
-
-    result = []
-    for index in range(size):
-        fallback = (
-            fallback_values[index]
-            if index < len(fallback_values)
-            else 0
-        )
-        candidate = (
-            incoming[index]
-            if index < len(incoming)
-            else fallback
-        )
-        result.append(
-            clamp(
-                caster(candidate, fallback),
-                item["min"],
-                item["max"]
-            )
-        )
-
-    if size == 1:
-        return result[0]
-
-    return result
-
-
 def normalize_value(item, value):
     kind = item.get(
         "kind"
@@ -234,17 +189,23 @@ def normalize_value(item, value):
         )
 
     if kind == "integer":
-        return _normalize_numeric_vector(
-            item,
+        return normalize_numeric_value(
             value,
-            safe_int
+            item.get("size", 1),
+            item["min"],
+            item["max"],
+            safe_int,
+            item.get("value", 0)
         )
 
     if kind == "float":
-        return _normalize_numeric_vector(
-            item,
+        return normalize_numeric_value(
             value,
-            safe_float
+            item.get("size", 1),
+            item["min"],
+            item["max"],
+            safe_float,
+            item.get("value", 0.0)
         )
 
     if kind in (

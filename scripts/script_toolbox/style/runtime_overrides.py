@@ -1,12 +1,20 @@
 # -*- coding: utf-8 -*-
 
+from .metrics import BORDER_RADIUS_CARD
+from .metrics import BORDER_RADIUS_PANEL
 from .metrics import LIST_ITEM_MIN_HEIGHT
 from .metrics import LIST_ITEM_PADDING_HORIZONTAL
 from .metrics import LIST_ITEM_PADDING_VERTICAL
+from .metrics import TAB_MARGIN_RIGHT
+from .palette import FOLDER_CARD_BG
+from .palette import FOLDER_HEADER_HOVER_BG
 from .palette import LIST_BG
 from .palette import SELECTION_BG
 from .palette import SELECTION_TEXT
 from .palette import SEPARATOR
+from .palette import TEXT_FOLDER_COLLAPSED
+from .palette import TEXT_FOLDER_HOVER
+from .palette import TEXT_HEADING
 from .palette import TEXT_LIST
 from .palette import WINDOW_BG
 
@@ -48,6 +56,49 @@ QFrame#RuntimeSeparatorLineVertical {{
     border-left: 1px solid {separator};
 }}
 
+/* Runtime tabs share the collapsible-folder palette, but remain visibly
+   tabs. In particular, avoid the all-corners rounded button treatment that
+   clips the first tab in Maya 2015 / Qt4. The selected tab visually opens
+   into the folder-like content card below it. */
+QWidget#ToolboxContent QTabWidget::pane {{
+    background-color: {folder_card_bg};
+    border: 1px solid {separator};
+    border-radius: {card_radius}px;
+    top: -1px;
+}}
+
+QWidget#ToolboxContent QTabWidget::tab-bar {{
+    left: 1px;
+}}
+
+QWidget#ToolboxContent QTabBar::tab {{
+    background-color: {window_bg};
+    color: {text_folder_collapsed};
+    border: 1px solid {separator};
+    border-bottom: 1px solid {separator};
+    border-top-left-radius: {panel_radius}px;
+    border-top-right-radius: {panel_radius}px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+    min-height: 18px;
+    padding: 3px 9px;
+    margin-right: {tab_margin_right}px;
+    font-weight: normal;
+}}
+
+QWidget#ToolboxContent QTabBar::tab:hover {{
+    background-color: {folder_header_hover_bg};
+    color: {text_folder_hover};
+}}
+
+QWidget#ToolboxContent QTabBar::tab:selected {{
+    background-color: {folder_card_bg};
+    color: {text_heading};
+    border-color: {separator};
+    border-bottom-color: {folder_card_bg};
+    font-weight: bold;
+}}
+
 /* Runtime Field keeps the editor list surface without row decoration:
    one flat background, no alternating rows or separators, and only the
    selected row receives the editor's orange highlight. The visible outer
@@ -77,6 +128,14 @@ QListWidget#RuntimeFieldList::item:selected {{
 """.format(
     window_bg=WINDOW_BG,
     separator=SEPARATOR,
+    folder_card_bg=FOLDER_CARD_BG,
+    folder_header_hover_bg=FOLDER_HEADER_HOVER_BG,
+    text_folder_collapsed=TEXT_FOLDER_COLLAPSED,
+    text_folder_hover=TEXT_FOLDER_HOVER,
+    text_heading=TEXT_HEADING,
+    card_radius=BORDER_RADIUS_CARD,
+    panel_radius=BORDER_RADIUS_PANEL,
+    tab_margin_right=TAB_MARGIN_RIGHT,
     list_bg=LIST_BG,
     text_list=TEXT_LIST,
     selection_bg=SELECTION_BG,

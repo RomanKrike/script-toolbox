@@ -4,6 +4,8 @@ from __future__ import print_function
 from ...compat import QtCore
 from ...compat import QtGui
 from ...pycompat import text_type
+from ...style.metrics import PROPERTY_EDITOR_SPACING
+from ...style.metrics import PROPERTY_GROUP_MARGINS
 from ..collapsible_folder import configure_collapsible_folder_content
 from ..collapsible_folder import configure_collapsible_folder_frame
 from ..collapsible_folder import configure_collapsible_folder_header
@@ -135,7 +137,9 @@ class InspectorSection(QtGui.QFrame):
         self.content_layout = QtGui.QVBoxLayout(self.content)
         configure_collapsible_folder_content(
             self.content,
-            self.content_layout
+            self.content_layout,
+            margins=PROPERTY_GROUP_MARGINS,
+            spacing=PROPERTY_EDITOR_SPACING
         )
 
         self.form = QtGui.QFormLayout()

@@ -9,6 +9,7 @@ from ..core.runtime_registry import RuntimeRendererRegistry
 from ..model.items import safe_component_labels
 from ..model.items import safe_numeric_size
 from ..pycompat import text_type
+from ..style.metrics import RUNTIME_PARAMETER_SPACING
 from ..style.palette import TEXT_SUBTLE
 
 
@@ -163,7 +164,7 @@ def _render_label(owner, item, compact=False):
 
     label.setToolTip(owner._tooltip(item))
     label.setStyleSheet(
-        "color:{0}; padding:2px 3px;".format(TEXT_SUBTLE)
+        "color:{0};".format(TEXT_SUBTLE)
     )
     return label
 
@@ -243,7 +244,7 @@ def _render_numeric(owner, item, compact=False, is_float=False):
     else:
         control_layout = QtGui.QHBoxLayout(control_root)
     control_layout.setContentsMargins(0, 0, 0, 0)
-    control_layout.setSpacing(4)
+    control_layout.setSpacing(RUNTIME_PARAMETER_SPACING)
 
     spins = []
     sliders = []
@@ -254,7 +255,7 @@ def _render_numeric(owner, item, compact=False, is_float=False):
             line = QtGui.QWidget()
             line_layout = QtGui.QHBoxLayout(line)
             line_layout.setContentsMargins(0, 0, 0, 0)
-            line_layout.setSpacing(4)
+            line_layout.setSpacing(RUNTIME_PARAMETER_SPACING)
             control_layout.addWidget(line)
             target_layout = line_layout
 
@@ -276,7 +277,10 @@ def _render_numeric(owner, item, compact=False, is_float=False):
             spin.setValue(int(values[index]))
 
         spins.append(spin)
-        target_layout.addWidget(spin, 0)
+        target_layout.addWidget(
+            spin,
+            1 if size == 1 and not show_slider else 0
+        )
 
         slider = None
         if show_slider:
@@ -351,10 +355,7 @@ def _render_numeric(owner, item, compact=False, is_float=False):
     if compact:
         control_root.setMinimumWidth(100)
 
-    layout.addWidget(
-        control_root,
-        1 if show_slider or size > 1 else 0
-    )
+    layout.addWidget(control_root, 1)
     return container
 
 

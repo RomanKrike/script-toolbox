@@ -172,8 +172,6 @@ def _toggle_button(data):
         ),
     })
 
-    # Internal state is persisted in the document. Script-backed state has no
-    # stored value because its query is the only source of truth.
     if state_source == "internal":
         item["value"] = bool(
             data.get("value", False)
@@ -203,11 +201,17 @@ def install_toggle_button_kind():
     _bindings.normalize_bindings = _normalize_bindings
     _bindings._mode_matches = _mode_matches
 
-    # items.py imported normalize_bindings directly, so replace that module
-    # reference as well before any documents are normalized.
     _items.normalize_bindings = _normalize_bindings
-    _items._FACTORIES["button"] = _action_button
-    _items._FACTORIES["toggle_button"] = _toggle_button
+    _items.register_item_factory(
+        "button",
+        _action_button,
+        replace=True
+    )
+    _items.register_item_factory(
+        "toggle_button",
+        _toggle_button,
+        replace=True
+    )
 
     setattr(
         _items,

@@ -6,6 +6,8 @@
 
 - Add a dedicated `Toggle Button` item with independent ON/OFF actions, labels, colors and icon settings.
 - Add `Internal` state for persisted boolean toggles and `Script` state for host-driven/query-driven toggles.
+- Add a first-run opt-in dialog for anonymous Script Toolbox usage statistics.
+- Add Script Toolbox Settings with update-channel and Privacy controls for telemetry consent.
 
 ### Changed
 

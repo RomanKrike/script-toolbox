@@ -8,6 +8,7 @@ from ..constants import BUILD_CHANNEL
 from ..constants import BUILD_NUMBER
 from ..constants import PLUGIN_VERSION
 from ..core.preferences import get_telemetry_consent
+from ..core.preferences import set_telemetry_consent
 from ..hosts import HOST
 from ..pycompat import text_type
 from . import service
@@ -145,7 +146,18 @@ def refresh_telemetry():
     return configure_default_telemetry()
 
 
+def apply_telemetry_consent(consent):
+    """Persist a consent choice and immediately apply it to this runtime."""
+    consent = set_telemetry_consent(consent)
+
+    if consent is True:
+        return initialize_telemetry()
+
+    return refresh_telemetry()
+
+
 __all__ = [
+    "apply_telemetry_consent",
     "configure_default_telemetry",
     "default_common_properties",
     "initialize_telemetry",

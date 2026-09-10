@@ -5,6 +5,7 @@ from .posthog_provider import PostHogProvider
 from .provider import NullTelemetryProvider
 from .provider import TelemetryProvider
 from .provider import TelemetryProviderError
+from .runtime import apply_telemetry_consent
 from .runtime import configure_default_telemetry
 from .runtime import default_common_properties
 from .runtime import initialize_telemetry
@@ -31,6 +32,7 @@ __all__ = [
     "TelemetryProvider",
     "TelemetryProviderError",
     "active_provider_name",
+    "apply_telemetry_consent",
     "available_provider_names",
     "configure",
     "configure_default_telemetry",

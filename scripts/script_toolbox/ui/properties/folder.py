@@ -5,6 +5,16 @@ from ...compat import QtGui
 from .base import PropertyEditorBase
 
 
+_GENERIC_FOLDER_LABELS = (
+    "Folder",
+    "New Folder",
+)
+_GENERIC_TAB_LABELS = (
+    "Tab",
+    "New Tab",
+)
+
+
 class FolderPropertyEditor(PropertyEditorBase):
 
     TYPES = (
@@ -48,8 +58,19 @@ class FolderPropertyEditor(PropertyEditorBase):
         self.collapsed.toggled.connect(self._control_changed)
 
     def _folder_type_changed(self, *args):
+        if not self.loading:
+            self._update_generic_label_for_type()
         self._refresh_collapsed_availability()
         self._control_changed()
+
+    def _update_generic_label_for_type(self):
+        label = str(self.label_edit.text())
+        folder_type = self.current_folder_type()
+
+        if folder_type == "tabs" and label in _GENERIC_FOLDER_LABELS:
+            self.label_edit.setText("New Tab")
+        elif folder_type != "tabs" and label in _GENERIC_TAB_LABELS:
+            self.label_edit.setText("New Folder")
 
     def _refresh_collapsed_availability(self):
         self.set_property_available(

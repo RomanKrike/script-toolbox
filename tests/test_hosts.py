@@ -5,6 +5,7 @@ import os
 from script_toolbox.hosts.base import BaseHost
 from script_toolbox.core import config
 from script_toolbox.core import executor
+from script_toolbox.core import user_paths
 
 
 class FakeHost(BaseHost):
@@ -100,13 +101,9 @@ def test_config_path_uses_active_host(
     host = FakeHost()
 
     monkeypatch.setattr(
-        config,
+        user_paths,
         "HOST",
         host
-    )
-    monkeypatch.delenv(
-        "SCRIPT_TOOLBOX_CONFIG_PATH",
-        raising=False
     )
 
     assert config.config_path().endswith(
@@ -116,22 +113,34 @@ def test_config_path_uses_active_host(
     )
 
 
-def test_config_path_environment_override_wins(
+def test_config_path_environment_override_is_ignored(
     monkeypatch,
     tmp_path
 ):
-    path = str(
+    host = FakeHost()
+    override_path = str(
         tmp_path /
         "custom.json"
     )
 
+    monkeypatch.setattr(
+        user_paths,
+        "HOST",
+        host
+    )
     monkeypatch.setenv(
         "SCRIPT_TOOLBOX_CONFIG_PATH",
-        path
+        override_path
     )
 
-    assert config.config_path() == os.path.normpath(
-        path
+    expected = os.path.normpath(
+        "tmp/fake/fake_toolbox.json"
+    )
+    assert config.config_path().endswith(
+        expected
+    )
+    assert config.config_path() != os.path.normpath(
+        override_path
     )
 
 

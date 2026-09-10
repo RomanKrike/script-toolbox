@@ -17,18 +17,25 @@ No event in this catalog may include scene contents, filenames, file paths, obje
 
 ## Product events
 
+Telemetry is intentionally sparse. We collect durable product actions rather than UI interaction noise.
+
 | Event | Event-specific properties | Meaning |
 | --- | --- | --- |
 | `plugin_started` | none | One Script Toolbox telemetry runtime started. |
-| `editor_opened` | none | The Interface Editor was opened. |
-| `settings_opened` | none | Script Toolbox Settings was opened. |
 | `item_created` | `item_type` | A parameter/layout item was created from the editor palette. |
 | `item_duplicated` | `item_type` | An existing item/subtree was duplicated. |
-| `item_activated` | `item_type` | A runtime item dispatched an explicit click action. |
 | `config_imported` | `mode` | A JSON toolbox import completed successfully. |
 | `config_exported` | none | A JSON toolbox export completed successfully. |
 | `share_created` | `share_type` | An encrypted share operation completed successfully and produced an STB1 code. |
 | `share_pasted` | `share_type` | Shared data was downloaded, decrypted and inserted into the editor. |
+
+The following high-frequency or low-value UI interactions are deliberately not tracked:
+
+```text
+editor_opened
+settings_opened
+item_activated
+```
 
 ## Property enums
 

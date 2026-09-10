@@ -31,16 +31,28 @@ def test_product_event_schema_accepts_reviewed_enum_properties():
 
 def test_product_event_schema_maps_future_item_types_to_other():
     assert events.sanitize_product_event(
-        "item_activated",
+        "item_created",
         {
             "item_type": "future-widget",
         }
     ) == (
-        "item_activated",
+        "item_created",
         {
             "item_type": "other",
         }
     )
+
+
+def test_noisy_ui_events_are_not_part_of_public_catalog():
+    for event_name in (
+        "editor_opened",
+        "settings_opened",
+        "item_activated",
+    ):
+        assert events.sanitize_product_event(
+            event_name,
+            {}
+        ) is None
 
 
 def test_product_event_schema_rejects_unknown_events_and_properties():

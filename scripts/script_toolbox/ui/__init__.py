@@ -14,7 +14,6 @@ from .scroll_surface_frames import install_runtime_scroll_frames
 from .scroll_surface_frames import install_script_editor_scroll_frames
 from .telemetry_hooks import build_telemetry_interface_editor_class
 from .telemetry_hooks import install_telemetry_share_controller
-from .telemetry_hooks import install_toolbox_telemetry
 
 
 def _install_current_palette(editor_class):
@@ -166,9 +165,6 @@ from .runtime import RuntimeFolder
 from .runtime import RuntimeFolderRadio
 from .runtime import RuntimeFolderTabs
 
-install_toolbox_telemetry(
-    _BaseScriptToolbox
-)
 ScriptToolbox = build_update_channel_toolbox_class(_BaseScriptToolbox)
 
 install_script_editor_scroll_frames(ScriptEditorWidget)

@@ -38,20 +38,15 @@ SHARE_TYPES = (
 )
 
 
-# Every event/property/value admitted here is privacy-reviewed. Product code
-# should use track_product_event() instead of sending arbitrary dictionaries to
-# the provider facade.
+# Keep telemetry intentionally sparse. Only durable product actions that are
+# useful for aggregate product decisions belong in this allowlist. UI opens,
+# focus/selection changes and runtime clicks are deliberately not tracked.
 _EVENT_ENUM_PROPERTIES = {
     "plugin_started": {},
-    "editor_opened": {},
-    "settings_opened": {},
     "item_created": {
         "item_type": ITEM_TYPES,
     },
     "item_duplicated": {
-        "item_type": ITEM_TYPES,
-    },
-    "item_activated": {
         "item_type": ITEM_TYPES,
     },
     "config_imported": {

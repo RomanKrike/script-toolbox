@@ -8,7 +8,6 @@ from .share_hooks import ShareController
 
 
 _EDITOR_MARKER = "_script_toolbox_product_telemetry_editor"
-_TOOLBOX_MARKER = "_script_toolbox_product_telemetry_toolbox"
 
 _IMPORT_MODE_KEYS = (
     ("Replace Toolbox", "replace"),
@@ -178,7 +177,7 @@ def install_telemetry_share_controller(editor):
 
 
 def build_telemetry_interface_editor_class(base_class):
-    """Wrap the final Interface Editor with semantic product events."""
+    """Wrap the final Interface Editor with sparse semantic product events."""
     if getattr(
         base_class,
         _EDITOR_MARKER,
@@ -187,16 +186,6 @@ def build_telemetry_interface_editor_class(base_class):
         return base_class
 
     class TelemetryInterfaceEditor(base_class):
-
-        def __init__(self, toolbox, parent=None):
-            base_class.__init__(
-                self,
-                toolbox,
-                parent=parent
-            )
-            track_product_event(
-                "editor_opened"
-            )
 
         def create_from_palette(
             self,
@@ -315,68 +304,8 @@ def build_telemetry_interface_editor_class(base_class):
     return TelemetryInterfaceEditor
 
 
-def install_toolbox_telemetry(toolbox_class):
-    """Track successful dispatch of explicit runtime item click actions."""
-    if getattr(
-        toolbox_class,
-        _TOOLBOX_MARKER,
-        False
-    ):
-        return toolbox_class
-
-    original = toolbox_class.dispatch_binding_event
-
-    def dispatch_binding_event(
-        self,
-        item_or_id,
-        event,
-        *args,
-        **kwargs
-    ):
-        item = (
-            item_or_id
-            if isinstance(item_or_id, dict)
-            else self.find_item(item_or_id)
-        )
-        kind = text_type(
-            item.get("kind", "")
-            if isinstance(item, dict)
-            else ""
-        ).strip().lower()
-
-        result = original(
-            self,
-            item_or_id,
-            event,
-            *args,
-            **kwargs
-        )
-
-        if (
-            text_type(event or "").strip().lower() == "click" and
-            kind
-        ):
-            track_product_event(
-                "item_activated",
-                {
-                    "item_type": kind,
-                }
-            )
-
-        return result
-
-    toolbox_class.dispatch_binding_event = dispatch_binding_event
-    setattr(
-        toolbox_class,
-        _TOOLBOX_MARKER,
-        True
-    )
-    return toolbox_class
-
-
 __all__ = [
     "TelemetryShareController",
     "build_telemetry_interface_editor_class",
     "install_telemetry_share_controller",
-    "install_toolbox_telemetry",
 ]

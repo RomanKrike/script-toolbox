@@ -157,20 +157,19 @@ The user's persisted setting controls only consent.
 
 ## Event design
 
-Product events describe product behavior rather than UI implementation details. The current semantic event set is:
+Telemetry is intentionally sparse. Product events represent durable actions rather than UI traffic. The current semantic event set is:
 
 ```text
 plugin_started
-editor_opened
-settings_opened
 item_created
 item_duplicated
-item_activated
 config_imported
 config_exported
 share_created
 share_pasted
 ```
+
+We deliberately do not track editor/settings opens or runtime item clicks. Those interactions created unnecessary event volume without enough product value.
 
 Event-specific properties are restricted to low-cardinality enums such as:
 

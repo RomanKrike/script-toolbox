@@ -3,12 +3,15 @@ from __future__ import print_function
 
 import platform
 import threading
+import uuid
 
 from ..constants import BUILD_CHANNEL
 from ..constants import BUILD_NUMBER
 from ..constants import PLUGIN_VERSION
 from ..core.preferences import get_telemetry_consent
+from ..core.preferences import get_telemetry_installation_id
 from ..core.preferences import set_telemetry_consent
+from ..core.preferences import set_telemetry_installation_id
 from ..hosts import HOST
 from ..pycompat import text_type
 from . import service
@@ -20,6 +23,7 @@ from .posthog_provider import PostHogProvider
 
 _START_LOCK = threading.Lock()
 _START_EVENT_SENT = False
+_INSTALLATION_ID_PREFIX = "stb-install-"
 
 
 def _host_version():
@@ -54,13 +58,36 @@ def default_common_properties():
     }
 
 
-def _ensure_posthog_provider():
+def _get_or_create_installation_id():
+    """Return a stable random id, creating it only after explicit opt-in."""
+    try:
+        installation_id = get_telemetry_installation_id()
+    except Exception:
+        installation_id = None
+
+    if installation_id:
+        return installation_id
+
+    candidate = _INSTALLATION_ID_PREFIX + uuid.uuid4().hex
+    try:
+        return set_telemetry_installation_id(candidate)
+    except Exception:
+        # If persistence is unavailable, do not silently degrade to a
+        # process-scoped identity because that would corrupt unique-user
+        # metrics. Telemetry remains disabled instead.
+        return None
+
+
+def _ensure_posthog_provider(distinct_id=None):
     token = text_type(
         POSTHOG_PROJECT_TOKEN or ""
     ).strip()
     host = text_type(
         POSTHOG_HOST or ""
     ).strip().rstrip("/")
+    distinct_id = text_type(
+        distinct_id or ""
+    ).strip() or None
 
     if not token or not host:
         return None
@@ -70,10 +97,19 @@ def _ensure_posthog_provider():
     except Exception:
         provider = None
 
+    identity_matches = (
+        distinct_id is None or
+        (
+            isinstance(provider, PostHogProvider) and
+            provider.distinct_id == distinct_id
+        )
+    )
+
     if (
         isinstance(provider, PostHogProvider) and
         provider.project_token == token and
-        provider.host == host
+        provider.host == host and
+        identity_matches
     ):
         return provider
 
@@ -85,7 +121,8 @@ def _ensure_posthog_provider():
 
     provider = PostHogProvider(
         project_token=token,
-        host=host
+        host=host,
+        distinct_id=distinct_id
     )
     service.register_provider(
         provider,
@@ -99,13 +136,19 @@ def configure_default_telemetry():
 
     A stamped PostHog token only makes the transport available. Network event
     delivery remains disabled unless the persisted consent value is exactly
-    True.
+    True. A stable random installation id is created only after that opt-in.
     """
     consent = get_telemetry_consent()
     common_properties = default_common_properties()
+    installation_id = None
+
+    if consent is True:
+        installation_id = _get_or_create_installation_id()
 
     try:
-        provider = _ensure_posthog_provider()
+        provider = _ensure_posthog_provider(
+            distinct_id=installation_id
+        )
     except Exception:
         provider = None
 
@@ -118,7 +161,7 @@ def configure_default_telemetry():
 
     return service.configure(
         provider_name="posthog",
-        enabled=(consent is True),
+        enabled=(consent is True and bool(installation_id)),
         common_properties=common_properties
     )
 

@@ -51,6 +51,49 @@ def test_invalid_update_channel_falls_back_to_stable(tmp_path):
     ) == "stable"
 
 
+def test_telemetry_consent_is_unknown_until_user_decides(tmp_path):
+    path = tmp_path / "settings.json"
+
+    assert preferences.get_telemetry_consent(
+        path=str(path)
+    ) is None
+
+
+def test_telemetry_consent_round_trip(tmp_path):
+    path = tmp_path / "settings.json"
+
+    assert preferences.set_telemetry_consent(
+        True,
+        path=str(path)
+    ) is True
+    assert preferences.get_telemetry_consent(
+        path=str(path)
+    ) is True
+
+    assert preferences.set_telemetry_consent(
+        False,
+        path=str(path)
+    ) is False
+    assert preferences.get_telemetry_consent(
+        path=str(path)
+    ) is False
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["telemetry_consent"] is False
+
+
+def test_invalid_telemetry_consent_is_treated_as_undecided(tmp_path):
+    path = tmp_path / "settings.json"
+    path.write_text(
+        '{"telemetry_consent": "maybe"}',
+        encoding="utf-8"
+    )
+
+    assert preferences.get_telemetry_consent(
+        path=str(path)
+    ) is None
+
+
 def test_inspector_section_state_round_trip_is_editor_preference(tmp_path):
     path = tmp_path / "settings.json"
 

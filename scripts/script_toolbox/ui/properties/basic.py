@@ -30,7 +30,7 @@ class StringPropertyEditor(ValuePropertyEditorBase):
     def __init__(self, toolbox=None, parent=None):
         ValuePropertyEditorBase.__init__(self, toolbox, parent)
         self.value = QtGui.QLineEdit()
-        self.form.addRow("Value", self.value)
+        self.content_section.addRow("Value", self.value)
         self.add_stretch()
         self.value.textEdited.connect(self._control_changed)
 
@@ -71,7 +71,7 @@ class NumericPropertyEditorBase(ValuePropertyEditorBase):
             self.component_labels.setPlaceholderText("X, Y, Z, W")
         except Exception:
             pass
-        self.show_slider = QtGui.QCheckBox("Show Slider")
+        self.show_slider = QtGui.QCheckBox()
         self.minimum = self._create_spin_box()
         self.maximum = self._create_spin_box()
         self.step = self._create_spin_box(step=True)
@@ -80,15 +80,18 @@ class NumericPropertyEditorBase(ValuePropertyEditorBase):
             self.decimals = QtGui.QSpinBox()
             self.decimals.setRange(0, 8)
 
-        self.form.addRow("Size", self.size)
-        self.form.addRow("Value", self.values_widget)
-        self.form.addRow("Component Labels", self.component_labels)
-        self.form.addRow("", self.show_slider)
-        self.form.addRow("Minimum", self.minimum)
-        self.form.addRow("Maximum", self.maximum)
-        self.form.addRow("Step", self.step)
+        self.content_section.addRow("Size", self.size)
+        self.content_section.addRow("Value", self.values_widget)
+        self.content_section.addRow(
+            "Component Labels",
+            self.component_labels
+        )
+        self.content_section.addRow("Minimum", self.minimum)
+        self.content_section.addRow("Maximum", self.maximum)
+        self.content_section.addRow("Step", self.step)
         if self.DECIMALS_DEFAULT is not None:
-            self.form.addRow("Decimals", self.decimals)
+            self.content_section.addRow("Decimals", self.decimals)
+        self.content_section.addRow("Show Slider", self.show_slider)
         self.add_stretch()
 
         self.size.currentIndexChanged.connect(self._size_changed)
@@ -137,7 +140,11 @@ class NumericPropertyEditorBase(ValuePropertyEditorBase):
         size = self.current_size()
         for index, widget in enumerate(self.values):
             widget.setVisible(index < size)
-        self.component_labels.setEnabled(size > 1)
+        self.set_property_available(
+            self.component_labels,
+            size > 1,
+            "Component Labels apply when Size is greater than 1."
+        )
 
     def _refresh_decimals(self):
         if self.DECIMALS_DEFAULT is None:
@@ -287,17 +294,12 @@ class CheckboxPropertyEditor(ValuePropertyEditorBase):
             "Left"
         ])
 
-        self.value = QtGui.QCheckBox(
-            "Checked"
-        )
+        self.value = QtGui.QCheckBox()
 
-        self.form.addRow(
+        self.content_section.addRow("Value", self.value)
+        self.behavior_section.addRow(
             "Label Position",
             self.position
-        )
-        self.form.addRow(
-            "Value",
-            self.value
         )
         self.add_stretch()
 
@@ -311,19 +313,11 @@ class CheckboxPropertyEditor(ValuePropertyEditorBase):
     def load_specific(self, item):
         self.position.setCurrentIndex(
             1
-            if item.get(
-                "label_position",
-                "right"
-            ) == "left"
+            if item.get("label_position", "right") == "left"
             else 0
         )
         self.value.setChecked(
-            bool(
-                item.get(
-                    "value",
-                    False
-                )
-            )
+            bool(item.get("value", False))
         )
 
     def write_specific(self, item):
@@ -332,9 +326,7 @@ class CheckboxPropertyEditor(ValuePropertyEditorBase):
             if self.position.currentIndex() == 1
             else "right"
         )
-        item["value"] = bool(
-            self.value.isChecked()
-        )
+        item["value"] = bool(self.value.isChecked())
 
 
 class MenuPropertyEditor(ValuePropertyEditorBase):
@@ -346,8 +338,14 @@ class MenuPropertyEditor(ValuePropertyEditorBase):
         self.items_edit.setMinimumHeight(110)
         self.value = QtGui.QComboBox()
 
-        self.form.addRow("Items", self.items_edit)
-        self.form.addRow("Value", self.value)
+        self.content_section.addRow(
+            "Menu Items",
+            self.items_edit
+        )
+        self.content_section.addRow(
+            "Selected Value",
+            self.value
+        )
         self.add_stretch()
 
         self.items_edit.textChanged.connect(self._items_changed)
@@ -402,7 +400,7 @@ class ColorPropertyEditor(ValuePropertyEditorBase):
 
         self.color = [0.25, 0.25, 0.25]
         self.button = QtGui.QPushButton("Choose...")
-        self.form.addRow("Value", self.button)
+        self.appearance_section.addRow("Color", self.button)
         self.add_stretch()
         self.button.clicked.connect(self.choose_color)
 
@@ -454,18 +452,21 @@ class SeparatorPropertyEditor(PropertyEditorBase):
     def __init__(self, toolbox=None, parent=None):
         PropertyEditorBase.__init__(self, toolbox, parent)
 
-        self.label_edit.setVisible(False)
-        self.show_label_check.setVisible(False)
-        self.tooltip_edit.setVisible(False)
-
-        label_widget = self.form.labelForField(self.label_edit)
-        tooltip_widget = self.form.labelForField(self.tooltip_edit)
-
-        if label_widget is not None:
-            label_widget.setVisible(False)
-        if tooltip_widget is not None:
-            tooltip_widget.setVisible(False)
-
+        self.set_property_available(
+            self.label_edit,
+            False,
+            "Separator does not display a label."
+        )
+        self.set_property_available(
+            self.show_label_check,
+            False,
+            "Separator does not display a label."
+        )
+        self.set_property_available(
+            self.tooltip_edit,
+            False,
+            "Separator does not expose a runtime tooltip."
+        )
         self.add_stretch()
 
     def write_to_item(self):

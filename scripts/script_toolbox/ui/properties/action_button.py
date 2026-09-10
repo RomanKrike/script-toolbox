@@ -32,14 +32,6 @@ class ActionButtonPropertyEditor(ButtonPropertyEditor):
         )
 
         self.mode.setCurrentIndex(0)
-        self.mode.setVisible(False)
-        try:
-            label = self.form.labelForField(self.mode)
-            if label is not None:
-                label.setVisible(False)
-        except Exception:
-            pass
-
         self._refresh_mode()
 
     def current_mode(self):
@@ -49,9 +41,23 @@ class ActionButtonPropertyEditor(ButtonPropertyEditor):
         self._refresh_mode()
 
     def _refresh_mode(self):
-        self.action_group.setVisible(True)
-        self.state_group.setVisible(False)
+        section = self.appearance_section
+        section.set_row_visible(
+            self.color_button,
+            True
+        )
+        for widget in (
+            self.state_on_label,
+            self.state_off_label,
+            self.state_on_color_button,
+            self.state_off_color_button,
+        ):
+            section.set_row_visible(
+                widget,
+                False
+            )
         self.state_tabs.setVisible(False)
+        self._refresh_trigger_section_visibility()
 
     def load_specific(self, item):
         ButtonPropertyEditor.load_specific(

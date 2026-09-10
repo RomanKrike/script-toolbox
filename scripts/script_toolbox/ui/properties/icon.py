@@ -14,30 +14,24 @@ from .base import PropertyEditorBase
 
 class IconPropertyEditor(PropertyEditorBase):
 
-    def __init__(
-        self,
-        toolbox=None,
-        parent=None
-    ):
-        PropertyEditorBase.__init__(
-            self,
-            toolbox,
-            parent
-        )
+    def __init__(self, toolbox=None, parent=None):
+        PropertyEditorBase.__init__(self, toolbox, parent)
 
         self._custom_path = ""
-        self.icon_source = QtGui.QComboBox()
+        # Kept as a hidden compatibility data source. The active Inspector
+        # exposes the path directly and does not duplicate this legacy choice.
+        self.icon_source = QtGui.QComboBox(self)
         self.icon_source.addItem(
             "Custom Path",
             ""
         )
-
         for icon_id, label in builtin_icon_entries():
             self.icon_source.addItem(
                 builtin_icon(icon_id),
                 label,
                 icon_id
             )
+        self.icon_source.hide()
 
         self.path = QtGui.QLineEdit()
         self.width = QtGui.QSpinBox()
@@ -52,58 +46,37 @@ class IconPropertyEditor(PropertyEditorBase):
             "Right",
         ])
 
-        self.form.addRow(
+        self.appearance_section.addRow(
             "Icon",
-            self.icon_source
-        )
-        self.form.addRow(
-            "Path",
             self.path
         )
-        self.form.addRow(
-            "Width",
+        self.appearance_section.addRow(
+            "Icon Width",
             self.width
         )
-        self.form.addRow(
-            "Height",
+        self.appearance_section.addRow(
+            "Icon Height",
             self.height
         )
-        self.form.addRow(
+        self.appearance_section.addRow(
             "Content Alignment",
             self.alignment
         )
 
-        # The active editor exposes a single path-based icon source. Keep the
-        # legacy combo alive for config compatibility, but remove it from the
-        # visible form instead of patching these methods after construction.
-        try:
-            source_label = self.form.labelForField(
-                self.icon_source
-            )
-            if source_label is not None:
-                source_label.hide()
-        except Exception:
-            pass
-        self.icon_source.hide()
         self.path.setEnabled(True)
         self.icon_browse_button = install_icon_browse(
             self,
-            self.path
+            self.path,
+            form=self.appearance_section.form
         )
         self.add_stretch()
 
         self.icon_source.currentIndexChanged.connect(
             self._icon_source_changed
         )
-        self.path.textEdited.connect(
-            self._control_changed
-        )
-        self.width.valueChanged.connect(
-            self._control_changed
-        )
-        self.height.valueChanged.connect(
-            self._control_changed
-        )
+        self.path.textEdited.connect(self._control_changed)
+        self.width.valueChanged.connect(self._control_changed)
+        self.height.valueChanged.connect(self._control_changed)
         self.alignment.currentIndexChanged.connect(
             self._control_changed
         )
@@ -124,12 +97,7 @@ class IconPropertyEditor(PropertyEditorBase):
         self._control_changed()
 
     def load_specific(self, item):
-        path = text_type(
-            item.get(
-                "path",
-                ""
-            )
-        )
+        path = text_type(item.get("path", ""))
         icon_id = builtin_icon_id_from_path(path)
 
         if icon_id:
@@ -146,36 +114,20 @@ class IconPropertyEditor(PropertyEditorBase):
         self._refresh_icon_source()
 
         self.width.setValue(
-            int(
-                item.get(
-                    "width",
-                    24
-                )
-            )
+            int(item.get("width", 24))
         )
         self.height.setValue(
-            int(
-                item.get(
-                    "height",
-                    24
-                )
-            )
+            int(item.get("height", 24))
         )
         content_alignment = item.get(
             "content_alignment",
-            item.get(
-                "alignment",
-                "left"
-            )
+            item.get("alignment", "left")
         )
         self.alignment.setCurrentIndex({
             "left": 0,
             "center": 1,
             "right": 2,
-        }.get(
-            content_alignment,
-            0
-        ))
+        }.get(content_alignment, 0))
 
     def write_specific(self, item):
         icon_id = self._selected_builtin_icon()
@@ -185,16 +137,12 @@ class IconPropertyEditor(PropertyEditorBase):
             else text_type(self.path.text())
         )
         item["width"] = clamp(
-            int(
-                self.width.value()
-            ),
+            int(self.width.value()),
             8,
             512
         )
         item["height"] = clamp(
-            int(
-                self.height.value()
-            ),
+            int(self.height.value()),
             8,
             512
         )

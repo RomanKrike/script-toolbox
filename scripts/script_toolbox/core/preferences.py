@@ -18,6 +18,7 @@ UPDATE_CHANNELS = (
     UPDATE_CHANNEL_STABLE,
     UPDATE_CHANNEL_DEVELOPMENT,
 )
+INSPECTOR_SECTIONS_KEY = "inspector_sections"
 
 
 def normalize_update_channel(
@@ -83,9 +84,7 @@ def load_preferences(
     )
     result = default_preferences()
 
-    if not os.path.isfile(
-        path
-    ):
+    if not os.path.isfile(path):
         return result
 
     try:
@@ -94,27 +93,16 @@ def load_preferences(
             "r",
             encoding="utf-8"
         ) as handle:
-            data = json.load(
-                handle
-            )
+            data = json.load(handle)
     except Exception:
         return result
 
-    if not isinstance(
-        data,
-        dict
-    ):
+    if not isinstance(data, dict):
         return result
 
-    result.update(
-        data
-    )
-    result[
-        "update_channel"
-    ] = normalize_update_channel(
-        result.get(
-            "update_channel"
-        ),
+    result.update(data)
+    result["update_channel"] = normalize_update_channel(
+        result.get("update_channel"),
         default=BUILD_CHANNEL
     )
     return result
@@ -127,27 +115,14 @@ def save_preferences(
     path = os.path.normpath(
         path or settings_path()
     )
-    folder = os.path.dirname(
-        path
-    )
+    folder = os.path.dirname(path)
 
-    if (
-        folder and
-        not os.path.isdir(folder)
-    ):
-        os.makedirs(
-            folder
-        )
+    if folder and not os.path.isdir(folder):
+        os.makedirs(folder)
 
-    payload = dict(
-        preferences or {}
-    )
-    payload[
-        "update_channel"
-    ] = normalize_update_channel(
-        payload.get(
-            "update_channel"
-        ),
+    payload = dict(preferences or {})
+    payload["update_channel"] = normalize_update_channel(
+        payload.get("update_channel"),
         default=BUILD_CHANNEL
     )
 
@@ -157,25 +132,16 @@ def save_preferences(
         sort_keys=True
     )
 
-    if not isinstance(
-        serialized,
-        text_type
-    ):
-        serialized = serialized.decode(
-            "utf-8"
-        )
+    if not isinstance(serialized, text_type):
+        serialized = serialized.decode("utf-8")
 
     with io.open(
         path,
         "w",
         encoding="utf-8"
     ) as handle:
-        handle.write(
-            serialized
-        )
-        handle.write(
-            u"\n"
-        )
+        handle.write(serialized)
+        handle.write(u"\n")
 
     return path
 
@@ -185,9 +151,7 @@ def get_update_channel(
 ):
     return load_preferences(
         path=path
-    )[
-        "update_channel"
-    ]
+    )["update_channel"]
 
 
 def set_update_channel(
@@ -201,9 +165,7 @@ def set_update_channel(
     preferences = load_preferences(
         path=path
     )
-    preferences[
-        "update_channel"
-    ] = channel
+    preferences["update_channel"] = channel
     save_preferences(
         preferences,
         path=path
@@ -211,15 +173,71 @@ def set_update_channel(
     return channel
 
 
+def _inspector_section_states(preferences):
+    states = preferences.get(
+        INSPECTOR_SECTIONS_KEY,
+        {}
+    )
+    if not isinstance(states, dict):
+        return {}
+    return states
+
+
+def get_inspector_section_collapsed(
+    key,
+    default=False,
+    path=None
+):
+    """Return editor-only collapsed state for one stable Inspector section."""
+    preferences = load_preferences(
+        path=path
+    )
+    states = _inspector_section_states(preferences)
+    key = text_type(key or "").strip()
+    if not key:
+        return bool(default)
+    return bool(
+        states.get(key, default)
+    )
+
+
+def set_inspector_section_collapsed(
+    key,
+    collapsed,
+    path=None
+):
+    """Persist Inspector presentation state outside the config document."""
+    key = text_type(key or "").strip()
+    if not key:
+        return bool(collapsed)
+
+    preferences = load_preferences(
+        path=path
+    )
+    states = dict(
+        _inspector_section_states(preferences)
+    )
+    states[key] = bool(collapsed)
+    preferences[INSPECTOR_SECTIONS_KEY] = states
+    save_preferences(
+        preferences,
+        path=path
+    )
+    return bool(collapsed)
+
+
 __all__ = [
+    "INSPECTOR_SECTIONS_KEY",
     "UPDATE_CHANNEL_DEVELOPMENT",
     "UPDATE_CHANNEL_STABLE",
     "UPDATE_CHANNELS",
     "default_preferences",
+    "get_inspector_section_collapsed",
     "get_update_channel",
     "load_preferences",
     "normalize_update_channel",
     "save_preferences",
+    "set_inspector_section_collapsed",
     "set_update_channel",
     "settings_path",
 ]

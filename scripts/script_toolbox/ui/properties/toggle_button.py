@@ -18,31 +18,20 @@ class ToggleButtonPropertyEditor(ButtonPropertyEditor):
         )
 
         self.mode.setCurrentIndex(1)
-        self.mode.setVisible(False)
-        try:
-            label = self.form.labelForField(self.mode)
-            if label is not None:
-                label.setVisible(False)
-        except Exception:
-            pass
 
         self.state_source = QtGui.QComboBox()
         self.state_source.addItems([
             "Internal",
             "Script",
         ])
-        self.internal_state = QtGui.QCheckBox("ON")
-        self.form.addRow(
+        self.internal_state = QtGui.QCheckBox()
+        self.behavior_section.addRow(
             "State Source",
             self.state_source
         )
-        self.form.addRow(
+        self.behavior_section.addRow(
             "Internal State",
             self.internal_state
-        )
-
-        self.state_group.setTitle(
-            "Toggle Appearance"
         )
 
         self.state_source.currentIndexChanged.connect(
@@ -62,9 +51,23 @@ class ToggleButtonPropertyEditor(ButtonPropertyEditor):
         self._refresh_mode()
 
     def _refresh_mode(self):
-        self.action_group.setVisible(False)
-        self.state_group.setVisible(True)
+        section = self.appearance_section
+        section.set_row_visible(
+            self.color_button,
+            False
+        )
+        for widget in (
+            self.state_on_label,
+            self.state_off_label,
+            self.state_on_color_button,
+            self.state_off_color_button,
+        ):
+            section.set_row_visible(
+                widget,
+                True
+            )
         self.state_tabs.setVisible(True)
+        self._refresh_trigger_section_visibility()
 
     def current_state_source(self):
         return (
@@ -79,19 +82,21 @@ class ToggleButtonPropertyEditor(ButtonPropertyEditor):
 
     def _refresh_state_source(self):
         scripted = self.current_state_source() == "script"
-        self.internal_state.setVisible(not scripted)
-        try:
-            label = self.form.labelForField(
-                self.internal_state
-            )
-            if label is not None:
-                label.setVisible(not scripted)
-        except Exception:
-            pass
+        self.set_property_available(
+            self.internal_state,
+            not scripted,
+            "Internal State is controlled by Get State when State Source is Script."
+        )
         try:
             self.state_tabs.setTabEnabled(
                 0,
                 scripted
+            )
+            self.state_tabs.setTabToolTip(
+                0,
+                ""
+                if scripted
+                else "Get State is used only when State Source is Script."
             )
         except Exception:
             self.state_get_editor.setEnabled(

@@ -29,7 +29,7 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
             "Internal",
             "Script",
         ])
-        self.internal_state = QtGui.QCheckBox("ON")
+        self.internal_state = QtGui.QCheckBox()
         self.state_on_path = QtGui.QLineEdit()
         self.state_off_path = QtGui.QLineEdit()
         self.width = QtGui.QSpinBox()
@@ -44,42 +44,46 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
             "Right",
         ])
 
-        self.form.addRow(
+        self.behavior_section.addRow(
             "State Source",
             self.state_source
         )
-        self.form.addRow(
+        self.behavior_section.addRow(
             "Internal State",
             self.internal_state
         )
-        self.form.addRow(
+
+        section = self.appearance_section
+        section.addRow(
             "ON Icon",
             self.state_on_path
         )
-        self.form.addRow(
+        section.addRow(
             "OFF Icon",
             self.state_off_path
         )
-        self.form.addRow(
-            "Width",
+        section.addRow(
+            "Icon Width",
             self.width
         )
-        self.form.addRow(
-            "Height",
+        section.addRow(
+            "Icon Height",
             self.height
         )
-        self.form.addRow(
+        section.addRow(
             "Content Alignment",
             self.alignment
         )
 
         self.state_on_browse_button = install_icon_browse(
             self,
-            self.state_on_path
+            self.state_on_path,
+            form=section.form
         )
         self.state_off_browse_button = install_icon_browse(
             self,
-            self.state_off_path
+            self.state_off_path,
+            form=section.form
         )
 
         self.state_tabs = QtGui.QTabWidget()
@@ -112,7 +116,7 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
             self.state_off_editor,
             "Turn OFF"
         )
-        self.root_layout.addWidget(
+        self.add_trigger_widget(
             self.state_tabs,
             1
         )
@@ -166,20 +170,22 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
 
     def _refresh_state_source(self):
         scripted = self.current_state_source() == "script"
-        self.internal_state.setVisible(not scripted)
-        try:
-            label = self.form.labelForField(
-                self.internal_state
-            )
-            if label is not None:
-                label.setVisible(not scripted)
-        except Exception:
-            pass
+        self.set_property_available(
+            self.internal_state,
+            not scripted,
+            "Internal State is controlled by Get State when State Source is Script."
+        )
 
         try:
             self.state_tabs.setTabEnabled(
                 0,
                 scripted
+            )
+            self.state_tabs.setTabToolTip(
+                0,
+                ""
+                if scripted
+                else "Get State is used only when State Source is Script."
             )
         except Exception:
             self.state_get_editor.setEnabled(

@@ -66,9 +66,10 @@ def choose_icon_file(editor, line_edit):
         pass
 
 
-def install_icon_browse(editor, line_edit):
+def install_icon_browse(editor, line_edit, form=None):
     """Place a compact Solar browse button beside an existing form field."""
-    form = getattr(editor, "form", None)
+    if form is None:
+        form = getattr(editor, "form", None)
     if form is None or line_edit is None:
         return None
 

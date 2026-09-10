@@ -8,7 +8,6 @@ from ...model.items import safe_color
 from ...pycompat import text_type
 from ..icon_browse import install_icon_browse
 from ..language_script_editor import LanguageScriptEditor
-from ..layout_helpers import configure_property_group_form
 from .base import PropertyEditorBase
 
 
@@ -25,11 +24,15 @@ class ButtonPropertyEditor(PropertyEditorBase):
             parent
         )
 
-        self.mode = QtGui.QComboBox()
+        # Mode remains an internal compatibility selector. Concrete button
+        # editors expose their behavior directly instead of showing a legacy
+        # Action/State switch in the Inspector.
+        self.mode = QtGui.QComboBox(self)
         self.mode.addItems([
             "Action",
             "State",
         ])
+        self.mode.hide()
 
         self.color = [0.25, 0.25, 0.25]
         self.state_on_color = [0.22, 0.42, 0.26]
@@ -38,7 +41,7 @@ class ButtonPropertyEditor(PropertyEditorBase):
         self.icon_path = QtGui.QLineEdit()
         self.icon_size = QtGui.QSpinBox()
         self.icon_size.setRange(8, 256)
-        self.icon_only = QtGui.QCheckBox("Icon Only")
+        self.icon_only = QtGui.QCheckBox()
 
         self.color_button = QtGui.QPushButton("Choose...")
         self.state_on_label = QtGui.QLineEdit()
@@ -46,31 +49,20 @@ class ButtonPropertyEditor(PropertyEditorBase):
         self.state_on_color_button = QtGui.QPushButton("Choose...")
         self.state_off_color_button = QtGui.QPushButton("Choose...")
 
-        self.form.addRow("Mode", self.mode)
-        self.form.addRow("Icon Path", self.icon_path)
-        self.form.addRow("Icon Size", self.icon_size)
-        self.form.addRow("", self.icon_only)
+        section = self.appearance_section
+        section.addRow("Icon", self.icon_path)
+        section.addRow("Icon Size", self.icon_size)
+        section.addRow("Icon Only", self.icon_only)
         self.icon_browse_button = install_icon_browse(
             self,
-            self.icon_path
+            self.icon_path,
+            form=section.form
         )
-
-        self.action_group = QtGui.QGroupBox("Action Appearance")
-        action_form = configure_property_group_form(
-            QtGui.QFormLayout(self.action_group)
-        )
-        action_form.addRow("Button Color", self.color_button)
-        self.root_layout.addWidget(self.action_group)
-
-        self.state_group = QtGui.QGroupBox("State Appearance")
-        state_form = configure_property_group_form(
-            QtGui.QFormLayout(self.state_group)
-        )
-        state_form.addRow("ON Label", self.state_on_label)
-        state_form.addRow("OFF Label", self.state_off_label)
-        state_form.addRow("ON Color", self.state_on_color_button)
-        state_form.addRow("OFF Color", self.state_off_color_button)
-        self.root_layout.addWidget(self.state_group)
+        section.addRow("Color", self.color_button)
+        section.addRow("ON Label", self.state_on_label)
+        section.addRow("OFF Label", self.state_off_label)
+        section.addRow("ON Color", self.state_on_color_button)
+        section.addRow("OFF Color", self.state_off_color_button)
 
         self.state_tabs = QtGui.QTabWidget()
 
@@ -103,7 +95,7 @@ class ButtonPropertyEditor(PropertyEditorBase):
             self.state_off_editor,
             "Turn OFF"
         )
-        self.root_layout.addWidget(
+        self.add_trigger_widget(
             self.state_tabs,
             1
         )
@@ -174,9 +166,23 @@ class ButtonPropertyEditor(PropertyEditorBase):
 
     def _refresh_mode(self):
         state_mode = self.current_mode() == "state"
-        self.action_group.setVisible(not state_mode)
-        self.state_group.setVisible(state_mode)
+        section = self.appearance_section
+        section.set_row_visible(
+            self.color_button,
+            not state_mode
+        )
+        for widget in (
+            self.state_on_label,
+            self.state_off_label,
+            self.state_on_color_button,
+            self.state_off_color_button,
+        ):
+            section.set_row_visible(
+                widget,
+                state_mode
+            )
         self.state_tabs.setVisible(state_mode)
+        self._refresh_trigger_section_visibility()
 
     def load_specific(self, item):
         self.mode.setCurrentIndex(

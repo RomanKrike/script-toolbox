@@ -165,13 +165,20 @@ def test_runtime_registry_replaces_legacy_row_renderer():
     assert '"column_height_mode"' in column_runtime
 
 
-def test_property_editor_exposes_parent_layout_context_without_row_alignment():
+def test_property_editor_exposes_unified_parent_layout_adapter():
     base = _source(
         "scripts",
         "script_toolbox",
         "ui",
         "properties",
         "base.py"
+    )
+    adapter = _source(
+        "scripts",
+        "script_toolbox",
+        "ui",
+        "properties",
+        "layout_adapter.py"
     )
     row = _source(
         "scripts",
@@ -188,14 +195,26 @@ def test_property_editor_exposes_parent_layout_context_without_row_alignment():
         "column.py"
     )
 
-    assert '"Row Item Layout"' in base
-    assert '"Column Item Layout"' in base
-    assert "row_equal_widths" in base
-    assert "column_height_mode" in base
+    assert "LayoutPropertyAdapter" in base
     assert "set_parent_layout_context" in base
-    assert "row_alignment" not in base
-    assert '"Horizontal Distribution"' in row
-    assert '"Vertical Distribution"' in column
+    assert '"Width Mode"' in base
+    assert '"Height Mode"' in base
+    assert '"Horizontal Alignment"' in base
+    assert '"Vertical Alignment"' in base
+    assert '"row_width_mode"' in adapter
+    assert '"row_width"' in adapter
+    assert '"row_stretch"' in adapter
+    assert '"column_height_mode"' in adapter
+    assert '"column_height"' in adapter
+    assert '"column_stretch"' in adapter
+    assert "row_equal_widths" in adapter
+    assert "row_alignment" not in adapter
+    assert '"Distribution"' in row
+    assert '"Cross Alignment"' in row
+    assert '"Equal Child Size"' in row
+    assert '"Distribution"' in column
+    assert '"Cross Alignment"' in column
+    assert '"Equal Child Size"' in column
 
 
 def test_separator_uses_shared_layout_writer():

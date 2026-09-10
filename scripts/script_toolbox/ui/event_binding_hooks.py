@@ -675,12 +675,9 @@ def install_event_binding_hooks(
     runtime_renderers_module,
     main_window_class
 ):
-    # Schema-17 renderer callback wiring would otherwise dispatch a second
-    # execution after the binding event filter handles the same interaction.
-    runtime_renderers_module._invoke_callback = (
-        lambda *args, **kwargs: None
-    )
-
+    # ``runtime_renderers_module`` is retained in the signature for bootstrap
+    # compatibility. Runtime execution is now bindings-only and no callback
+    # dispatcher is patched or suppressed here.
     _wrap_renderers(registry)
     _install_main_window(main_window_class)
     return True

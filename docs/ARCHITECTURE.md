@@ -1,6 +1,6 @@
 # Architecture
 
-Script Toolbox is a modular multi-DCC toolbox targeting Maya and Nuke from a shared model/core.
+Script Toolbox is a modular multi-DCC toolbox targeting Maya, Nuke and Houdini from a shared model/core.
 
 ## Compatibility targets
 
@@ -15,9 +15,14 @@ Script Toolbox is a modular multi-DCC toolbox targeting Maya and Nuke from a sha
 - Python 2.7
 - PySide2 / Qt 5
 - Python event scripts
-- Host-specific `nuke_script_toolbox.json` configuration
 
-Historical Script Toolbox config schemas are intentionally **not** a compatibility target while the plugin is still under active development.
+### Houdini
+- Houdini 19.0
+- Python 3.7 default build
+- PySide2 / Qt 5
+- Python and HScript event scripts
+
+Historical Script Toolbox config schemas are intentionally **not** a compatibility target while the plugin remains under active development.
 
 ## Dependency direction
 
@@ -26,8 +31,8 @@ ui/main_window -> ui/runtime -> core/values -> model
       |               |
       |               -> style
       |
-      -> core/config -> config schema validation
-      -> core/executor
+      -> core/config -> core/config_schema
+      -> core/event_bindings -> core/executor
       -> compat -> hosts
 
 core/config -> hosts
@@ -36,9 +41,10 @@ model -> pycompat (pure Python)
 hosts/base -> Python stdlib only
 hosts/maya_host -> maya.cmds / maya.mel
 hosts/nuke_host -> nuke / nukescripts
+hosts/houdini_host -> hou
 ```
 
-The model layer must remain importable without Maya. Maya/PySide imports live behind `compat.py` and UI/core integration modules.
+The model layer must remain importable without Maya or Qt. Host-specific imports live behind `hosts/`, `compat.py`, and host integration modules.
 
 ## Current config schema
 
@@ -46,38 +52,48 @@ Schema **20** is the single supported configuration contract.
 
 ```text
 JSON read
-  -> require schema version 20
+  -> validate schema version 20
   -> normalize current-schema values/defaults
   -> runtime document
 ```
 
-A non-empty document without a version, an older schema, and a newer schema are all rejected. The config layer must never infer, migrate, or down-convert historical payloads. An empty mapping is used internally only to construct a brand-new current-schema document.
+A non-empty document without a version, an older schema, and a newer schema are all rejected. The config layer never infers, migrates or down-converts historical payloads. An empty mapping is used internally only to construct a brand-new current-schema document.
 
-Breaking schema changes during development may advance `CONFIG_VERSION`, but the repository must keep only the current schema contract and current-schema tests unless backward compatibility is explicitly reintroduced as a product requirement.
+Breaking schema changes during development may advance `CONFIG_VERSION`, but the repository keeps only the current schema contract and current-schema tests unless backward compatibility is explicitly reintroduced as a product requirement.
 
 ## Item model contracts
 
-Container semantics are model-owned. `folder`, `row`, and `column` are the canonical container kinds; all document traversal, indexing, reference rewriting, cloning, topology and cache logic must use the shared container predicate and canonical `walk_items()` implementation. Correctness must not depend on importing `ui` or monkey-patching another model module during bootstrap.
+Container semantics are model-owned. `folder`, `row`, and `column` are the canonical container kinds; document traversal, indexing, reference rewriting, cloning, topology and cache logic use the shared container predicate and canonical `walk_items()` implementation.
 
-Item construction is owned by the model factory registry. `button`, `toggle_button`, `icon`, `toggle_icon`, value controls, `row`, `column`, and `folder` are native item kinds. Unknown kinds are rejected instead of being silently converted to another item type.
+Item construction is owned by the model factory registry. `button`, `toggle_button`, `icon`, `toggle_icon`, value controls, `row`, `column`, and `folder` are native item kinds. Unknown kinds are rejected instead of silently converting to another type.
 
 Identity has one explicit contract:
 
-- `id` is the canonical stable internal identifier and should be preferred for durable references.
-- `name` is the supported symbolic identifier for scripts and human-readable API usage.
+- `id` is the canonical stable internal identifier and should be preferred for durable references;
+- `name` is the supported symbolic identifier for scripts and human-readable API usage;
 - `label` is presentation text only and never participates in lookup.
 
-`bindings` are the only persisted/runtime event mechanism. Historical callback dictionaries and direct script fields are not read or translated. A normal `button` is action-only. Stateful behavior belongs to the dedicated `toggle_button` and `toggle_icon` kinds and uses the native `state_toggle` binding handler.
+`bindings` are the only persisted/runtime event mechanism. Callback dictionaries and direct script fields are not read or translated. A normal `button` is action-only. Stateful behavior belongs to `toggle_button` and `toggle_icon`, using the native `state_toggle` binding handler.
 
 For Icon and Toggle Icon alignment, `content_alignment` is the only schema key. `alignment` is not an alias.
 
-Numeric scalar/vector construction and runtime writes share the same normalizer so size, min/max clamping, component count and fallback behavior cannot diverge.
+Numeric scalar/vector construction and runtime writes share one normalizer so size, min/max clamping, component count and fallback behavior cannot diverge.
+
+## Editor architecture
+
+`EditorDocumentController` owns the staged document, identity cache, clone/reference operations and topology. It is Qt-independent.
+
+The active Interface Editor composes controller ownership, command history, Row/Column tree helpers, search presentation, sharing and view-state preservation through `ui/editor_document_adapter.py`.
+
+`ui/layout_editor_adapter.py` contains helper functions only; it does not publish a second editor wrapper class or separate layout document controller. A small marker on the active document adapter exists solely to prevent duplicate wrapping during development hot reload.
 
 ## Runtime rendering
 
-`RuntimeFolder.build_runtime_widget()` routes through the runtime renderer registry directly. The registry is initialized normally during UI bootstrap; it does not replace `RuntimeFolder.build_runtime_widget()` or store a legacy implementation for fallback.
+`RuntimeFolder.build_runtime_widget()` routes through the runtime renderer registry directly. The registry is initialized during UI bootstrap and specialized current kinds are registered through its public API.
 
-New renderable item kinds should be added through the item factory, renderer and property-editor registries rather than through compatibility wrappers or expanding cross-module `if/elif` dispatch chains.
+Runtime event filters attach supported mouse/editing/selection events to rendered widgets and dispatch through `bindings`. Renderer-specific modules do not patch main-window event semantics.
+
+Stateful execution and refresh are owned by the main runtime API. Toggle Button and Toggle Icon renderers only create and register their widgets.
 
 ## Current package layout
 
@@ -89,19 +105,23 @@ scripts/script_toolbox/
   pycompat.py
   constants.py
   nuke_integration.py
+  houdini_integration.py
 
   hosts/
-    __init__.py
     base.py
     maya_host.py
     nuke_host.py
+    houdini_host.py
 
   core/
     config.py
+    config_schema.py
+    editor_commands.py
     editor_document.py
     event_bindings.py
     executor.py
     references.py
+    runtime_registry.py
     values.py
     updater.py
 
@@ -117,10 +137,12 @@ scripts/script_toolbox/
 
   ui/
     __init__.py
+    main_window.py
+    debounced_main_window.py
     runtime.py
     runtime_renderers.py
-    interface_tree.py
-    interface_editor.py
+    editor_document_adapter.py
+    layout_editor_adapter.py
     ...
 
     properties/
@@ -148,5 +170,6 @@ scripts/script_toolbox/
 - Never use `label` as item identity.
 - Persist event behavior only as `bindings`.
 - Persist icon alignment only as `content_alignment`.
-- New item types register through model/renderer/property-editor registries.
+- New item types register through model, renderer and property-editor registries.
+- Structural recursion uses the shared container predicate.
 - Source remains Python 2.7 compatible until Maya 2015 support is intentionally dropped.

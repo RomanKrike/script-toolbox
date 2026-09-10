@@ -8,10 +8,10 @@ import pytest
 
 from script_toolbox.constants import CONFIG_VERSION
 from script_toolbox.core import config
-from script_toolbox.core.migrations import ConfigMigrationError
-from script_toolbox.core.migrations import UnsupportedConfigVersionError
-from script_toolbox.core.migrations import detect_config_version
-from script_toolbox.core.migrations import migrate_document
+from script_toolbox.core.config_schema import ConfigSchemaError
+from script_toolbox.core.config_schema import UnsupportedConfigVersionError
+from script_toolbox.core.config_schema import detect_config_version
+from script_toolbox.core.config_schema import validate_document_schema
 
 
 def test_schema_20_is_the_only_supported_config_schema():
@@ -22,7 +22,7 @@ def test_schema_20_is_the_only_supported_config_schema():
         "sections": [],
     }
     original = copy.deepcopy(source)
-    prepared = migrate_document(source)
+    prepared = validate_document_schema(source)
 
     assert prepared == original
     assert prepared is not source
@@ -30,7 +30,7 @@ def test_schema_20_is_the_only_supported_config_schema():
 
 
 def test_new_empty_config_gets_current_schema():
-    prepared = migrate_document({})
+    prepared = validate_document_schema({})
 
     assert prepared == {
         "version": CONFIG_VERSION,
@@ -40,12 +40,12 @@ def test_new_empty_config_gets_current_schema():
 
 def test_versionless_nonempty_config_is_rejected():
     with pytest.raises(UnsupportedConfigVersionError):
-        migrate_document({"sections": []})
+        validate_document_schema({"sections": []})
 
 
 def test_older_schema_is_rejected():
     with pytest.raises(UnsupportedConfigVersionError):
-        migrate_document({
+        validate_document_schema({
             "version": CONFIG_VERSION - 1,
             "sections": [],
         })
@@ -53,15 +53,15 @@ def test_older_schema_is_rejected():
 
 def test_future_schema_is_rejected():
     with pytest.raises(UnsupportedConfigVersionError):
-        migrate_document({
+        validate_document_schema({
             "version": CONFIG_VERSION + 1,
             "sections": [],
         })
 
 
 def test_invalid_schema_version_is_rejected():
-    with pytest.raises(ConfigMigrationError):
-        migrate_document({
+    with pytest.raises(ConfigSchemaError):
+        validate_document_schema({
             "version": "not-a-version",
             "sections": [],
         })

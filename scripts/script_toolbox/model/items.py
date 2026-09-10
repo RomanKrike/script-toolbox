@@ -8,6 +8,10 @@ from ..pycompat import text_type
 from ..constants import CONFIG_VERSION
 from ..constants import FOLDER_TYPES
 from .bindings import normalize_bindings
+from .layouts import COLUMN_DISTRIBUTIONS
+from .layouts import COLUMN_HEIGHT_MODES
+from .layouts import ROW_DISTRIBUTIONS
+from .layouts import is_container_kind
 
 
 DEFAULT_COMPONENT_LABELS = (
@@ -130,7 +134,7 @@ def safe_component_labels(value, size):
     return result
 
 
-def _numeric_value(
+def normalize_numeric_value(
     value,
     size,
     minimum,
@@ -138,23 +142,34 @@ def _numeric_value(
     caster,
     fallback
 ):
+    """Normalize scalar/vector numeric values using one shared contract."""
     size = safe_numeric_size(size)
 
     if isinstance(value, (list, tuple)):
-        values = list(value)
+        incoming = list(value)
     else:
-        values = [value] * size
+        incoming = [value] * size
+
+    if isinstance(fallback, (list, tuple)):
+        fallback_values = list(fallback)
+    else:
+        fallback_values = [fallback] * size
 
     normalized = []
     for index in range(size):
+        current_fallback = (
+            fallback_values[index]
+            if index < len(fallback_values)
+            else 0
+        )
         current = (
-            values[index]
-            if index < len(values)
-            else fallback
+            incoming[index]
+            if index < len(incoming)
+            else current_fallback
         )
         normalized.append(
             clamp(
-                caster(current, fallback),
+                caster(current, current_fallback),
                 minimum,
                 maximum
             )
@@ -204,10 +219,6 @@ def base_item(kind, data=None, default_label=None):
             else "left"
         ),
     }
-
-
-def add_value_behavior(item, data):
-    return item
 
 
 def _button(data):
@@ -271,7 +282,10 @@ def _button(data):
 def _icon(data):
     item = base_item("icon", data, "Icon")
     alignment = text_type(
-        data.get("alignment", "left")
+        data.get(
+            "content_alignment",
+            data.get("alignment", "left")
+        )
     ).lower()
     if alignment not in ("left", "center", "right"):
         alignment = "left"
@@ -281,7 +295,7 @@ def _icon(data):
         "path": text_type(data.get("path") or ""),
         "width": clamp(safe_int(data.get("width"), 24), 8, 512),
         "height": clamp(safe_int(data.get("height"), 24), 8, 512),
-        "alignment": alignment,
+        "content_alignment": alignment,
     })
     return item
 
@@ -289,7 +303,7 @@ def _icon(data):
 def _string(data):
     item = base_item("string", data, "String")
     item["value"] = text_type(data.get("value") or "")
-    return add_value_behavior(item, data)
+    return item
 
 
 def _integer(data):
@@ -311,7 +325,7 @@ def _integer(data):
             size
         ),
         "show_slider": bool(data.get("show_slider", False)),
-        "value": _numeric_value(
+        "value": normalize_numeric_value(
             data.get("value", 0),
             size,
             minimum,
@@ -320,7 +334,7 @@ def _integer(data):
             0
         ),
     })
-    return add_value_behavior(item, data)
+    return item
 
 
 def _float(data):
@@ -343,7 +357,7 @@ def _float(data):
             size
         ),
         "show_slider": bool(data.get("show_slider", False)),
-        "value": _numeric_value(
+        "value": normalize_numeric_value(
             data.get("value", 0.0),
             size,
             minimum,
@@ -352,7 +366,7 @@ def _float(data):
             0.0
         ),
     })
-    return add_value_behavior(item, data)
+    return item
 
 
 def _checkbox(data):
@@ -369,7 +383,7 @@ def _checkbox(data):
         "value": bool(data.get("value", False)),
         "label_position": position,
     })
-    return add_value_behavior(item, data)
+    return item
 
 
 def _legacy_toggle(data):
@@ -391,13 +405,13 @@ def _menu(data):
         "items": values,
         "value": value,
     })
-    return add_value_behavior(item, data)
+    return item
 
 
 def _color(data):
     item = base_item("color", data, "Color")
     item["value"] = safe_color(data.get("value"))
-    return add_value_behavior(item, data)
+    return item
 
 
 def _field(data):
@@ -446,7 +460,7 @@ def _field(data):
             20
         ),
     })
-    return add_value_behavior(item, data)
+    return item
 
 
 def _label(data):
@@ -459,32 +473,130 @@ def _separator(data):
     return item
 
 
-def _row(data):
-    item = base_item("row", data, "Row")
-    children = []
+def _safe_choice(value, choices, fallback):
+    value = text_type(value or fallback).lower()
+    return value if value in choices else fallback
 
+
+def _create_layout_child(raw):
+    if not isinstance(raw, dict):
+        return None
+
+    kind = text_type(raw.get("kind", "button")).lower()
+    if kind in ("folder", "section"):
+        return None
+
+    return create_item(kind, raw)
+
+
+def _layout_children(data):
+    children = []
     for raw in data.get("items", []) or []:
+        child = _create_layout_child(raw)
+        if child is not None:
+            children.append(child)
+    return children
+
+
+def _legacy_row_distribution(data):
+    raw_items = data.get("items", []) or []
+    legacy = []
+
+    for raw in raw_items:
         if not isinstance(raw, dict):
             continue
+        value = text_type(raw.get("row_alignment", "")).lower()
+        if value in ("left", "center", "right"):
+            legacy.append(value)
 
-        kind = text_type(raw.get("kind", "button")).lower()
+    if legacy and all(value == legacy[0] for value in legacy):
+        return legacy[0]
+    return "left"
 
-        if kind in ("row", "folder", "section"):
-            continue
 
-        children.append(create_item(kind, raw))
+def _column_child_layout(child):
+    child["column_height_mode"] = _safe_choice(
+        child.get("column_height_mode", "auto"),
+        COLUMN_HEIGHT_MODES,
+        "auto"
+    )
+    child["column_height"] = clamp(
+        safe_int(child.get("column_height"), 28),
+        8,
+        2000
+    )
+    child["column_stretch"] = clamp(
+        safe_int(child.get("column_stretch"), 1),
+        1,
+        100
+    )
+    return child
 
-    vertical_alignment = text_type(
-        data.get("vertical_alignment", "center")
-    ).lower()
 
-    if vertical_alignment not in ("top", "center", "bottom"):
-        vertical_alignment = "center"
+def _row(data):
+    item = base_item("row", data, "Row")
+    vertical_alignment = _safe_choice(
+        data.get("vertical_alignment", "center"),
+        ("top", "center", "bottom"),
+        "center"
+    )
+
+    if "horizontal_distribution" in data:
+        horizontal_distribution = _safe_choice(
+            data.get("horizontal_distribution"),
+            ROW_DISTRIBUTIONS,
+            "left"
+        )
+    else:
+        horizontal_distribution = _legacy_row_distribution(data)
 
     item.update({
         "spacing": clamp(safe_int(data.get("spacing"), 4), 0, 30),
         "equal_widths": bool(data.get("equal_widths", False)),
+        "horizontal_distribution": horizontal_distribution,
         "vertical_alignment": vertical_alignment,
+        "items": _layout_children(data),
+    })
+    return item
+
+
+def _column(data):
+    item = base_item("column", data, "Column")
+
+    if "row_width_mode" not in data:
+        item["row_width_mode"] = "stretch"
+
+    horizontal_alignment = _safe_choice(
+        data.get("horizontal_alignment", "stretch"),
+        ("stretch", "left", "center", "right"),
+        "stretch"
+    )
+    vertical_distribution = _safe_choice(
+        data.get("vertical_distribution", "top"),
+        COLUMN_DISTRIBUTIONS,
+        "top"
+    )
+
+    children = []
+    for raw in data.get("items", []) or []:
+        child = _create_layout_child(raw)
+        if child is None:
+            continue
+
+        for key in (
+            "column_height_mode",
+            "column_height",
+            "column_stretch",
+        ):
+            if key in raw:
+                child[key] = raw[key]
+
+        children.append(_column_child_layout(child))
+
+    item.update({
+        "spacing": clamp(safe_int(data.get("spacing"), 4), 0, 30),
+        "horizontal_alignment": horizontal_alignment,
+        "vertical_distribution": vertical_distribution,
         "items": children,
     })
     return item
@@ -530,14 +642,34 @@ _FACTORIES = {
     "label": _label,
     "separator": _separator,
     "row": _row,
+    "column": _column,
     "folder": _folder,
     "section": _folder,
 }
 
 
+def register_item_factory(kind, factory, replace=False):
+    """Register an item factory through the public model registry API."""
+    kind = text_type(kind or "").lower()
+    if not kind:
+        raise ValueError("Item kind must not be empty.")
+    if not callable(factory):
+        raise TypeError("Item factory must be callable.")
+    if kind in _FACTORIES and not replace:
+        raise ValueError(
+            "Item factory already registered: {0}".format(kind)
+        )
+    _FACTORIES[kind] = factory
+    return factory
+
+
+def get_item_factory(kind):
+    return _FACTORIES.get(text_type(kind or "").lower())
+
+
 def create_item(kind, data=None):
     kind = text_type(kind or "button").lower()
-    factory = _FACTORIES.get(kind, _button)
+    factory = get_item_factory(kind) or _button
     return factory(data or {})
 
 
@@ -586,32 +718,37 @@ def normalize_document(data):
 
 
 def walk_items(document, include_folders=False):
+    """Yield document items using the canonical container-kind contract."""
     def walk(children):
         for item in children:
-            if include_folders or item.get("kind") != "folder":
+            kind = text_type(item.get("kind", "")).lower()
+            if include_folders or kind != "folder":
                 yield item
 
-            if item.get("kind") in ("folder", "row"):
-                for child in walk(item.get("items", [])):
+            if is_container_kind(kind):
+                for child in walk(item.get("items", []) or []):
                     yield child
 
-    for folder in document.get("sections", []):
+    for folder in (document or {}).get("sections", []) or []:
         if include_folders:
             yield folder
 
-        for item in walk(folder.get("items", [])):
+        for item in walk(folder.get("items", []) or []):
             yield item
 
 
 __all__ = [
     "DEFAULT_COMPONENT_LABELS",
-    "add_value_behavior",
     "base_item",
     "clamp",
     "create_item",
     "default_document",
+    "get_item_factory",
+    "is_container_kind",
     "new_id",
     "normalize_document",
+    "normalize_numeric_value",
+    "register_item_factory",
     "safe_color",
     "safe_component_labels",
     "safe_float",

@@ -136,14 +136,38 @@ def configure_default_telemetry():
 
     A stamped PostHog token only makes the transport available. Network event
     delivery remains disabled unless the persisted consent value is exactly
-    True. A stable random installation id is created only after that opt-in.
+    True. A stable random installation id is created only when both an actual
+    transport and explicit opt-in are present.
     """
     consent = get_telemetry_consent()
     common_properties = default_common_properties()
-    installation_id = None
 
-    if consent is True:
-        installation_id = _get_or_create_installation_id()
+    try:
+        provider = _ensure_posthog_provider()
+    except Exception:
+        provider = None
+
+    if provider is None:
+        return service.configure(
+            provider_name="none",
+            enabled=False,
+            common_properties=common_properties
+        )
+
+    if consent is not True:
+        return service.configure(
+            provider_name="posthog",
+            enabled=False,
+            common_properties=common_properties
+        )
+
+    installation_id = _get_or_create_installation_id()
+    if not installation_id:
+        return service.configure(
+            provider_name="posthog",
+            enabled=False,
+            common_properties=common_properties
+        )
 
     try:
         provider = _ensure_posthog_provider(
@@ -161,7 +185,7 @@ def configure_default_telemetry():
 
     return service.configure(
         provider_name="posthog",
-        enabled=(consent is True and bool(installation_id)),
+        enabled=True,
         common_properties=common_properties
     )
 

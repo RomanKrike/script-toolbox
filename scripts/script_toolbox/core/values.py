@@ -17,45 +17,26 @@ _INDEX_CACHE = []
 
 
 def get_document_index(document):
-    """Return the cached lookup index for ``document``.
-
-    Runtime config replacement creates a new document object, so identity is a
-    cheap and reliable cache key for the current architecture. The small LRU
-    bound prevents old editor/reload documents from being retained forever.
-    """
-    for position, entry in enumerate(
-        list(_INDEX_CACHE)
-    ):
+    """Return the cached lookup index for ``document``."""
+    for position, entry in enumerate(list(_INDEX_CACHE)):
         cached_document, index = entry
 
         if cached_document is not document:
             continue
 
-        index.ensure(
-            document
-        )
+        index.ensure(document)
 
         if position != len(_INDEX_CACHE) - 1:
-            _INDEX_CACHE.pop(
-                position
-            )
-            _INDEX_CACHE.append(
-                entry
-            )
+            _INDEX_CACHE.pop(position)
+            _INDEX_CACHE.append(entry)
 
         return index
 
-    index = DocumentIndex(
-        document
-    )
-    _INDEX_CACHE.append(
-        (document, index)
-    )
+    index = DocumentIndex(document)
+    _INDEX_CACHE.append((document, index))
 
     while len(_INDEX_CACHE) > _INDEX_CACHE_LIMIT:
-        _INDEX_CACHE.pop(
-            0
-        )
+        _INDEX_CACHE.pop(0)
 
     return index
 
@@ -72,14 +53,11 @@ def invalidate_document_index(document=None):
         if entry[0] is not document
     ]
     del _INDEX_CACHE[:]
-    _INDEX_CACHE.extend(
-        retained
-    )
+    _INDEX_CACHE.extend(retained)
 
 
 def _linear_find_item(document, key):
     key_text = text_type(key)
-
     items = list(
         walk_items(
             document,
@@ -95,12 +73,6 @@ def _linear_find_item(document, key):
         if item.get("name") == key_text:
             return item
 
-    # ``label`` remains a legacy presentation-level lookup alias. New code
-    # should use stable IDs or supported symbolic names.
-    for item in items:
-        if item.get("label") == key_text:
-            return item
-
     return None
 
 
@@ -110,35 +82,20 @@ def find_item(
     index=None
 ):
     if index is None:
-        index = get_document_index(
-            document
-        )
+        index = get_document_index(document)
     else:
-        index.ensure(
-            document
-        )
+        index.ensure(document)
 
-    item = index.find(
-        key
-    )
-
+    item = index.find(key)
     if item is not None:
         return item
 
-    item = _linear_find_item(
-        document,
-        key
-    )
-
+    item = _linear_find_item(document, key)
     if item is None:
         return None
 
-    index.rebuild(
-        document
-    )
-    return index.find(
-        key
-    )
+    index.rebuild(document)
+    return index.find(key)
 
 
 def get_value(
@@ -156,37 +113,26 @@ def get_value(
     if item is None or "value" not in item:
         return default
 
-    return copy.deepcopy(
-        item["value"]
-    )
+    return copy.deepcopy(item["value"])
 
 
 def normalize_value(item, value):
-    kind = item.get(
-        "kind"
-    )
+    kind = item.get("kind")
 
     if kind == "field":
         if value is None:
             return ""
 
-        if isinstance(
-            value,
-            (list, tuple)
-        ):
+        if isinstance(value, (list, tuple)):
             return [
                 text_type(entry)
                 for entry in value
             ]
 
-        return text_type(
-            value
-        )
+        return text_type(value)
 
     if kind == "string":
-        return text_type(
-            value
-        )
+        return text_type(value)
 
     if kind == "integer":
         return normalize_numeric_value(
@@ -211,25 +157,18 @@ def normalize_value(item, value):
     if kind in (
         "checkbox",
         "toggle_button",
+        "toggle_icon",
     ):
-        return bool(
-            value
-        )
+        return bool(value)
 
     if kind == "menu":
-        value = text_type(
-            value
-        )
-
+        value = text_type(value)
         if value in item["items"]:
             return value
-
         return item["items"][0]
 
     if kind == "color":
-        return safe_color(
-            value
-        )
+        return safe_color(value)
 
     return value
 
@@ -249,11 +188,7 @@ def store_value(
     if item is None or "value" not in item:
         return None
 
-    item["value"] = normalize_value(
-        item,
-        value
-    )
-
+    item["value"] = normalize_value(item, value)
     return item
 
 

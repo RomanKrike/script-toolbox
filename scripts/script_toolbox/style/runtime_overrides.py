@@ -5,7 +5,14 @@ from .metrics import BORDER_RADIUS_PANEL
 from .metrics import LIST_ITEM_MIN_HEIGHT
 from .metrics import LIST_ITEM_PADDING_HORIZONTAL
 from .metrics import LIST_ITEM_PADDING_VERTICAL
+from .metrics import RUNTIME_TAB_BAR_OFFSET
+from .metrics import RUNTIME_TAB_MIN_HEIGHT
+from .metrics import RUNTIME_TAB_PADDING_HORIZONTAL
+from .metrics import RUNTIME_TAB_PADDING_VERTICAL
+from .metrics import RUNTIME_TAB_SELECTED_OVERLAP
+from .metrics import TAB_BORDER_WIDTH
 from .metrics import TAB_MARGIN_RIGHT
+from .metrics import TAB_PANE_TOP_OFFSET
 from .palette import FOLDER_CARD_BG
 from .palette import FOLDER_HEADER_HOVER_BG
 from .palette import LIST_BG
@@ -57,31 +64,30 @@ QFrame#RuntimeSeparatorLineVertical {{
 }}
 
 /* Runtime tabs share the collapsible-folder palette, but remain visibly
-   tabs. In particular, avoid the all-corners rounded button treatment that
-   clips the first tab in Maya 2015 / Qt4. The selected tab visually opens
-   into the folder-like content card below it. */
+   tabs. Runtime-specific geometry lives in metrics.py; palette roles stay in
+   palette.py. The selected-tab overlap is the Maya 2015 / Qt4 seam fix. */
 QWidget#ToolboxContent QTabWidget::pane {{
     background-color: {folder_card_bg};
-    border: 1px solid {separator};
+    border: {tab_border_width}px solid {separator};
     border-radius: {card_radius}px;
-    top: -1px;
+    top: {tab_pane_top_offset}px;
 }}
 
 QWidget#ToolboxContent QTabWidget::tab-bar {{
-    left: 0px;
+    left: {runtime_tab_bar_offset}px;
 }}
 
 QWidget#ToolboxContent QTabBar::tab {{
     background-color: {window_bg};
     color: {text_folder_collapsed};
-    border: 1px solid {separator};
-    border-bottom: 1px solid {separator};
+    border: {tab_border_width}px solid {separator};
+    border-bottom: {tab_border_width}px solid {separator};
     border-top-left-radius: {panel_radius}px;
     border-top-right-radius: {panel_radius}px;
     border-bottom-left-radius: 0px;
     border-bottom-right-radius: 0px;
-    min-height: 18px;
-    padding: 3px 9px;
+    min-height: {runtime_tab_min_height}px;
+    padding: {runtime_tab_padding_vertical}px {runtime_tab_padding_horizontal}px;
     margin-right: {tab_margin_right}px;
     font-weight: normal;
 }}
@@ -96,7 +102,7 @@ QWidget#ToolboxContent QTabBar::tab:selected {{
     color: {text_heading};
     border-color: {separator};
     border-bottom-color: {folder_card_bg};
-    margin-bottom: -1px;
+    margin-bottom: {runtime_tab_selected_overlap}px;
     font-weight: bold;
 }}
 
@@ -136,7 +142,14 @@ QListWidget#RuntimeFieldList::item:selected {{
     text_heading=TEXT_HEADING,
     card_radius=BORDER_RADIUS_CARD,
     panel_radius=BORDER_RADIUS_PANEL,
+    tab_border_width=TAB_BORDER_WIDTH,
+    tab_pane_top_offset=TAB_PANE_TOP_OFFSET,
     tab_margin_right=TAB_MARGIN_RIGHT,
+    runtime_tab_min_height=RUNTIME_TAB_MIN_HEIGHT,
+    runtime_tab_padding_vertical=RUNTIME_TAB_PADDING_VERTICAL,
+    runtime_tab_padding_horizontal=RUNTIME_TAB_PADDING_HORIZONTAL,
+    runtime_tab_bar_offset=RUNTIME_TAB_BAR_OFFSET,
+    runtime_tab_selected_overlap=RUNTIME_TAB_SELECTED_OVERLAP,
     list_bg=LIST_BG,
     text_list=TEXT_LIST,
     selection_bg=SELECTION_BG,

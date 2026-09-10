@@ -32,10 +32,10 @@ ui/main_window -> ui/runtime -> core/values -> model
       |               -> style
       |
       -> core/config -> core/config_schema
+      -> core/user_paths -> hosts
       -> core/event_bindings -> core/executor
       -> compat -> hosts
 
-core/config -> hosts
 core/executor -> hosts
 model -> pycompat (pure Python)
 hosts/base -> Python stdlib only
@@ -45,6 +45,19 @@ hosts/houdini_host -> hou
 ```
 
 The model layer must remain importable without Maya or Qt. Host-specific imports live behind `hosts/`, `compat.py`, and host integration modules.
+
+## User config paths
+
+`core/user_paths.py` is the single owner of runtime config/settings path resolution. Stable and Development builds use the same host-specific user config directory and the same canonical files. There is no separate test/dev runtime config path and no environment-variable override for config or settings files.
+
+For Maya the canonical files are:
+
+```text
+<cmds.internalVar(userPrefDir=True)>/maya_script_toolbox.json
+<cmds.internalVar(userPrefDir=True)>/script_toolbox_settings.json
+```
+
+Callers that need temporary locations for tests or import/export pass an explicit `path=` argument to the relevant config/preferences API; runtime path selection itself stays centralized.
 
 ## Current config schema
 
@@ -116,6 +129,7 @@ scripts/script_toolbox/
   core/
     config.py
     config_schema.py
+    user_paths.py
     editor_commands.py
     editor_document.py
     event_bindings.py
@@ -165,6 +179,8 @@ scripts/script_toolbox/
 - No DCC UI/API code in `model`.
 - Host-specific API access belongs in `hosts/` or host integration modules.
 - No JSON file I/O in `ui`.
+- Runtime config/settings paths are owned only by `core/user_paths.py`.
+- Stable and Development builds share the same canonical user config files.
 - Only the current config schema is supported while the project remains in development.
 - Never silently convert an unknown item kind to another kind.
 - Never use `label` as item identity.

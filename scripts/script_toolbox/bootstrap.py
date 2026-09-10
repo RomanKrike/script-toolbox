@@ -13,6 +13,13 @@ PACKAGE_NAME = "script_toolbox"
 
 
 def show():
+    try:
+        from .telemetry import initialize_telemetry
+        initialize_telemetry()
+    except Exception:
+        # Telemetry must never prevent Script Toolbox from opening.
+        pass
+
     from .ui.debounced_main_window import show as _show
     return _show()
 

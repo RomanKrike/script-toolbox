@@ -42,6 +42,22 @@ def test_inspector_section_order_and_reusable_contract_are_stable():
     assert "set_property_available" in source
 
 
+def test_inspector_sections_reuse_runtime_folder_presentation():
+    source = _source(
+        "scripts", "script_toolbox", "ui", "properties", "sections.py"
+    )
+
+    assert 'self.setObjectName("RuntimeFolder")' in source
+    assert 'self.setProperty("folderType", "collapsible")' in source
+    assert 'self.setProperty("nested", False)' in source
+    assert "self.header = QtGui.QPushButton(self)" in source
+    assert 'self.header.setObjectName("RuntimeFolderHeader")' in source
+    assert 'self.content.setObjectName("RuntimeFolderContent")' in source
+    assert 'u"\\u25b8"' in source
+    assert 'u"\\u25be"' in source
+    assert 'self.header.setProperty("collapsed", collapsed)' in source
+
+
 def test_property_editor_base_uses_sections_instead_of_one_shared_form():
     source = _source(
         "scripts", "script_toolbox", "ui", "properties", "base.py"

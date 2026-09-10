@@ -3,7 +3,7 @@
 import os
 
 from script_toolbox.constants import ITEM_KINDS
-from script_toolbox.core.layout_document import LayoutEditorDocumentController
+from script_toolbox.core.editor_document import EditorDocumentController
 from script_toolbox.model import DocumentIndex
 from script_toolbox.model import create_item
 from script_toolbox.model import normalize_document
@@ -167,8 +167,8 @@ def test_normalize_walk_and_index_reach_controls_inside_columns():
     assert index.find("field_b")["kind"] == "field"
 
 
-def test_layout_controller_clones_column_subtree_and_remaps_internal_links():
-    controller = LayoutEditorDocumentController(
+def test_base_controller_clones_column_subtree_and_remaps_internal_links():
+    controller = EditorDocumentController(
         _document()
     )
     source = controller.find_by_id("outer_row")
@@ -186,8 +186,8 @@ def test_layout_controller_clones_column_subtree_and_remaps_internal_links():
     assert "'field_a'" not in button["bindings"][0]["script"]
 
 
-def test_layout_controller_topology_tracks_nested_columns_and_rows():
-    controller = LayoutEditorDocumentController(
+def test_base_controller_topology_tracks_nested_columns_and_rows():
+    controller = EditorDocumentController(
         _document()
     )
     topology = controller.capture_topology()
@@ -245,6 +245,12 @@ def test_column_editor_and_runtime_are_wired_without_layout_triggers():
         "model",
         "layouts.py"
     )
+    model_items = _source(
+        "scripts",
+        "script_toolbox",
+        "model",
+        "items.py"
+    )
 
     assert '"Column",' in ui_init
     assert '"column",' in ui_init
@@ -256,4 +262,5 @@ def test_column_editor_and_runtime_are_wired_without_layout_triggers():
     assert "QVBoxLayout" in column_renderer
     assert '"horizontal_alignment"' in column_renderer
     assert '"row", "column"' in adapter
-    assert 'EVENT_CAPABILITIES.setdefault(\n        "column"' in model_layouts
+    assert "items_module.create_item" not in model_layouts
+    assert '"column": _column' in model_items

@@ -230,7 +230,7 @@ def test_separator_uses_shared_layout_writer():
     assert 'self.item["bindings"] = []' in registry
 
 
-def test_icon_editor_distinguishes_content_alignment():
+def test_icon_editor_writes_only_canonical_content_alignment():
     icon = _source(
         "scripts",
         "script_toolbox",
@@ -240,5 +240,6 @@ def test_icon_editor_distinguishes_content_alignment():
     )
 
     assert '"Content Alignment"' in icon
-    assert '"content_alignment"' in icon
-    assert 'item["alignment"] = content_alignment' in icon
+    assert 'item["content_alignment"] = content_alignment' in icon
+    assert 'item.pop("alignment", None)' in icon
+    assert 'item["alignment"] = content_alignment' not in icon

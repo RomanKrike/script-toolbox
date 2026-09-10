@@ -426,14 +426,14 @@ QHeaderView::section {
    --------------------------------------------------------------- */
 QTabWidget::pane {
     background-color: %(WINDOW_BG)s;
-    border: 1px solid %(BORDER_INSET)s;
-    top: -1px;
+    border: %(TAB_BORDER_WIDTH)spx solid %(BORDER_INSET)s;
+    top: %(TAB_PANE_TOP_OFFSET)spx;
 }
 
 QTabBar::tab {
     background-color: %(PANEL_BG)s;
     color: %(TEXT_TAB)s;
-    border: 1px solid %(BORDER_TAB)s;
+    border: %(TAB_BORDER_WIDTH)spx solid %(BORDER_TAB)s;
     border-bottom: 0px;
     padding: %(TAB_PADDING_VERTICAL)spx %(TAB_PADDING_HORIZONTAL)spx;
     margin-right: %(TAB_MARGIN_RIGHT)spx;
@@ -447,40 +447,7 @@ QTabBar::tab:hover {
 QTabBar::tab:selected {
     background-color: %(TAB_SELECTED_BG)s;
     color: %(TEXT_TAB_SELECTED)s;
-    border-top: 2px solid %(ACCENT)s;
-}
-
-/* Runtime folder tabs use the same visual contract as collapsible folder
-   headers. Keep this scoped to toolbox content so editor tabs stay intact. */
-QWidget#ToolboxContent QTabWidget::pane {
-    background-color: %(FOLDER_CARD_BG)s;
-    border: 1px solid %(SEPARATOR)s;
-    border-radius: %(BORDER_RADIUS_CARD)spx;
-    top: -1px;
-}
-
-QWidget#ToolboxContent QTabBar::tab {
-    background-color: %(FOLDER_HEADER_COLLAPSED_BG)s;
-    color: %(TEXT_FOLDER_COLLAPSED)s;
-    border: 1px solid transparent;
-    border-radius: %(BORDER_RADIUS_PANEL)spx;
-    min-height: 18px;
-    padding: 2px 7px;
-    margin-right: %(TAB_MARGIN_RIGHT)spx;
-    font-weight: bold;
-}
-
-QWidget#ToolboxContent QTabBar::tab:hover {
-    background-color: %(FOLDER_HEADER_HOVER_BG)s;
-    color: %(TEXT_FOLDER_HOVER)s;
-    border-color: %(SEPARATOR)s;
-}
-
-QWidget#ToolboxContent QTabBar::tab:selected {
-    background-color: %(FOLDER_HEADER_BG)s;
-    color: %(TEXT_HEADING)s;
-    border: 1px solid %(SEPARATOR)s;
-    border-bottom-color: %(FOLDER_CARD_BG)s;
+    border-top: %(TAB_SELECTED_ACCENT_WIDTH)spx solid %(ACCENT)s;
 }
 
 /* ---------------------------------------------------------------

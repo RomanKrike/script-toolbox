@@ -59,4 +59,4 @@ Stable identity is `id`. `name` is the supported symbolic script identifier. `la
 
 The active adapter routes document operations through `EditorDocumentController`, including name allocation, clone, cache, duplicate-name validation, topology and reference updates. Row/Column tree behavior is supplied by helper functions in `ui/layout_editor_adapter.py`; there is no separate layout document controller.
 
-The generated editor class is marked only so development hot reload can avoid stacking the same active adapter repeatedly. That marker is a reload implementation detail, not an old document/runtime compatibility API.
+The generated editor class is marked only so development hot reload can avoid stacking the same active adapter repeatedly. That marker is a reload implementation detail, not a historical document/runtime compatibility API.

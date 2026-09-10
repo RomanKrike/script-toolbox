@@ -32,7 +32,8 @@ def test_apply_view_state_is_integrated_into_document_adapter():
         "ui",
         "editor_document_adapter.py"
     )
-    view_state = _source(
+    view_state_path = os.path.join(
+        ROOT,
         "scripts",
         "script_toolbox",
         "ui",
@@ -46,12 +47,7 @@ def test_apply_view_state_is_integrated_into_document_adapter():
     assert '"expanded"' in adapter
     assert "view_state = self._capture_tree_view_state()" in adapter
     assert "self._restore_tree_view_state(" in adapter
-
-    # Older direct imports still receive the historical builder API, but the
-    # active package no longer adds it as an InterfaceEditor inheritance layer.
-    assert "build_editor_view_state_class" in view_state
-    assert "capture_editor_view_state" in view_state
-    assert "restore_editor_view_state" in view_state
+    assert not os.path.exists(view_state_path)
 
 
 def test_row_gives_nested_layouts_cross_axis_height():

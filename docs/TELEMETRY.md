@@ -22,6 +22,61 @@ Telemetry must not collect scene contents, filenames, file paths, object names, 
 
 Provider failures must never affect normal Script Toolbox behavior. Event delivery is best-effort and failures are swallowed by the telemetry facade/provider worker.
 
+## What Script Toolbox sends
+
+After explicit opt-in, Script Toolbox sends only the reviewed telemetry payload described below.
+
+Every event contains:
+
+```text
+event name
+distinct_id = stb-install-<random uuid>
+plugin_version
+build_channel
+build_number
+host
+host_version
+os
+```
+
+Some events also contain one reviewed low-cardinality property:
+
+```text
+item_type
+mode
+share_type
+```
+
+The exact event/property allowlist is documented in [`TELEMETRY_EVENTS.md`](TELEMETRY_EVENTS.md).
+
+Script Toolbox does **not** put any of the following into the event payload:
+
+```text
+scene contents
+scene names
+filenames
+file paths
+object names
+item names or labels
+scripts or callback code
+config contents
+OS usernames
+hostnames
+Autodesk/account data
+email addresses
+hardware identifiers
+```
+
+The installation identifier is random and pseudonymous. It exists only to recognize the same opted-in Script Toolbox installation across application restarts; it is not a hardware fingerprint.
+
+### Network metadata and PostHog enrichment
+
+Script Toolbox does not explicitly include the user's IP address or geographic location as event properties. However, telemetry is delivered over HTTPS, so the receiving service necessarily sees the network source IP for the request.
+
+PostHog may use that request metadata to add server-side GeoIP/enrichment fields such as country, region, city, timezone, latitude/longitude, or postal code. These fields are not read from the DCC, scene, operating-system profile, or Script Toolbox configuration, and they are not added to the payload by Script Toolbox itself.
+
+For the current PostHog deployment, this provider-side enrichment is intentionally left enabled. If the privacy policy changes later, GeoIP/enrichment should be reviewed separately from the Script Toolbox client payload.
+
 ## Current PostHog provider
 
 Official builds currently configure `PostHogProvider` for the EU ingestion host:

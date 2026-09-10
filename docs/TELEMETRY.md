@@ -130,12 +130,12 @@ telemetry.configure(
 )
 ```
 
-Feature code remains backend-independent:
+Feature code remains backend-independent and goes through the reviewed product-event gate:
 
 ```python
 from script_toolbox import telemetry
 
-telemetry.track(
+telemetry.track_product_event(
     "item_created",
     {"item_type": "field"},
 )
@@ -157,30 +157,34 @@ The user's persisted setting controls only consent.
 
 ## Event design
 
-Events should describe product behavior rather than UI implementation details. Prefer stable names such as:
+Product events describe product behavior rather than UI implementation details. The current semantic event set is:
 
 ```text
 plugin_started
 editor_opened
-config_imported
-config_exported
+settings_opened
 item_created
 item_duplicated
+item_activated
+config_imported
+config_exported
 share_created
+share_pasted
 ```
 
-Properties should be low-cardinality technical metadata, for example:
+Event-specific properties are restricted to low-cardinality enums such as:
 
 ```text
-plugin_version
-build_channel
-host
-host_version
-os
 item_type
+mode
+share_type
 ```
 
-Do not send arbitrary strings originating from user scenes, scripts, paths, labels, object names, or config content.
+Product/UI code uses `track_product_event()`, which rejects unknown event names, unknown property keys and unapproved enum values before they can reach a provider. Unknown future item kinds are reduced to the literal `other` value rather than sending their raw name.
+
+The complete public event/property allowlist is documented in [`TELEMETRY_EVENTS.md`](TELEMETRY_EVENTS.md).
+
+Do not send arbitrary strings originating from user scenes, scripts, paths, labels, object names, item names, filenames or config content.
 
 ## Switching providers
 

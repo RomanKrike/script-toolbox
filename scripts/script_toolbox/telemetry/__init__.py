@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from .events import sanitize_product_event
+from .events import track_product_event
 from .posthog_provider import PostHogProvider
 from .provider import NullTelemetryProvider
 from .provider import TelemetryProvider
@@ -42,10 +44,12 @@ __all__ = [
     "is_enabled",
     "refresh_telemetry",
     "register_provider",
+    "sanitize_product_event",
     "set_common_properties",
     "set_enabled",
     "set_provider",
     "status",
     "track",
+    "track_product_event",
     "unregister_provider",
 ]

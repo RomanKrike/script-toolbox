@@ -129,7 +129,6 @@ def _toggle_icon(data):
             8,
             512
         ),
-        "alignment": alignment,
         "content_alignment": alignment,
         "state_get_script": text_type(
             data.get("state_get_script") or ""
@@ -152,11 +151,10 @@ def _toggle_icon(data):
     else:
         item.pop("value", None)
 
-    # Toggle Icon has explicit state-specific images; keep legacy Icon-only
-    # fields out of the normalized payload.
     item.pop("path", None)
     item.pop("clickable", None)
     item.pop("mode", None)
+    item.pop("alignment", None)
     return item
 
 
@@ -179,10 +177,12 @@ def install_toggle_icon_kind():
     _bindings.normalize_bindings = _normalize_bindings
     _bindings._mode_matches = _mode_matches
 
-    # items.py imported normalize_bindings directly; keep its reference on the
-    # final wrapper as well.
     _items.normalize_bindings = _normalize_bindings
-    _items._FACTORIES["toggle_icon"] = _toggle_icon
+    _items.register_item_factory(
+        "toggle_icon",
+        _toggle_icon,
+        replace=True
+    )
 
     setattr(
         _items,

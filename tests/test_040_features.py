@@ -6,8 +6,8 @@ from script_toolbox.model.bindings import matching_bindings
 from script_toolbox.model.items import create_item
 
 
-def test_config_schema_is_19():
-    assert CONFIG_VERSION == 19
+def test_config_schema_is_20():
+    assert CONFIG_VERSION == 20
 
 
 def test_toggle_button_normalizes_state_fields_and_default_trigger():
@@ -107,7 +107,7 @@ def test_row_and_child_layout_settings_are_normalized():
     assert row["items"][1]["row_width"] == 160
 
 
-def test_value_controls_migrate_legacy_on_change_to_binding():
+def test_value_controls_ignore_removed_direct_script_fields():
     item = create_item(
         "integer",
         {
@@ -115,12 +115,9 @@ def test_value_controls_migrate_legacy_on_change_to_binding():
         }
     )
 
-    assert len(item["bindings"]) == 1
-    assert item["bindings"][0]["event"] == "value_changed"
-    assert item["bindings"][0]["language"] == "python"
-    assert item["bindings"][0]["script"] == "result = value + 1"
-    assert "callbacks" not in item
+    assert item["bindings"] == []
     assert "on_change_script" not in item
+    assert "callbacks" not in item
 
 
 def test_state_query_evaluator_reads_state_variable():

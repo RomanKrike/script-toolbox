@@ -68,7 +68,7 @@ QWidget#ToolboxContent QTabWidget::pane {{
 }}
 
 QWidget#ToolboxContent QTabWidget::tab-bar {{
-    left: 1px;
+    left: 0px;
 }}
 
 QWidget#ToolboxContent QTabBar::tab {{
@@ -96,6 +96,7 @@ QWidget#ToolboxContent QTabBar::tab:selected {{
     color: {text_heading};
     border-color: {separator};
     border-bottom-color: {folder_card_bg};
+    margin-bottom: -1px;
     font-weight: bold;
 }}
 

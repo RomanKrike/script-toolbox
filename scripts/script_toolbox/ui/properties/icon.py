@@ -154,10 +154,7 @@ class IconPropertyEditor(PropertyEditorBase):
             else "left"
         )
         item["content_alignment"] = content_alignment
-
-        # Keep the schema-18 runtime alias synchronized. Older configs and
-        # renderers still read ``alignment``.
-        item["alignment"] = content_alignment
+        item.pop("alignment", None)
         item.pop("clickable", None)
 
 

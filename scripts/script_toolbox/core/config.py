@@ -8,13 +8,11 @@ import shutil
 import tempfile
 import warnings
 
-from ..hosts import HOST
 from ..pycompat import text_type
-from ..constants import CONFIG_FILENAME
-from ..constants import CONFIG_PATH_ENV
 from ..model import normalize_document
 from .config_schema import ConfigSchemaError
 from .config_schema import validate_document_schema
+from .user_paths import config_path
 
 
 CONFIG_BACKUP_COUNT = 3
@@ -50,35 +48,6 @@ class ConfigRecoveryRequired(RuntimeError):
             self,
             message
         )
-
-
-def config_path():
-    override = os.environ.get(
-        CONFIG_PATH_ENV,
-        ""
-    ).strip()
-
-    if override:
-        return os.path.normpath(
-            override
-        )
-
-    try:
-        folder = HOST.user_config_dir()
-    except Exception:
-        folder = os.path.expanduser("~")
-
-    try:
-        filename = HOST.config_filename()
-    except Exception:
-        filename = CONFIG_FILENAME
-
-    return os.path.normpath(
-        os.path.join(
-            folder,
-            filename
-        )
-    )
 
 
 def backup_path(

@@ -81,31 +81,26 @@ def test_toggle_icon_does_not_translate_plain_icon_path():
     assert "path" not in item
 
 
-def test_toggle_icon_editor_and_runtime_are_registered():
+def test_toggle_icon_editor_renderer_and_state_runtime_are_registered():
     ui_source = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "__init__.py"
+        "scripts", "script_toolbox", "ui", "__init__.py"
     )
     registry_source = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "properties",
-        "registry.py"
+        "scripts", "script_toolbox", "ui", "properties", "registry.py"
     )
-    runtime_source = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "toggle_icon_runtime.py"
+    renderer_source = _source(
+        "scripts", "script_toolbox", "ui", "toggle_icon_runtime.py"
+    )
+    main_source = _source(
+        "scripts", "script_toolbox", "ui", "main_window.py"
     )
 
     assert '"Toggle Icon"' in ui_source
     assert '"toggle_icon"' in ui_source
     assert "render_toggle_icon" in ui_source
     assert '"toggle_icon": ToggleIconPropertyEditor' in registry_source
-    assert "state_on_path" in runtime_source
-    assert "state_off_path" in runtime_source
-    assert "run_state_binding" in runtime_source
+    assert "register_toggle_icon" in renderer_source
+    assert "refresh_toggle_icon" in renderer_source
+    assert "state_on_path" in main_source
+    assert "state_off_path" in main_source
+    assert "def run_state_binding(" in main_source

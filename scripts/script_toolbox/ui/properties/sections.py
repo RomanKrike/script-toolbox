@@ -4,8 +4,10 @@ from __future__ import print_function
 from ...compat import QtCore
 from ...compat import QtGui
 from ...pycompat import text_type
-from ...style.metrics import PROPERTY_EDITOR_SPACING
-from ...style.metrics import PROPERTY_GROUP_MARGINS
+from ..collapsible_folder import configure_collapsible_folder_content
+from ..collapsible_folder import configure_collapsible_folder_frame
+from ..collapsible_folder import configure_collapsible_folder_header
+from ..collapsible_folder import set_collapsible_folder_state
 from ..layout_helpers import configure_layout
 from ..layout_helpers import configure_property_form
 
@@ -90,7 +92,7 @@ def is_property_available(widget):
 
 
 class InspectorSection(QtGui.QFrame):
-    """Reusable collapsible section styled like a runtime Folder card."""
+    """Reusable collapsible section using the shared Folder chrome."""
 
     collapsedChanged = QtCore.Signal(bool)
 
@@ -106,16 +108,14 @@ class InspectorSection(QtGui.QFrame):
 
         self.key = text_type(key)
         self.title = text_type(title)
-        self.header_label = self.title
         self._collapsed = False
         self._has_static_content = False
         self._row_labels = {}
 
-        # Reuse the exact runtime Folder styling hooks. Inspector sections are
-        # still editor-only objects; this only shares the presentation layer.
-        self.setObjectName("RuntimeFolder")
-        self.setProperty("folderType", "collapsible")
-        self.setProperty("nested", False)
+        configure_collapsible_folder_frame(
+            self,
+            nested=False
+        )
 
         root = QtGui.QVBoxLayout(self)
         configure_layout(
@@ -124,30 +124,18 @@ class InspectorSection(QtGui.QFrame):
             spacing=0
         )
 
-        # RuntimeFolder uses a full-width QPushButton plus text disclosure
-        # markers because host-native tool-button arrows are oversized in
-        # older Maya/Qt4. Mirror that behavior in the Inspector as well.
         self.header = QtGui.QPushButton(self)
-        self.header.setObjectName("RuntimeFolderHeader")
-        self.header.setSizePolicy(
-            QtGui.QSizePolicy.Expanding,
-            QtGui.QSizePolicy.Preferred
-        )
-        self.header.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.header.setStyleSheet(
-            "QPushButton#RuntimeFolderHeader {"
-            "text-align: left;"
-            "}"
+        configure_collapsible_folder_header(
+            self.header,
+            self.title
         )
         root.addWidget(self.header)
 
         self.content = QtGui.QWidget(self)
-        self.content.setObjectName("RuntimeFolderContent")
         self.content_layout = QtGui.QVBoxLayout(self.content)
-        configure_layout(
-            self.content_layout,
-            margins=PROPERTY_GROUP_MARGINS,
-            spacing=PROPERTY_EDITOR_SPACING
+        configure_collapsible_folder_content(
+            self.content,
+            self.content_layout
         )
 
         self.form = QtGui.QFormLayout()
@@ -183,31 +171,13 @@ class InspectorSection(QtGui.QFrame):
         changed = collapsed != self._collapsed
         self._collapsed = collapsed
 
-        self.content.setVisible(not collapsed)
-        self.setProperty("collapsed", collapsed)
-
-        marker = (
-            u"\u25b8"
-            if collapsed
-            else u"\u25be"
+        set_collapsible_folder_state(
+            self,
+            self.header,
+            self.content,
+            self.title,
+            collapsed
         )
-        self.header.setText(
-            u"{0}  {1}".format(
-                marker,
-                self.header_label
-            )
-        )
-        self.header.setProperty("collapsed", collapsed)
-
-        # Re-polish so Qt4/Qt5 style sheets immediately see the same dynamic
-        # collapsed properties used by RuntimeFolder.
-        try:
-            self.style().unpolish(self)
-            self.style().polish(self)
-            self.header.style().unpolish(self.header)
-            self.header.style().polish(self.header)
-        except Exception:
-            pass
 
         try:
             policy = self.sizePolicy()

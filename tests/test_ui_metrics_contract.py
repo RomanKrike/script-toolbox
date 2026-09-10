@@ -10,7 +10,7 @@ def _read(relative_path):
     return (ROOT / relative_path).read_text(encoding="utf-8")
 
 
-def test_property_editor_geometry_uses_shared_metrics_and_helpers():
+def test_inspector_section_geometry_uses_shared_metrics_and_helpers():
     metrics = _read(
         "scripts/script_toolbox/style/metrics.py"
     )
@@ -19,6 +19,9 @@ def test_property_editor_geometry_uses_shared_metrics_and_helpers():
     )
     base = _read(
         "scripts/script_toolbox/ui/properties/base.py"
+    )
+    sections = _read(
+        "scripts/script_toolbox/ui/properties/sections.py"
     )
 
     assert "PROPERTY_EDITOR_SPACING = 8" in metrics
@@ -34,14 +37,17 @@ def test_property_editor_geometry_uses_shared_metrics_and_helpers():
     assert "PROPERTY_GROUP_MARGINS" in helpers
 
     assert "from ...style.metrics import PROPERTY_EDITOR_SPACING" in base
-    assert "configure_property_form(self.form)" in base
-    assert base.count("configure_property_group_form(") == 2
     assert "setSpacing(PROPERTY_EDITOR_SPACING)" in base
+    assert "from ...style.metrics import PROPERTY_GROUP_MARGINS" in sections
+    assert "from ..layout_helpers import configure_property_form" in sections
+    assert "configure_property_form(self.form)" in sections
+    assert "margins=PROPERTY_GROUP_MARGINS" in sections
+    assert "spacing=PROPERTY_EDITOR_SPACING" in sections
 
     assert "setHorizontalSpacing(8)" not in base
     assert "setVerticalSpacing(6)" not in base
-    assert "setContentsMargins(7, 7, 7, 7)" not in base
-    assert "setVerticalSpacing(5)" not in base
+    assert "setContentsMargins(7, 7, 7, 7)" not in sections
+    assert "setVerticalSpacing(5)" not in sections
 
 
 def test_numeric_value_rows_use_shared_inline_layout_geometry():
@@ -132,18 +138,23 @@ def test_integer_and_float_share_numeric_property_editor_base():
     assert "return float(value)" in floating
 
 
-def test_button_appearance_groups_use_shared_property_group_geometry():
+def test_button_appearance_uses_inspector_section_geometry():
     button = _read(
         "scripts/script_toolbox/ui/properties/button.py"
     )
-
-    assert (
-        "from ..layout_helpers import configure_property_group_form"
-        in button
+    sections = _read(
+        "scripts/script_toolbox/ui/properties/sections.py"
     )
-    assert button.count("configure_property_group_form(") == 2
-    assert 'QGroupBox("Action Appearance")' in button
-    assert 'QGroupBox("State Appearance")' in button
+
+    assert "section = self.appearance_section" in button
+    assert 'section.addRow("Icon", self.icon_path)' in button
+    assert 'section.addRow("Color", self.color_button)' in button
+    assert 'section.addRow("ON Label", self.state_on_label)' in button
+    assert 'section.addRow("OFF Color", self.state_off_color_button)' in button
+    assert "configure_property_form(self.form)" in sections
+    assert "margins=PROPERTY_GROUP_MARGINS" in sections
+    assert 'QGroupBox("Action Appearance")' not in button
+    assert 'QGroupBox("State Appearance")' not in button
 
 
 def test_trigger_panel_layouts_use_shared_metrics():
@@ -306,4 +317,3 @@ def test_application_layout_geometry_uses_shared_metrics():
 
     assert "setMinimumWidth(\n            78" not in interface
     assert "layout.setSpacing(6)" not in share
-

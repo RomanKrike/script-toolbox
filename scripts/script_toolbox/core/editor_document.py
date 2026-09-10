@@ -3,6 +3,7 @@ from __future__ import print_function
 
 import copy
 
+from ..model import is_container_kind
 from ..model import walk_items
 from ..model.items import new_id
 from ..model.items import sanitize_name
@@ -76,7 +77,7 @@ class EditorDocumentController(object):
         if item_id:
             self._item_cache[item_id] = data
 
-        if data.get("kind") in ("folder", "row"):
+        if is_container_kind(data.get("kind")):
             for child in data.get("items", []) or []:
                 self.cache_subtree(child)
 
@@ -130,7 +131,7 @@ class EditorDocumentController(object):
             if old_name:
                 name_map[old_name] = text_type(clone["name"])
 
-            if clone.get("kind") in ("folder", "row"):
+            if is_container_kind(clone.get("kind")):
                 clone["items"] = [
                     clone_item(child)
                     for child in source.get("items", []) or []
@@ -221,7 +222,7 @@ class EditorDocumentController(object):
         item.clear()
         item.update(copy.deepcopy(state or {}))
 
-        if item.get("kind") in ("folder", "row"):
+        if is_container_kind(item.get("kind")):
             item["items"] = children
 
         if rebuild:
@@ -254,7 +255,7 @@ class EditorDocumentController(object):
             if not item_id:
                 return
 
-            if item.get("kind") in ("folder", "row"):
+            if is_container_kind(item.get("kind")):
                 child_ids = []
                 for child in item.get("items", []) or []:
                     child_id = text_type(child.get("id", ""))
@@ -280,7 +281,7 @@ class EditorDocumentController(object):
             item_id = text_type(item.get("id", ""))
             if item_id:
                 pool[item_id] = item
-            if item.get("kind") in ("folder", "row"):
+            if is_container_kind(item.get("kind")):
                 for child in item.get("items", []) or []:
                     register(child)
 

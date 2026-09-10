@@ -4,7 +4,7 @@ Controls v2 defines the current primitive item set used to compose DCC tools wit
 
 ## Schema
 
-Controls v2 uses config schema **20**. Historical callback dictionaries, direct script fields and earlier config schemas are not translated by the current build.
+Controls v2 uses config schema **20**. Callback dictionaries, direct script fields and earlier config schemas are not translated by the current build.
 
 ## Event bindings
 

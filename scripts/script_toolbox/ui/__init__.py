@@ -105,13 +105,14 @@ install_property_editor_scroll_frames()
 _interface_editor_module.InterfaceEditor = InterfaceEditor
 
 # Install the runtime renderer registry before main_window imports
-# build_folder_widgets from runtime. The legacy runtime module stays available
-# as a compatibility implementation, while active kind dispatch is registry-
-# based and can be extended without editing RuntimeFolder's if/elif chain.
+# build_folder_widgets from runtime. RuntimeFolder remains the domain/runtime
+# renderer, while its collapsible mode composes the shared CollapsibleSection
+# UI primitive used by the Inspector as well.
 from . import runtime as _runtime_module
-from .collapsible_folder import install_runtime_folder_chrome
+from .collapsible_folder import CollapsibleSection
+from .collapsible_folder import install_runtime_folder_composition
 
-install_runtime_folder_chrome(
+install_runtime_folder_composition(
     _runtime_module
 )
 
@@ -234,6 +235,7 @@ __all__ = [
     "ExistingInterfaceTree",
     "ScriptToolbox",
     "ScriptEditorWidget",
+    "CollapsibleSection",
     "DisplayField",
     "RuntimeFolder",
     "RuntimeFolderRadio",

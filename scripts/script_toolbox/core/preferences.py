@@ -17,6 +17,7 @@ UPDATE_CHANNELS = (
     UPDATE_CHANNEL_DEVELOPMENT,
 )
 INSPECTOR_SECTIONS_KEY = "inspector_sections"
+TELEMETRY_CONSENT_KEY = "telemetry_consent"
 
 
 def normalize_update_channel(
@@ -40,11 +41,31 @@ def normalize_update_channel(
     return default
 
 
+def normalize_telemetry_consent(value):
+    """Return True, False, or None when the user has not decided yet."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if value == 1:
+        return True
+    if value == 0:
+        return False
+
+    normalized = text_type(value).strip().lower()
+    if normalized in ("true", "yes", "1", "enabled"):
+        return True
+    if normalized in ("false", "no", "0", "disabled"):
+        return False
+    return None
+
+
 def default_preferences():
     return {
         "update_channel": normalize_update_channel(
             BUILD_CHANNEL
         ),
+        TELEMETRY_CONSENT_KEY: None,
     }
 
 
@@ -77,6 +98,9 @@ def load_preferences(
         result.get("update_channel"),
         default=BUILD_CHANNEL
     )
+    result[TELEMETRY_CONSENT_KEY] = normalize_telemetry_consent(
+        result.get(TELEMETRY_CONSENT_KEY)
+    )
     return result
 
 
@@ -96,6 +120,9 @@ def save_preferences(
     payload["update_channel"] = normalize_update_channel(
         payload.get("update_channel"),
         default=BUILD_CHANNEL
+    )
+    payload[TELEMETRY_CONSENT_KEY] = normalize_telemetry_consent(
+        payload.get(TELEMETRY_CONSENT_KEY)
     )
 
     serialized = json.dumps(
@@ -143,6 +170,27 @@ def set_update_channel(
         path=path
     )
     return channel
+
+
+def get_telemetry_consent(path=None):
+    """Return explicit telemetry consent state: True, False, or None."""
+    return load_preferences(
+        path=path
+    ).get(TELEMETRY_CONSENT_KEY)
+
+
+def set_telemetry_consent(consent, path=None):
+    """Persist explicit opt-in/opt-out state without enabling telemetry itself."""
+    consent = normalize_telemetry_consent(consent)
+    preferences = load_preferences(
+        path=path
+    )
+    preferences[TELEMETRY_CONSENT_KEY] = consent
+    save_preferences(
+        preferences,
+        path=path
+    )
+    return consent
 
 
 def _inspector_section_states(preferences):
@@ -200,16 +248,20 @@ def set_inspector_section_collapsed(
 
 __all__ = [
     "INSPECTOR_SECTIONS_KEY",
+    "TELEMETRY_CONSENT_KEY",
     "UPDATE_CHANNEL_DEVELOPMENT",
     "UPDATE_CHANNEL_STABLE",
     "UPDATE_CHANNELS",
     "default_preferences",
     "get_inspector_section_collapsed",
+    "get_telemetry_consent",
     "get_update_channel",
     "load_preferences",
+    "normalize_telemetry_consent",
     "normalize_update_channel",
     "save_preferences",
     "set_inspector_section_collapsed",
+    "set_telemetry_consent",
     "set_update_channel",
     "settings_path",
 ]

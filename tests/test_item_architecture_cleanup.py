@@ -151,7 +151,7 @@ def test_base_editor_controller_handles_column_cache_topology_and_clone_links():
 
     assert cloned_a["id"] != "button_a"
     assert cloned_a["name"] != "button_a"
-    assert cloned_a["name"] in clone_script
+    assert cloned_a["id"] in clone_script
     assert "'button_a'" not in clone_script
 
     external_script = controller.find_by_id(

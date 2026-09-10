@@ -14,6 +14,7 @@ from ..pycompat import text_type
 from . import service
 from .build_config import POSTHOG_HOST
 from .build_config import POSTHOG_PROJECT_TOKEN
+from .events import track_product_event
 from .posthog_provider import PostHogProvider
 
 
@@ -135,7 +136,7 @@ def initialize_telemetry():
         if _START_EVENT_SENT:
             return status
 
-        if service.track("plugin_started"):
+        if track_product_event("plugin_started"):
             _START_EVENT_SENT = True
 
     return status

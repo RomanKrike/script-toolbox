@@ -8,7 +8,7 @@ import pytest
 from script_toolbox.constants import CONFIG_VERSION
 from script_toolbox.core.config import load_config
 from script_toolbox.core.config import save_config
-from script_toolbox.core.migrations import UnsupportedConfigVersionError
+from script_toolbox.core.config_schema import UnsupportedConfigVersionError
 from script_toolbox.core.values import find_item
 from script_toolbox.model import walk_items
 
@@ -69,10 +69,7 @@ def test_current_golden_config_has_unique_stable_ids():
     )
     ids = [
         item["id"]
-        for item in walk_items(
-            document,
-            include_folders=True
-        )
+        for item in walk_items(document, include_folders=True)
     ]
 
     assert len(ids) == len(set(ids))

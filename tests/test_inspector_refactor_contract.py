@@ -42,20 +42,40 @@ def test_inspector_section_order_and_reusable_contract_are_stable():
     assert "set_property_available" in source
 
 
-def test_inspector_sections_reuse_runtime_folder_presentation():
-    source = _source(
+def test_inspector_and_runtime_share_collapsible_folder_presentation():
+    sections = _source(
         "scripts", "script_toolbox", "ui", "properties", "sections.py"
     )
+    chrome = _source(
+        "scripts", "script_toolbox", "ui", "collapsible_folder.py"
+    )
+    builtin_icons = _source(
+        "scripts", "script_toolbox", "style", "builtin_icons.py"
+    )
+    ui_source = _source(
+        "scripts", "script_toolbox", "ui", "__init__.py"
+    )
 
-    assert 'self.setObjectName("RuntimeFolder")' in source
-    assert 'self.setProperty("folderType", "collapsible")' in source
-    assert 'self.setProperty("nested", False)' in source
-    assert "self.header = QtGui.QPushButton(self)" in source
-    assert 'self.header.setObjectName("RuntimeFolderHeader")' in source
-    assert 'self.content.setObjectName("RuntimeFolderContent")' in source
-    assert 'u"\\u25b8"' in source
-    assert 'u"\\u25be"' in source
-    assert 'self.header.setProperty("collapsed", collapsed)' in source
+    assert "configure_collapsible_folder_frame" in sections
+    assert "configure_collapsible_folder_header" in sections
+    assert "configure_collapsible_folder_content" in sections
+    assert "set_collapsible_folder_state" in sections
+    assert 'u"\\u25b8"' not in sections
+    assert 'u"\\u25be"' not in sections
+
+    assert 'frame.setObjectName("RuntimeFolder")' in chrome
+    assert 'frame.setProperty("folderType", "collapsible")' in chrome
+    assert 'header.setObjectName("RuntimeFolderHeader")' in chrome
+    assert 'content.setObjectName("RuntimeFolderContent")' in chrome
+    assert '"right" if collapsed else "down"' in chrome
+    assert 'header.setProperty("collapsed", collapsed)' in chrome
+    assert "def install_runtime_folder_chrome(runtime_module):" in chrome
+    assert "runtime_module.RuntimeFolder = SharedRuntimeFolder" in chrome
+    assert "runtime_module.RuntimeSection = SharedRuntimeFolder" in chrome
+
+    assert '("right", "Expand", "alt-arrow-right.svg")' in builtin_icons
+    assert "from .collapsible_folder import install_runtime_folder_chrome" in ui_source
+    assert "install_runtime_folder_chrome(" in ui_source
 
 
 def test_property_editor_base_uses_sections_instead_of_one_shared_form():

@@ -6,10 +6,8 @@ import json
 import os
 
 from ..constants import BUILD_CHANNEL
-from ..constants import SETTINGS_FILENAME
-from ..constants import SETTINGS_PATH_ENV
-from ..hosts import HOST
 from ..pycompat import text_type
+from .user_paths import settings_path
 
 
 UPDATE_CHANNEL_STABLE = "stable"
@@ -40,32 +38,6 @@ def normalize_update_channel(
         default = UPDATE_CHANNEL_STABLE
 
     return default
-
-
-def settings_path():
-    override = text_type(
-        os.environ.get(
-            SETTINGS_PATH_ENV,
-            ""
-        )
-    ).strip()
-
-    if override:
-        return os.path.normpath(
-            override
-        )
-
-    try:
-        folder = HOST.user_config_dir()
-    except Exception:
-        folder = os.path.expanduser("~")
-
-    return os.path.normpath(
-        os.path.join(
-            folder,
-            SETTINGS_FILENAME
-        )
-    )
 
 
 def default_preferences():

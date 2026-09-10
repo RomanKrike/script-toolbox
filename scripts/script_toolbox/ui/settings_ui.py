@@ -3,7 +3,6 @@ from __future__ import print_function
 
 from ..compat import QtGui
 from ..style import toolbar_icon
-from ..telemetry.events import track_product_event
 from .icon_button import ICON_BUTTON_HEADER
 from .icon_button import create_icon_button
 from .settings_dialog import prompt_telemetry_consent
@@ -56,9 +55,6 @@ def build_settings_toolbox_class(base_class):
             )
 
         def open_settings_dialog(self):
-            track_product_event(
-                "settings_opened"
-            )
             return show_settings_dialog(
                 parent=self
             )

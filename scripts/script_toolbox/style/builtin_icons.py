@@ -39,6 +39,7 @@ _ICON_ENTRIES = (
     ("close-circle", "Close Circle", "close-circle.svg"),
     ("up", "Move Up", "alt-arrow-up.svg"),
     ("down", "Move Down", "alt-arrow-down.svg"),
+    ("right", "Expand", "alt-arrow-right.svg"),
     ("delete", "Delete", "trash-bin-minimalistic-2.svg"),
     ("clear", "Clear", "broom.svg"),
     ("reload", "Reload", "restart.svg"),

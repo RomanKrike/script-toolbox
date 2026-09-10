@@ -16,7 +16,7 @@ The active implementation lives under:
 scripts/script_toolbox/
 ```
 
-Script Toolbox currently uses **config schema 20 as the single supported document contract**. Historical schemas are intentionally not migrated while the plugin remains under active development. A non-empty config must declare the current schema version.
+Script Toolbox currently uses **config schema 20 as the single supported document contract**. Earlier schemas are intentionally not converted while the plugin remains under active development. A non-empty config must declare the current schema version.
 
 The model/core is Maya-independent. Runtime and Interface Editor use the same item factories, container traversal, reference rules and event-binding model. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the dependency and schema contracts.
 
@@ -116,7 +116,7 @@ New documents are written with:
 
 Only schema 20 is accepted by the current build. Older, newer, invalid and non-empty versionless documents are rejected rather than inferred or converted. An empty mapping is accepted internally only when creating a brand-new configuration.
 
-Event behavior is persisted only in `bindings`. Historical callback dictionaries and direct script fields are not part of the current schema.
+Event behavior is persisted only in `bindings`. Callback dictionaries and direct script fields are not part of the current schema.
 
 ## Continuous integration
 

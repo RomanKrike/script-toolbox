@@ -25,6 +25,7 @@ def test_toggle_icon_internal_state_is_a_boolean_value_item():
             "label": "Wireframe",
             "state_on_path": "on.svg",
             "state_off_path": "off.svg",
+            "content_alignment": "center",
             "value": True,
         }
     )
@@ -34,6 +35,7 @@ def test_toggle_icon_internal_state_is_a_boolean_value_item():
     assert item["value"] is True
     assert item["state_on_path"] == "on.svg"
     assert item["state_off_path"] == "off.svg"
+    assert item["content_alignment"] == "center"
     assert item["show_label"] is False
 
     triggers = matching_bindings(
@@ -44,6 +46,7 @@ def test_toggle_icon_internal_state_is_a_boolean_value_item():
     )
     assert len(triggers) == 1
     assert triggers[0]["handler"] == "state_toggle"
+    assert "button_mode" not in triggers[0]
 
 
 def test_toggle_icon_script_state_has_no_stored_value():
@@ -65,7 +68,7 @@ def test_toggle_icon_script_state_has_no_stored_value():
     assert item["state_off_script"] == "print('off')"
 
 
-def test_toggle_icon_can_use_legacy_icon_path_as_both_state_fallbacks():
+def test_toggle_icon_does_not_translate_plain_icon_path():
     item = create_item(
         "toggle_icon",
         {
@@ -73,8 +76,8 @@ def test_toggle_icon_can_use_legacy_icon_path_as_both_state_fallbacks():
         }
     )
 
-    assert item["state_on_path"] == "shared.svg"
-    assert item["state_off_path"] == "shared.svg"
+    assert item["state_on_path"] == ""
+    assert item["state_off_path"] == ""
     assert "path" not in item
 
 

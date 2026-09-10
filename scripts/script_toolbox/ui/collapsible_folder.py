@@ -53,16 +53,26 @@ def configure_collapsible_folder_header(
     return header
 
 
-def configure_collapsible_folder_content(content, layout):
-    """Use the Inspector spacing contract inside collapsible runtime folders."""
+def configure_collapsible_folder_content(
+    content,
+    layout,
+    margins=None,
+    spacing=None
+):
+    """Apply the shared Inspector content geometry to a collapsible folder."""
+    if margins is None:
+        margins = COLLAPSIBLE_FOLDER_CONTENT_MARGINS
+    if spacing is None:
+        spacing = COLLAPSIBLE_FOLDER_CONTENT_SPACING
+
     content.setObjectName("RuntimeFolderContent")
     layout.setContentsMargins(
-        COLLAPSIBLE_FOLDER_CONTENT_MARGINS[0],
-        COLLAPSIBLE_FOLDER_CONTENT_MARGINS[1],
-        COLLAPSIBLE_FOLDER_CONTENT_MARGINS[2],
-        COLLAPSIBLE_FOLDER_CONTENT_MARGINS[3]
+        margins[0],
+        margins[1],
+        margins[2],
+        margins[3]
     )
-    layout.setSpacing(COLLAPSIBLE_FOLDER_CONTENT_SPACING)
+    layout.setSpacing(spacing)
     return layout
 
 

@@ -182,7 +182,7 @@ def test_base_controller_clones_column_subtree_and_remaps_internal_links():
     assert column["id"] != "column_a"
     assert field["id"] != "field_a"
     assert field["name"] != "field_a"
-    assert field["name"] in button["bindings"][0]["script"]
+    assert field["id"] in button["bindings"][0]["script"]
     assert "'field_a'" not in button["bindings"][0]["script"]
 
 

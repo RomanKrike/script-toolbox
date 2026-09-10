@@ -6,7 +6,6 @@ from . import interface_editor as _interface_editor_module
 from ..core.editor_document import EditorDocumentController
 from .editor_document_adapter import build_interface_editor_class
 from .editor_polish_hooks import install_icon_only_button_centering
-from .editor_polish_hooks import install_icon_only_state_refresh
 from .editor_polish_hooks import install_runtime_icon_feedback
 from .interface_tree import ExistingInterfaceTree
 from .scroll_surface_frames import install_property_editor_scroll_frames
@@ -130,7 +129,6 @@ install_script_editor_scroll_frames(ScriptEditorWidget)
 install_icon_only_button_centering(get_runtime_renderer_registry())
 install_event_binding_hooks(get_runtime_renderer_registry())
 install_runtime_icon_feedback(get_runtime_renderer_registry())
-install_icon_only_state_refresh(_BaseScriptToolbox)
 
 from .runtime_value_sync import install_runtime_value_sync
 from . import debounced_main_window as _debounced_main_window_module

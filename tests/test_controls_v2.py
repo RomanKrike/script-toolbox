@@ -2,7 +2,6 @@
 
 from script_toolbox.constants import CONFIG_VERSION
 from script_toolbox.constants import ITEM_KINDS
-from script_toolbox.core.migrations import migrate_document
 from script_toolbox.core.references import rewrite_item_references
 from script_toolbox.core.references import rewrite_subtree_references
 from script_toolbox.core.values import store_value
@@ -28,12 +27,14 @@ def _document_with(item):
 
 
 def test_controls_v2_schema_and_action_kinds_are_registered():
-    assert CONFIG_VERSION == 19
+    assert CONFIG_VERSION == 20
     assert "icon" in ITEM_KINDS
     assert "toggle_button" in ITEM_KINDS
+    assert "toggle_icon" in ITEM_KINDS
+    assert "column" in ITEM_KINDS
 
 
-def test_icon_model_preserves_path_size_alignment_and_binding():
+def test_icon_model_preserves_current_alignment_and_binding():
     item = create_item(
         "icon",
         {
@@ -42,7 +43,7 @@ def test_icon_model_preserves_path_size_alignment_and_binding():
             "path": "$HOME/icon.png",
             "width": 32,
             "height": 40,
-            "alignment": "center",
+            "content_alignment": "center",
             "tooltip": "Open",
             "bindings": [
                 {
@@ -62,9 +63,9 @@ def test_icon_model_preserves_path_size_alignment_and_binding():
     assert item["path"] == "$HOME/icon.png"
     assert item["width"] == 32
     assert item["height"] == 40
-    assert item["alignment"] == "center"
+    assert item["content_alignment"] == "center"
+    assert "alignment" not in item
     assert item["tooltip"] == "Open"
-    assert "clickable" not in item
     assert item["bindings"][0]["script"] == (
         "toolbox.get_value('target')"
     )
@@ -83,9 +84,8 @@ def test_button_icon_properties_and_icon_only_are_normalized():
     assert item["icon_path"] == "icons/run.png"
     assert item["icon_size"] == 28
     assert item["icon_only"] is True
-    assert "language" not in item
-    assert "click_script" not in item
     assert len(item["bindings"]) == 1
+    assert item["bindings"][0]["handler"] == "script"
 
 
 def test_binding_events_are_kind_specific_and_layout_is_hidden():
@@ -105,6 +105,10 @@ def test_binding_events_are_kind_specific_and_layout_is_hidden():
         "click",
         "double_click",
     )
+    assert binding_events("toggle_icon") == (
+        "click",
+        "double_click",
+    )
     assert binding_events("folder") == ()
     assert binding_events(
         "folder",
@@ -113,10 +117,11 @@ def test_binding_events_are_kind_specific_and_layout_is_hidden():
         "opened",
         "closed",
     )
+    assert binding_events("column") == ()
     assert binding_events("separator") == ()
 
 
-def test_legacy_on_change_is_accepted_by_item_factory_as_binding():
+def test_old_direct_script_field_is_not_converted_to_binding():
     item = create_item(
         "string",
         {
@@ -124,52 +129,8 @@ def test_legacy_on_change_is_accepted_by_item_factory_as_binding():
         }
     )
 
-    assert len(item["bindings"]) == 1
-    assert item["bindings"][0]["event"] == "value_changed"
-    assert item["bindings"][0]["script"] == "result = value"
+    assert item["bindings"] == []
     assert "on_change_script" not in item
-    assert "callbacks" not in item
-
-
-def test_schema_16_migrates_recursively_through_current_schema():
-    source = {
-        "version": 16,
-        "sections": [
-            {
-                "kind": "folder",
-                "id": "folder",
-                "name": "folder",
-                "items": [
-                    {
-                        "kind": "row",
-                        "id": "row",
-                        "name": "row",
-                        "items": [
-                            {
-                                "kind": "integer",
-                                "id": "value",
-                                "name": "value",
-                                "on_change_script": (
-                                    "toolbox.store_value('other', value)"
-                                ),
-                            }
-                        ],
-                    }
-                ],
-            }
-        ],
-    }
-
-    migrated = migrate_document(source)
-    value_item = migrated["sections"][0]["items"][0]["items"][0]
-
-    assert migrated["version"] == CONFIG_VERSION
-    assert value_item["bindings"][0]["event"] == "value_changed"
-    assert value_item["bindings"][0]["script"] == (
-        "toolbox.store_value('other', value)"
-    )
-    assert "callbacks" not in value_item
-    assert "on_change_script" not in value_item
 
 
 def test_integer_vector_size_and_component_labels():
@@ -316,7 +277,7 @@ def test_binding_references_remap_inside_duplicated_subtree_payload():
     )
 
 
-def test_shift_click_is_matched_as_modifier_not_special_script_field():
+def test_shift_click_is_a_normal_binding_modifier():
     item = create_item(
         "button",
         {
@@ -328,7 +289,6 @@ def test_shift_click_is_matched_as_modifier_not_special_script_field():
                     "modifiers": [],
                     "language": "python",
                     "script": "normal = True",
-                    "button_mode": "action",
                 },
                 {
                     "id": "shift",
@@ -337,7 +297,6 @@ def test_shift_click_is_matched_as_modifier_not_special_script_field():
                     "modifiers": ["shift"],
                     "language": "mel",
                     "script": "polyCube;",
-                    "button_mode": "action",
                 },
             ],
         }
@@ -359,3 +318,4 @@ def test_shift_click_is_matched_as_modifier_not_special_script_field():
     assert [entry["id"] for entry in normal] == ["normal"]
     assert [entry["id"] for entry in shifted] == ["shift"]
     assert shifted[0]["language"] == "mel"
+    assert "button_mode" not in shifted[0]

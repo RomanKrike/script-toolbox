@@ -210,6 +210,7 @@ def _download_with_powershell(
     )
 
     script = [
+        "$ErrorActionPreference = 'Stop'",
         "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12",
         "$request = [System.Net.HttpWebRequest]::Create('{0}')".format(
             _powershell_quote(
@@ -245,15 +246,36 @@ def _download_with_powershell(
             "if ($token) { $request.Headers['Authorization'] = 'token ' + $token }",
         ])
 
+    destination_ps = _powershell_quote(
+        destination
+    )
+    download_block = (
+        "try { "
+        "$response = $request.GetResponse(); "
+        "$responseStream = $response.GetResponseStream(); "
+        "$output = [System.IO.File]::Open('" +
+        destination_ps +
+        "', [System.IO.FileMode]::Create); "
+        "$buffer = New-Object byte[] 65536; "
+        "while (($readCount = $responseStream.Read($buffer, 0, $buffer.Length)) -gt 0) { "
+        "$output.Write($buffer, 0, $readCount) "
+        "} "
+        "} catch { "
+        "$downloadError = $_.Exception.Message "
+        "} finally { "
+        "if ($output -ne $null) { $output.Close() }; "
+        "if ($responseStream -ne $null) { $responseStream.Close() }; "
+        "if ($response -ne $null) { $response.Close() } "
+        "}"
+    )
+
     script.extend([
-        "$response = $request.GetResponse()",
-        "$input = $response.GetResponseStream()",
-        "$output = [System.IO.File]::Open('{0}', [System.IO.FileMode]::Create)".format(
-            _powershell_quote(
-                destination
-            )
-        ),
-        "try { $input.CopyTo($output) } finally { $output.Close(); $input.Close(); $response.Close() }",
+        "$response = $null",
+        "$responseStream = $null",
+        "$output = $null",
+        "$downloadError = $null",
+        download_block,
+        "if ($downloadError) { [Console]::Error.WriteLine($downloadError); exit 1 }",
     ])
 
     command = "; ".join(

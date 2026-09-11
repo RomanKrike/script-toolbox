@@ -59,23 +59,28 @@ def default_common_properties():
 
 
 def _get_or_create_installation_id():
-    """Return a stable random id, creating it only after explicit opt-in."""
+    """Return ``(id, created)`` for the persisted random installation id."""
     try:
         installation_id = get_telemetry_installation_id()
     except Exception:
         installation_id = None
 
     if installation_id:
-        return installation_id
+        return installation_id, False
 
     candidate = _INSTALLATION_ID_PREFIX + uuid.uuid4().hex
     try:
-        return set_telemetry_installation_id(candidate)
+        installation_id = set_telemetry_installation_id(candidate)
     except Exception:
         # If persistence is unavailable, do not silently degrade to a
         # process-scoped identity because that would corrupt unique-user
         # metrics. Telemetry remains disabled instead.
-        return None
+        return None, False
+
+    if not installation_id:
+        return None, False
+
+    return installation_id, True
 
 
 def _ensure_posthog_provider(distinct_id=None):
@@ -161,7 +166,7 @@ def configure_default_telemetry():
             common_properties=common_properties
         )
 
-    installation_id = _get_or_create_installation_id()
+    installation_id, installation_created = _get_or_create_installation_id()
     if not installation_id:
         return service.configure(
             provider_name="posthog",
@@ -183,11 +188,19 @@ def configure_default_telemetry():
             common_properties=common_properties
         )
 
-    return service.configure(
+    status = service.configure(
         provider_name="posthog",
         enabled=True,
         common_properties=common_properties
     )
+
+    if installation_created:
+        try:
+            track_product_event("installation_created")
+        except Exception:
+            pass
+
+    return status
 
 
 def initialize_telemetry():

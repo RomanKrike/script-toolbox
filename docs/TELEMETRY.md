@@ -116,13 +116,19 @@ so Script Toolbox telemetry does not create PostHog person profiles. The persist
 - the persisted random installation id after consent;
 - a reviewed set of low-cardinality technical properties.
 
-The first semantic event is:
+When a new installation identifier is created and persisted, Script Toolbox emits exactly one lifecycle event for that creation:
+
+```text
+installation_created
+```
+
+Existing installations do not emit this event again on later application launches. The regular startup event remains:
 
 ```text
 plugin_started
 ```
 
-It is emitted at most once per loaded telemetry runtime and only when explicit consent is `True`.
+`plugin_started` is emitted at most once per loaded telemetry runtime and only when explicit consent is `True`.
 
 The current common property allowlist is:
 
@@ -143,7 +149,7 @@ When an official build has a telemetry transport configured and the stored conse
 
 The dialog presents two explicit choices:
 
-- `Enable` stores `True`, creates/reuses the random installation id, enables the configured provider immediately, and allows the current runtime to emit `plugin_started`;
+- `Enable` stores `True`, creates/reuses the random installation id, enables the configured provider immediately, and allows the current runtime to emit telemetry;
 - `Don't Send` stores `False` and keeps telemetry disabled.
 
 Closing the dialog without choosing either option leaves consent as `None`. The prompt is shown at most once per host process, so dismissing it does not repeatedly interrupt the same Maya/Nuke/Houdini session.
@@ -224,6 +230,7 @@ The user's persisted privacy state contains consent plus, after opt-in, the rand
 Telemetry is intentionally sparse. Product events represent durable actions rather than UI traffic. The current semantic event set is:
 
 ```text
+installation_created
 plugin_started
 item_created
 item_duplicated

@@ -488,14 +488,14 @@ def test_base_and_debounced_store_overrides_are_wrapped_independently():
 
 def test_ui_installs_sync_for_live_debounced_runtime_after_renderer_hooks():
     source = _read(
-        "scripts/script_toolbox/ui/__init__.py"
+        "scripts/script_toolbox/ui/bootstrap.py"
     )
 
     value_sync = source.index(
         "install_runtime_value_sync("
     )
     event_hooks = source.index(
-        "install_event_binding_hooks("
+        "install_event_binding_hooks(registry)"
     )
 
     assert event_hooks < value_sync

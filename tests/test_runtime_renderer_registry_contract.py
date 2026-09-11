@@ -16,15 +16,21 @@ def _read(relative_path):
         return handle.read()
 
 
-def test_ui_initializes_registry_before_main_window_import():
-    source = _read("scripts/script_toolbox/ui/__init__.py")
+def test_ui_package_delegates_runtime_composition_to_explicit_bootstrap():
+    package_source = _read("scripts/script_toolbox/ui/__init__.py")
+    bootstrap_source = _read("scripts/script_toolbox/ui/bootstrap.py")
 
-    initialize = source.index("initialize_runtime_renderer_registry(")
-    main_window = source.index("from .main_window import ScriptToolbox")
+    assert "from .bootstrap import initialize_ui" in package_source
+    assert "_RUNTIME = initialize_ui()" in package_source
+    assert "initialize_runtime_renderer_registry(" not in package_source
 
-    assert initialize < main_window
-    assert "register_runtime_renderer" in source
-    assert "unregister_runtime_renderer" in source
+    runtime_step = bootstrap_source.index(
+        "runtime_registry = _compose_runtime_registry()"
+    )
+    toolbox_step = bootstrap_source.index(
+        "toolbox_class = _compose_toolbox(runtime_registry)"
+    )
+    assert runtime_step < toolbox_step
 
 
 def test_default_registry_covers_native_base_runtime_kinds():
@@ -52,12 +58,20 @@ def test_default_registry_covers_native_base_runtime_kinds():
     assert '("toggle", _render_' not in source
 
 
-def test_specialized_current_kinds_register_through_public_registry():
-    source = _read("scripts/script_toolbox/ui/__init__.py")
+def test_specialized_current_kinds_are_owned_by_composition_root():
+    source = _read("scripts/script_toolbox/ui/bootstrap.py")
 
-    assert 'register_runtime_renderer("column", render_column)' in source
-    assert 'register_runtime_renderer("toggle_button", render_toggle_button)' in source
-    assert 'register_runtime_renderer("toggle_icon", render_toggle_icon)' in source
+    assert 'registry.register("row", render_row, replace=True)' in source
+    assert 'registry.register("column", render_column, replace=True)' in source
+    assert 'registry.register("text", render_text, replace=True)' in source
+    assert (
+        'registry.register("toggle_button", render_toggle_button, replace=True)'
+        in source
+    )
+    assert (
+        'registry.register("toggle_icon", render_toggle_icon, replace=True)'
+        in source
+    )
 
 
 def test_active_runtime_dispatch_is_registry_based_without_method_patch():

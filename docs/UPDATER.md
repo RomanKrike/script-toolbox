@@ -14,7 +14,7 @@ Stable remains the default.
 3. If an update is available, the top bar shows `UPDATE <version>`.
 4. The user explicitly confirms installation.
 5. The updater requires the official packaged ZIP and its matching `.sha256` asset for the selected channel.
-6. Both assets are downloaded. If Maya 2015's Python 2.7 HTTPS stack cannot reach GitHub on Windows, the updater transparently falls back to PowerShell/.NET TLS 1.2 without opening a console window.
+6. Both assets are downloaded through the shared `core.http_transport` layer. On modern Windows it tries Python `urllib` first and falls back to hidden PowerShell/.NET TLS 1.2 on transport failure; on legacy Windows/Python 2 it prefers PowerShell first and falls back to `urllib`. Non-Windows hosts use `urllib` only.
 7. The ZIP SHA-256 must match the downloaded checksum before recovery, extraction, staging, or activation can touch live update state.
 8. The verified update is staged and validated before the live package is replaced.
 9. If activation fails, the transaction restores the previous package.
@@ -29,7 +29,19 @@ GitHub's generated source zipball is retained only as release metadata where use
 
 `core.update_transaction.install_release()` is the production installation pipeline. It owns verified download handoff, transaction recovery, staging, validation, activation, rollback, and cleanup.
 
-`core.updater` owns release metadata, network/download, SHA-256, and archive utilities. Its public `install_release()` name remains as a compatibility wrapper that delegates to the transaction installer; it no longer contains a second filesystem installation implementation.
+`core.updater` owns release metadata, SHA-256 and archive utilities. Network request/download execution is owned by `core.http_transport`, which is also used by sharing. Updater-specific transport compatibility names remain only as forwarding wrappers; they no longer contain an independent PowerShell implementation.
+
+`core.updater.install_release()` remains as a compatibility wrapper that delegates to the transaction installer; it no longer contains a second filesystem installation implementation.
+
+## Transport details
+
+The shared transport keeps the network policy consistent between updater and sharing:
+
+- legacy Windows/Python 2: PowerShell/.NET first, `urllib` fallback;
+- modern Windows/Python: `urllib` first, PowerShell/.NET fallback;
+- non-Windows: `urllib` only.
+
+PowerShell uses .NET `HttpWebRequest`, TLS 1.2, explicit request/read-write timeouts and hidden startup flags. GitHub Authorization is passed to the child process through an environment variable rather than embedded in the command line. Transport failures are normalized as `TransportError` and translated by updater into `UpdateError`.
 
 ## Update channel UI
 

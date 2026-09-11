@@ -16,8 +16,11 @@ def test_search_ux_is_not_owned_by_editor_polish_hooks():
     source = _read(
         "scripts/script_toolbox/ui/editor_polish_hooks.py"
     )
-    ui_source = _read(
+    package_source = _read(
         "scripts/script_toolbox/ui/__init__.py"
+    )
+    bootstrap_source = _read(
+        "scripts/script_toolbox/ui/bootstrap.py"
     )
     adapter_source = _read(
         "scripts/script_toolbox/ui/editor_document_adapter.py"
@@ -30,9 +33,10 @@ def test_search_ux_is_not_owned_by_editor_polish_hooks():
     assert "EditorSearchIcon" not in source
     assert "EditorSearchClear" not in source
     assert "_search_control(" not in source
-    assert "install_editor_search_ux" not in ui_source
-    assert "build_search_interface_editor_class" not in ui_source
-    assert "from .editor_search" not in ui_source
+    for ui_source in (package_source, bootstrap_source):
+        assert "install_editor_search_ux" not in ui_source
+        assert "build_search_interface_editor_class" not in ui_source
+        assert "from .editor_search" not in ui_source
     assert "apply_editor_presentation(self)" in adapter_source
 
 
@@ -40,8 +44,8 @@ def test_button_without_visible_label_uses_exact_centered_icon_renderer():
     source = _read(
         "scripts/script_toolbox/ui/editor_polish_hooks.py"
     )
-    ui_source = _read(
-        "scripts/script_toolbox/ui/__init__.py"
+    bootstrap_source = _read(
+        "scripts/script_toolbox/ui/bootstrap.py"
     )
 
     assert "class CenteredIconPushButton" in source
@@ -57,13 +61,13 @@ def test_button_without_visible_label_uses_exact_centered_icon_renderer():
     assert 'item.get("show_label", True)' in source
     assert "_render_centered_icon_button(" in source
     assert "install_icon_only_state_refresh" not in source
-    assert "install_icon_only_state_refresh" not in ui_source
+    assert "install_icon_only_state_refresh" not in bootstrap_source
 
-    install_center = ui_source.rindex(
-        "install_icon_only_button_centering("
+    install_center = bootstrap_source.rindex(
+        "install_icon_only_button_centering(registry)"
     )
-    install_bindings = ui_source.rindex(
-        "install_event_binding_hooks("
+    install_bindings = bootstrap_source.rindex(
+        "install_event_binding_hooks(registry)"
     )
     assert install_center < install_bindings
 
@@ -86,8 +90,8 @@ def test_runtime_icon_feedback_matches_technical_icon_states():
     source = _read(
         "scripts/script_toolbox/ui/editor_polish_hooks.py"
     )
-    ui_source = _read(
-        "scripts/script_toolbox/ui/__init__.py"
+    bootstrap_source = _read(
+        "scripts/script_toolbox/ui/bootstrap.py"
     )
 
     assert "class IconFeedbackFilter" in source
@@ -100,4 +104,4 @@ def test_runtime_icon_feedback_matches_technical_icon_states():
     assert "palette.ICON_BUTTON_PRESSED_BG" in source
     assert "palette.BORDER_INSET" in source
     assert "install_runtime_icon_feedback(" in source
-    assert "install_runtime_icon_feedback(" in ui_source
+    assert "install_runtime_icon_feedback(registry)" in bootstrap_source

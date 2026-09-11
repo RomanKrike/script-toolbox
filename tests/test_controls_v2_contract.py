@@ -95,29 +95,33 @@ def test_icon_property_editor_and_palette_are_registered():
     registry = _source(
         "scripts", "script_toolbox", "ui", "properties", "registry.py"
     )
-    ui_init = _source(
-        "scripts", "script_toolbox", "ui", "__init__.py"
+    bootstrap = _source(
+        "scripts", "script_toolbox", "ui", "bootstrap.py"
     )
 
     assert '"icon": IconPropertyEditor' in registry
     assert '"toggle_icon": ToggleIconPropertyEditor' in registry
-    assert '"Icon",' in ui_init
-    assert '"Toggle Icon",' in ui_init
+    assert '"Icon",' in bootstrap
+    assert '"Toggle Icon",' in bootstrap
 
 
 def test_layout_bindings_are_not_public_runtime_events():
     binding_source = _source(
         "scripts", "script_toolbox", "model", "bindings.py"
     )
-    ui_init = _source(
+    package_source = _source(
         "scripts", "script_toolbox", "ui", "__init__.py"
+    )
+    bootstrap = _source(
+        "scripts", "script_toolbox", "ui", "bootstrap.py"
     )
 
     assert '"folder": (),' in binding_source
     assert '"row": (),' in binding_source
     assert '"column": (),' in binding_source
     assert '"separator": (),' in binding_source
-    assert "controls_v2_hooks" not in ui_init
+    assert "controls_v2_hooks" not in package_source
+    assert "controls_v2_hooks" not in bootstrap
 
 
 def test_no_specialized_composition_kinds_were_added():

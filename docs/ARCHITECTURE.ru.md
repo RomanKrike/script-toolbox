@@ -27,6 +27,8 @@ Script Toolbox — модульный multi-DCC toolbox для Maya, Nuke и Hou
 ## Направление зависимостей
 
 ```text
+model -> core -> hosts -> ui
+
 ui/main_window -> ui/runtime -> core/values -> model
       |               |
       |               -> style
@@ -36,15 +38,16 @@ ui/main_window -> ui/runtime -> core/values -> model
       -> core/event_bindings -> core/executor
       -> compat -> hosts
 
+core/http_transport -> только Python stdlib
 core/executor -> hosts
 model -> pycompat (pure Python)
-hosts/base -> Python stdlib only
+hosts/base -> только Python stdlib
 hosts/maya_host -> maya.cmds / maya.mel
 hosts/nuke_host -> nuke / nukescripts
 hosts/houdini_host -> hou
 ```
 
-Слой model должен импортироваться без Maya и Qt. Host-specific imports находятся за `hosts/`, `compat.py` и модулями интеграции конкретных DCC.
+Слой model должен импортироваться без Maya и Qt. Host-specific imports находятся за `hosts/`, `compat.py` и модулями интеграции конкретных DCC. `core/http_transport.py` не зависит от Qt/DCC и не должен импортировать UI.
 
 ## Пути пользовательской конфигурации
 
@@ -100,13 +103,60 @@ Breaking schema changes во время разработки могут повы
 
 `ui/layout_editor_adapter.py` содержит только helper functions; он не публикует второй editor wrapper class или отдельный layout document controller. Небольшой marker на активном document adapter нужен только для предотвращения двойного wrapping во время development hot reload.
 
+## Lifecycle UI composition
+
+`ui/bootstrap.py` — composition root для UI/runtime. Он владеет упорядоченным построением финальных классов `InterfaceEditor` и `ScriptToolbox`, настройкой runtime renderer registry и установкой оставшихся compatibility hooks.
+
+`ui/__init__.py` теперь максимально декларативен. Для обратной совместимости импорт `script_toolbox.ui` по-прежнему автоматически инициализирует полный UI, но package import содержит один явно видимый composition call:
+
+```python
+_RUNTIME = initialize_ui()
+```
+
+Полученный `UIComposition` хранит финальные public classes и активный runtime renderer registry. Поэтому существующие public imports `from script_toolbox.ui import ScriptToolbox` и `from script_toolbox.ui import InterfaceEditor` сохраняют прежний контракт.
+
+`initialize_ui()` идемпотентен в пределах одного загруженного module graph: успешно созданная composition кэшируется и возвращается при повторных вызовах. Ошибка composition не кэшируется, поэтому последующий вызов может восстановиться. В hook-модулях остаются только markers, которые действительно нужны для предотвращения повторного wrapping, event filters или замены методов.
+
+Для development hot reload bootstrap повторно использует активный renderer registry, если объект модуля runtime не изменился. Это сохраняет third-party renderer registrations и registry-owned install markers при reload только composition-модуля. Если перезагружен сам `ui.runtime`, bootstrap создаёт новый default registry для новых runtime classes. Built-in renderers регистрируются с явной заменой, поэтому повторная composition не накапливает дубликаты.
+
+Оставшаяся подмена telemetry-aware share installer внутри `editor_document_adapter` — намеренно локализованный transitional compatibility monkeypatch. Теперь он находится только в composition root, а не размазан по package import logic. Удаление этой adapter-global зависимости отложено до отдельного безопасного изменения, чтобы не сломать direct builder imports.
+
 ## Runtime rendering
 
-`RuntimeFolder.build_runtime_widget()` обращается непосредственно к runtime renderer registry. Registry инициализируется при UI bootstrap, после чего специализированные актуальные kinds регистрируются через публичный API.
+`RuntimeFolder.build_runtime_widget()` обращается непосредственно к runtime renderer registry. Lifecycle registry теперь принадлежит UI bootstrap. Base renderers инициализируются один раз для активного runtime module, а специализированные актуальные kinds явно регистрируются composition root.
 
 Runtime event filters подключают поддерживаемые mouse/editing/selection events к отрендеренным widgets и dispatch через `bindings`. Renderer-specific modules не патчат event semantics главного окна.
 
 Stateful execution и refresh принадлежат главному runtime API. Renderers Toggle Button и Toggle Icon только создают и регистрируют widgets.
+
+## Сетевой transport
+
+`core/http_transport.py` — единый низкоуровневый HTTP transport для updater и sharing. Callers передают URL, payload, headers и timeout и получают bytes/file output либо `TransportError`; им не нужно знать о `urllib`, subprocess, TLS setup или построении PowerShell command.
+
+Transport policy:
+
+- non-Windows: только Python `urllib`;
+- modern Windows/Python: сначала `urllib`, затем PowerShell/.NET fallback при transport failure;
+- legacy Windows/Python 2: сначала PowerShell/.NET, потому что HTTPS stack старого host Python может не поддерживать современное TLS/certificate/SNI поведение, затем `urllib` fallback при ошибке PowerShell;
+- если на modern Windows реально понадобился успешный PowerShell fallback, текущий процесс предпочитает PowerShell для следующих shared transport calls.
+
+PowerShell transport использует .NET `HttpWebRequest`, TLS 1.2, hidden-process startup flags и явные request/read-write timeouts. Authorization передаётся дочернему процессу через временную environment variable и не встраивается в command line. Request body и response download используют временные/binary files там, где это необходимо, поэтому updater и sharing больше не содержат собственных PowerShell HTTP implementations.
+
+`core.updater` преобразует transport failures в `UpdateError`; `share.provider` — в `ShareProviderError`.
+
+## Политика compatibility
+
+Compatibility symbols классифицируются по фактическому использованию: внутренний dead code можно удалять только после repository-wide usage check; потенциально внешние imports сохраняются как маленькие forwarding/no-op shims до намеренного breaking change.
+
+Текущие compatibility layers:
+
+- private transport helpers updater, например `_download_with_powershell`, теперь делегируют в `core.http_transport`;
+- private Windows/PowerShell helpers share provider также делегируют в `core.http_transport`;
+- `ui/icon_ui_hooks.py` сохранён как документированный набор no-op shims для старых direct imports;
+- часть base-методов `InterfaceEditor`, переопределяемых production adapter chain, пока сохраняется из-за возможных direct module imports;
+- `install_runtime_folder_chrome` остаётся forwarding compatibility alias.
+
+Эти compatibility layers не должны снова превращаться в независимые реализации. Новый production flow должен использовать канонические API напрямую.
 
 ## Текущая структура пакета
 
@@ -134,6 +184,7 @@ scripts/script_toolbox/
     editor_document.py
     event_bindings.py
     executor.py
+    http_transport.py
     references.py
     runtime_registry.py
     values.py
@@ -151,6 +202,7 @@ scripts/script_toolbox/
 
   ui/
     __init__.py
+    bootstrap.py
     main_window.py
     debounced_main_window.py
     runtime.py
@@ -188,4 +240,6 @@ scripts/script_toolbox/
 - Icon alignment сохраняется только как `content_alignment`.
 - Новые item types регистрируются через model, renderer и property-editor registries.
 - Structural recursion использует общий container predicate.
+- Shared network compatibility принадлежит `core/http_transport.py`; updater/share не должны дублировать PowerShell transport logic.
+- Порядок UI/runtime composition принадлежит `ui/bootstrap.py`; `ui/__init__.py` должен оставаться небольшим public export surface.
 - Исходный код остаётся совместимым с Python 2.7 до намеренного прекращения поддержки Maya 2015.

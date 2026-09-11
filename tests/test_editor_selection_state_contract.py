@@ -49,14 +49,14 @@ def test_apply_preserves_selected_property_and_description_scroll_position():
 
 def test_editor_selection_state_hook_is_installed_before_adapter_wrapping():
     source = _read(
-        "scripts/script_toolbox/ui/__init__.py"
+        "scripts/script_toolbox/ui/bootstrap.py"
     )
 
     install_index = source.index(
-        "install_editor_selection_state(_interface_editor_module.InterfaceEditor)"
+        "install_editor_selection_state(base_editor)"
     )
     adapter_index = source.index(
-        "InterfaceEditor = build_interface_editor_class("
+        "editor_class = build_interface_editor_class("
     )
 
     assert install_index < adapter_index

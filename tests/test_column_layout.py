@@ -175,7 +175,7 @@ def test_base_controller_topology_tracks_nested_columns_and_rows():
 
 
 def test_column_editor_and_runtime_are_wired_without_layout_triggers():
-    ui_init = _source("scripts", "script_toolbox", "ui", "__init__.py")
+    bootstrap = _source("scripts", "script_toolbox", "ui", "bootstrap.py")
     adapter = _source(
         "scripts", "script_toolbox", "ui", "layout_editor_adapter.py"
     )
@@ -195,11 +195,11 @@ def test_column_editor_and_runtime_are_wired_without_layout_triggers():
         "scripts", "script_toolbox", "model", "items.py"
     )
 
-    assert '"Column",' in ui_init
-    assert '"column",' in ui_init
-    assert 'register_runtime_renderer("column", render_column)' in ui_init
-    assert "build_layout_editor_class" not in ui_init
-    assert "layout_support=True" in ui_init
+    assert '"Column",' in bootstrap
+    assert '"column",' in bootstrap
+    assert 'registry.register("column", render_column, replace=True)' in bootstrap
+    assert "build_layout_editor_class" not in bootstrap
+    assert "layout_support=True" in bootstrap
     assert "make_layout_tree_item" in document_adapter
     assert '"column": ColumnPropertyEditor' in registry
     assert "QVBoxLayout" in column_renderer

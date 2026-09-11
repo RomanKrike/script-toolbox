@@ -7,6 +7,7 @@ try:
 except ImportError:
     from urlparse import parse_qs
 
+from script_toolbox.core import http_transport
 from script_toolbox.share import provider as provider_module
 from script_toolbox.share.provider import DpasteProvider
 from script_toolbox.share.provider import PastesDevProvider
@@ -65,7 +66,6 @@ def test_pastes_dev_download_uses_api_key_endpoint(monkeypatch):
     )
 
     provider = PastesDevProvider()
-
     assert provider.download("ABC123") == "encrypted-payload"
     assert captured["url"] == "https://api.pastes.dev/ABC123"
 
@@ -136,157 +136,94 @@ def test_dpaste_download_uses_raw_text_endpoint(monkeypatch):
     )
 
     provider = DpasteProvider()
-
     assert provider.download("ABC123") == "encrypted-payload"
     assert captured["url"] == "https://dpaste.com/ABC123.txt"
 
 
-def test_powershell_transport_avoids_reserved_input_variable(monkeypatch):
+def test_share_request_uses_shared_transport(monkeypatch):
     captured = {}
 
-    class FakeProcess(object):
-        returncode = 1
-
-        def communicate(self):
-            return b"", b"network failure"
-
-    def fake_popen(arguments, **kwargs):
-        captured["command"] = arguments[-1]
-        return FakeProcess()
-
-    monkeypatch.setattr(
-        provider_module,
-        "_powershell_executable",
-        lambda: "powershell.exe"
-    )
-    monkeypatch.setattr(
-        provider_module.subprocess,
-        "Popen",
-        fake_popen
-    )
-
-    with pytest.raises(ShareProviderError):
-        provider_module._powershell_request(
-            "https://example.invalid/post",
-            data=b"payload",
-            timeout=1,
-            content_type="text/plain"
-        )
-
-    command = captured["command"]
-    assert "$ErrorActionPreference = 'Stop'" in command
-    assert "$requestStream" in command
-    assert "$responseStream" in command
-    assert "$input =" not in command
-
-
-def test_legacy_windows_request_uses_powershell_before_urllib(monkeypatch):
-    calls = []
-
-    monkeypatch.setattr(
-        provider_module,
-        "_is_windows",
-        lambda: True
-    )
-    monkeypatch.setattr(
-        provider_module,
-        "_legacy_windows_python",
-        lambda: True
-    )
-    monkeypatch.setattr(
-        provider_module,
-        "_WINDOWS_POWERSHELL_PREFERRED",
-        [False]
-    )
-
-    def fake_powershell(
+    def fake_request(
         url,
         data=None,
+        headers=None,
         timeout=15,
-        content_type=None
+        **kwargs
     ):
-        calls.append("powershell")
-        return b"fast-response"
-
-    def fail_urlopen(*args, **kwargs):
-        calls.append("urllib")
-        raise AssertionError(
-            "urllib should not run before PowerShell on legacy Windows Python"
-        )
+        captured["url"] = url
+        captured["data"] = data
+        captured["headers"] = headers
+        captured["timeout"] = timeout
+        return b"ok"
 
     monkeypatch.setattr(
-        provider_module,
-        "_powershell_request",
-        fake_powershell
-    )
-    monkeypatch.setattr(
-        provider_module,
-        "urlopen",
-        fail_urlopen
+        http_transport,
+        "request_bytes",
+        fake_request
     )
 
     result = provider_module._request(
-        "https://example.invalid/value"
+        "https://example.invalid/post",
+        data=b"payload",
+        timeout=4,
+        content_type="text/plain"
     )
 
-    assert result == b"fast-response"
-    assert calls == ["powershell"]
+    assert result == b"ok"
+    assert captured["data"] == b"payload"
+    assert captured["headers"]["Accept"] == "text/plain"
+    assert captured["headers"]["Content-Type"] == "text/plain"
+    assert "Script-Toolbox-Share" in captured["headers"]["User-Agent"]
+    assert captured["timeout"] == 4
 
 
-def test_windows_remembers_successful_powershell_fallback(monkeypatch):
-    calls = []
-
+def test_share_transport_failure_becomes_provider_error(monkeypatch):
     monkeypatch.setattr(
-        provider_module,
-        "_is_windows",
-        lambda: True
-    )
-    monkeypatch.setattr(
-        provider_module,
-        "_legacy_windows_python",
-        lambda: False
-    )
-    monkeypatch.setattr(
-        provider_module,
-        "_WINDOWS_POWERSHELL_PREFERRED",
-        [False]
+        http_transport,
+        "request_bytes",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            http_transport.TransportError("offline")
+        )
     )
 
-    def fake_urlopen(request, timeout=15):
-        calls.append("urllib")
-        raise IOError("TLS failure")
+    with pytest.raises(ShareProviderError) as error:
+        provider_module._request(
+            "https://example.invalid/value"
+        )
+    assert "offline" in str(error.value)
 
-    def fake_powershell(
+
+def test_legacy_powershell_wrapper_delegates_to_shared_transport(monkeypatch):
+    captured = {}
+
+    def fake_request(
         url,
         data=None,
+        headers=None,
         timeout=15,
-        content_type=None
+        method=None
     ):
-        calls.append("powershell")
-        return b"fallback-response"
+        captured["url"] = url
+        captured["data"] = data
+        captured["headers"] = headers
+        return b"legacy"
 
     monkeypatch.setattr(
-        provider_module,
-        "urlopen",
-        fake_urlopen
-    )
-    monkeypatch.setattr(
-        provider_module,
-        "_powershell_request",
-        fake_powershell
+        http_transport,
+        "powershell_request",
+        fake_request
     )
 
-    first = provider_module._request(
-        "https://example.invalid/first"
-    )
-    second = provider_module._request(
-        "https://example.invalid/second"
-    )
+    assert provider_module._powershell_request(
+        "https://example.invalid/post",
+        data=b"payload",
+        content_type="text/plain"
+    ) == b"legacy"
+    assert captured["headers"]["Content-Type"] == "text/plain"
 
-    assert first == b"fallback-response"
-    assert second == b"fallback-response"
-    assert calls == [
-        "urllib",
-        "powershell",
-        "powershell",
-    ]
+
+def test_invalid_ids_are_rejected_before_network():
+    with pytest.raises(ShareProviderError):
+        PastesDevProvider().download("bad/id")
+    with pytest.raises(ShareProviderError):
+        DpasteProvider().download("bad/id")

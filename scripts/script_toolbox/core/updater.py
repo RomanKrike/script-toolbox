@@ -246,32 +246,35 @@ def _download_with_powershell(
             "if ($token) { $request.Headers['Authorization'] = 'token ' + $token }",
         ])
 
+    destination_ps = _powershell_quote(
+        destination
+    )
+    download_block = (
+        "try { "
+        "$response = $request.GetResponse(); "
+        "$responseStream = $response.GetResponseStream(); "
+        "$output = [System.IO.File]::Open('" +
+        destination_ps +
+        "', [System.IO.FileMode]::Create); "
+        "$buffer = New-Object byte[] 65536; "
+        "while (($readCount = $responseStream.Read($buffer, 0, $buffer.Length)) -gt 0) { "
+        "$output.Write($buffer, 0, $readCount) "
+        "} "
+        "} catch { "
+        "$downloadError = $_.Exception.Message "
+        "} finally { "
+        "if ($output -ne $null) { $output.Close() }; "
+        "if ($responseStream -ne $null) { $responseStream.Close() }; "
+        "if ($response -ne $null) { $response.Close() } "
+        "}"
+    )
+
     script.extend([
         "$response = $null",
         "$responseStream = $null",
         "$output = $null",
         "$downloadError = $null",
-        (
-            "try { "
-            "$response = $request.GetResponse(); "
-            "$responseStream = $response.GetResponseStream(); "
-            "$output = [System.IO.File]::Open('{0}', [System.IO.FileMode]::Create); "
-            "$buffer = New-Object byte[] 65536; "
-            "while (($readCount = $responseStream.Read($buffer, 0, $buffer.Length)) -gt 0) { "
-            "$output.Write($buffer, 0, $readCount) "
-            "} "
-            "} catch { "
-            "$downloadError = $_.Exception.Message "
-            "} finally { "
-            "if ($output -ne $null) { $output.Close() }; "
-            "if ($responseStream -ne $null) { $responseStream.Close() }; "
-            "if ($response -ne $null) { $response.Close() } "
-            "}"
-        ).format(
-            _powershell_quote(
-                destination
-            )
-        ),
+        download_block,
         "if ($downloadError) { [Console]::Error.WriteLine($downloadError); exit 1 }",
     ])
 

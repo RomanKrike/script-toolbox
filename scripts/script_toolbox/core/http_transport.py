@@ -443,10 +443,9 @@ def request_bytes(
             None
         )
 
-    _WINDOWS_POWERSHELL_PREFERRED[0] = True
     if powershell_error is None:
         try:
-            return powershell_request(
+            result = powershell_request(
                 url,
                 data=data,
                 headers=headers,
@@ -455,6 +454,9 @@ def request_bytes(
             )
         except Exception as exc:
             powershell_error = exc
+        else:
+            _WINDOWS_POWERSHELL_PREFERRED[0] = True
+            return result
 
     raise _transport_failure(
         "HTTP request",
@@ -501,10 +503,9 @@ def download_file(
             None
         )
 
-    _WINDOWS_POWERSHELL_PREFERRED[0] = True
     if powershell_error is None:
         try:
-            return powershell_download(
+            result = powershell_download(
                 url,
                 destination,
                 headers=headers,
@@ -512,6 +513,9 @@ def download_file(
             )
         except Exception as exc:
             powershell_error = exc
+        else:
+            _WINDOWS_POWERSHELL_PREFERRED[0] = True
+            return result
 
     raise _transport_failure(
         "HTTP download",

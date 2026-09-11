@@ -30,9 +30,10 @@ def test_settings_dialog_uses_sidebar_and_stacked_pages():
     assert 'setObjectName("SettingsPages")' in source
     assert "currentRowChanged.connect(" in source
     assert "self.pages.setCurrentIndex" in source
-    assert 'self._add_category(\n            "General"' in source
-    assert 'self._add_category(\n            "Privacy"' in source
-    assert 'self._add_category(\n            "About"' in source
+    assert 'self._add_category("General"' in source
+    assert 'self._add_category("Network"' in source
+    assert 'self._add_category("Privacy"' in source
+    assert 'self._add_category("About"' in source
 
 
 def test_settings_dialog_keeps_global_save_and_cancel_controls():
@@ -57,6 +58,19 @@ def test_settings_pages_keep_existing_preferences():
     assert "self.telemetry_combo" in source
     assert "get_update_channel()" in source
     assert "get_telemetry_consent()" in source
+
+
+def test_network_page_exposes_proxy_controls_and_test_connection():
+    source = _read(
+        "scripts/script_toolbox/ui/settings_dialog.py"
+    )
+
+    assert '"Proxy mode"' in source
+    assert '"Proxy type"' in source
+    assert '"Requires authentication"' in source
+    assert '"Test connection"' in source
+    assert "self.proxy_password_edit" in source
+    assert "NetworkConnectionTest" in source
 
 
 def test_about_page_exposes_version_links_and_icon_attribution():

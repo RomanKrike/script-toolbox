@@ -56,7 +56,10 @@ RUNTIME_FOLDER_ROOT_MARGINS = MARGINS_NONE
 RUNTIME_FOLDER_ROOT_SPACING = 0
 RUNTIME_FOLDER_CONTENT_MARGINS = (8, 6, 8, 6)
 RUNTIME_FOLDER_CONTENT_SPACING = 4
-RUNTIME_SIMPLE_HEADER_MARGINS = (5, 2, 5, 2)
+# Simple Section uses its header label as the legend that interrupts the top
+# frame edge. A zero top inset lets the label surface mask that edge cleanly,
+# while the existing 8 px gutter keeps the title away from the left corner.
+RUNTIME_SIMPLE_HEADER_MARGINS = (8, 0, 5, 0)
 RUNTIME_SIMPLE_HEADER_SPACING = 4
 RUNTIME_PARAMETER_ROW_MARGINS = MARGINS_NONE
 RUNTIME_PARAMETER_SPACING = 4

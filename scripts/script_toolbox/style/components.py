@@ -23,6 +23,12 @@ QLineEdit#SearchField {
 QLineEdit#SearchField:focus {
     border: 1px solid %(FOCUS_BORDER)s;
 }
+
+QMenu::separator {
+    height: 1px;
+    background-color: %(SEPARATOR)s;
+    margin: 4px 6px;
+}
 """ % _STYLE_VALUES
 
 

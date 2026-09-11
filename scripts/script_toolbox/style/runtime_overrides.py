@@ -65,19 +65,24 @@ QFrame#RuntimeSeparatorLineVertical {{
 
 /* Runtime tabs share the collapsible-folder palette, but remain visibly
    tabs. Runtime-specific geometry lives in metrics.py; palette roles stay in
-   palette.py. The selected-tab overlap is the Maya 2015 / Qt4 seam fix. */
-QWidget#ToolboxContent QTabWidget::pane {{
+   palette.py. The selected-tab overlap is the Maya 2015 / Qt4 seam fix.
+   CreatePaletteTabs deliberately uses the exact same contract so editor
+   Items/Presets tabs match the tabs users build in the runtime toolbox. */
+QWidget#ToolboxContent QTabWidget::pane,
+QTabWidget#CreatePaletteTabs::pane {{
     background-color: {folder_card_bg};
     border: {tab_border_width}px solid {separator};
     border-radius: {card_radius}px;
     top: {tab_pane_top_offset}px;
 }}
 
-QWidget#ToolboxContent QTabWidget::tab-bar {{
+QWidget#ToolboxContent QTabWidget::tab-bar,
+QTabWidget#CreatePaletteTabs::tab-bar {{
     left: {runtime_tab_bar_offset}px;
 }}
 
-QWidget#ToolboxContent QTabBar::tab {{
+QWidget#ToolboxContent QTabBar::tab,
+QTabWidget#CreatePaletteTabs QTabBar::tab {{
     background-color: {window_bg};
     color: {text_folder_collapsed};
     border: {tab_border_width}px solid {separator};
@@ -92,12 +97,14 @@ QWidget#ToolboxContent QTabBar::tab {{
     font-weight: normal;
 }}
 
-QWidget#ToolboxContent QTabBar::tab:hover {{
+QWidget#ToolboxContent QTabBar::tab:hover,
+QTabWidget#CreatePaletteTabs QTabBar::tab:hover {{
     background-color: {folder_header_hover_bg};
     color: {text_folder_hover};
 }}
 
-QWidget#ToolboxContent QTabBar::tab:selected {{
+QWidget#ToolboxContent QTabBar::tab:selected,
+QTabWidget#CreatePaletteTabs QTabBar::tab:selected {{
     background-color: {folder_card_bg};
     color: {text_heading};
     border-color: {separator};

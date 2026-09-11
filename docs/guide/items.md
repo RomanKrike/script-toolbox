@@ -57,7 +57,8 @@ Use Field list mode when the control needs to represent a changing collection ra
 
 | Item | Purpose |
 | --- | --- |
-| Label | Display non-interactive text |
+| Label | Display a short non-interactive label |
+| Text | Display multiline explanatory text with word wrapping |
 | Separator | Add visual spacing or separation |
 
 Presentation items are useful for explanations, grouping, and making larger toolboxes easier to scan.

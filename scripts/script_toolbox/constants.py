@@ -47,6 +47,7 @@ ITEM_KINDS = (
     "color",
     "field",
     "label",
+    "text",
     "separator",
     "row",
     "column",

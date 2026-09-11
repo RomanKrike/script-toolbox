@@ -38,16 +38,17 @@ TAB_PADDING_VERTICAL = 5
 TAB_PADDING_HORIZONTAL = 11
 TAB_MARGIN_RIGHT = 1
 
-# Runtime toolbox tabs intentionally use denser folder-like proportions. Keep
-# the pane at its native origin and let the selected tab own the single-pixel
-# seam overlap. Moving both pane and selected tab caused rounded-border gaps
-# on Qt5 hosts such as Houdini.
+# Runtime toolbox tabs intentionally use denser folder-like proportions. The
+# pane stays at its native origin so rounded borders are never clipped. The
+# whole tab bar is moved down by exactly one border width, making the tab bar
+# own the pane seam while selected-tab margins stay at their natural position.
 RUNTIME_TAB_MIN_HEIGHT = 18
 RUNTIME_TAB_PADDING_VERTICAL = 3
 RUNTIME_TAB_PADDING_HORIZONTAL = 9
 RUNTIME_TAB_BAR_OFFSET = 0
+RUNTIME_TAB_BAR_VERTICAL_OFFSET = TAB_BORDER_WIDTH
 RUNTIME_TAB_PANE_TOP_OFFSET = 0
-RUNTIME_TAB_SELECTED_OVERLAP = -1
+RUNTIME_TAB_SELECTED_OVERLAP = 0
 
 # Runtime toolbox content grid ----------------------------------------------
 # Folder, tab and radio pages share the same inner gutter and vertical rhythm.
@@ -166,6 +167,7 @@ __all__ = [
     "RUNTIME_TAB_PADDING_VERTICAL",
     "RUNTIME_TAB_PADDING_HORIZONTAL",
     "RUNTIME_TAB_BAR_OFFSET",
+    "RUNTIME_TAB_BAR_VERTICAL_OFFSET",
     "RUNTIME_TAB_PANE_TOP_OFFSET",
     "RUNTIME_TAB_SELECTED_OVERLAP",
     "RUNTIME_FOLDER_ROOT_MARGINS",

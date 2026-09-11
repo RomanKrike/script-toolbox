@@ -6,6 +6,7 @@ from .metrics import LIST_ITEM_MIN_HEIGHT
 from .metrics import LIST_ITEM_PADDING_HORIZONTAL
 from .metrics import LIST_ITEM_PADDING_VERTICAL
 from .metrics import RUNTIME_TAB_BAR_OFFSET
+from .metrics import RUNTIME_TAB_BAR_VERTICAL_OFFSET
 from .metrics import RUNTIME_TAB_MIN_HEIGHT
 from .metrics import RUNTIME_TAB_PADDING_HORIZONTAL
 from .metrics import RUNTIME_TAB_PADDING_VERTICAL
@@ -64,10 +65,10 @@ QFrame#RuntimeSeparatorLineVertical {{
     border-left: 1px solid {separator};
 }}
 
-/* Runtime tabs keep their pane at the native origin. The selected tab owns
-   the one-pixel seam overlap, avoiding the previous two-sided compensation
-   that clipped rounded pane borders on Qt5/Houdini. The top-left pane corner
-   is square because the tab bar itself owns that corner visually.
+/* Runtime tabs keep the pane at its native origin so rounded pane corners
+   stay fully inside the QTabWidget paint rect on Qt4 and Qt5. Instead of
+   shifting both pane and selected tab, the whole tab bar moves down by one
+   border width and owns the seam. Selected tabs keep natural geometry.
 
    CreatePaletteTabs keeps its existing editor geometry independently; both
    surfaces still share tab sizing and colors below. */
@@ -89,6 +90,10 @@ QTabWidget#CreatePaletteTabs::pane {{
 QWidget#ToolboxContent QTabWidget::tab-bar,
 QTabWidget#CreatePaletteTabs::tab-bar {{
     left: {runtime_tab_bar_offset}px;
+}}
+
+QWidget#ToolboxContent QTabWidget::tab-bar {{
+    top: {runtime_tab_bar_vertical_offset}px;
 }}
 
 QWidget#ToolboxContent QTabBar::tab,
@@ -119,8 +124,15 @@ QTabWidget#CreatePaletteTabs QTabBar::tab:selected {{
     color: {text_heading};
     border-color: {separator};
     border-bottom-color: {folder_card_bg};
-    margin-bottom: {runtime_tab_selected_overlap}px;
     font-weight: normal;
+}}
+
+QWidget#ToolboxContent QTabBar::tab:selected {{
+    margin-bottom: {runtime_tab_selected_overlap}px;
+}}
+
+QTabWidget#CreatePaletteTabs QTabBar::tab:selected {{
+    margin-bottom: -{tab_border_width}px;
 }}
 
 /* Runtime Field keeps the editor list surface without row decoration:
@@ -166,6 +178,7 @@ QListWidget#RuntimeFieldList::item:selected {{
     runtime_tab_padding_vertical=RUNTIME_TAB_PADDING_VERTICAL,
     runtime_tab_padding_horizontal=RUNTIME_TAB_PADDING_HORIZONTAL,
     runtime_tab_bar_offset=RUNTIME_TAB_BAR_OFFSET,
+    runtime_tab_bar_vertical_offset=RUNTIME_TAB_BAR_VERTICAL_OFFSET,
     runtime_tab_pane_top_offset=RUNTIME_TAB_PANE_TOP_OFFSET,
     runtime_tab_selected_overlap=RUNTIME_TAB_SELECTED_OVERLAP,
     list_bg=LIST_BG,

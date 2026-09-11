@@ -84,3 +84,27 @@ def test_preset_insertion_goes_through_reference_safe_controller_clone():
     assert "build_preset_interface_editor_class(" in bootstrap
     assert "def clone_subtree(self, data, used_names=None):" in controller
     assert "rewrite_subtree_references(" in controller
+
+
+def test_preset_palette_uses_host_filtered_core_results_and_keeps_ui_contracts():
+    source = _read(
+        "scripts/script_toolbox/ui/preset_hooks.py"
+    )
+    core_source = _read(
+        "scripts/script_toolbox/core/presets.py"
+    )
+
+    assert "from ..compat import HOST" in source
+    assert "for preset in iter_presets(" in source
+    assert 'preset.get("category", "PRESETS")' in source
+    assert 'preset.get("description", "")' in source
+    assert "query in label" in source
+    assert "query in tooltip" in source
+    assert "query in preset_id" in source
+
+    assert "import maya.cmds" not in source
+    assert "import hou" not in source
+    assert "import nuke" not in source
+    assert "QtCore" not in core_source
+    assert "QtGui" not in core_source
+    assert "preset_id.startswith" not in core_source

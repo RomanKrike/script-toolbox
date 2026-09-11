@@ -99,40 +99,154 @@ class TelemetryConsentDialog(QtGui.QDialog):
 
 
 class SettingsDialog(QtGui.QDialog):
-    """Small application settings surface for update and privacy preferences."""
+    """Application settings with category navigation and stacked pages."""
 
     def __init__(self, parent=None):
         QtGui.QDialog.__init__(self, parent)
 
         self.setWindowTitle("Script Toolbox Settings")
         self.setModal(True)
-        self.setMinimumWidth(460)
+        self.setMinimumSize(640, 420)
 
         root = QtGui.QVBoxLayout(self)
         root.setContentsMargins(16, 16, 16, 16)
         root.setSpacing(12)
 
-        general_group = QtGui.QGroupBox("General")
-        general_layout = QtGui.QFormLayout(general_group)
+        content_layout = QtGui.QHBoxLayout()
+        content_layout.setSpacing(16)
+        root.addLayout(content_layout, 1)
+
+        self.category_list = QtGui.QListWidget()
+        self.category_list.setObjectName("SettingsCategoryList")
+        self.category_list.setFixedWidth(150)
+        self.category_list.setSpacing(2)
+        self.category_list.setFrameShape(QtGui.QFrame.NoFrame)
+        self.category_list.setSelectionMode(
+            QtGui.QAbstractItemView.SingleSelection
+        )
+        content_layout.addWidget(self.category_list)
+
+        separator = QtGui.QFrame()
+        separator.setObjectName("SettingsSeparator")
+        separator.setFrameShape(QtGui.QFrame.VLine)
+        separator.setFrameShadow(QtGui.QFrame.Sunken)
+        content_layout.addWidget(separator)
+
+        self.pages = QtGui.QStackedWidget()
+        self.pages.setObjectName("SettingsPages")
+        content_layout.addWidget(self.pages, 1)
+
         self.update_channel_combo = QtGui.QComboBox()
         for label, channel in _CHANNELS:
             self.update_channel_combo.addItem(label)
-        general_layout.addRow("Update channel", self.update_channel_combo)
-        root.addWidget(general_group)
 
-        privacy_group = QtGui.QGroupBox("Privacy")
-        privacy_layout = QtGui.QVBoxLayout(privacy_group)
-        privacy_layout.setSpacing(8)
-
-        row = QtGui.QHBoxLayout()
-        label = QtGui.QLabel("Usage statistics")
         self.telemetry_combo = QtGui.QComboBox()
         for choice_label, consent in _TELEMETRY_CHOICES:
             self.telemetry_combo.addItem(choice_label)
-        row.addWidget(label)
-        row.addStretch(1)
-        row.addWidget(self.telemetry_combo)
-        privacy_layout.addLayout(row)
+
+        self.telemetry_status_label = QtGui.QLabel()
+        self.telemetry_status_label.setWordWrap(True)
+
+        self._add_category(
+            "General",
+            self._build_general_page()
+        )
+        self._add_category(
+            "Privacy",
+            self._build_privacy_page()
+        )
+
+        self.category_list.currentRowChanged.connect(
+            self.pages.setCurrentIndex
+        )
+        self.category_list.setCurrentRow(0)
+
+        buttons = QtGui.QHBoxLayout()
+        buttons.addStretch(1)
+
+        cancel_button = QtGui.QPushButton("Cancel")
+        save_button = QtGui.QPushButton("Save")
+        save_button.setDefault(True)
+
+        cancel_button.clicked.connect(self.reject)
+        save_button.clicked.connect(self._save)
+
+        buttons.addWidget(cancel_button)
+        buttons.addWidget(save_button)
+        root.addLayout(buttons)
+
+        self._load_values()
+
+    def _add_category(self, label, page):
+        self.category_list.addItem(label)
+        self.pages.addWidget(page)
+
+    def _build_page_header(self, title_text, description_text):
+        header = QtGui.QWidget()
+        layout = QtGui.QVBoxLayout(header)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        title = QtGui.QLabel(title_text)
+        title.setObjectName("SettingsPageTitle")
+        title_font = title.font()
+        title_font.setBold(True)
+        title_font.setPointSize(title_font.pointSize() + 2)
+        title.setFont(title_font)
+        layout.addWidget(title)
+
+        description = QtGui.QLabel(description_text)
+        description.setObjectName("SettingsPageDescription")
+        description.setWordWrap(True)
+        layout.addWidget(description)
+
+        return header
+
+    def _build_general_page(self):
+        page = QtGui.QWidget()
+        layout = QtGui.QVBoxLayout(page)
+        layout.setContentsMargins(4, 0, 0, 0)
+        layout.setSpacing(16)
+
+        layout.addWidget(
+            self._build_page_header(
+                "General",
+                "Application and update preferences for Script Toolbox."
+            )
+        )
+
+        form = QtGui.QFormLayout()
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setSpacing(10)
+        form.addRow(
+            "Update channel",
+            self.update_channel_combo
+        )
+        layout.addLayout(form)
+        layout.addStretch(1)
+        return page
+
+    def _build_privacy_page(self):
+        page = QtGui.QWidget()
+        layout = QtGui.QVBoxLayout(page)
+        layout.setContentsMargins(4, 0, 0, 0)
+        layout.setSpacing(14)
+
+        layout.addWidget(
+            self._build_page_header(
+                "Privacy",
+                "Control optional usage statistics and review what is sent."
+            )
+        )
+
+        form = QtGui.QFormLayout()
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setSpacing(10)
+        form.addRow(
+            "Usage statistics",
+            self.telemetry_combo
+        )
+        layout.addLayout(form)
 
         privacy_text = QtGui.QLabel(
             "When enabled, Script Toolbox sends only reviewed technical "
@@ -142,7 +256,7 @@ class SettingsDialog(QtGui.QDialog):
             "data."
         )
         privacy_text.setWordWrap(True)
-        privacy_layout.addWidget(privacy_text)
+        layout.addWidget(privacy_text)
 
         provider = telemetry.active_provider_name()
         if provider == "none":
@@ -153,25 +267,10 @@ class SettingsDialog(QtGui.QDialog):
         else:
             transport_text = "Telemetry transport is available in this build."
 
-        self.telemetry_status_label = QtGui.QLabel(transport_text)
-        self.telemetry_status_label.setWordWrap(True)
-        privacy_layout.addWidget(self.telemetry_status_label)
-
-        root.addWidget(privacy_group)
-        root.addStretch(1)
-
-        buttons = QtGui.QHBoxLayout()
-        buttons.addStretch(1)
-        cancel_button = QtGui.QPushButton("Cancel")
-        save_button = QtGui.QPushButton("Save")
-        save_button.setDefault(True)
-        cancel_button.clicked.connect(self.reject)
-        save_button.clicked.connect(self._save)
-        buttons.addWidget(cancel_button)
-        buttons.addWidget(save_button)
-        root.addLayout(buttons)
-
-        self._load_values()
+        self.telemetry_status_label.setText(transport_text)
+        layout.addWidget(self.telemetry_status_label)
+        layout.addStretch(1)
+        return page
 
     def _load_values(self):
         channel = get_update_channel()

@@ -8,6 +8,7 @@ from ..core.editor_document import EditorDocumentController
 from .editor_document_adapter import build_interface_editor_class
 from .editor_polish_hooks import install_icon_only_button_centering
 from .editor_polish_hooks import install_runtime_icon_feedback
+from .editor_selection_state import install_editor_selection_state
 from .interface_tree import ExistingInterfaceTree
 from .preset_hooks import build_preset_interface_editor_class
 from .scroll_surface_frames import install_property_editor_scroll_frames
@@ -110,6 +111,7 @@ def _install_current_palette(editor_class):
 
 
 _install_current_palette(_interface_editor_module.InterfaceEditor)
+install_editor_selection_state(_interface_editor_module.InterfaceEditor)
 
 # The controller adapter resolves this module global when an editor instance is
 # constructed. Replacing it here ensures share-button signals are wired to the

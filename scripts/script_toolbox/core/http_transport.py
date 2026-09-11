@@ -204,28 +204,33 @@ def _powershell_transfer(
             ),
         ])
 
+    destination_ps = powershell_quote(destination)
+    transfer_block = (
+        "try { "
+        "$response = $request.GetResponse(); "
+        "$responseStream = $response.GetResponseStream(); "
+        "$output = [System.IO.File]::Open('" +
+        destination_ps +
+        "', [System.IO.FileMode]::Create); "
+        "$buffer = New-Object byte[] 65536; "
+        "while (($readCount = $responseStream.Read($buffer, 0, $buffer.Length)) -gt 0) { "
+        "$output.Write($buffer, 0, $readCount) "
+        "} "
+        "} catch { "
+        "$transferError = $_.Exception.Message "
+        "} finally { "
+        "if ($output -ne $null) { $output.Close() }; "
+        "if ($responseStream -ne $null) { $responseStream.Close() }; "
+        "if ($response -ne $null) { $response.Close() } "
+        "}"
+    )
+
     script.extend([
         "$response = $null",
         "$responseStream = $null",
         "$output = $null",
         "$transferError = $null",
-        (
-            "try { "
-            "$response = $request.GetResponse(); "
-            "$responseStream = $response.GetResponseStream(); "
-            "$output = [System.IO.File]::Open('{0}', [System.IO.FileMode]::Create); "
-            "$buffer = New-Object byte[] 65536; "
-            "while (($readCount = $responseStream.Read($buffer, 0, $buffer.Length)) -gt 0) { "
-            "$output.Write($buffer, 0, $readCount) "
-            "} "
-            "} catch { "
-            "$transferError = $_.Exception.Message "
-            "} finally { "
-            "if ($output -ne $null) { $output.Close() }; "
-            "if ($responseStream -ne $null) { $responseStream.Close() }; "
-            "if ($response -ne $null) { $response.Close() } "
-            "}"
-        ).format(powershell_quote(destination)),
+        transfer_block,
         "if ($transferError) { [Console]::Error.WriteLine($transferError); exit 1 }",
     ])
 

@@ -133,6 +133,7 @@ def test_unknown_host_receives_only_universal_presets(monkeypatch):
         _registry_preset("universal", "all"),
         _registry_preset("maya_only", "maya"),
         _registry_preset("houdini_only", "houdini"),
+        _registry_preset("invalid", "broken"),
     )
     monkeypatch.setattr(
         presets_module,

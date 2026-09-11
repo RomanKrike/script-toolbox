@@ -32,6 +32,7 @@ def test_settings_dialog_uses_sidebar_and_stacked_pages():
     assert "self.pages.setCurrentIndex" in source
     assert 'self._add_category(\n            "General"' in source
     assert 'self._add_category(\n            "Privacy"' in source
+    assert 'self._add_category(\n            "About"' in source
 
 
 def test_settings_dialog_keeps_global_save_and_cancel_controls():
@@ -56,3 +57,19 @@ def test_settings_pages_keep_existing_preferences():
     assert "self.telemetry_combo" in source
     assert "get_update_channel()" in source
     assert "get_telemetry_consent()" in source
+
+
+def test_about_page_exposes_version_links_and_icon_attribution():
+    source = _read(
+        "scripts/script_toolbox/ui/settings_dialog.py"
+    )
+
+    assert "PLUGIN_VERSION" in source
+    assert "BUILD_CHANNEL" in source
+    assert "GitHub repository" in source
+    assert "Documentation" in source
+    assert "Third-party assets" in source
+    assert "Solar Icons by 480 Design" in source
+    assert "Iconify" in source
+    assert "CC BY 4.0" in source
+    assert "setOpenExternalLinks(True)" in source

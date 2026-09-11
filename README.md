@@ -2,6 +2,8 @@
 
 Configurable script toolbox for Maya, Nuke, and Houdini.
 
+**Documentation:** https://romankrike.github.io/script-toolbox/
+
 Current host targets:
 
 - Maya 2015 — Python 2.7, PySide 1 / Qt 4, Python + MEL

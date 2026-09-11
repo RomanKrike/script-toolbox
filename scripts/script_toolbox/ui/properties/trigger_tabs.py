@@ -104,12 +104,83 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
             except Exception:
                 pass
 
+    def _remove_trigger_close_button(self, page):
+        index = self.tabs.indexOf(page)
+        if index < 0:
+            return
+
+        bar = self.tabs.tabBar()
+        try:
+            holder = bar.tabButton(
+                index,
+                QtGui.QTabBar.RightSide
+            )
+        except Exception:
+            holder = None
+
+        if holder is None:
+            return
+
+        try:
+            is_trigger_holder = (
+                text_type(holder.objectName()) ==
+                "TriggerCloseHolder"
+            )
+        except Exception:
+            is_trigger_holder = False
+
+        if not is_trigger_holder:
+            return
+
+        try:
+            bar.setTabButton(
+                index,
+                QtGui.QTabBar.RightSide,
+                None
+            )
+        except Exception:
+            pass
+        try:
+            holder.hide()
+            holder.deleteLater()
+        except Exception:
+            pass
+
     def _install_trigger_close_button(self, page):
         if page not in self.pages:
             return
 
-        index = self.pages.index(page)
+        index = self.tabs.indexOf(page)
+        if index < 0:
+            return
+
         bar = self.tabs.tabBar()
+        try:
+            existing = bar.tabButton(
+                index,
+                QtGui.QTabBar.RightSide
+            )
+        except Exception:
+            existing = None
+
+        try:
+            existing_is_trigger_holder = (
+                existing is not None and
+                text_type(existing.objectName()) ==
+                "TriggerCloseHolder"
+            )
+        except Exception:
+            existing_is_trigger_holder = False
+
+        # Required primary triggers cannot be removed. Do not render a close
+        # affordance that only leads to a rejection dialog.
+        if self._required_page(page):
+            if existing_is_trigger_holder:
+                self._remove_trigger_close_button(page)
+            return
+
+        if existing_is_trigger_holder:
+            return
 
         # Maya/Qt4 can crop a QTabBar right-side control by one pixel. Keep the
         # proven holder geometry, but paint the glyph ourselves so QToolButton

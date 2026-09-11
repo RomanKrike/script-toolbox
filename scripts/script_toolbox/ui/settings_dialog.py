@@ -3,6 +3,11 @@ from __future__ import print_function
 
 from .. import telemetry
 from ..compat import QtGui
+from ..constants import BUILD_CHANNEL
+from ..constants import BUILD_COMMIT
+from ..constants import BUILD_NUMBER
+from ..constants import DISPLAY_NAME
+from ..constants import PLUGIN_VERSION
 from ..core.preferences import UPDATE_CHANNEL_DEVELOPMENT
 from ..core.preferences import UPDATE_CHANNEL_STABLE
 from ..core.preferences import get_telemetry_consent
@@ -21,6 +26,11 @@ _TELEMETRY_CHOICES = (
     ("Enabled", True),
     ("Disabled", False),
 )
+
+_GITHUB_URL = "https://github.com/RomanKrike/script-toolbox"
+_DOCS_URL = "https://romankrike.github.io/script-toolbox/"
+_ICONIFY_URL = "https://iconify.design/"
+_SOLAR_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/"
 
 
 class TelemetryConsentDialog(QtGui.QDialog):
@@ -155,6 +165,10 @@ class SettingsDialog(QtGui.QDialog):
             "Privacy",
             self._build_privacy_page()
         )
+        self._add_category(
+            "About",
+            self._build_about_page()
+        )
 
         self.category_list.currentRowChanged.connect(
             self.pages.setCurrentIndex
@@ -269,6 +283,85 @@ class SettingsDialog(QtGui.QDialog):
 
         self.telemetry_status_label.setText(transport_text)
         layout.addWidget(self.telemetry_status_label)
+        layout.addStretch(1)
+        return page
+
+    def _build_about_page(self):
+        page = QtGui.QWidget()
+        layout = QtGui.QVBoxLayout(page)
+        layout.setContentsMargins(4, 0, 0, 0)
+        layout.setSpacing(14)
+
+        layout.addWidget(
+            self._build_page_header(
+                "About",
+                "Version, project links, and third-party credits."
+            )
+        )
+
+        product_name = QtGui.QLabel(DISPLAY_NAME)
+        product_font = product_name.font()
+        product_font.setBold(True)
+        product_font.setPointSize(product_font.pointSize() + 1)
+        product_name.setFont(product_font)
+        layout.addWidget(product_name)
+
+        version_form = QtGui.QFormLayout()
+        version_form.setContentsMargins(0, 0, 0, 0)
+        version_form.setSpacing(8)
+        version_form.addRow(
+            "Version",
+            QtGui.QLabel(PLUGIN_VERSION)
+        )
+
+        build_text = BUILD_CHANNEL.title()
+        if BUILD_NUMBER:
+            build_text += " #{0}".format(BUILD_NUMBER)
+        if BUILD_COMMIT:
+            build_text += " ({0})".format(BUILD_COMMIT[:8])
+
+        version_form.addRow(
+            "Build",
+            QtGui.QLabel(build_text)
+        )
+        layout.addLayout(version_form)
+
+        links = QtGui.QLabel(
+            '<a href="{0}">GitHub repository</a> &nbsp;&middot;&nbsp; '
+            '<a href="{1}">Documentation</a>'.format(
+                _GITHUB_URL,
+                _DOCS_URL
+            )
+        )
+        links.setOpenExternalLinks(True)
+        layout.addWidget(links)
+
+        credits_title = QtGui.QLabel("Third-party assets")
+        credits_font = credits_title.font()
+        credits_font.setBold(True)
+        credits_title.setFont(credits_font)
+        layout.addWidget(credits_title)
+
+        credits = QtGui.QLabel(
+            'Solar Icons by 480 Design<br>'
+            'Source: <a href="{0}">Iconify</a><br>'
+            'License: <a href="{1}">CC BY 4.0</a>'.format(
+                _ICONIFY_URL,
+                _SOLAR_LICENSE_URL
+            )
+        )
+        credits.setOpenExternalLinks(True)
+        credits.setWordWrap(True)
+        layout.addWidget(credits)
+
+        credits_note = QtGui.QLabel(
+            "Script Toolbox bundles selected monochrome Solar Linear icons "
+            "locally and normalizes their display color for the dark UI. "
+            "The full attribution notice is included with the icon resources."
+        )
+        credits_note.setWordWrap(True)
+        layout.addWidget(credits_note)
+
         layout.addStretch(1)
         return page
 

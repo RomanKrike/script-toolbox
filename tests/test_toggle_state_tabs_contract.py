@@ -39,6 +39,44 @@ def test_toggle_state_scripts_share_the_event_tab_surface():
     assert "self._add_tab_page" in source
 
 
+def test_trigger_tabs_order_fixed_before_removable_then_add():
+    state_source = _source(
+        "scripts",
+        "script_toolbox",
+        "ui",
+        "properties",
+        "toggle_state_tabs.py"
+    )
+    trigger_source = _source(
+        "scripts",
+        "script_toolbox",
+        "ui",
+        "properties",
+        "trigger_tabs.py"
+    )
+
+    assert "def _required_binding_pages(panel):" in state_source
+    assert "def _optional_binding_pages(panel):" in state_source
+    assert "def _desired_tab_widgets(panel):" in state_source
+    assert "def _ensure_tab_order(panel):" in state_source
+    assert (
+        "_required_binding_pages(panel) +\n"
+        "        auxiliary +\n"
+        "        _optional_binding_pages(panel)"
+        in state_source
+    )
+    assert "panel._remove_add_tab()" in state_source
+    assert "panel._ensure_add_tab()" in state_source
+    assert "panel_class._refresh_tabs = refresh_tabs" in state_source
+    assert "panel_class.remove_binding = remove_binding" in state_source
+    assert "index = self.tabs.indexOf(page)" in state_source
+
+    assert "def _remove_trigger_close_button(self, page):" in trigger_source
+    assert "index = self.tabs.indexOf(page)" in trigger_source
+    assert "if self._required_page(page):" in trigger_source
+    assert "self._remove_trigger_close_button(page)" in trigger_source
+
+
 def test_toggle_state_tab_hook_installs_after_trigger_and_sizing_hooks():
     source = _source(
         "scripts",

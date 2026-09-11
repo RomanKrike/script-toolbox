@@ -2,16 +2,21 @@
 from __future__ import print_function
 
 from .. import telemetry
+from ..compat import QtCore
 from ..compat import QtGui
 from ..constants import BUILD_CHANNEL
 from ..constants import BUILD_COMMIT
 from ..constants import BUILD_NUMBER
 from ..constants import DISPLAY_NAME
+from ..constants import GITHUB_REPOSITORY
 from ..constants import PLUGIN_VERSION
+from ..core import http_transport
+from ..core import network_proxy
 from ..core.preferences import UPDATE_CHANNEL_DEVELOPMENT
 from ..core.preferences import UPDATE_CHANNEL_STABLE
 from ..core.preferences import get_telemetry_consent
 from ..core.preferences import get_update_channel
+from ..pycompat import text_type
 
 
 _CONSENT_PROMPT_SHOWN = False
@@ -25,6 +30,18 @@ _TELEMETRY_CHOICES = (
     ("Ask me next time", None),
     ("Enabled", True),
     ("Disabled", False),
+)
+
+_PROXY_MODES = (
+    ("No proxy", network_proxy.PROXY_MODE_NONE),
+    ("System proxy", network_proxy.PROXY_MODE_SYSTEM),
+    ("Manual proxy", network_proxy.PROXY_MODE_MANUAL),
+)
+
+_PROXY_TYPES = (
+    ("HTTP", network_proxy.PROXY_TYPE_HTTP),
+    ("HTTPS", network_proxy.PROXY_TYPE_HTTPS),
+    ("SOCKS5", network_proxy.PROXY_TYPE_SOCKS5),
 )
 
 _GITHUB_URL = "https://github.com/RomanKrike/script-toolbox"
@@ -108,6 +125,45 @@ class TelemetryConsentDialog(QtGui.QDialog):
         self.reject()
 
 
+class NetworkConnectionTest(QtCore.QThread):
+    """Run the shared updater transport without blocking the settings UI."""
+
+    completed = QtCore.Signal(bool, object)
+
+    def __init__(self, proxy_config, parent=None):
+        QtCore.QThread.__init__(self, parent)
+        self.proxy_config = proxy_config
+
+    def run(self):
+        url = "https://api.github.com/repos/{0}/releases/latest".format(
+            GITHUB_REPOSITORY
+        )
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "Script-Toolbox-Proxy-Test/{0}".format(
+                PLUGIN_VERSION
+            ),
+        }
+        try:
+            http_transport.request_bytes(
+                url,
+                headers=headers,
+                timeout=8,
+                proxy_config=self.proxy_config
+            )
+        except Exception as exc:
+            self.completed.emit(
+                False,
+                http_transport.user_error_message(
+                    exc,
+                    proxy_config=self.proxy_config
+                )
+            )
+            return
+
+        self.completed.emit(True, "Connected successfully.")
+
+
 class SettingsDialog(QtGui.QDialog):
     """Application settings with category navigation and stacked pages."""
 
@@ -116,7 +172,8 @@ class SettingsDialog(QtGui.QDialog):
 
         self.setWindowTitle("Script Toolbox Settings")
         self.setModal(True)
-        self.setMinimumSize(640, 420)
+        self.setMinimumSize(680, 500)
+        self._network_test = None
 
         root = QtGui.QVBoxLayout(self)
         root.setContentsMargins(16, 16, 16, 16)
@@ -157,18 +214,12 @@ class SettingsDialog(QtGui.QDialog):
         self.telemetry_status_label = QtGui.QLabel()
         self.telemetry_status_label.setWordWrap(True)
 
-        self._add_category(
-            "General",
-            self._build_general_page()
-        )
-        self._add_category(
-            "Privacy",
-            self._build_privacy_page()
-        )
-        self._add_category(
-            "About",
-            self._build_about_page()
-        )
+        self._create_network_controls()
+
+        self._add_category("General", self._build_general_page())
+        self._add_category("Network", self._build_network_page())
+        self._add_category("Privacy", self._build_privacy_page())
+        self._add_category("About", self._build_about_page())
 
         self.category_list.currentRowChanged.connect(
             self.pages.setCurrentIndex
@@ -190,6 +241,49 @@ class SettingsDialog(QtGui.QDialog):
         root.addLayout(buttons)
 
         self._load_values()
+
+    def _create_network_controls(self):
+        self.proxy_mode_combo = QtGui.QComboBox()
+        for label, value in _PROXY_MODES:
+            self.proxy_mode_combo.addItem(label)
+
+        self.proxy_type_combo = QtGui.QComboBox()
+        for label, value in _PROXY_TYPES:
+            self.proxy_type_combo.addItem(label)
+
+        self.proxy_host_edit = QtGui.QLineEdit()
+        self.proxy_host_edit.setPlaceholderText("proxy.company.local")
+
+        self.proxy_port_edit = QtGui.QLineEdit()
+        self.proxy_port_edit.setPlaceholderText("8080")
+        try:
+            validator = QtGui.QIntValidator(1, 65535, self.proxy_port_edit)
+            self.proxy_port_edit.setValidator(validator)
+        except Exception:
+            pass
+
+        self.proxy_auth_check = QtGui.QCheckBox("Requires authentication")
+        self.proxy_username_edit = QtGui.QLineEdit()
+        self.proxy_password_edit = QtGui.QLineEdit()
+        self.proxy_password_edit.setEchoMode(QtGui.QLineEdit.Password)
+
+        self.proxy_show_password_check = QtGui.QCheckBox("Show password")
+        self.proxy_test_button = QtGui.QPushButton("Test connection")
+        self.proxy_status_label = QtGui.QLabel("Not tested")
+        self.proxy_status_label.setWordWrap(True)
+
+        self.proxy_mode_combo.currentIndexChanged.connect(
+            self._update_network_state
+        )
+        self.proxy_auth_check.toggled.connect(
+            self._update_network_state
+        )
+        self.proxy_show_password_check.toggled.connect(
+            self._toggle_password_visibility
+        )
+        self.proxy_test_button.clicked.connect(
+            self._test_connection
+        )
 
     def _add_category(self, label, page):
         self.category_list.addItem(label)
@@ -213,7 +307,6 @@ class SettingsDialog(QtGui.QDialog):
         description.setObjectName("SettingsPageDescription")
         description.setWordWrap(True)
         layout.addWidget(description)
-
         return header
 
     def _build_general_page(self):
@@ -232,11 +325,58 @@ class SettingsDialog(QtGui.QDialog):
         form = QtGui.QFormLayout()
         form.setContentsMargins(0, 0, 0, 0)
         form.setSpacing(10)
-        form.addRow(
-            "Update channel",
-            self.update_channel_combo
-        )
+        form.addRow("Update channel", self.update_channel_combo)
         layout.addLayout(form)
+        layout.addStretch(1)
+        return page
+
+    def _build_network_page(self):
+        page = QtGui.QWidget()
+        layout = QtGui.QVBoxLayout(page)
+        layout.setContentsMargins(4, 0, 0, 0)
+        layout.setSpacing(14)
+
+        layout.addWidget(
+            self._build_page_header(
+                "Network",
+                "Configure how Script Toolbox connects to update and share services."
+            )
+        )
+
+        section_title = QtGui.QLabel("Proxy")
+        font = section_title.font()
+        font.setBold(True)
+        section_title.setFont(font)
+        layout.addWidget(section_title)
+
+        form = QtGui.QFormLayout()
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setSpacing(9)
+        form.addRow("Proxy mode", self.proxy_mode_combo)
+        form.addRow("Proxy type", self.proxy_type_combo)
+        form.addRow("Host", self.proxy_host_edit)
+        form.addRow("Port", self.proxy_port_edit)
+        form.addRow("", self.proxy_auth_check)
+        form.addRow("Username", self.proxy_username_edit)
+        form.addRow("Password", self.proxy_password_edit)
+        form.addRow("", self.proxy_show_password_check)
+        layout.addLayout(form)
+
+        actions = QtGui.QHBoxLayout()
+        actions.addWidget(self.proxy_test_button)
+        actions.addStretch(1)
+        layout.addLayout(actions)
+
+        layout.addWidget(self.proxy_status_label)
+
+        security_note = QtGui.QLabel(
+            "Proxy passwords are never written to settings.json in clear text. "
+            "On Windows they are protected with the current user's DPAPI key. "
+            "On platforms without a secure built-in backend, the password must "
+            "be re-entered after restart."
+        )
+        security_note.setWordWrap(True)
+        layout.addWidget(security_note)
         layout.addStretch(1)
         return page
 
@@ -256,18 +396,14 @@ class SettingsDialog(QtGui.QDialog):
         form = QtGui.QFormLayout()
         form.setContentsMargins(0, 0, 0, 0)
         form.setSpacing(10)
-        form.addRow(
-            "Usage statistics",
-            self.telemetry_combo
-        )
+        form.addRow("Usage statistics", self.telemetry_combo)
         layout.addLayout(form)
 
         privacy_text = QtGui.QLabel(
             "When enabled, Script Toolbox sends only reviewed technical "
             "metadata, feature event names, and a random installation ID that "
             "is stored locally and reused across sessions. It is not derived "
-            "from hardware, account, username, hostname, scene, or project "
-            "data."
+            "from hardware, account, username, hostname, scene, or project data."
         )
         privacy_text.setWordWrap(True)
         layout.addWidget(privacy_text)
@@ -309,10 +445,7 @@ class SettingsDialog(QtGui.QDialog):
         version_form = QtGui.QFormLayout()
         version_form.setContentsMargins(0, 0, 0, 0)
         version_form.setSpacing(8)
-        version_form.addRow(
-            "Version",
-            QtGui.QLabel(PLUGIN_VERSION)
-        )
+        version_form.addRow("Version", QtGui.QLabel(PLUGIN_VERSION))
 
         build_text = BUILD_CHANNEL.title()
         if BUILD_NUMBER:
@@ -320,10 +453,7 @@ class SettingsDialog(QtGui.QDialog):
         if BUILD_COMMIT:
             build_text += " ({0})".format(BUILD_COMMIT[:8])
 
-        version_form.addRow(
-            "Build",
-            QtGui.QLabel(build_text)
-        )
+        version_form.addRow("Build", QtGui.QLabel(build_text))
         layout.addLayout(version_form)
 
         links = QtGui.QLabel(
@@ -361,34 +491,172 @@ class SettingsDialog(QtGui.QDialog):
         )
         credits_note.setWordWrap(True)
         layout.addWidget(credits_note)
-
         layout.addStretch(1)
         return page
 
+    @staticmethod
+    def _combo_value(combo, entries):
+        index = combo.currentIndex()
+        if index < 0 or index >= len(entries):
+            index = 0
+        return entries[index][1]
+
+    @staticmethod
+    def _set_combo_value(combo, entries, value):
+        for index, entry in enumerate(entries):
+            if entry[1] == value:
+                combo.setCurrentIndex(index)
+                return
+        combo.setCurrentIndex(0)
+
     def _load_values(self):
         channel = get_update_channel()
-        channel_index = 0
-        for index, entry in enumerate(_CHANNELS):
-            if entry[1] == channel:
-                channel_index = index
-                break
-        self.update_channel_combo.setCurrentIndex(channel_index)
+        self._set_combo_value(
+            self.update_channel_combo,
+            _CHANNELS,
+            channel
+        )
 
         consent = get_telemetry_consent()
-        consent_index = 0
-        for index, entry in enumerate(_TELEMETRY_CHOICES):
-            if entry[1] is consent:
-                consent_index = index
-                break
-        self.telemetry_combo.setCurrentIndex(consent_index)
+        self._set_combo_value(
+            self.telemetry_combo,
+            _TELEMETRY_CHOICES,
+            consent
+        )
+
+        config = network_proxy.load_proxy_config()
+        self._set_combo_value(
+            self.proxy_mode_combo,
+            _PROXY_MODES,
+            config.mode
+        )
+        self._set_combo_value(
+            self.proxy_type_combo,
+            _PROXY_TYPES,
+            config.proxy_type
+        )
+        self.proxy_host_edit.setText(config.host)
+        self.proxy_port_edit.setText(
+            "" if config.port is None else text_type(config.port)
+        )
+        self.proxy_auth_check.setChecked(config.requires_auth)
+        self.proxy_username_edit.setText(config.username)
+        self.proxy_password_edit.setText(config.password)
+        self.proxy_status_label.setText("Not tested")
+        self._update_network_state()
+
+    def _update_network_state(self, *args):
+        manual = (
+            self._combo_value(
+                self.proxy_mode_combo,
+                _PROXY_MODES
+            ) == network_proxy.PROXY_MODE_MANUAL
+        )
+        auth = manual and self.proxy_auth_check.isChecked()
+
+        self.proxy_type_combo.setEnabled(manual)
+        self.proxy_host_edit.setEnabled(manual)
+        self.proxy_port_edit.setEnabled(manual)
+        self.proxy_auth_check.setEnabled(manual)
+        self.proxy_username_edit.setEnabled(auth)
+        self.proxy_password_edit.setEnabled(auth)
+        self.proxy_show_password_check.setEnabled(auth)
+
+    def _toggle_password_visibility(self, checked):
+        mode = (
+            QtGui.QLineEdit.Normal
+            if checked
+            else QtGui.QLineEdit.Password
+        )
+        self.proxy_password_edit.setEchoMode(mode)
+
+    def _proxy_config_from_ui(self):
+        port_text = text_type(self.proxy_port_edit.text()).strip()
+        port = None
+        if port_text:
+            try:
+                port = int(port_text)
+            except (TypeError, ValueError):
+                port = port_text
+
+        config = network_proxy.ProxyConfig(
+            mode=self._combo_value(
+                self.proxy_mode_combo,
+                _PROXY_MODES
+            ),
+            proxy_type=self._combo_value(
+                self.proxy_type_combo,
+                _PROXY_TYPES
+            ),
+            host=text_type(self.proxy_host_edit.text()).strip(),
+            port=port,
+            requires_auth=self.proxy_auth_check.isChecked(),
+            username=text_type(self.proxy_username_edit.text()),
+            password=text_type(self.proxy_password_edit.text())
+        )
+        config.validate()
+        return config
+
+    def _test_connection(self):
+        try:
+            config = self._proxy_config_from_ui()
+        except network_proxy.ProxyConfigError as exc:
+            self.proxy_status_label.setText(text_type(exc))
+            return
+
+        if self._network_test is not None:
+            try:
+                if self._network_test.isRunning():
+                    return
+            except Exception:
+                pass
+
+        self.proxy_test_button.setEnabled(False)
+        self.proxy_status_label.setText("Testing...")
+
+        self._network_test = NetworkConnectionTest(
+            config,
+            parent=self
+        )
+        self._network_test.completed.connect(
+            self._network_test_finished
+        )
+        self._network_test.start()
+
+    def _network_test_finished(self, success, message):
+        self.proxy_test_button.setEnabled(True)
+        self.proxy_status_label.setText(text_type(message))
 
     def _save(self):
-        channel = _CHANNELS[
-            self.update_channel_combo.currentIndex()
-        ][1]
-        consent = _TELEMETRY_CHOICES[
-            self.telemetry_combo.currentIndex()
-        ][1]
+        try:
+            proxy_config = self._proxy_config_from_ui()
+        except network_proxy.ProxyConfigError as exc:
+            self.category_list.setCurrentRow(1)
+            self.proxy_status_label.setText(text_type(exc))
+            return
+
+        password_persisted = network_proxy.save_proxy_config(
+            proxy_config
+        )
+        if (
+            proxy_config.requires_auth and
+            proxy_config.password and
+            not password_persisted
+        ):
+            self.category_list.setCurrentRow(1)
+            self.proxy_status_label.setText(
+                "Settings saved, but this platform has no built-in secure "
+                "credential backend. Re-enter the proxy password after restart."
+            )
+
+        channel = self._combo_value(
+            self.update_channel_combo,
+            _CHANNELS
+        )
+        consent = self._combo_value(
+            self.telemetry_combo,
+            _TELEMETRY_CHOICES
+        )
 
         parent = self.parent()
         current_channel = get_update_channel()
@@ -431,6 +699,7 @@ def show_settings_dialog(parent=None):
 
 
 __all__ = [
+    "NetworkConnectionTest",
     "SettingsDialog",
     "TelemetryConsentDialog",
     "prompt_telemetry_consent",

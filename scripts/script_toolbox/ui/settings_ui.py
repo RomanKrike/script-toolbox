@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..compat import QtCore
 from ..compat import QtGui
 from ..style import toolbar_icon
 from .settings_dialog import prompt_telemetry_consent
 from .settings_dialog import show_settings_dialog
+
+
+_GITHUB_URL = "https://github.com/RomanKrike/script-toolbox"
+_DOCS_URL = "https://github.com/RomanKrike/script-toolbox/tree/main/docs"
 
 
 def build_settings_toolbox_class(base_class):
@@ -17,6 +22,8 @@ def build_settings_toolbox_class(base_class):
             self.settings_menu = None
             self.open_editor_action = None
             self.settings_action = None
+            self.github_action = None
+            self.help_docs_action = None
             base_class.__init__(self, parent)
 
         def build_ui(self):
@@ -55,13 +62,27 @@ def build_settings_toolbox_class(base_class):
                 self._open_editor_from_menu
             )
 
-            menu.addSeparator()
-
             self.settings_action = menu.addAction(
                 "Settings..."
             )
             self.settings_action.triggered.connect(
                 self._open_settings_from_menu
+            )
+
+            menu.addSeparator()
+
+            self.github_action = menu.addAction(
+                "GitHub"
+            )
+            self.github_action.triggered.connect(
+                self._open_github_from_menu
+            )
+
+            self.help_docs_action = menu.addAction(
+                "Help / Docs"
+            )
+            self.help_docs_action.triggered.connect(
+                self._open_help_docs_from_menu
             )
 
             button.clicked.connect(
@@ -99,6 +120,30 @@ def build_settings_toolbox_class(base_class):
             checked=False
         ):
             return self.open_settings_dialog()
+
+        def _open_github_from_menu(
+            self,
+            checked=False
+        ):
+            return self._open_external_url(
+                _GITHUB_URL
+            )
+
+        def _open_help_docs_from_menu(
+            self,
+            checked=False
+        ):
+            return self._open_external_url(
+                _DOCS_URL
+            )
+
+        def _open_external_url(
+            self,
+            url
+        ):
+            return QtGui.QDesktopServices.openUrl(
+                QtCore.QUrl(url)
+            )
 
         def open_settings_dialog(self):
             return show_settings_dialog(

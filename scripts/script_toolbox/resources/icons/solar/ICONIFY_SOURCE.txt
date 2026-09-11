@@ -1,0 +1,7 @@
+Source: Iconify Solar collection (prefix: solar)
+Website: https://iconify.design/
+Icon set: Solar Icons by 480 Design
+License: CC BY 4.0
+Iconify dataset: https://github.com/iconify/icon-sets/blob/master/json/solar.json
+
+The SVGs used by ScriptToolbox are monochrome Linear variants from the Solar collection and are stored locally with #d9d9d9 as their stroke/fill color for the dark UI.

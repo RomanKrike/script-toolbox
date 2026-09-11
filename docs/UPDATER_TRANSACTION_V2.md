@@ -1,8 +1,9 @@
 # Updater Transaction v2
 
 STEP 12 replaces the active update-install path with a staged, validated,
-journaled filesystem transaction. Update discovery/download helpers remain in
-`core.updater`; the active install engine lives in `core.update_transaction`.
+journaled filesystem transaction. Update discovery/download/checksum/archive
+helpers remain in `core.updater`; the single production install engine lives in
+`core.update_transaction`.
 
 ## Why v2 exists
 
@@ -13,18 +14,25 @@ end of `copytree()`.
 
 Transaction v2 minimizes the mutation window:
 
-1. recover artifacts from an earlier interrupted transaction;
-2. download and checksum the release as before;
-3. safely extract the archive;
-4. copy the candidate package to a sibling `.update_staged` directory;
-5. validate the staged tree completely;
-6. write a transaction journal;
-7. rename the live package to `.update_backup`;
-8. rename the already-complete staged tree into the live path;
-9. activate the staged Maya module file when applicable;
-10. validate the live tree again after activation;
-11. mark the journal committed;
-12. remove backup/staging/journal artifacts.
+1. validate that release metadata names the official Script Toolbox package and a matching checksum asset;
+2. download the package and checksum;
+3. verify the package SHA-256;
+4. only after verification, recover artifacts from an earlier interrupted transaction;
+5. safely extract the archive;
+6. copy the candidate package to a sibling `.update_staged` directory;
+7. validate the staged tree completely;
+8. write a transaction journal;
+9. rename the live package to `.update_backup`;
+10. rename the already-complete staged tree into the live path;
+11. activate the staged Maya module file when applicable;
+12. validate the live tree again after activation;
+13. mark the journal committed;
+14. remove backup/staging/journal artifacts.
+
+Checksum verification deliberately precedes transaction recovery and staging. A
+missing official package, missing checksum, failed checksum download, or digest
+mismatch therefore cannot modify the live package or its recovery artifacts.
+GitHub's generated source zipball is not an installation fallback.
 
 The staging and live package directories are siblings. This keeps activation
 renames on the same filesystem and avoids copying package files into the live
@@ -34,6 +42,8 @@ directory during the activation phase.
 
 Before the live tree is touched, the staged package must:
 
+- come from the expected official package asset for the selected update channel;
+- pass the required SHA-256 verification;
 - contain the required modular package files;
 - expose `PLUGIN_VERSION` from `constants.py`;
 - match the version advertised by release metadata when one is supplied;
@@ -76,8 +86,10 @@ the last known-good copy.
 ## Compatibility
 
 The active `UpdateInstallThread` imports `install_release` from
-`core.update_transaction`. Update checks and release metadata still use
-`core.updater`.
+`core.update_transaction`. `core.updater.install_release` remains only as a thin
+compatibility wrapper that delegates to the same transaction-v2 installer; no
+second public filesystem installation flow remains. Update checks and release
+metadata continue to use `core.updater`.
 
 The transaction implementation keeps Python 2.7 syntax and is exercised by a
 dedicated Python 2.7 filesystem smoke test for Maya 2015 compatibility.

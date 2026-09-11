@@ -30,7 +30,7 @@ LIST_ITEM_PADDING_VERTICAL = 3
 LIST_ITEM_PADDING_HORIZONTAL = 4
 
 # Tabs ----------------------------------------------------------------------
-# Generic tab geometry used by the base stylesheet.
+# Generic tab geometry used by the base stylesheet and editor tab surfaces.
 TAB_BORDER_WIDTH = 1
 TAB_SELECTED_ACCENT_WIDTH = 2
 TAB_PANE_TOP_OFFSET = -1
@@ -38,13 +38,15 @@ TAB_PADDING_VERTICAL = 5
 TAB_PADDING_HORIZONTAL = 11
 TAB_MARGIN_RIGHT = 1
 
-# Runtime toolbox tabs intentionally use denser folder-like proportions while
-# keeping normal tab geometry. The overlap closes the Qt4 seam between the
-# selected tab and its pane in Maya 2015.
+# Runtime toolbox tabs intentionally use denser folder-like proportions. Keep
+# the pane at its native origin and let the selected tab own the single-pixel
+# seam overlap. Moving both pane and selected tab caused rounded-border gaps
+# on Qt5 hosts such as Houdini.
 RUNTIME_TAB_MIN_HEIGHT = 18
 RUNTIME_TAB_PADDING_VERTICAL = 3
 RUNTIME_TAB_PADDING_HORIZONTAL = 9
 RUNTIME_TAB_BAR_OFFSET = 0
+RUNTIME_TAB_PANE_TOP_OFFSET = 0
 RUNTIME_TAB_SELECTED_OVERLAP = -1
 
 # Runtime toolbox content grid ----------------------------------------------
@@ -164,6 +166,7 @@ __all__ = [
     "RUNTIME_TAB_PADDING_VERTICAL",
     "RUNTIME_TAB_PADDING_HORIZONTAL",
     "RUNTIME_TAB_BAR_OFFSET",
+    "RUNTIME_TAB_PANE_TOP_OFFSET",
     "RUNTIME_TAB_SELECTED_OVERLAP",
     "RUNTIME_FOLDER_ROOT_MARGINS",
     "RUNTIME_FOLDER_ROOT_SPACING",

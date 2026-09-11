@@ -9,6 +9,7 @@ from .metrics import RUNTIME_TAB_BAR_OFFSET
 from .metrics import RUNTIME_TAB_MIN_HEIGHT
 from .metrics import RUNTIME_TAB_PADDING_HORIZONTAL
 from .metrics import RUNTIME_TAB_PADDING_VERTICAL
+from .metrics import RUNTIME_TAB_PANE_TOP_OFFSET
 from .metrics import RUNTIME_TAB_SELECTED_OVERLAP
 from .metrics import TAB_BORDER_WIDTH
 from .metrics import TAB_MARGIN_RIGHT
@@ -63,12 +64,21 @@ QFrame#RuntimeSeparatorLineVertical {{
     border-left: 1px solid {separator};
 }}
 
-/* Runtime tabs and editor Items/Presets tabs intentionally share one visual
-   contract. Geometry comes from metrics.py and colors from palette.py; the
-   selectors differ only because the widgets live in different UI scopes.
-   Keep the selected label weight stable so Qt4 never has to reconcile a tab
-   width calculated from the normal font with a wider bold selected label. */
-QWidget#ToolboxContent QTabWidget::pane,
+/* Runtime tabs keep their pane at the native origin. The selected tab owns
+   the one-pixel seam overlap, avoiding the previous two-sided compensation
+   that clipped rounded pane borders on Qt5/Houdini. The top-left pane corner
+   is square because the tab bar itself owns that corner visually.
+
+   CreatePaletteTabs keeps its existing editor geometry independently; both
+   surfaces still share tab sizing and colors below. */
+QWidget#ToolboxContent QTabWidget::pane {{
+    background-color: {folder_card_bg};
+    border: {tab_border_width}px solid {separator};
+    border-radius: {panel_radius}px;
+    border-top-left-radius: 0px;
+    top: {runtime_tab_pane_top_offset}px;
+}}
+
 QTabWidget#CreatePaletteTabs::pane {{
     background-color: {folder_card_bg};
     border: {tab_border_width}px solid {separator};
@@ -156,6 +166,7 @@ QListWidget#RuntimeFieldList::item:selected {{
     runtime_tab_padding_vertical=RUNTIME_TAB_PADDING_VERTICAL,
     runtime_tab_padding_horizontal=RUNTIME_TAB_PADDING_HORIZONTAL,
     runtime_tab_bar_offset=RUNTIME_TAB_BAR_OFFSET,
+    runtime_tab_pane_top_offset=RUNTIME_TAB_PANE_TOP_OFFSET,
     runtime_tab_selected_overlap=RUNTIME_TAB_SELECTED_OVERLAP,
     list_bg=LIST_BG,
     text_list=TEXT_LIST,

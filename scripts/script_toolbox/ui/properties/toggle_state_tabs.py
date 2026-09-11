@@ -32,12 +32,156 @@ def _auxiliary_record(panel, key):
     return None
 
 
+def _auxiliary_record_for_widget(panel, widget):
+    for record in _auxiliary_tabs(panel):
+        if record.get("widget") is widget:
+            return record
+    return None
+
+
 def _script_auxiliary_editors(panel):
     return [
         record.get("widget")
         for record in _auxiliary_tabs(panel)
         if record.get("script_editor") and record.get("widget") is not None
     ]
+
+
+def _is_required_page(panel, page):
+    try:
+        return bool(panel._required_page(page))
+    except Exception:
+        return False
+
+
+def _required_binding_pages(panel):
+    return [
+        page
+        for page in getattr(panel, "pages", [])
+        if _is_required_page(panel, page)
+    ]
+
+
+def _optional_binding_pages(panel):
+    return [
+        page
+        for page in getattr(panel, "pages", [])
+        if not _is_required_page(panel, page)
+    ]
+
+
+def _desired_tab_widgets(panel):
+    auxiliary = [
+        record.get("widget")
+        for record in _auxiliary_tabs(panel)
+        if record.get("widget") is not None
+    ]
+    return (
+        _required_binding_pages(panel) +
+        auxiliary +
+        _optional_binding_pages(panel)
+    )
+
+
+def _current_content_widgets(panel):
+    result = []
+    add_page = getattr(panel, "_add_tab_page", None)
+    for index in range(panel.tabs.count()):
+        widget = panel.tabs.widget(index)
+        if widget is add_page:
+            continue
+        result.append(widget)
+    return result
+
+
+def _tab_metadata(panel, widget):
+    index = panel.tabs.indexOf(widget)
+    if index < 0:
+        return ("", "", True)
+
+    try:
+        enabled = bool(panel.tabs.isTabEnabled(index))
+    except Exception:
+        enabled = True
+
+    return (
+        text_type(panel.tabs.tabText(index)),
+        text_type(panel.tabs.tabToolTip(index)),
+        enabled,
+    )
+
+
+def _ensure_tab_order(panel):
+    """Keep fixed tabs first, removable bindings second, and + last."""
+    desired = _desired_tab_widgets(panel)
+    if _current_content_widgets(panel) == desired:
+        return False
+
+    current_widget = panel.tabs.currentWidget()
+    metadata = [
+        (widget,) + _tab_metadata(panel, widget)
+        for widget in desired
+    ]
+
+    for page in list(getattr(panel, "pages", [])):
+        try:
+            panel._remove_trigger_close_button(page)
+        except Exception:
+            pass
+
+    panel._remove_add_tab()
+
+    for widget in desired:
+        index = panel.tabs.indexOf(widget)
+        if index >= 0:
+            panel.tabs.removeTab(index)
+
+    for target_index, entry in enumerate(metadata):
+        widget, old_label, old_tooltip, enabled = entry
+        record = _auxiliary_record_for_widget(panel, widget)
+        if record is not None:
+            label = record.get("label", old_label)
+            tooltip = record.get("tooltip", old_tooltip)
+        else:
+            try:
+                page_index = panel.pages.index(widget)
+                binding = panel.pages[page_index].write()
+                label = binding_display_name(binding)
+            except Exception:
+                label = old_label
+            tooltip = old_tooltip
+
+        index = panel.tabs.insertTab(
+            target_index,
+            widget,
+            text_type(label)
+        )
+        panel.tabs.setTabToolTip(
+            index,
+            text_type(tooltip or "")
+        )
+        try:
+            panel.tabs.setTabEnabled(index, enabled)
+        except Exception:
+            pass
+
+    panel._ensure_add_tab()
+
+    if current_widget is not None:
+        try:
+            if panel.tabs.indexOf(current_widget) >= 0:
+                panel.tabs.setCurrentWidget(current_widget)
+        except Exception:
+            pass
+
+    for page in getattr(panel, "pages", []):
+        panel._install_trigger_close_button(page)
+
+    QtCore.QTimer.singleShot(
+        0,
+        panel._position_add_button
+    )
+    return True
 
 
 def _configure_script_editor(editor):
@@ -243,9 +387,7 @@ def install_integrated_toggle_state_tabs():
         records.append(record)
 
         try:
-            insert_index = len(self.pages) + len(records) - 1
-            index = self.tabs.insertTab(
-                insert_index,
+            index = self.tabs.addTab(
                 widget,
                 record["label"]
             )
@@ -258,6 +400,7 @@ def install_integrated_toggle_state_tabs():
         finally:
             self._ensure_add_tab()
 
+        _ensure_tab_order(self)
         self._refresh_empty()
         return widget
 
@@ -303,6 +446,10 @@ def install_integrated_toggle_state_tabs():
 
         self._remove_add_tab()
         for page in list(getattr(self, "pages", [])):
+            try:
+                self._remove_trigger_close_button(page)
+            except Exception:
+                pass
             index = self.tabs.indexOf(page)
             if index >= 0:
                 self.tabs.removeTab(index)
@@ -316,6 +463,7 @@ def install_integrated_toggle_state_tabs():
 
     def add_page(self, binding):
         self._remove_add_tab()
+        page = None
         try:
             page = bindings_module.BindingPage(
                 binding,
@@ -323,19 +471,73 @@ def install_integrated_toggle_state_tabs():
                 parent=self.tabs
             )
             page.changed.connect(self._page_changed)
-            insert_index = len(self.pages)
             self.pages.append(page)
-            index = self.tabs.insertTab(
-                insert_index,
+            index = self.tabs.addTab(
                 page,
                 binding_display_name(binding)
             )
             self._update_tab_tooltip(index, binding)
             _update_state_toggle_hint(page, binding)
-            self._install_trigger_close_button(page)
-            return page
         finally:
             self._ensure_add_tab()
+
+        moved = _ensure_tab_order(self)
+        if not moved:
+            self._install_trigger_close_button(page)
+        return page
+
+    def refresh_tabs(self):
+        for page in self.pages:
+            binding = page.write()
+            index = self.tabs.indexOf(page)
+            if index < 0:
+                continue
+            self.tabs.setTabText(
+                index,
+                binding_display_name(binding)
+            )
+            self._update_tab_tooltip(index, binding)
+            _update_state_toggle_hint(page, binding)
+
+        _ensure_tab_order(self)
+        for page in self.pages:
+            self._install_trigger_close_button(page)
+        self._refresh_empty()
+
+    def remove_binding(self, page):
+        if page not in self.pages:
+            return
+
+        if self._required_page(page):
+            QtGui.QMessageBox.information(
+                self,
+                "Trigger Required",
+                "This item must keep its required primary trigger."
+            )
+            return
+
+        name = binding_display_name(page.write())
+        answer = QtGui.QMessageBox.question(
+            self,
+            "Remove Trigger",
+            'Remove trigger "{0}"?'.format(name),
+            QtGui.QMessageBox.Yes | QtGui.QMessageBox.No,
+            QtGui.QMessageBox.No
+        )
+        if answer != QtGui.QMessageBox.Yes:
+            return
+
+        try:
+            self._remove_trigger_close_button(page)
+        except Exception:
+            pass
+        index = self.tabs.indexOf(page)
+        self.pages.remove(page)
+        if index >= 0:
+            self.tabs.removeTab(index)
+        page.deleteLater()
+        self._refresh_tabs()
+        self.changed.emit()
 
     def refresh_empty(self):
         original_refresh_empty(self)
@@ -407,6 +609,8 @@ def install_integrated_toggle_state_tabs():
     panel_class.script_editor_widgets = script_editor_widgets
     panel_class.clear = clear
     panel_class._add_page = add_page
+    panel_class._refresh_tabs = refresh_tabs
+    panel_class.remove_binding = remove_binding
     panel_class._refresh_empty = refresh_empty
     panel_class.eventFilter = event_filter
     panel_class._script_toolbox_integrated_state_tabs = True

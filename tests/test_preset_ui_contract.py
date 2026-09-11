@@ -10,24 +10,28 @@ def _read(relative_path):
     return (ROOT / relative_path).read_text(encoding="utf-8")
 
 
-def test_create_palette_uses_existing_tab_style_for_items_and_presets():
+def test_create_palette_uses_runtime_folder_tab_style_for_items_and_presets():
     source = _read(
         "scripts/script_toolbox/ui/preset_hooks.py"
     )
-    stylesheet = _read(
-        "scripts/script_toolbox/style/stylesheet.py"
+    runtime_style = _read(
+        "scripts/script_toolbox/style/runtime_overrides.py"
     )
 
     assert "QtGui.QTabWidget(" in source
+    assert '"CreatePaletteTabs"' in source
     assert '"Items"' in source
     assert '"Presets"' in source
     assert "self.palette_scroll_frame" not in source
     assert '"palette_scroll_frame"' in source
     assert "self.palette_filter.setPlaceholderText(" in source
 
-    assert "QTabBar::tab:selected" in stylesheet
-    assert "TAB_SELECTED_ACCENT_WIDTH" in stylesheet
-    assert "ACCENT" in stylesheet
+    assert "QWidget#ToolboxContent QTabWidget::pane," in runtime_style
+    assert "QTabWidget#CreatePaletteTabs::pane" in runtime_style
+    assert "QWidget#ToolboxContent QTabBar::tab," in runtime_style
+    assert "QTabWidget#CreatePaletteTabs QTabBar::tab" in runtime_style
+    assert "QTabWidget#CreatePaletteTabs QTabBar::tab:selected" in runtime_style
+    assert "RUNTIME_TAB_SELECTED_OVERLAP" in runtime_style
     assert "palette_tabs.setStyleSheet" not in source
 
 

@@ -52,10 +52,8 @@ QFrame#RuntimeFolder[folderType="collapsible"][nested="true"] {
     border-color: %(BORDER_FOLDER_NESTED)s;
 }
 
-/* Simple folders use one group-box-like frame assembled from the existing
-   header and content surfaces. Nested Simple folders keep their quieter
-   nested background, but the outer RuntimeFolder itself stays borderless so
-   the composed frame never becomes a double outline. */
+/* Simple Section owns no second outer outline. Its visual frame is the
+   dedicated QGroupBox child so the title can participate in the border. */
 QFrame#RuntimeFolder[folderType="simple"][nested="true"] {
     background-color: %(FOLDER_NESTED_BG)s;
     border: 0px;
@@ -192,52 +190,6 @@ QFrame#RuntimeFolder[nested="true"] QPushButton#RuntimeFolderHeader:hover {
 QFrame#RuntimeFolder[nested="true"] QPushButton#RuntimeFolderHeader[collapsed="true"] {
     background-color: %(FOLDER_NESTED_HEADER_COLLAPSED_BG)s;
     color: %(TEXT_SUBTLE)s;
-}
-
-/* Simple Section follows the classic group-box pattern without introducing a
-   second runtime widget type. The header owns the top/side frame edges and
-   the content owns the remaining side/bottom edges. The title surface then
-   paints over the top edge, creating the same visual interruption as a
-   QGroupBox legend while preserving RuntimeFolder behavior and serialization. */
-QFrame#RuntimeFolder[folderType="simple"] > QFrame#SimpleSectionHeader {
-    background-color: transparent;
-    border: 1px solid %(BORDER_GROUP)s;
-    border-bottom: 0px;
-    border-top-left-radius: %(BORDER_RADIUS_PANEL)spx;
-    border-top-right-radius: %(BORDER_RADIUS_PANEL)spx;
-}
-
-QFrame#RuntimeFolder[folderType="simple"] > QWidget#RuntimeFolderContent {
-    background-color: transparent;
-    border: 1px solid %(BORDER_GROUP)s;
-    border-top: 0px;
-    border-bottom-left-radius: %(BORDER_RADIUS_PANEL)spx;
-    border-bottom-right-radius: %(BORDER_RADIUS_PANEL)spx;
-}
-
-QFrame#RuntimeFolder[folderType="simple"][nested="true"] > QFrame#SimpleSectionHeader {
-    background-color: %(SIMPLE_SECTION_NESTED_BG)s;
-}
-
-QFrame#RuntimeFolder[folderType="simple"] > QFrame#SimpleSectionHeader QLabel#SectionTitle {
-    background-color: %(CONTENT_BG)s;
-    color: %(TEXT_SECTION)s;
-    font-weight: bold;
-    min-width: 0px;
-    padding: 2px 3px 3px 3px;
-}
-
-QFrame#RuntimeFolder[folderType="simple"][nested="true"] > QFrame#SimpleSectionHeader QLabel#SectionTitle {
-    background-color: %(SIMPLE_SECTION_NESTED_BG)s;
-    color: %(TEXT_SECTION_NESTED)s;
-    padding: 2px 4px 3px 4px;
-}
-
-/* An empty/hidden title must not leave a decorative notch in the top edge. */
-QFrame#RuntimeFolder[folderType="simple"] > QFrame#SimpleSectionHeader QLabel#SectionTitle[text=""] {
-    background-color: transparent;
-    padding-left: 0px;
-    padding-right: 0px;
 }
 
 QFrame#RuntimeSeparatorLine {
@@ -490,6 +442,20 @@ QGroupBox::title {
     left: 8px;
     padding: 0px 5px;
     color: %(TEXT_SUBTLE)s;
+}
+
+/* Simple Section reuses the shared QGroupBox geometry above. The title gets
+   an opaque surface matching its parent, so the border is physically hidden
+   beneath the legend instead of merely placing a label inside the frame. */
+QGroupBox#SimpleSectionGroupBox::title {
+    background-color: %(CONTENT_BG)s;
+    color: %(TEXT_SECTION)s;
+    font-weight: bold;
+}
+
+QGroupBox#SimpleSectionGroupBox[nested="true"]::title {
+    background-color: %(SIMPLE_SECTION_NESTED_BG)s;
+    color: %(TEXT_SECTION_NESTED)s;
 }
 
 /* ---------------------------------------------------------------

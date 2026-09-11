@@ -14,8 +14,6 @@ from ..style.metrics import RUNTIME_GROUP_SPACING
 from ..style.metrics import RUNTIME_PARAMETER_LABEL_WIDTH
 from ..style.metrics import RUNTIME_PARAMETER_ROW_MARGINS
 from ..style.metrics import RUNTIME_PARAMETER_SPACING
-from ..style.metrics import RUNTIME_SIMPLE_HEADER_MARGINS
-from ..style.metrics import RUNTIME_SIMPLE_HEADER_SPACING
 
 
 class DisplayField(QtGui.QLineEdit):
@@ -201,6 +199,8 @@ class RuntimeFolder(QtGui.QFrame):
         self.header = None
         self.header_button = None
         self.header_label = ""
+        content_parent = self
+        content_host = root
 
         if not self.embedded:
             label = (
@@ -227,19 +227,24 @@ class RuntimeFolder(QtGui.QFrame):
                 self.header_button.clicked.connect(self.toggle)
                 self.arrow = self.header_button
                 root.addWidget(self.header_button)
-            else:
-                self.header = QtGui.QFrame()
-                self.header.setObjectName("SimpleSectionHeader")
-                header_layout = QtGui.QHBoxLayout(self.header)
-                header_layout.setContentsMargins(*RUNTIME_SIMPLE_HEADER_MARGINS)
-                header_layout.setSpacing(RUNTIME_SIMPLE_HEADER_SPACING)
-                title = QtGui.QLabel(label)
-                title.setObjectName("SectionTitle")
-                header_layout.addWidget(title)
-                header_layout.addStretch(1)
-                root.addWidget(self.header)
+            elif self.folder_type == "simple":
+                # Use Qt's native group-box layout semantics for the visual
+                # frame. The model remains the same RuntimeFolder/simple item;
+                # QGroupBox is only the runtime chrome for the existing type.
+                self.header = QtGui.QGroupBox(text_type(label))
+                self.header.setObjectName("SimpleSectionGroupBox")
+                self.header.setProperty("nested", self.is_nested)
+                self.header.setToolTip(section.get("tooltip", ""))
 
-        self.content = QtGui.QWidget()
+                group_layout = QtGui.QVBoxLayout(self.header)
+                group_layout.setContentsMargins(*RUNTIME_FOLDER_ROOT_MARGINS)
+                group_layout.setSpacing(RUNTIME_FOLDER_ROOT_SPACING)
+
+                root.addWidget(self.header)
+                content_parent = self.header
+                content_host = group_layout
+
+        self.content = QtGui.QWidget(content_parent)
         self.content.setObjectName("RuntimeFolderContent")
         self.content_layout = QtGui.QVBoxLayout(self.content)
         self.content_layout.setContentsMargins(*RUNTIME_FOLDER_CONTENT_MARGINS)
@@ -247,7 +252,7 @@ class RuntimeFolder(QtGui.QFrame):
 
         self._populate_runtime_items(section["items"])
         self.content_layout.addStretch(1)
-        root.addWidget(self.content)
+        content_host.addWidget(self.content)
         self.update_state()
 
     def _populate_runtime_items(self, items):
@@ -376,7 +381,7 @@ class RuntimeFolder(QtGui.QFrame):
         checkbox.setChecked(bool(item.get("value", False)))
         checkbox.toggled.connect(
             lambda value, item_id=item["id"]:
-            self.toolbox.store_value(item_id, bool(value))
+                self.toolbox.store_value(item_id, bool(value))
         )
         return checkbox
 

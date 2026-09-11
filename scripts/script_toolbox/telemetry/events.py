@@ -42,6 +42,7 @@ SHARE_TYPES = (
 # useful for aggregate product decisions belong in this allowlist. UI opens,
 # focus/selection changes and runtime clicks are deliberately not tracked.
 _EVENT_ENUM_PROPERTIES = {
+    "installation_created": {},
     "plugin_started": {},
     "item_created": {
         "item_type": ITEM_TYPES,

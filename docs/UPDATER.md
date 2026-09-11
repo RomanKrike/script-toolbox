@@ -13,15 +13,23 @@ Stable remains the default.
 2. The selected update channel is loaded from `script_toolbox_settings.json`.
 3. If an update is available, the top bar shows `UPDATE <version>`.
 4. The user explicitly confirms installation.
-5. The updater downloads the packaged ZIP for the selected channel.
-6. If Maya 2015's Python 2.7 HTTPS stack cannot reach GitHub on Windows, the updater transparently falls back to PowerShell/.NET TLS 1.2 without opening a console window.
-7. If a SHA-256 asset is present, the downloaded ZIP is verified before extraction.
-8. The update is staged and validated before the live package is replaced.
+5. The updater requires the official packaged ZIP and its matching `.sha256` asset for the selected channel.
+6. Both assets are downloaded. If Maya 2015's Python 2.7 HTTPS stack cannot reach GitHub on Windows, the updater transparently falls back to PowerShell/.NET TLS 1.2 without opening a console window.
+7. The ZIP SHA-256 must match the downloaded checksum before recovery, extraction, staging, or activation can touch live update state.
+8. The verified update is staged and validated before the live package is replaced.
 9. If activation fails, the transaction restores the previous package.
 10. The existing Toolbox UI is closed, all `script_toolbox.*` child modules are unloaded, the package root is reloaded in place, and the Toolbox reopens from the new files.
 11. A DCC restart is only required as a fallback if hot reload fails or a future release introduces native binaries that cannot be unloaded safely.
 
 The toolbox configuration is outside the package and is not replaced. Update-channel preferences are stored separately from `maya_script_toolbox.json`.
+
+GitHub's generated source zipball is retained only as release metadata where useful; it is not an installation fallback. If the official package, checksum asset, checksum download, or checksum verification is missing/fails, installation stops without replacing the live package.
+
+## Installation architecture
+
+`core.update_transaction.install_release()` is the production installation pipeline. It owns verified download handoff, transaction recovery, staging, validation, activation, rollback, and cleanup.
+
+`core.updater` owns release metadata, network/download, SHA-256, and archive utilities. Its public `install_release()` name remains as a compatibility wrapper that delegates to the transaction installer; it no longer contains a second filesystem installation implementation.
 
 ## Update channel UI
 
@@ -88,6 +96,6 @@ The top bar contains a manual Check for Updates button. Check failures are shown
 
 ## Failure behavior
 
-Download and install failures are shown to the user, and the updater attempts to restore the previous package through the existing transaction mechanism.
+Missing official package/checksum metadata and checksum verification failures are reported and stop installation before the live package is replaced. Later staging/activation failures are shown to the user and use the transaction rollback/recovery mechanism to preserve the previous package.
 
 If installation succeeds but hot reload fails, the new files remain installed and Script Toolbox asks the user to restart the host application.

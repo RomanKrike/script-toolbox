@@ -32,6 +32,8 @@ When a control must be referenced from another control's script, prefer the symb
 
 Nested reference rewriting is applied during rename, duplicate, copy, and paste operations. This allows a duplicated block to update supported references to the newly created controls instead of continuing to target the original block.
 
+Automatic rewriting is conservative: direct calls such as `toolbox.get_value("name")` are supported, while aliases, variables, and computed names are not rewritten automatically. When Script Toolbox can identify one of those unresolved cases during rename or Duplicate, the editor shows a warning so the affected scripts can be reviewed manually. Comments and unrelated string literals are ignored.
+
 A practical pattern is to build one complete row or folder, including its internal scripted references, then duplicate that block and customize the copy.
 
 ## Embedded code editor

@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from .core.logging_utils import get_logger
+
+
+_LOGGER = get_logger()
+
 import sys
 
 try:
@@ -18,7 +23,10 @@ def show():
         initialize_telemetry()
     except Exception:
         # Telemetry must never prevent Script Toolbox from opening.
-        pass
+        _LOGGER.debug(
+            "Telemetry initialization failed; continuing without telemetry.",
+            exc_info=True
+        )
 
     from .ui.debounced_main_window import show as _show
     window = _show()
@@ -90,7 +98,10 @@ def _close_telemetry():
         from .telemetry.service import close
         close()
     except Exception:
-        pass
+        _LOGGER.debug(
+            "Telemetry shutdown failed during reload.",
+            exc_info=True
+        )
 
 
 def _close_live_ui():
@@ -118,11 +129,17 @@ def _close_live_ui():
                             widget.close()
                             widget.deleteLater()
                     except Exception:
-                        pass
+                        _LOGGER.warning(
+                            "Failed to close a live Script Toolbox widget during reload.",
+                            exc_info=True
+                        )
 
                 application.processEvents()
         except Exception:
-            pass
+            _LOGGER.warning(
+                "Failed to complete live UI cleanup during reload.",
+                exc_info=True
+            )
 
 
 def hot_reload_toolbox():
@@ -212,7 +229,11 @@ def reload_toolbox():
                 module
             )
         except Exception:
-            pass
+            _LOGGER.warning(
+                "Failed to reload Script Toolbox module %s.",
+                name,
+                exc_info=True
+            )
 
     return show()
 

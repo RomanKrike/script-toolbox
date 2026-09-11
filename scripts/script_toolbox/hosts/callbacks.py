@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..core.logging_utils import get_logger
 
+
+_LOGGER = get_logger()
 EVENT_SELECTION_CHANGED = "selection_changed"
 
 
@@ -85,8 +88,12 @@ class HostCallbackGroup(object):
                 ):
                     removed += 1
             except Exception:
-                # Teardown must remain best-effort across host shutdown states.
-                pass
+                # Host shutdown can invalidate native handles. Teardown remains
+                # best-effort, but the failure is diagnostically important.
+                _LOGGER.warning(
+                    "Failed to remove host callback during teardown.",
+                    exc_info=True
+                )
 
         return removed
 

@@ -5,17 +5,20 @@ from .code_editor import ScriptHighlighter
 from . import interface_editor as _interface_editor_module
 from . import editor_document_adapter as _editor_document_adapter_module
 from ..core.editor_document import EditorDocumentController
+from ..core.runtime_registry import install_registry_hook_once
 from .editor_document_adapter import build_interface_editor_class
 from .editor_polish_hooks import install_icon_only_button_centering
 from .editor_polish_hooks import install_runtime_icon_feedback
 from .editor_selection_state import install_editor_selection_state
 from .interface_tree import ExistingInterfaceTree
 from .preset_hooks import build_preset_interface_editor_class
+from .reference_warning_hooks import build_reference_warning_editor_class
 from .scroll_surface_frames import install_property_editor_scroll_frames
 from .scroll_surface_frames import install_runtime_scroll_frames
 from .scroll_surface_frames import install_script_editor_scroll_frames
 from .telemetry_hooks import build_telemetry_interface_editor_class
 from .telemetry_hooks import install_telemetry_share_controller
+from .state_toggle_hooks import install_state_toggle_behavior
 
 
 def _install_current_palette(editor_class):
@@ -126,6 +129,9 @@ InterfaceEditor = build_interface_editor_class(
     controller_class=EditorDocumentController,
     layout_support=True
 )
+InterfaceEditor = build_reference_warning_editor_class(
+    InterfaceEditor
+)
 InterfaceEditor = build_preset_interface_editor_class(
     InterfaceEditor
 )
@@ -163,6 +169,9 @@ install_runtime_scroll_frames(
 )
 
 from .main_window import ScriptToolbox as _BaseScriptToolbox
+
+install_state_toggle_behavior(_BaseScriptToolbox)
+
 from .update_channels_ui import build_update_channel_toolbox_class
 from .event_binding_hooks import install_event_binding_hooks
 from .script_editor import ScriptEditorWidget
@@ -175,7 +184,11 @@ ScriptToolbox = build_update_channel_toolbox_class(_BaseScriptToolbox)
 
 install_script_editor_scroll_frames(ScriptEditorWidget)
 install_icon_only_button_centering(get_runtime_renderer_registry())
-install_event_binding_hooks(get_runtime_renderer_registry())
+install_registry_hook_once(
+    get_runtime_renderer_registry(),
+    "_script_toolbox_event_bindings_installed",
+    install_event_binding_hooks
+)
 install_runtime_icon_feedback(get_runtime_renderer_registry())
 
 from .runtime_value_sync import install_runtime_value_sync

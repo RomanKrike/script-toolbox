@@ -23,7 +23,6 @@ except ImportError:
 from ..constants import GITHUB_REPOSITORY
 from ..constants import GITHUB_TOKEN_ENV
 from ..constants import PLUGIN_VERSION
-from ..hosts import HOST
 from ..pycompat import text_type
 
 
@@ -451,6 +450,108 @@ def _read_json(
     )
 
 
+def _expected_package_asset_name(
+    release
+):
+    channel = text_type(
+        release.get(
+            "channel",
+            ""
+        )
+    ).strip().lower()
+
+    if channel == "development":
+        return "script-toolbox-dev.zip"
+
+    version = text_type(
+        release.get(
+            "version",
+            ""
+        )
+    ).strip()
+    if version.lower().startswith("v"):
+        version = version[1:]
+
+    if not version:
+        return ""
+
+    return "script-toolbox-{0}.zip".format(
+        version
+    )
+
+
+def _validate_installable_release(
+    release
+):
+    """Validate metadata required by the production installer."""
+    if not isinstance(
+        release,
+        dict
+    ):
+        raise UpdateError(
+            "Invalid release metadata."
+        )
+
+    asset_name = text_type(
+        release.get(
+            "asset_name",
+            ""
+        )
+    ).strip()
+    download_url = text_type(
+        release.get(
+            "download_url",
+            ""
+        )
+    ).strip()
+    checksum_url = text_type(
+        release.get(
+            "checksum_url",
+            ""
+        )
+    ).strip()
+    expected_asset_name = _expected_package_asset_name(
+        release
+    )
+
+    if not expected_asset_name:
+        raise UpdateError(
+            "The release metadata has no version."
+        )
+
+    if (
+        not asset_name or
+        not download_url
+    ):
+        raise UpdateError(
+            "The release does not contain the official Script Toolbox package."
+        )
+
+    if asset_name != expected_asset_name:
+        raise UpdateError(
+            "Refusing to install an unrecognized release package: {0}.".format(
+                asset_name
+            )
+        )
+
+    if not checksum_url:
+        raise UpdateError(
+            "The release package has no required SHA-256 checksum."
+        )
+
+    return {
+        "asset_name": asset_name,
+        "download_url": download_url,
+        "checksum_url": checksum_url,
+        "version": text_type(
+            release.get(
+                "version",
+                ""
+            )
+        ).strip(),
+    }
+
+
 def latest_release(
     repository=GITHUB_REPOSITORY,
     token=None,
@@ -517,8 +618,6 @@ def latest_release(
         elif name == checksum_asset_name:
             checksum_asset = asset
 
-    # Prefer our packaged release asset. Fall back to GitHub's source archive
-    # so older releases remain installable.
     download_url = text_type(
         (
             package_asset or {}
@@ -531,12 +630,8 @@ def latest_release(
         ).get(
             "url",
             ""
-        ) or
-        data.get(
-            "zipball_url",
-            ""
         )
-    )
+    ).strip()
 
     checksum_url = text_type(
         (
@@ -551,7 +646,7 @@ def latest_release(
             "url",
             ""
         )
-    )
+    ).strip()
 
     return {
         "tag": tag,
@@ -575,6 +670,14 @@ def latest_release(
             if package_asset is not None
             else ""
         ),
+        # Retained only for metadata/read-only consumers. The production
+        # installer never installs GitHub's unsigned source archive.
+        "source_archive_url": text_type(
+            data.get(
+                "zipball_url",
+                ""
+            )
+        ).strip(),
         "published_at": text_type(
             data.get(
                 "published_at",
@@ -620,12 +723,26 @@ def check_for_update(
         ] = release[
             "version"
         ]
-        result[
-            "available"
-        ] = is_newer_version(
+        newer = is_newer_version(
             release["version"],
             current=current_version
         )
+
+        if newer:
+            try:
+                _validate_installable_release(
+                    release
+                )
+            except UpdateError as exc:
+                result[
+                    "error"
+                ] = text_type(
+                    exc
+                )
+            else:
+                result[
+                    "available"
+                ] = True
 
     except HTTPError as exc:
         # GitHub returns 404 for a private repository without credentials and
@@ -886,291 +1003,15 @@ def install_release(
     token=None,
     timeout=30
 ):
-    if not isinstance(
+    """Compatibility wrapper for the transaction-v2 production installer."""
+    # Import lazily because update_transaction imports updater utilities.
+    from .update_transaction import install_release as transaction_install_release
+
+    return transaction_install_release(
         release,
-        dict
-    ):
-        raise UpdateError(
-            "Invalid release metadata."
-        )
-
-    download_url = text_type(
-        release.get(
-            "download_url",
-            ""
-        )
-    ).strip()
-
-    if not download_url:
-        raise UpdateError(
-            "The release has no download URL."
-        )
-
-    destination_package = package_directory()
-    destination_root = repository_root()
-
-    if not os.path.isdir(
-        destination_package
-    ):
-        raise UpdateError(
-            "Cannot find the installed Script Toolbox package."
-        )
-
-    work_directory = tempfile.mkdtemp(
-        prefix="script_toolbox_update_"
+        token=token,
+        timeout=timeout
     )
-    archive_path = os.path.join(
-        work_directory,
-        "release.zip"
-    )
-    checksum_path = os.path.join(
-        work_directory,
-        "release.zip.sha256"
-    )
-    extracted_path = os.path.join(
-        work_directory,
-        "extracted"
-    )
-
-    backup_path = (
-        destination_package +
-        ".update_backup"
-    )
-    destination_mod = None
-    mod_backup_path = None
-    mod_had_original = False
-
-    try:
-        _download_file(
-            download_url,
-            archive_path,
-            token=token,
-            timeout=timeout
-        )
-
-        checksum_url = text_type(
-            release.get(
-                "checksum_url",
-                ""
-            )
-        ).strip()
-
-        if checksum_url:
-            _download_file(
-                checksum_url,
-                checksum_path,
-                token=token,
-                timeout=timeout
-            )
-            _verify_checksum(
-                archive_path,
-                checksum_path
-            )
-
-        os.makedirs(
-            extracted_path
-        )
-
-        archive = zipfile.ZipFile(
-            archive_path,
-            "r"
-        )
-
-        try:
-            _safe_extract(
-                archive,
-                extracted_path
-            )
-        finally:
-            archive.close()
-
-        source_root = _find_release_root(
-            extracted_path
-        )
-        source_package = os.path.join(
-            source_root,
-            "scripts",
-            "script_toolbox"
-        )
-        source_mod = os.path.join(
-            source_root,
-            "MayaScriptToolbox.mod"
-        )
-
-        if (
-            HOST.key == "maya" and
-            os.path.isfile(
-                source_mod
-            )
-        ):
-            destination_mod = os.path.join(
-                destination_root,
-                "MayaScriptToolbox.mod"
-            )
-            mod_backup_path = (
-                destination_mod +
-                ".update_backup"
-            )
-
-            if os.path.exists(
-                mod_backup_path
-            ):
-                os.remove(
-                    mod_backup_path
-                )
-
-            if os.path.isfile(
-                destination_mod
-            ):
-                try:
-                    shutil.copy2(
-                        destination_mod,
-                        mod_backup_path
-                    )
-                except Exception:
-                    try:
-                        if os.path.exists(
-                            mod_backup_path
-                        ):
-                            os.remove(
-                                mod_backup_path
-                            )
-                    except Exception:
-                        pass
-                    raise
-
-                mod_had_original = True
-
-        if os.path.exists(
-            backup_path
-        ):
-            shutil.rmtree(
-                backup_path
-            )
-
-        os.rename(
-            destination_package,
-            backup_path
-        )
-
-        try:
-            shutil.copytree(
-                source_package,
-                destination_package
-            )
-
-            if destination_mod is not None:
-                shutil.copy2(
-                    source_mod,
-                    destination_mod
-                )
-
-        except Exception as install_exc:
-            rollback_error = None
-
-            try:
-                if os.path.isdir(
-                    destination_package
-                ):
-                    shutil.rmtree(
-                        destination_package
-                    )
-
-                os.rename(
-                    backup_path,
-                    destination_package
-                )
-            except Exception as exc:
-                rollback_error = exc
-
-            if destination_mod is not None:
-                try:
-                    if (
-                        mod_had_original and
-                        os.path.isfile(
-                            mod_backup_path
-                        )
-                    ):
-                        shutil.copy2(
-                            mod_backup_path,
-                            destination_mod
-                        )
-                        os.remove(
-                            mod_backup_path
-                        )
-                    elif (
-                        not mod_had_original and
-                        os.path.exists(
-                            destination_mod
-                        )
-                    ):
-                        os.remove(
-                            destination_mod
-                        )
-                except Exception as exc:
-                    if rollback_error is None:
-                        rollback_error = exc
-
-            if rollback_error is not None:
-                raise UpdateError(
-                    "Update failed ({0}); rollback also failed ({1}).".format(
-                        text_type(
-                            install_exc
-                        ),
-                        text_type(
-                            rollback_error
-                        )
-                    )
-                )
-
-            raise
-
-        if os.path.isdir(
-            backup_path
-        ):
-            shutil.rmtree(
-                backup_path
-            )
-
-        if (
-            mod_backup_path and
-            os.path.isfile(
-                mod_backup_path
-            )
-        ):
-            os.remove(
-                mod_backup_path
-            )
-
-        return {
-            "installed": True,
-            "version": release.get(
-                "version"
-            ),
-            "restart_required": False,
-            "hot_reload_supported": True,
-        }
-
-    except Exception as exc:
-        if isinstance(
-            exc,
-            UpdateError
-        ):
-            raise
-
-        raise UpdateError(
-            text_type(
-                exc
-            )
-        )
-
-    finally:
-        try:
-            shutil.rmtree(
-                work_directory
-            )
-        except Exception:
-            pass
 
 
 __all__ = [
@@ -1185,6 +1026,7 @@ __all__ = [
     "_powershell_executable",
     "_read_checksum",
     "_sha256_file",
+    "_validate_installable_release",
     "_verify_checksum",
     "repository_root",
 ]

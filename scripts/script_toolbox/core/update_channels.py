@@ -86,6 +86,9 @@ def development_release(
     package_url = _asset_url(
         package_asset
     )
+    checksum_url = _asset_url(
+        checksum_asset
+    )
     manifest_url = _asset_url(
         manifest_asset
     )
@@ -94,6 +97,13 @@ def development_release(
         raise updater.UpdateError(
             "Development release has no {0} asset.".format(
                 DEV_PACKAGE_ASSET
+            )
+        )
+
+    if not checksum_url:
+        raise updater.UpdateError(
+            "Development release has no {0} asset.".format(
+                DEV_CHECKSUM_ASSET
             )
         )
 
@@ -180,9 +190,7 @@ def development_release(
             )
         ),
         "download_url": package_url,
-        "checksum_url": _asset_url(
-            checksum_asset
-        ),
+        "checksum_url": checksum_url,
         "asset_name": DEV_PACKAGE_ASSET,
         "published_at": text_type(
             data.get(

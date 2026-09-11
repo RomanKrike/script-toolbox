@@ -94,9 +94,12 @@ def test_latest_release_prefers_packaged_asset(monkeypatch):
     assert release["asset_name"] == (
         "script-toolbox-1.2.3.zip"
     )
+    assert release["source_archive_url"] == (
+        "https://example.invalid/source.zip"
+    )
 
 
-def test_latest_release_falls_back_to_source_archive(monkeypatch):
+def test_latest_release_keeps_source_archive_metadata_only(monkeypatch):
     def fake_read_json(url, token=None, timeout=8):
         return {
             "tag_name": "v1.0.0",
@@ -114,11 +117,34 @@ def test_latest_release_falls_back_to_source_archive(monkeypatch):
         repository="RomanKrike/script-toolbox"
     )
 
-    assert release["download_url"] == (
-        "https://example.invalid/source.zip"
-    )
+    assert release["download_url"] == ""
     assert release["checksum_url"] == ""
     assert release["asset_name"] == ""
+    assert release["source_archive_url"] == (
+        "https://example.invalid/source.zip"
+    )
+
+
+def test_check_for_update_does_not_offer_unverified_newer_release(
+    monkeypatch
+):
+    monkeypatch.setattr(
+        updater,
+        "latest_release",
+        lambda **kwargs: {
+            "version": "9.9.9",
+            "asset_name": "script-toolbox-9.9.9.zip",
+            "download_url": "https://example.invalid/package.zip",
+            "checksum_url": "",
+        }
+    )
+
+    result = updater.check_for_update(
+        current_version="1.0.0"
+    )
+
+    assert result["available"] is False
+    assert "checksum" in result["error"].lower()
 
 
 def test_latest_release_requires_tag(monkeypatch):
@@ -435,241 +461,39 @@ def test_hidden_process_kwargs_are_empty_off_windows(
     assert updater._hidden_process_kwargs() == {}
 
 
-# ---------------------------------------------------------------------
-# install_release() filesystem transaction tests
-# ---------------------------------------------------------------------
+def test_install_release_forwards_to_transaction_v2(monkeypatch):
+    from script_toolbox.core import update_transaction
 
+    captured = {}
 
-def _build_release_zip(
-    zip_path,
-    version="9.9.9",
-    include_package=True
-):
-    root_name = "script-toolbox-{0}".format(version)
-
-    with zipfile.ZipFile(zip_path, "w") as archive:
-        if include_package:
-            archive.writestr(
-                "{0}/scripts/script_toolbox/__init__.py".format(root_name),
-                u"__version__ = '{0}'\n".format(version)
-            )
-            archive.writestr(
-                "{0}/scripts/script_toolbox/marker.py".format(root_name),
-                u"MARKER = '{0}'\n".format(version)
-            )
-        else:
-            archive.writestr(
-                "{0}/README.md".format(root_name),
-                u"no package in this archive"
-            )
-
-        archive.writestr(
-            "{0}/MayaScriptToolbox.mod".format(root_name),
-            u"+ MayaScriptToolbox {0} .\n".format(version)
-        )
-
-    return zip_path
-
-
-def _fake_installed_package(tmp_path):
-    repository_root = tmp_path / "repo"
-    package_dir = repository_root / "scripts" / "script_toolbox"
-    package_dir.mkdir(parents=True)
-
-    (package_dir / "__init__.py").write_text(
-        u"__version__ = '0.1.0'\n",
-        encoding="utf-8"
-    )
-    (package_dir / "old_module.py").write_text(
-        u"OLD = True\n",
-        encoding="utf-8"
-    )
-
-    return repository_root, package_dir
-
-
-def _patch_install_locations(monkeypatch, repository_root, package_dir):
-    monkeypatch.setattr(
-        updater,
-        "package_directory",
-        lambda: str(package_dir)
-    )
-    monkeypatch.setattr(
-        updater,
-        "repository_root",
-        lambda: str(repository_root)
-    )
-
-
-def test_install_release_replaces_package_and_cleans_up(
-    tmp_path,
-    monkeypatch
-):
-    repository_root, package_dir = _fake_installed_package(tmp_path)
-    _patch_install_locations(monkeypatch, repository_root, package_dir)
-
-    def fake_download_file(url, destination, token=None, timeout=30):
-        return _build_release_zip(destination)
+    def fake_install(release, token=None, timeout=30):
+        captured["release"] = release
+        captured["token"] = token
+        captured["timeout"] = timeout
+        return {
+            "installed": True,
+            "transaction_version": 2,
+        }
 
     monkeypatch.setattr(
-        updater,
-        "_download_file",
-        fake_download_file
+        update_transaction,
+        "install_release",
+        fake_install
     )
 
-    result = updater.install_release({
-        "download_url": "https://example.invalid/release.zip",
+    release = {
         "version": "9.9.9",
-    })
-
-    assert result["installed"] is True
-    assert result["version"] == "9.9.9"
-    assert (package_dir / "marker.py").is_file()
-    assert not (package_dir / "old_module.py").exists()
-    assert not os.path.isdir(str(package_dir) + ".update_backup")
-
-
-def test_install_release_rolls_back_on_copy_failure(
-    tmp_path,
-    monkeypatch
-):
-    repository_root, package_dir = _fake_installed_package(tmp_path)
-    _patch_install_locations(monkeypatch, repository_root, package_dir)
-
-    def fake_download_file(url, destination, token=None, timeout=30):
-        return _build_release_zip(destination)
-
-    monkeypatch.setattr(
-        updater,
-        "_download_file",
-        fake_download_file
+    }
+    result = updater.install_release(
+        release,
+        token="token",
+        timeout=17
     )
 
-    def broken_copytree(*args, **kwargs):
-        raise OSError("disk full mid-copy")
-
-    monkeypatch.setattr(
-        updater.shutil,
-        "copytree",
-        broken_copytree
-    )
-
-    with pytest.raises(UpdateError):
-        updater.install_release({
-            "download_url": "https://example.invalid/release.zip",
-            "version": "9.9.9",
-        })
-
-    assert (package_dir / "old_module.py").is_file()
-    assert not (package_dir / "marker.py").exists()
-    assert not os.path.isdir(str(package_dir) + ".update_backup")
-
-
-def test_install_release_rolls_back_maya_module_on_copy_failure(
-    tmp_path,
-    monkeypatch
-):
-    repository_root, package_dir = _fake_installed_package(tmp_path)
-    _patch_install_locations(monkeypatch, repository_root, package_dir)
-
-    module_path = repository_root / "MayaScriptToolbox.mod"
-    module_path.write_text(
-        u"OLD MODULE\n",
-        encoding="utf-8"
-    )
-
-    class MayaHost(object):
-        key = "maya"
-
-    monkeypatch.setattr(
-        updater,
-        "HOST",
-        MayaHost()
-    )
-
-    def fake_download_file(url, destination, token=None, timeout=30):
-        return _build_release_zip(destination)
-
-    monkeypatch.setattr(
-        updater,
-        "_download_file",
-        fake_download_file
-    )
-
-    original_copy2 = updater.shutil.copy2
-
-    def fail_release_module_copy(source, destination, *args, **kwargs):
-        if (
-            os.path.basename(source) == "MayaScriptToolbox.mod" and
-            not source.endswith(".update_backup") and
-            destination == str(module_path)
-        ):
-            with open(destination, "w") as handle:
-                handle.write("PARTIAL")
-            raise OSError("module copy failed")
-
-        return original_copy2(
-            source,
-            destination,
-            *args,
-            **kwargs
-        )
-
-    monkeypatch.setattr(
-        updater.shutil,
-        "copy2",
-        fail_release_module_copy
-    )
-
-    with pytest.raises(UpdateError):
-        updater.install_release({
-            "download_url": "https://example.invalid/release.zip",
-            "version": "9.9.9",
-        })
-
-    assert (package_dir / "old_module.py").is_file()
-    assert module_path.read_text(encoding="utf-8") == "OLD MODULE\n"
-    assert not os.path.exists(str(module_path) + ".update_backup")
-
-
-def test_install_release_rejects_archive_without_package(
-    tmp_path,
-    monkeypatch
-):
-    repository_root, package_dir = _fake_installed_package(tmp_path)
-    _patch_install_locations(monkeypatch, repository_root, package_dir)
-
-    def fake_download_file(url, destination, token=None, timeout=30):
-        return _build_release_zip(
-            destination,
-            include_package=False
-        )
-
-    monkeypatch.setattr(
-        updater,
-        "_download_file",
-        fake_download_file
-    )
-
-    with pytest.raises(UpdateError):
-        updater.install_release({
-            "download_url": "https://example.invalid/release.zip",
-            "version": "9.9.9",
-        })
-
-    assert (package_dir / "old_module.py").is_file()
-
-
-def test_install_release_requires_download_url():
-    with pytest.raises(UpdateError):
-        updater.install_release({
-            "version": "9.9.9",
-        })
-
-
-def test_install_release_requires_dict_metadata():
-    with pytest.raises(UpdateError):
-        updater.install_release("9.9.9")
+    assert result["transaction_version"] == 2
+    assert captured["release"] is release
+    assert captured["token"] == "token"
+    assert captured["timeout"] == 17
 
 
 def test_powershell_token_is_passed_via_environment(

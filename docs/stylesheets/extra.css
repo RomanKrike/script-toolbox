@@ -1,0 +1,33 @@
+:root {
+  --md-primary-fg-color: #d96b2b;
+  --md-primary-fg-color--light: #eb8448;
+  --md-primary-fg-color--dark: #ad4f1d;
+  --md-accent-fg-color: #f08a4b;
+}
+
+.md-typeset h1,
+.md-typeset h2 {
+  font-weight: 650;
+}
+
+.stx-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0 2rem;
+}
+
+.stx-card {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.6rem;
+  padding: 1rem 1.1rem;
+  background: color-mix(in srgb, var(--md-default-bg-color) 94%, var(--md-primary-fg-color) 6%);
+}
+
+.stx-card h3 {
+  margin-top: 0;
+}
+
+.md-typeset table:not([class]) {
+  font-size: 0.72rem;
+}

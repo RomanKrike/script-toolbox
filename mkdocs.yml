@@ -1,0 +1,65 @@
+site_name: Script Toolbox
+site_description: Configurable script toolbox for Maya, Nuke, and Houdini
+site_url: https://romankrike.github.io/script-toolbox/
+repo_name: RomanKrike/script-toolbox
+repo_url: https://github.com/RomanKrike/script-toolbox
+edit_uri: edit/dev/docs/
+
+site_dir: site
+
+theme:
+  name: material
+  language: en
+  palette:
+    scheme: slate
+    primary: deep orange
+    accent: orange
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - toc.follow
+    - content.code.copy
+    - content.action.edit
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+      - Quick start: getting-started/quick-start.md
+  - Guide:
+      - Interface and workflow: guide/interface.md
+      - Items: guide/items.md
+      - Scripting: guide/scripting.md
+      - Sharing and updates: guide/sharing-updates.md
+  - Hosts:
+      - Nuke: NUKE.md
+      - Houdini: HOUDINI.md
+  - Developer:
+      - Overview: developer/index.md
+      - Architecture: ARCHITECTURE.md
+      - Config store: CONFIG_STORE.md
+      - Runtime renderer: RUNTIME_RENDERER_REGISTRY.md
+      - Host callbacks: HOST_CALLBACKS.md
+      - Telemetry: TELEMETRY.md
+      - Updater: UPDATER.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra_css:
+  - stylesheets/extra.css
+
+copyright: Copyright &copy; 2026 Script Toolbox

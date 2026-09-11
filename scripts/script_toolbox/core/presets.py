@@ -142,6 +142,20 @@ def _normalize_dcc(dcc):
     return ""
 
 
+def _preset_matches_dcc(preset, target_dcc):
+    preset_dcc = _normalize_dcc(
+        preset.get("dcc", "")
+    )
+
+    if preset_dcc == _DCC_ALL:
+        return True
+
+    return bool(
+        target_dcc and
+        preset_dcc == target_dcc
+    )
+
+
 def iter_presets(dcc=None):
     """Return immutable-order copies of built-in preset metadata.
 
@@ -161,9 +175,9 @@ def iter_presets(dcc=None):
         for preset in _BUILTIN_PRESETS
         if (
             target_dcc is None or
-            _normalize_dcc(preset.get("dcc", "")) in (
-                _DCC_ALL,
-                target_dcc,
+            _preset_matches_dcc(
+                preset,
+                target_dcc
             )
         )
     )

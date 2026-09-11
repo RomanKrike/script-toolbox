@@ -11,11 +11,13 @@ from .editor_polish_hooks import install_runtime_icon_feedback
 from .editor_selection_state import install_editor_selection_state
 from .interface_tree import ExistingInterfaceTree
 from .preset_hooks import build_preset_interface_editor_class
+from .reference_warning_hooks import build_reference_warning_editor_class
 from .scroll_surface_frames import install_property_editor_scroll_frames
 from .scroll_surface_frames import install_runtime_scroll_frames
 from .scroll_surface_frames import install_script_editor_scroll_frames
 from .telemetry_hooks import build_telemetry_interface_editor_class
 from .telemetry_hooks import install_telemetry_share_controller
+from .state_toggle_hooks import install_state_toggle_behavior
 
 
 def _install_current_palette(editor_class):
@@ -126,6 +128,9 @@ InterfaceEditor = build_interface_editor_class(
     controller_class=EditorDocumentController,
     layout_support=True
 )
+InterfaceEditor = build_reference_warning_editor_class(
+    InterfaceEditor
+)
 InterfaceEditor = build_preset_interface_editor_class(
     InterfaceEditor
 )
@@ -163,6 +168,9 @@ install_runtime_scroll_frames(
 )
 
 from .main_window import ScriptToolbox as _BaseScriptToolbox
+
+install_state_toggle_behavior(_BaseScriptToolbox)
+
 from .update_channels_ui import build_update_channel_toolbox_class
 from .event_binding_hooks import install_event_binding_hooks
 from .script_editor import ScriptEditorWidget

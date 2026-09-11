@@ -8,8 +8,9 @@ from ..model import walk_items
 from ..model.items import new_id
 from ..model.items import sanitize_name
 from ..pycompat import text_type
-from .references import rewrite_document_references
+from .references import rewrite_document_references_result
 from .references import rewrite_subtree_references
+from .references import rewrite_subtree_references_result
 
 
 class EditorDocumentController(object):
@@ -108,8 +109,7 @@ class EditorDocumentController(object):
                 return candidate
             index += 1
 
-    def clone_subtree(self, data, used_names=None):
-        """Clone a subtree and remap links that target items inside it."""
+    def _clone_payload(self, data, used_names=None):
         if used_names is None:
             used_names = self.used_names()
 
@@ -144,12 +144,59 @@ class EditorDocumentController(object):
         for old_name, new_name in name_map.items():
             if old_name not in replacements:
                 replacements[old_name] = new_name
+        return clone, replacements
 
+    def clone_subtree(self, data, used_names=None):
+        """Clone a subtree and remap links that target items inside it."""
+        clone, replacements = self._clone_payload(
+            data,
+            used_names=used_names
+        )
         rewrite_subtree_references(
             clone,
             replacements
         )
         return clone
+
+    def clone_subtree_result(self, data, used_names=None):
+        """Clone a subtree and return rewrite diagnostics with the clone."""
+        clone, replacements = self._clone_payload(
+            data,
+            used_names=used_names
+        )
+        result = rewrite_subtree_references_result(
+            clone,
+            replacements
+        )
+        return clone, result
+
+    def rename_item_references_result(
+        self,
+        item_id,
+        old_name,
+        new_name
+    ):
+        """Rewrite managed links and report references needing manual review."""
+        if self.find_by_id(item_id) is None:
+            return {
+                "changed_ids": set(),
+                "unresolved_items": [],
+            }
+
+        old_name = text_type(old_name or "")
+        new_name = text_type(new_name or "")
+        if not old_name or old_name == new_name:
+            return {
+                "changed_ids": set(),
+                "unresolved_items": [],
+            }
+
+        return rewrite_document_references_result(
+            self._document,
+            {
+                old_name: new_name,
+            }
+        )
 
     def rename_item_references(
         self,
@@ -157,21 +204,12 @@ class EditorDocumentController(object):
         old_name,
         new_name
     ):
-        """Rewrite managed script links for a stable item ID after a rename."""
-        if self.find_by_id(item_id) is None:
-            return set()
-
-        old_name = text_type(old_name or "")
-        new_name = text_type(new_name or "")
-        if not old_name or old_name == new_name:
-            return set()
-
-        return rewrite_document_references(
-            self._document,
-            {
-                old_name: new_name,
-            }
-        )
+        """Backward-compatible changed-ID rename helper."""
+        return self.rename_item_references_result(
+            item_id,
+            old_name,
+            new_name
+        )["changed_ids"]
 
     def duplicate_name(self):
         names = set()

@@ -11,11 +11,13 @@ import warnings
 from ..pycompat import text_type
 from ..model import normalize_document
 from .config_schema import ConfigSchemaError
-from .config_schema import validate_document_schema
+from .config_schema import migrate_document_schema
+from .logging_utils import get_logger
 from .user_paths import config_path
 
 
 CONFIG_BACKUP_COUNT = 3
+_LOGGER = get_logger()
 
 
 class ConfigRecoveryRequired(RuntimeError):
@@ -62,7 +64,7 @@ def backup_path(
 
 def _prepare_document(document):
     return normalize_document(
-        validate_document_schema(
+        migrate_document_schema(
             document
         )
     )
@@ -108,6 +110,11 @@ def valid_backup_paths(
                 candidate
             )
         except Exception:
+            _LOGGER.debug(
+                "Ignoring invalid config backup %r during recovery scan.",
+                candidate,
+                exc_info=True
+            )
             continue
 
         result.append(
@@ -401,7 +408,11 @@ def restore_config_backup(
                     temp_path
                 )
         except OSError:
-            pass
+            _LOGGER.debug(
+                "Could not remove temporary config recovery file %r.",
+                temp_path,
+                exc_info=True
+            )
         raise
 
     return {
@@ -483,7 +494,11 @@ def save_config(document, path=None):
                     temp_path
                 )
         except OSError:
-            pass
+            _LOGGER.debug(
+                "Could not remove temporary config save file %r.",
+                temp_path,
+                exc_info=True
+            )
 
         raise
 

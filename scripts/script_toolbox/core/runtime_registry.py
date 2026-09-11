@@ -65,6 +65,16 @@ class RuntimeRendererRegistry(object):
         )
 
 
+def install_registry_hook_once(registry, marker, installer):
+    """Run one registry installer once for a registry instance."""
+    if getattr(registry, marker, False):
+        return False
+    installer(registry)
+    setattr(registry, marker, True)
+    return True
+
+
 __all__ = [
     "RuntimeRendererRegistry",
+    "install_registry_hook_once",
 ]

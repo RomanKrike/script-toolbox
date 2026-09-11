@@ -63,11 +63,11 @@ QFrame#RuntimeSeparatorLineVertical {{
     border-left: 1px solid {separator};
 }}
 
-/* Runtime tabs share the collapsible-folder palette, but remain visibly
-   tabs. Runtime-specific geometry lives in metrics.py; palette roles stay in
-   palette.py. The selected-tab overlap is the Maya 2015 / Qt4 seam fix.
-   CreatePaletteTabs deliberately uses the exact same contract so editor
-   Items/Presets tabs match the tabs users build in the runtime toolbox. */
+/* Runtime tabs and editor Items/Presets tabs intentionally share one visual
+   contract. Geometry comes from metrics.py and colors from palette.py; the
+   selectors differ only because the widgets live in different UI scopes.
+   Keep the selected label weight stable so Qt4 never has to reconcile a tab
+   width calculated from the normal font with a wider bold selected label. */
 QWidget#ToolboxContent QTabWidget::pane,
 QTabWidget#CreatePaletteTabs::pane {{
     background-color: {folder_card_bg};
@@ -110,18 +110,6 @@ QTabWidget#CreatePaletteTabs QTabBar::tab:selected {{
     border-color: {separator};
     border-bottom-color: {folder_card_bg};
     margin-bottom: {runtime_tab_selected_overlap}px;
-}}
-
-QWidget#ToolboxContent QTabBar::tab:selected {{
-    font-weight: bold;
-}}
-
-/* Maya 2015 / Qt4 calculates the palette-tab width from the normal font.
-   Making the selected tab bold can then overrun that cached width and clip
-   the first/last glyph (most visible on "Presets"). Keep the editor palette
-   label geometry stable; background, text color and pane overlap still show
-   the active tab clearly. */
-QTabWidget#CreatePaletteTabs QTabBar::tab:selected {{
     font-weight: normal;
 }}
 

@@ -37,6 +37,7 @@ def _bootstrap_namespace():
         "__name__": "ui_bootstrap_test",
         "_COMPOSITION_STATE": None,
         "_LOGGER": _Logger(),
+        "_runtime_module": object(),
     }
     exec(
         compile(source, "ui/bootstrap.py", "exec"),

@@ -7,6 +7,23 @@ from ..style.palette import SELECTION_BG
 from ..style.palette import SELECTION_TEXT
 
 
+def _tree_selection_stylesheet():
+    return (
+        "QTreeWidget { "
+        "show-decoration-selected: 1; "
+        "selection-background-color: %s; "
+        "selection-color: %s; "
+        "} "
+        "QTreeWidget::branch:selected { "
+        "background-color: %s; "
+        "}"
+    ) % (
+        SELECTION_BG,
+        SELECTION_TEXT,
+        SELECTION_BG,
+    )
+
+
 def _apply_selection_palette(widget):
     """Keep native tree branch selection aligned with the QSS row color."""
     if widget is None:
@@ -41,6 +58,21 @@ def _apply_selection_palette(widget):
             )
         except Exception:
             pass
+
+    # Maya's native Qt style paints the tree decoration / branch area through
+    # the QTreeView branch sub-control instead of QPalette.Highlight.  Keep a
+    # widget-local rule here so both Create Parameters and Existing Interface
+    # use the same selection color without changing tree branches elsewhere.
+    try:
+        current_style = widget.styleSheet() or ""
+        selection_style = _tree_selection_stylesheet()
+        if selection_style not in current_style:
+            widget.setStyleSheet(
+                current_style +
+                selection_style
+            )
+    except Exception:
+        pass
 
 
 def _property_scroll_value(editor):

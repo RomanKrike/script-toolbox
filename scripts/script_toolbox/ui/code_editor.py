@@ -11,6 +11,7 @@ from ..style.palette import SYNTAX_HOST
 from ..style.palette import SYNTAX_KEYWORD
 from ..style.palette import SYNTAX_NUMBER
 from ..style.palette import SYNTAX_STRING
+from .autocomplete import CompletionController
 
 
 class LineNumberArea(QtGui.QWidget):
@@ -74,6 +75,10 @@ class CodeEditor(QtGui.QPlainTextEdit):
         )
         self.cursorPositionChanged.connect(
             self.highlight_line
+        )
+
+        self.completion = CompletionController(
+            self
         )
 
         self.update_margin()

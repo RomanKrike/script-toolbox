@@ -82,8 +82,8 @@ def test_toggle_icon_does_not_translate_plain_icon_path():
 
 
 def test_toggle_icon_editor_renderer_and_state_runtime_are_registered():
-    ui_source = _source(
-        "scripts", "script_toolbox", "ui", "__init__.py"
+    bootstrap_source = _source(
+        "scripts", "script_toolbox", "ui", "bootstrap.py"
     )
     registry_source = _source(
         "scripts", "script_toolbox", "ui", "properties", "registry.py"
@@ -95,9 +95,9 @@ def test_toggle_icon_editor_renderer_and_state_runtime_are_registered():
         "scripts", "script_toolbox", "ui", "main_window.py"
     )
 
-    assert '"Toggle Icon"' in ui_source
-    assert '"toggle_icon"' in ui_source
-    assert "render_toggle_icon" in ui_source
+    assert '"Toggle Icon"' in bootstrap_source
+    assert '"toggle_icon"' in bootstrap_source
+    assert "render_toggle_icon" in bootstrap_source
     assert '"toggle_icon": ToggleIconPropertyEditor' in registry_source
     assert "register_toggle_icon" in renderer_source
     assert "refresh_toggle_icon" in renderer_source

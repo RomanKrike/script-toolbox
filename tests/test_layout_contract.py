@@ -116,8 +116,8 @@ def test_column_child_height_values_are_clamped():
 
 
 def test_runtime_registry_registers_row_and_column_renderers():
-    ui_init = _source(
-        "scripts", "script_toolbox", "ui", "__init__.py"
+    bootstrap = _source(
+        "scripts", "script_toolbox", "ui", "bootstrap.py"
     )
     row_runtime = _source(
         "scripts", "script_toolbox", "ui", "row_layout.py"
@@ -126,8 +126,8 @@ def test_runtime_registry_registers_row_and_column_renderers():
         "scripts", "script_toolbox", "ui", "column_layout.py"
     )
 
-    assert 'register_runtime_renderer("row", render_row, replace=True)' in ui_init
-    assert 'register_runtime_renderer("column", render_column)' in ui_init
+    assert 'registry.register("row", render_row, replace=True)' in bootstrap
+    assert 'registry.register("column", render_column, replace=True)' in bootstrap
     assert '"horizontal_distribution"' in row_runtime
     assert '"vertical_distribution"' in column_runtime
     assert '"column_height_mode"' in column_runtime

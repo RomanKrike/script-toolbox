@@ -75,9 +75,9 @@ def test_text_item_is_registered_in_editor_palette_and_runtime():
         "scripts" /
         "script_toolbox" /
         "ui" /
-        "__init__.py"
+        "bootstrap.py"
     ).read_text(encoding="utf-8")
 
     assert '"Text",' in source
     assert '"text",' in source
-    assert 'register_runtime_renderer("text", render_text)' in source
+    assert 'registry.register("text", render_text, replace=True)' in source

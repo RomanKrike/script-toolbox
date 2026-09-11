@@ -16,12 +16,12 @@ def _read(relative_path):
         return handle.read()
 
 
-def test_ui_package_routes_interface_editor_through_base_controller():
-    source = _read("scripts/script_toolbox/ui/__init__.py")
+def test_composition_root_routes_interface_editor_through_base_controller():
+    source = _read("scripts/script_toolbox/ui/bootstrap.py")
 
     assert "from ..core.editor_document import EditorDocumentController" in source
     assert "from .editor_document_adapter import build_interface_editor_class" in source
-    assert "InterfaceEditor = build_interface_editor_class(" in source
+    assert "editor_class = build_interface_editor_class(" in source
     assert "controller_class=EditorDocumentController" in source
     assert "layout_support=True" in source
     assert "LayoutEditorDocumentController" not in source
@@ -113,7 +113,8 @@ def test_adapter_reload_guard_is_current_adapter_only():
 
 def test_adapter_composes_search_and_share_directly():
     source = _read("scripts/script_toolbox/ui/editor_document_adapter.py")
-    ui_source = _read("scripts/script_toolbox/ui/__init__.py")
+    package_source = _read("scripts/script_toolbox/ui/__init__.py")
+    bootstrap_source = _read("scripts/script_toolbox/ui/bootstrap.py")
 
     assert "from .editor_search import apply_editor_presentation" in source
     assert "from .editor_search import reapply_existing_filter" in source
@@ -122,5 +123,6 @@ def test_adapter_composes_search_and_share_directly():
     assert "apply_editor_presentation(self)" in source
     assert "reapply_existing_filter(self)" in source
 
-    assert "build_search_interface_editor_class(" not in ui_source
-    assert "build_share_interface_editor_class(" not in ui_source
+    for ui_source in (package_source, bootstrap_source):
+        assert "build_search_interface_editor_class(" not in ui_source
+        assert "build_share_interface_editor_class(" not in ui_source

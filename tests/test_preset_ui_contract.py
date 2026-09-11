@@ -64,8 +64,8 @@ def test_preset_insertion_goes_through_reference_safe_controller_clone():
     source = _read(
         "scripts/script_toolbox/ui/preset_hooks.py"
     )
-    ui_init = _read(
-        "scripts/script_toolbox/ui/__init__.py"
+    bootstrap = _read(
+        "scripts/script_toolbox/ui/bootstrap.py"
     )
     controller = _read(
         "scripts/script_toolbox/core/editor_document.py"
@@ -73,6 +73,6 @@ def test_preset_insertion_goes_through_reference_safe_controller_clone():
 
     assert "clone = editor._clone_data(" in source
     assert "editor._used_names()" in source
-    assert "build_preset_interface_editor_class(" in ui_init
+    assert "build_preset_interface_editor_class(" in bootstrap
     assert "def clone_subtree(self, data, used_names=None):" in controller
     assert "rewrite_subtree_references(" in controller

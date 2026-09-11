@@ -52,8 +52,11 @@ def test_inspector_and_runtime_compose_one_collapsible_section_primitive():
     builtin_icons = _source(
         "scripts", "script_toolbox", "style", "builtin_icons.py"
     )
-    ui_source = _source(
+    package_source = _source(
         "scripts", "script_toolbox", "ui", "__init__.py"
+    )
+    bootstrap_source = _source(
+        "scripts", "script_toolbox", "ui", "bootstrap.py"
     )
 
     assert "class CollapsibleSection(QtGui.QFrame):" in component
@@ -95,10 +98,13 @@ def test_inspector_and_runtime_compose_one_collapsible_section_primitive():
     assert "self.toolbox" not in class_block
 
     assert '("right", "Expand", "alt-arrow-right.svg")' in builtin_icons
-    assert "from .collapsible_folder import CollapsibleSection" in ui_source
-    assert "from .collapsible_folder import install_runtime_folder_composition" in ui_source
-    assert "install_runtime_folder_composition(" in ui_source
-    assert "install_runtime_folder_chrome(" not in ui_source
+    assert "from .collapsible_folder import CollapsibleSection" in package_source
+    assert (
+        "from .collapsible_folder import install_runtime_folder_composition"
+        in bootstrap_source
+    )
+    assert "install_runtime_folder_composition(_runtime_module)" in bootstrap_source
+    assert "install_runtime_folder_chrome(" not in bootstrap_source
 
 
 def test_property_editor_base_uses_sections_instead_of_one_shared_form():

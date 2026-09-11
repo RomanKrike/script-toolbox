@@ -15,6 +15,7 @@ from ..share import extract_share_code
 from ..share import fetch_shared_data
 from ..share import looks_like_share_code
 from ..share import share_data
+from ..share.safety import shared_import_allowed
 from ..style import metrics
 from .icon_button import ICON_BUTTON_COMPACT
 from .icon_button import create_icon_button
@@ -292,6 +293,45 @@ class ShareController(object):
             )
         )
 
+    def _show_executable_import_warning(self):
+        editor = self.editor
+        message_box = QtGui.QMessageBox(
+            editor
+        )
+        message_box.setIcon(
+            QtGui.QMessageBox.Warning
+        )
+        message_box.setWindowTitle(
+            "Executable Shared Content"
+        )
+        message_box.setText(
+            "This shared content contains executable Python or MEL code.\n\n"
+            "Only import content from sources you trust.\n"
+            "Review scripts before running them."
+        )
+        cancel_button = message_box.addButton(
+            "Cancel",
+            QtGui.QMessageBox.RejectRole
+        )
+        import_button = message_box.addButton(
+            "Import Anyway",
+            QtGui.QMessageBox.AcceptRole
+        )
+        message_box.setDefaultButton(
+            cancel_button
+        )
+        message_box.setEscapeButton(
+            cancel_button
+        )
+        message_box.exec_()
+        return message_box.clickedButton() == import_button
+
+    def _allow_shared_import(self, data):
+        return shared_import_allowed(
+            data,
+            self._show_executable_import_warning
+        )
+
     # ------------------------------------------------------------------
     # Whole toolbox share / paste
     # ------------------------------------------------------------------
@@ -343,9 +383,20 @@ class ShareController(object):
             )
             return
 
+        raw_data = payload.get(
+            "data"
+        )
+        if not self._allow_shared_import(
+            raw_data
+        ):
+            editor.status.setText(
+                "Shared toolbox paste cancelled."
+            )
+            return
+
         imported = normalize_document(
             copy.deepcopy(
-                payload.get("data")
+                raw_data
             )
         )
 
@@ -535,6 +586,14 @@ class ShareController(object):
                 editor,
                 "Script Toolbox Share",
                 "Shared parameter data is invalid."
+            )
+            return
+
+        if not self._allow_shared_import(
+            raw
+        ):
+            editor.status.setText(
+                "Shared parameter paste cancelled."
             )
             return
 

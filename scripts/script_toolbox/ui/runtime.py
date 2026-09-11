@@ -381,7 +381,7 @@ class RuntimeFolder(QtGui.QFrame):
         checkbox.setChecked(bool(item.get("value", False)))
         checkbox.toggled.connect(
             lambda value, item_id=item["id"]:
-                self.toolbox.store_value(item_id, bool(value))
+            self.toolbox.store_value(item_id, bool(value))
         )
         return checkbox
 

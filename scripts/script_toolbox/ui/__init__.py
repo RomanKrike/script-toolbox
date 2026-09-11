@@ -9,6 +9,7 @@ from .editor_document_adapter import build_interface_editor_class
 from .editor_polish_hooks import install_icon_only_button_centering
 from .editor_polish_hooks import install_runtime_icon_feedback
 from .interface_tree import ExistingInterfaceTree
+from .preset_hooks import build_preset_interface_editor_class
 from .scroll_surface_frames import install_property_editor_scroll_frames
 from .scroll_surface_frames import install_runtime_scroll_frames
 from .scroll_surface_frames import install_script_editor_scroll_frames
@@ -122,6 +123,9 @@ InterfaceEditor = build_interface_editor_class(
     _interface_editor_module.InterfaceEditor,
     controller_class=EditorDocumentController,
     layout_support=True
+)
+InterfaceEditor = build_preset_interface_editor_class(
+    InterfaceEditor
 )
 InterfaceEditor = build_telemetry_interface_editor_class(
     InterfaceEditor

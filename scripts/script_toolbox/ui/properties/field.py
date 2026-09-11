@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-from ...compat import HOST
 from ...compat import QtGui
 from ...pycompat import text_type
 from .base import ValuePropertyEditorBase
@@ -9,16 +8,8 @@ from .base import ValuePropertyEditorBase
 
 class FieldPropertyEditor(ValuePropertyEditorBase):
 
-    def __init__(
-        self,
-        toolbox=None,
-        parent=None
-    ):
-        ValuePropertyEditorBase.__init__(
-            self,
-            toolbox,
-            parent
-        )
+    def __init__(self, toolbox=None, parent=None):
+        ValuePropertyEditorBase.__init__(self, toolbox, parent)
 
         self.source = QtGui.QComboBox()
         self.source.addItems([
@@ -37,41 +28,34 @@ class FieldPropertyEditor(ValuePropertyEditorBase):
         ])
         self.visible_rows = QtGui.QSpinBox()
         self.visible_rows.setRange(1, 20)
-        self.selectable = QtGui.QCheckBox(
-            "Selectable entries"
-        )
-        self.select_scene = QtGui.QCheckBox(
-            "Select {0} on double-click".format(
-                HOST.selection_noun
-            )
-        )
-        self.multiple = QtGui.QCheckBox(
-            "Allow multiple items"
-        )
-        self.long_names = QtGui.QCheckBox(
-            "Use full paths / names"
+        self.selectable = QtGui.QCheckBox()
+        self.select_scene = QtGui.QCheckBox()
+        self.multiple = QtGui.QCheckBox()
+        self.long_names = QtGui.QCheckBox()
+
+        self.content_section.addRow("Source", self.source)
+        self.content_section.addRow("Display", self.display_mode)
+        self.content_section.addRow("Value", self.value)
+        self.content_section.addRow("Placeholder", self.placeholder)
+        self.content_section.addRow("Multiple", self.multiple)
+        self.content_section.addRow(
+            "Visible Rows",
+            self.visible_rows
         )
 
-        self.form.addRow("Source", self.source)
-        self.form.addRow("Display", self.display_mode)
-        self.form.addRow("Value", self.value)
-        self.form.addRow("Placeholder", self.placeholder)
-        self.form.addRow("", self.multiple)
-        self.form.addRow("Visible Rows", self.visible_rows)
-        self.form.addRow("", self.selectable)
-        self.form.addRow("", self.select_scene)
-        self.form.addRow("", self.long_names)
+        self.behavior_section.addRow("Selectable", self.selectable)
+        self.behavior_section.addRow(
+            "Select Scene on Double Click",
+            self.select_scene
+        )
+        self.behavior_section.addRow("Use Full Paths", self.long_names)
         self.add_stretch()
 
         self.source.currentIndexChanged.connect(
             self._source_changed
         )
-        self.value.textChanged.connect(
-            self._control_changed
-        )
-        self.placeholder.textEdited.connect(
-            self._control_changed
-        )
+        self.value.textChanged.connect(self._control_changed)
+        self.placeholder.textEdited.connect(self._control_changed)
         self.display_mode.currentIndexChanged.connect(
             self._display_changed
         )
@@ -110,16 +94,24 @@ class FieldPropertyEditor(ValuePropertyEditorBase):
         multiple = self.multiple.isChecked()
         list_mode = self.display_mode.currentIndex() == 1
 
-        self.value.setEnabled(source_value)
-        self.display_mode.setEnabled(multiple)
-        self.visible_rows.setEnabled(
-            multiple and list_mode
+        self.set_property_available(
+            self.value,
+            source_value,
+            "Value is provided by the current DCC selection when Source is Selection."
+        )
+        self.set_property_available(
+            self.display_mode,
+            multiple,
+            "Display mode is fixed to Single Line when Multiple is disabled."
+        )
+        self.set_property_available(
+            self.visible_rows,
+            multiple and list_mode,
+            "Visible Rows applies only to List display with Multiple enabled."
         )
 
     def _parse_value(self):
-        raw = text_type(
-            self.value.toPlainText()
-        )
+        raw = text_type(self.value.toPlainText())
         if not self.multiple.isChecked():
             return raw.strip()
 
@@ -130,49 +122,24 @@ class FieldPropertyEditor(ValuePropertyEditorBase):
         ]
 
     def load_specific(self, item):
-        source = item.get(
-            "source",
-            "value"
-        )
-
+        source = item.get("source", "value")
         self.source.setCurrentIndex(
-            1
-            if source == "selection"
-            else 0
+            1 if source == "selection" else 0
         )
 
-        value = item.get(
-            "value",
-            ""
-        )
-
-        if isinstance(
-            value,
-            (list, tuple)
-        ):
+        value = item.get("value", "")
+        if isinstance(value, (list, tuple)):
             value = "\n".join(
                 text_type(entry)
                 for entry in value
             )
 
-        self.value.setPlainText(
-            text_type(value)
-        )
+        self.value.setPlainText(text_type(value))
         self.placeholder.setText(
-            text_type(
-                item.get(
-                    "placeholder",
-                    ""
-                )
-            )
+            text_type(item.get("placeholder", ""))
         )
         self.multiple.setChecked(
-            bool(
-                item.get(
-                    "multiple",
-                    True
-                )
-            )
+            bool(item.get("multiple", True))
         )
         self.display_mode.setCurrentIndex(
             1
@@ -183,36 +150,16 @@ class FieldPropertyEditor(ValuePropertyEditorBase):
             else 0
         )
         self.visible_rows.setValue(
-            int(
-                item.get(
-                    "visible_rows",
-                    4
-                )
-            )
+            int(item.get("visible_rows", 4))
         )
         self.selectable.setChecked(
-            bool(
-                item.get(
-                    "selectable",
-                    True
-                )
-            )
+            bool(item.get("selectable", True))
         )
         self.select_scene.setChecked(
-            bool(
-                item.get(
-                    "select_scene",
-                    False
-                )
-            )
+            bool(item.get("select_scene", False))
         )
         self.long_names.setChecked(
-            bool(
-                item.get(
-                    "long_names",
-                    False
-                )
-            )
+            bool(item.get("long_names", False))
         )
 
         self._refresh_enabled_state()

@@ -6,31 +6,33 @@ from script_toolbox.model.bindings import matching_bindings
 from script_toolbox.model.items import create_item
 
 
-def test_config_schema_is_18():
-    assert CONFIG_VERSION == 18
+def test_config_schema_is_20():
+    assert CONFIG_VERSION == 20
 
 
-def test_state_button_normalizes_state_fields_and_default_trigger():
+def test_toggle_button_normalizes_state_fields_and_default_trigger():
     item = create_item(
-        "button",
+        "toggle_button",
         {
             "label": "Visibility",
-            "mode": "state",
+            "state_source": "script",
             "state_get_script": "state = True",
             "state_on_script": "result = 'on'",
             "state_off_script": "result = 'off'",
         }
     )
 
-    assert item["mode"] == "state"
+    assert item["kind"] == "toggle_button"
+    assert item["state_source"] == "script"
+    assert "value" not in item
     assert item["state_get_script"] == "state = True"
     assert item["state_on_script"] == "result = 'on'"
     assert item["state_off_script"] == "result = 'off'"
     assert item["state_get_language"] == "python"
     assert item["state_on_language"] == "python"
     assert item["state_off_language"] == "python"
-    assert item["state_on_label"] == "Visibility: ON"
-    assert item["state_off_label"] == "Visibility: OFF"
+    assert item["state_on_label"] == "Visibility"
+    assert item["state_off_label"] == "Visibility"
 
     triggers = matching_bindings(
         item,
@@ -105,7 +107,7 @@ def test_row_and_child_layout_settings_are_normalized():
     assert row["items"][1]["row_width"] == 160
 
 
-def test_value_controls_migrate_legacy_on_change_to_binding():
+def test_value_controls_ignore_removed_direct_script_fields():
     item = create_item(
         "integer",
         {
@@ -113,12 +115,9 @@ def test_value_controls_migrate_legacy_on_change_to_binding():
         }
     )
 
-    assert len(item["bindings"]) == 1
-    assert item["bindings"][0]["event"] == "value_changed"
-    assert item["bindings"][0]["language"] == "python"
-    assert item["bindings"][0]["script"] == "result = value + 1"
-    assert "callbacks" not in item
+    assert item["bindings"] == []
     assert "on_change_script" not in item
+    assert "callbacks" not in item
 
 
 def test_state_query_evaluator_reads_state_variable():

@@ -64,3 +64,18 @@ def test_bootstrap_and_nuke_panel_use_debounced_window():
         "script_toolbox.ui.debounced_main_window.ScriptToolbox"
         in nuke
     )
+
+
+def test_runtime_binding_hooks_are_installed_without_legacy_layers():
+    source = _source(
+        "scripts/script_toolbox/ui/__init__.py"
+    )
+    base = _source(
+        "scripts/script_toolbox/ui/main_window.py"
+    )
+
+    assert "install_event_binding_hooks(get_runtime_renderer_registry())" in source
+    assert "install_controls_v2_hooks" not in source
+    assert "install_icon_only_state_refresh" not in source
+    assert "def dispatch_binding_event(" in base
+    assert "def run_state_binding(" in base

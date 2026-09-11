@@ -8,6 +8,10 @@ from ..pycompat import text_type
 from ..constants import CONFIG_VERSION
 from ..constants import FOLDER_TYPES
 from .bindings import normalize_bindings
+from .layouts import COLUMN_DISTRIBUTIONS
+from .layouts import COLUMN_HEIGHT_MODES
+from .layouts import ROW_DISTRIBUTIONS
+from .layouts import is_container_kind
 
 
 DEFAULT_COMPONENT_LABELS = (
@@ -130,7 +134,7 @@ def safe_component_labels(value, size):
     return result
 
 
-def _numeric_value(
+def normalize_numeric_value(
     value,
     size,
     minimum,
@@ -141,20 +145,30 @@ def _numeric_value(
     size = safe_numeric_size(size)
 
     if isinstance(value, (list, tuple)):
-        values = list(value)
+        incoming = list(value)
     else:
-        values = [value] * size
+        incoming = [value] * size
+
+    if isinstance(fallback, (list, tuple)):
+        fallback_values = list(fallback)
+    else:
+        fallback_values = [fallback] * size
 
     normalized = []
     for index in range(size):
+        current_fallback = (
+            fallback_values[index]
+            if index < len(fallback_values)
+            else 0
+        )
         current = (
-            values[index]
-            if index < len(values)
-            else fallback
+            incoming[index]
+            if index < len(incoming)
+            else current_fallback
         )
         normalized.append(
             clamp(
-                caster(current, fallback),
+                caster(current, current_fallback),
                 minimum,
                 maximum
             )
@@ -166,24 +180,30 @@ def _numeric_value(
     return normalized
 
 
+def _language(value, fallback="python"):
+    value = text_type(value or fallback).lower()
+    return value if value in ("python", "mel") else fallback
+
+
+def _alignment(value, fallback="left"):
+    value = text_type(value or fallback).lower()
+    return value if value in ("left", "center", "right") else fallback
+
+
 def base_item(kind, data=None, default_label=None):
     data = data or {}
     item_id = data.get("id") or new_id()
-
-    legacy_name = data.get("name")
+    name = sanitize_name(
+        data.get("name") or default_name(kind, item_id),
+        kind
+    )
     label = data.get("label")
-
     if label is None:
-        label = legacy_name or default_label or kind.title()
-
-    if legacy_name:
-        name = sanitize_name(legacy_name, kind)
-    else:
-        name = default_name(kind, item_id)
+        label = default_label or kind.title()
 
     return {
         "kind": kind,
-        "id": item_id,
+        "id": text_type(item_id),
         "name": name,
         "label": text_type(label),
         "show_label": bool(data.get("show_label", True)),
@@ -197,67 +217,42 @@ def base_item(kind, data=None, default_label=None):
         ),
         "row_width": clamp(safe_int(data.get("row_width"), 120), 20, 2000),
         "row_stretch": clamp(safe_int(data.get("row_stretch"), 1), 1, 100),
-        "row_alignment": (
-            text_type(data.get("row_alignment", "left")).lower()
-            if text_type(data.get("row_alignment", "left")).lower()
-            in ("left", "center", "right")
-            else "left"
-        ),
+        "row_alignment": _alignment(data.get("row_alignment"), "left"),
     }
 
 
-def add_value_behavior(item, data):
+def _button(data):
+    item = base_item("button", data, "New Button")
+    item.update({
+        "color": safe_color(data.get("color")),
+        "icon_path": text_type(data.get("icon_path") or ""),
+        "icon_size": clamp(safe_int(data.get("icon_size"), 18), 8, 256),
+        "icon_only": bool(data.get("icon_only", False)),
+    })
     return item
 
 
-def _button(data):
-    mode = text_type(data.get("mode", "action")).lower()
+def _toggle_button(data):
+    data = data or {}
+    item = base_item("toggle_button", data, "New Toggle Button")
+    state_source = text_type(data.get("state_source", "internal")).lower()
+    if state_source not in ("internal", "script"):
+        state_source = "internal"
 
-    if mode not in ("action", "state"):
-        mode = "action"
-
-    normalized_data = dict(data)
-    normalized_data["mode"] = mode
-    item = base_item("button", normalized_data, "New Button")
-
-    legacy_language = text_type(
-        data.get("language", "python")
-    ).lower()
-    if legacy_language not in ("python", "mel"):
-        legacy_language = "python"
-
-    state_on_language = text_type(
-        data.get("state_on_language", legacy_language)
-    ).lower()
-    state_off_language = text_type(
-        data.get("state_off_language", legacy_language)
-    ).lower()
-
-    if state_on_language not in ("python", "mel"):
-        state_on_language = "python"
-    if state_off_language not in ("python", "mel"):
-        state_off_language = "python"
-
+    default_label = text_type(item.get("label", "Toggle"))
     item.update({
-        "mode": mode,
-        "color": safe_color(data.get("color")),
+        "state_source": state_source,
         "icon_path": text_type(data.get("icon_path") or ""),
         "icon_size": clamp(safe_int(data.get("icon_size"), 18), 8, 256),
         "icon_only": bool(data.get("icon_only", False)),
         "state_get_script": text_type(data.get("state_get_script") or ""),
         "state_get_language": "python",
         "state_on_script": text_type(data.get("state_on_script") or ""),
-        "state_on_language": state_on_language,
+        "state_on_language": _language(data.get("state_on_language")),
         "state_off_script": text_type(data.get("state_off_script") or ""),
-        "state_off_language": state_off_language,
-        "state_on_label": text_type(
-            data.get("state_on_label") or
-            "{0}: ON".format(item.get("label", "State"))
-        ),
-        "state_off_label": text_type(
-            data.get("state_off_label") or
-            "{0}: OFF".format(item.get("label", "State"))
-        ),
+        "state_off_language": _language(data.get("state_off_language")),
+        "state_on_label": text_type(data.get("state_on_label") or default_label),
+        "state_off_label": text_type(data.get("state_off_label") or default_label),
         "state_on_color": safe_color(
             data.get("state_on_color") or [0.22, 0.42, 0.26]
         ),
@@ -265,31 +260,64 @@ def _button(data):
             data.get("state_off_color") or [0.30, 0.30, 0.30]
         ),
     })
+
+    if state_source == "internal":
+        item["value"] = bool(data.get("value", False))
+
     return item
 
 
 def _icon(data):
     item = base_item("icon", data, "Icon")
-    alignment = text_type(
-        data.get("alignment", "left")
-    ).lower()
-    if alignment not in ("left", "center", "right"):
-        alignment = "left"
-
     item.update({
         "show_label": bool(data.get("show_label", False)),
         "path": text_type(data.get("path") or ""),
         "width": clamp(safe_int(data.get("width"), 24), 8, 512),
         "height": clamp(safe_int(data.get("height"), 24), 8, 512),
-        "alignment": alignment,
+        "content_alignment": _alignment(
+            data.get("content_alignment"),
+            "left"
+        ),
     })
+    return item
+
+
+def _toggle_icon(data):
+    data = data or {}
+    item = base_item("toggle_icon", data, "Toggle Icon")
+    state_source = text_type(data.get("state_source", "internal")).lower()
+    if state_source not in ("internal", "script"):
+        state_source = "internal"
+
+    item.update({
+        "show_label": bool(data.get("show_label", False)),
+        "state_source": state_source,
+        "state_on_path": text_type(data.get("state_on_path") or ""),
+        "state_off_path": text_type(data.get("state_off_path") or ""),
+        "width": clamp(safe_int(data.get("width"), 24), 8, 512),
+        "height": clamp(safe_int(data.get("height"), 24), 8, 512),
+        "content_alignment": _alignment(
+            data.get("content_alignment"),
+            "left"
+        ),
+        "state_get_script": text_type(data.get("state_get_script") or ""),
+        "state_get_language": "python",
+        "state_on_script": text_type(data.get("state_on_script") or ""),
+        "state_on_language": _language(data.get("state_on_language")),
+        "state_off_script": text_type(data.get("state_off_script") or ""),
+        "state_off_language": _language(data.get("state_off_language")),
+    })
+
+    if state_source == "internal":
+        item["value"] = bool(data.get("value", False))
+
     return item
 
 
 def _string(data):
     item = base_item("string", data, "String")
     item["value"] = text_type(data.get("value") or "")
-    return add_value_behavior(item, data)
+    return item
 
 
 def _integer(data):
@@ -311,7 +339,7 @@ def _integer(data):
             size
         ),
         "show_slider": bool(data.get("show_slider", False)),
-        "value": _numeric_value(
+        "value": normalize_numeric_value(
             data.get("value", 0),
             size,
             minimum,
@@ -320,7 +348,7 @@ def _integer(data):
             0
         ),
     })
-    return add_value_behavior(item, data)
+    return item
 
 
 def _float(data):
@@ -343,7 +371,7 @@ def _float(data):
             size
         ),
         "show_slider": bool(data.get("show_slider", False)),
-        "value": _numeric_value(
+        "value": normalize_numeric_value(
             data.get("value", 0.0),
             size,
             minimum,
@@ -352,82 +380,59 @@ def _float(data):
             0.0
         ),
     })
-    return add_value_behavior(item, data)
+    return item
 
 
 def _checkbox(data):
     item = base_item("checkbox", data, "Checkbox")
-
-    position = text_type(
-        data.get("label_position", "right")
-    ).lower()
-
+    position = text_type(data.get("label_position", "right")).lower()
     if position not in ("left", "right"):
         position = "right"
-
     item.update({
         "value": bool(data.get("value", False)),
         "label_position": position,
     })
-    return add_value_behavior(item, data)
-
-
-def _legacy_toggle(data):
-    migrated = dict(data)
-    migrated["kind"] = "checkbox"
-    migrated.setdefault("label_position", "left")
-    return _checkbox(migrated)
+    return item
 
 
 def _menu(data):
     item = base_item("menu", data, "Menu")
     values = safe_menu_items(data.get("items"))
     value = text_type(data.get("value") or "")
-
     if value not in values:
         value = values[0]
-
     item.update({
         "items": values,
         "value": value,
     })
-    return add_value_behavior(item, data)
+    return item
 
 
 def _color(data):
     item = base_item("color", data, "Color")
     item["value"] = safe_color(data.get("value"))
-    return add_value_behavior(item, data)
+    return item
 
 
 def _field(data):
     item = base_item("field", data, "Field")
-
     source = text_type(data.get("source", "value")).lower()
-
     if source not in ("value", "selection"):
         source = "value"
 
     value = data.get("value", "")
-
     if isinstance(value, tuple):
         value = list(value)
 
     multiple = bool(data.get("multiple", True))
-
     if not multiple and isinstance(value, list):
         value = value[0] if value else ""
 
     display_mode = text_type(
-        data.get(
-            "display_mode",
-            "list" if multiple else "single"
-        )
+        data.get("display_mode", "list" if multiple else "single")
     ).lower()
-
     if display_mode not in ("single", "list"):
         display_mode = "list" if multiple else "single"
-
     if not multiple:
         display_mode = "single"
 
@@ -440,13 +445,9 @@ def _field(data):
         "multiple": multiple,
         "long_names": bool(data.get("long_names", False)),
         "display_mode": display_mode,
-        "visible_rows": clamp(
-            safe_int(data.get("visible_rows"), 4),
-            1,
-            20
-        ),
+        "visible_rows": clamp(safe_int(data.get("visible_rows"), 4), 1, 20),
     })
-    return add_value_behavior(item, data)
+    return item
 
 
 def _label(data):
@@ -459,32 +460,101 @@ def _separator(data):
     return item
 
 
+def _safe_choice(value, choices, fallback):
+    value = text_type(value or fallback).lower()
+    return value if value in choices else fallback
+
+
+def _create_layout_child(raw):
+    if not isinstance(raw, dict):
+        return None
+
+    kind = text_type(raw.get("kind", "")).lower()
+    if kind == "folder" or not kind:
+        return None
+
+    return create_item(kind, raw)
+
+
+def _layout_children(data):
+    children = []
+    for raw in data.get("items", []) or []:
+        child = _create_layout_child(raw)
+        if child is not None:
+            children.append(child)
+    return children
+
+
+def _column_child_layout(child):
+    child["column_height_mode"] = _safe_choice(
+        child.get("column_height_mode", "auto"),
+        COLUMN_HEIGHT_MODES,
+        "auto"
+    )
+    child["column_height"] = clamp(
+        safe_int(child.get("column_height"), 28),
+        8,
+        2000
+    )
+    child["column_stretch"] = clamp(
+        safe_int(child.get("column_stretch"), 1),
+        1,
+        100
+    )
+    return child
+
+
 def _row(data):
     item = base_item("row", data, "Row")
-    children = []
-
-    for raw in data.get("items", []) or []:
-        if not isinstance(raw, dict):
-            continue
-
-        kind = text_type(raw.get("kind", "button")).lower()
-
-        if kind in ("row", "folder", "section"):
-            continue
-
-        children.append(create_item(kind, raw))
-
-    vertical_alignment = text_type(
-        data.get("vertical_alignment", "center")
-    ).lower()
-
-    if vertical_alignment not in ("top", "center", "bottom"):
-        vertical_alignment = "center"
-
     item.update({
         "spacing": clamp(safe_int(data.get("spacing"), 4), 0, 30),
         "equal_widths": bool(data.get("equal_widths", False)),
-        "vertical_alignment": vertical_alignment,
+        "horizontal_distribution": _safe_choice(
+            data.get("horizontal_distribution", "left"),
+            ROW_DISTRIBUTIONS,
+            "left"
+        ),
+        "vertical_alignment": _safe_choice(
+            data.get("vertical_alignment", "center"),
+            ("top", "center", "bottom"),
+            "center"
+        ),
+        "items": _layout_children(data),
+    })
+    return item
+
+
+def _column(data):
+    item = base_item("column", data, "Column")
+    if "row_width_mode" not in data:
+        item["row_width_mode"] = "stretch"
+
+    children = []
+    for raw in data.get("items", []) or []:
+        child = _create_layout_child(raw)
+        if child is None:
+            continue
+        for key in (
+            "column_height_mode",
+            "column_height",
+            "column_stretch",
+        ):
+            if key in raw:
+                child[key] = raw[key]
+        children.append(_column_child_layout(child))
+
+    item.update({
+        "spacing": clamp(safe_int(data.get("spacing"), 4), 0, 30),
+        "horizontal_alignment": _safe_choice(
+            data.get("horizontal_alignment", "stretch"),
+            ("stretch", "left", "center", "right"),
+            "stretch"
+        ),
+        "vertical_distribution": _safe_choice(
+            data.get("vertical_distribution", "top"),
+            COLUMN_DISTRIBUTIONS,
+            "top"
+        ),
         "items": children,
     })
     return item
@@ -492,20 +562,17 @@ def _row(data):
 
 def _folder(data):
     item = base_item("folder", data, "Folder")
-    folder_type = text_type(
-        data.get("folder_type", "collapsible")
-    ).lower()
-
+    folder_type = text_type(data.get("folder_type", "collapsible")).lower()
     if folder_type not in FOLDER_TYPES:
         folder_type = "collapsible"
 
     children = []
-
     for raw in data.get("items", []) or []:
         if not isinstance(raw, dict):
             continue
-
-        kind = text_type(raw.get("kind", "button")).lower()
+        kind = text_type(raw.get("kind", "")).lower()
+        if not kind:
+            continue
         children.append(create_item(kind, raw))
 
     item.update({
@@ -518,11 +585,12 @@ def _folder(data):
 
 _FACTORIES = {
     "button": _button,
+    "toggle_button": _toggle_button,
     "icon": _icon,
+    "toggle_icon": _toggle_icon,
     "string": _string,
     "integer": _integer,
     "float": _float,
-    "toggle": _legacy_toggle,
     "checkbox": _checkbox,
     "menu": _menu,
     "color": _color,
@@ -530,14 +598,36 @@ _FACTORIES = {
     "label": _label,
     "separator": _separator,
     "row": _row,
+    "column": _column,
     "folder": _folder,
-    "section": _folder,
 }
 
 
+def register_item_factory(kind, factory, replace=False):
+    kind = text_type(kind or "").lower()
+    if not kind:
+        raise ValueError("Item kind must not be empty.")
+    if not callable(factory):
+        raise TypeError("Item factory must be callable.")
+    if kind in _FACTORIES and not replace:
+        raise ValueError(
+            "Item factory already registered: {0}".format(kind)
+        )
+    _FACTORIES[kind] = factory
+    return factory
+
+
+def get_item_factory(kind):
+    return _FACTORIES.get(text_type(kind or "").lower())
+
+
 def create_item(kind, data=None):
-    kind = text_type(kind or "button").lower()
-    factory = _FACTORIES.get(kind, _button)
+    kind = text_type(kind or "").lower()
+    factory = get_item_factory(kind)
+    if factory is None:
+        raise ValueError(
+            "Unsupported Script Toolbox item kind: {0!r}".format(kind)
+        )
     return factory(data or {})
 
 
@@ -559,22 +649,16 @@ def normalize_document(data):
         return default_document()
 
     raw_folders = data.get("sections")
-
-    if raw_folders is None:
-        raw_folders = data.get("folders")
-
     if not isinstance(raw_folders, list):
         raw_folders = []
 
     folders = []
-
     for raw in raw_folders:
         if not isinstance(raw, dict):
             continue
-
-        migrated = dict(raw)
-        migrated["kind"] = "folder"
-        folders.append(_folder(migrated))
+        normalized = dict(raw)
+        normalized["kind"] = "folder"
+        folders.append(_folder(normalized))
 
     if not folders:
         folders = default_document()["sections"]
@@ -588,30 +672,34 @@ def normalize_document(data):
 def walk_items(document, include_folders=False):
     def walk(children):
         for item in children:
-            if include_folders or item.get("kind") != "folder":
+            kind = text_type(item.get("kind", "")).lower()
+            if include_folders or kind != "folder":
                 yield item
 
-            if item.get("kind") in ("folder", "row"):
-                for child in walk(item.get("items", [])):
+            if is_container_kind(kind):
+                for child in walk(item.get("items", []) or []):
                     yield child
 
-    for folder in document.get("sections", []):
+    for folder in (document or {}).get("sections", []) or []:
         if include_folders:
             yield folder
 
-        for item in walk(folder.get("items", [])):
+        for item in walk(folder.get("items", []) or []):
             yield item
 
 
 __all__ = [
     "DEFAULT_COMPONENT_LABELS",
-    "add_value_behavior",
     "base_item",
     "clamp",
     "create_item",
     "default_document",
+    "get_item_factory",
+    "is_container_kind",
     "new_id",
     "normalize_document",
+    "normalize_numeric_value",
+    "register_item_factory",
     "safe_color",
     "safe_component_labels",
     "safe_float",

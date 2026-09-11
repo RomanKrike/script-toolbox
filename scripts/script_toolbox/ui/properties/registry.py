@@ -17,27 +17,21 @@ from .field import FieldPropertyEditor
 from .folder import FolderPropertyEditor
 from .icon import IconPropertyEditor
 from .row import RowPropertyEditor
+from .text import TextPropertyEditor
+from .toggle_button import ToggleButtonPropertyEditor
+from .toggle_icon import ToggleIconPropertyEditor
 
 
 class SeparatorPropertyEditor(_SeparatorPropertyEditor):
-    """Schema-18 separator editor without the removed callbacks payload."""
-
     def write_to_item(self):
         if self.item is None:
             return
 
-        # Use the shared writer so Row/Column item-layout settings are
-        # persisted just like every other control. Separator-specific fields
-        # are stripped afterwards.
-        PropertyEditorBase.write_to_item(
-            self
-        )
+        PropertyEditorBase.write_to_item(self)
         self.item["name"] = text_type(
             self.name_edit.text()
         ).strip() or "separator"
         self.item["bindings"] = []
-        self.item.pop("callbacks", None)
-        self.item.pop("on_change_script", None)
 
 
 PROPERTY_EDITORS = {
@@ -45,7 +39,9 @@ PROPERTY_EDITORS = {
     "row": RowPropertyEditor,
     "column": ColumnPropertyEditor,
     "button": ButtonPropertyEditor,
+    "toggle_button": ToggleButtonPropertyEditor,
     "icon": IconPropertyEditor,
+    "toggle_icon": ToggleIconPropertyEditor,
     "string": StringPropertyEditor,
     "integer": IntegerPropertyEditor,
     "float": FloatPropertyEditor,
@@ -54,13 +50,12 @@ PROPERTY_EDITORS = {
     "color": ColorPropertyEditor,
     "field": FieldPropertyEditor,
     "label": LabelPropertyEditor,
+    "text": TextPropertyEditor,
     "separator": SeparatorPropertyEditor,
 }
 
 
-def editor_class(
-    kind
-):
+def editor_class(kind):
     return PROPERTY_EDITORS.get(
         kind,
         EmptyPropertyEditor
@@ -72,10 +67,7 @@ def create_editor(
     toolbox=None,
     parent=None
 ):
-    cls = editor_class(
-        kind
-    )
-
+    cls = editor_class(kind)
     return cls(
         toolbox=toolbox,
         parent=parent

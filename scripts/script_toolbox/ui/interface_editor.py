@@ -19,9 +19,19 @@ from ..model import normalize_document
 from ..model import walk_items
 from ..pycompat import text_type
 from ..style import STYLE
-from ..style import toolbar_icon
+from ..style import metrics
+from ..style.palette import STRUCTURE_FOLDER_BG
+from ..style.palette import TEXT_PALETTE_GROUP
+from ..style.palette import TEXT_STRUCTURE_ROW
+from ..style.palette import WINDOW_BG
+from .editor_search import filter_existing_parameters as filter_editor_structure
+from .icon_button import ICON_BUTTON_COMPACT
+from .icon_button import create_icon_button
 from .interface_tree import ExistingInterfaceTree
+from .layout_helpers import configure_layout
+from .layout_helpers import set_layout_margins
 from .properties import create_editor
+from .search_field import SearchField
 
 
 ROLE_KIND = QtCore.Qt.UserRole
@@ -131,14 +141,10 @@ class InterfaceEditor(QtGui.QDialog):
         root = QtGui.QVBoxLayout(
             self
         )
-        root.setContentsMargins(
-            8,
-            8,
-            8,
-            8
-        )
-        root.setSpacing(
-            7
+        configure_layout(
+            root,
+            margins=metrics.EDITOR_ROOT_MARGINS,
+            spacing=metrics.EDITOR_ROOT_SPACING
         )
 
         heading = QtGui.QLabel(
@@ -157,7 +163,7 @@ class InterfaceEditor(QtGui.QDialog):
             QtCore.Qt.Horizontal
         )
         splitter.setHandleWidth(
-            2
+            metrics.EDITOR_SPLITTER_HANDLE_WIDTH
         )
         splitter.setChildrenCollapsible(
             False
@@ -167,6 +173,8 @@ class InterfaceEditor(QtGui.QDialog):
             1
         )
 
+        self.search_fields = {}
+
         # Create Parameters -------------------------------------------------
         left = QtGui.QWidget()
         left.setObjectName(
@@ -175,14 +183,10 @@ class InterfaceEditor(QtGui.QDialog):
         left_layout = QtGui.QVBoxLayout(
             left
         )
-        left_layout.setContentsMargins(
-            8,
-            8,
-            8,
-            8
-        )
-        left_layout.setSpacing(
-            6
+        configure_layout(
+            left_layout,
+            margins=metrics.EDITOR_PANE_MARGINS,
+            spacing=metrics.EDITOR_PANE_SPACING
         )
 
         left_title = QtGui.QLabel(
@@ -193,22 +197,6 @@ class InterfaceEditor(QtGui.QDialog):
         )
         left_layout.addWidget(
             left_title
-        )
-
-        self.palette_filter = QtGui.QLineEdit()
-        self.palette_filter.setObjectName(
-            "PaletteFilter"
-        )
-
-        try:
-            self.palette_filter.setPlaceholderText(
-                "Filter parameters..."
-            )
-        except Exception:
-            pass
-
-        left_layout.addWidget(
-            self.palette_filter
         )
 
         self.palette = QtGui.QTreeWidget()
@@ -222,7 +210,7 @@ class InterfaceEditor(QtGui.QDialog):
             True
         )
         self.palette.setIndentation(
-            14
+            metrics.EDITOR_PALETTE_INDENT
         )
         self.palette.setAlternatingRowColors(
             True
@@ -261,7 +249,7 @@ class InterfaceEditor(QtGui.QDialog):
                 0,
                 QtGui.QBrush(
                     QtGui.QColor(
-                        "#bda88f"
+                        TEXT_PALETTE_GROUP
                     )
                 )
             )
@@ -294,27 +282,25 @@ class InterfaceEditor(QtGui.QDialog):
         self.palette.itemDoubleClicked.connect(
             self.create_from_palette
         )
-        self.palette_filter.textChanged.connect(
-            self.filter_palette
-        )
 
         left_layout.addWidget(
             self.palette,
             1
         )
 
-        hint = QtGui.QLabel(
-            "Double-click an item to create it. Drag existing items to reorder or nest.\n"
-            "Folders organize sections; Rows keep controls on one line."
+        self.palette_filter = SearchField(
+            "Filter parameters...",
+            parent=left
         )
-        hint.setObjectName(
-            "HintText"
+        self.palette_filter.textChanged.connect(
+            self.filter_palette
         )
-        hint.setWordWrap(
-            True
-        )
+        self.palette_search_control = self.palette_filter
+        self.search_fields[
+            "palette"
+        ] = self.palette_filter
         left_layout.addWidget(
-            hint
+            self.palette_filter
         )
 
         splitter.addWidget(
@@ -329,19 +315,15 @@ class InterfaceEditor(QtGui.QDialog):
         center_layout = QtGui.QVBoxLayout(
             center
         )
-        center_layout.setContentsMargins(
-            8,
-            8,
-            8,
-            8
-        )
-        center_layout.setSpacing(
-            6
+        configure_layout(
+            center_layout,
+            margins=metrics.EDITOR_PANE_MARGINS,
+            spacing=metrics.EDITOR_PANE_SPACING
         )
 
         toolbar = QtGui.QHBoxLayout()
         toolbar.setSpacing(
-            2
+            metrics.TOOLBAR_SPACING
         )
 
         center_title = QtGui.QLabel(
@@ -357,6 +339,7 @@ class InterfaceEditor(QtGui.QDialog):
             1
         )
 
+        self.structure_toolbar_buttons = {}
         for icon_name, tooltip, callback in (
             ("undo", "Undo (Ctrl+Z)", self.undo),
             ("redo", "Redo (Ctrl+Y)", self.redo),
@@ -366,31 +349,16 @@ class InterfaceEditor(QtGui.QDialog):
             ("down", "Move Down", lambda: self.move_selected(1)),
             ("delete", "Delete", self.delete_selected),
         ):
-            button = QtGui.QToolButton()
-            button.setObjectName(
-                "IconButton"
+            button = create_icon_button(
+                icon_name,
+                tooltip,
+                callback,
+                parent=self,
+                preset=ICON_BUTTON_COMPACT
             )
-            button.setIcon(
-                toolbar_icon(
-                    icon_name
-                )
-            )
-            button.setIconSize(
-                QtCore.QSize(
-                    16,
-                    16
-                )
-            )
-            button.setFixedSize(
-                25,
-                25
-            )
-            button.setToolTip(
-                tooltip
-            )
-            button.clicked.connect(
-                callback
-            )
+            self.structure_toolbar_buttons[
+                icon_name
+            ] = button
             toolbar.addWidget(
                 button
             )
@@ -409,7 +377,7 @@ class InterfaceEditor(QtGui.QDialog):
             True
         )
         self.tree.setIndentation(
-            18
+            metrics.EDITOR_TREE_INDENT
         )
         self.tree.currentItemChanged.connect(
             self.selection_changed
@@ -449,6 +417,21 @@ class InterfaceEditor(QtGui.QDialog):
             1
         )
 
+        self.existing_filter = SearchField(
+            "Filter existing parameters...",
+            parent=center
+        )
+        self.existing_filter.textChanged.connect(
+            self.filter_existing_parameters
+        )
+        self.existing_search_control = self.existing_filter
+        self.search_fields[
+            "structure"
+        ] = self.existing_filter
+        center_layout.addWidget(
+            self.existing_filter
+        )
+
         splitter.addWidget(
             center
         )
@@ -461,14 +444,10 @@ class InterfaceEditor(QtGui.QDialog):
         right_layout = QtGui.QVBoxLayout(
             right
         )
-        right_layout.setContentsMargins(
-            8,
-            8,
-            8,
-            8
-        )
-        right_layout.setSpacing(
-            6
+        configure_layout(
+            right_layout,
+            margins=metrics.EDITOR_PANE_MARGINS,
+            spacing=metrics.EDITOR_PANE_SPACING
         )
 
         right_title = QtGui.QLabel(
@@ -497,18 +476,19 @@ class InterfaceEditor(QtGui.QDialog):
 
         # Maya 2015 / Qt4 does not consistently honor QScrollArea viewport
         # background selectors. Set the viewport palette explicitly so the
-        # property pane stays visually identical to EditorPane.
+        # property pane stays visually identical to the final PropertyPane
+        # surface installed by property_pane_style.
         try:
             viewport = self.property_scroll.viewport()
             viewport.setObjectName("PropertyViewport")
             viewport_palette = viewport.palette()
             viewport_palette.setColor(
                 QtGui.QPalette.Window,
-                QtGui.QColor("#303030")
+                QtGui.QColor(WINDOW_BG)
             )
             viewport_palette.setColor(
                 QtGui.QPalette.Base,
-                QtGui.QColor("#303030")
+                QtGui.QColor(WINDOW_BG)
             )
             viewport.setPalette(viewport_palette)
             viewport.setAutoFillBackground(True)
@@ -523,11 +503,11 @@ class InterfaceEditor(QtGui.QDialog):
             host_palette = self.property_host.palette()
             host_palette.setColor(
                 QtGui.QPalette.Window,
-                QtGui.QColor("#303030")
+                QtGui.QColor(WINDOW_BG)
             )
             host_palette.setColor(
                 QtGui.QPalette.Base,
-                QtGui.QColor("#303030")
+                QtGui.QColor(WINDOW_BG)
             )
             self.property_host.setPalette(host_palette)
             self.property_host.setAutoFillBackground(True)
@@ -536,11 +516,9 @@ class InterfaceEditor(QtGui.QDialog):
         self.property_layout = QtGui.QVBoxLayout(
             self.property_host
         )
-        self.property_layout.setContentsMargins(
-            0,
-            0,
-            4,
-            0
+        set_layout_margins(
+            self.property_layout,
+            metrics.EDITOR_PROPERTY_HOST_MARGINS
         )
         self.property_scroll.setWidget(
             self.property_host
@@ -563,7 +541,7 @@ class InterfaceEditor(QtGui.QDialog):
         # Bottom -----------------------------------------------------------
         bottom = QtGui.QHBoxLayout()
         bottom.setSpacing(
-            6
+            metrics.EDITOR_BOTTOM_SPACING
         )
 
         import_button = self._icon_button(
@@ -584,7 +562,7 @@ class InterfaceEditor(QtGui.QDialog):
             export_button
         )
         bottom.addSpacing(
-            4
+            metrics.EDITOR_BOTTOM_GROUP_SPACING
         )
 
         self.status = QtGui.QLabel(
@@ -604,7 +582,7 @@ class InterfaceEditor(QtGui.QDialog):
             "Apply"
         )
         apply_button.setMinimumWidth(
-            78
+            metrics.EDITOR_ACTION_BUTTON_MIN_WIDTH
         )
         apply_button.clicked.connect(
             self.apply_changes
@@ -617,7 +595,7 @@ class InterfaceEditor(QtGui.QDialog):
             "AcceptButton"
         )
         accept_button.setMinimumWidth(
-            78
+            metrics.EDITOR_ACTION_BUTTON_MIN_WIDTH
         )
         accept_button.clicked.connect(
             self.accept_changes
@@ -627,7 +605,7 @@ class InterfaceEditor(QtGui.QDialog):
             "Cancel"
         )
         cancel_button.setMinimumWidth(
-            78
+            metrics.EDITOR_ACTION_BUTTON_MIN_WIDTH
         )
         cancel_button.clicked.connect(
             self.reject
@@ -655,32 +633,13 @@ class InterfaceEditor(QtGui.QDialog):
         tooltip,
         callback
     ):
-        button = QtGui.QToolButton()
-        button.setObjectName(
-            "IconButton"
+        return create_icon_button(
+            icon_name,
+            tooltip,
+            callback,
+            parent=self,
+            preset=ICON_BUTTON_COMPACT
         )
-        button.setIcon(
-            toolbar_icon(
-                icon_name
-            )
-        )
-        button.setIconSize(
-            QtCore.QSize(
-                16,
-                16
-            )
-        )
-        button.setFixedSize(
-            25,
-            25
-        )
-        button.setToolTip(
-            tooltip
-        )
-        button.clicked.connect(
-            callback
-        )
-        return button
 
     # ------------------------------------------------------------------
     # Tree data
@@ -801,7 +760,7 @@ class InterfaceEditor(QtGui.QDialog):
                     column,
                     QtGui.QBrush(
                         QtGui.QColor(
-                            "#302d2a"
+                            STRUCTURE_FOLDER_BG
                         )
                     )
                 )
@@ -814,7 +773,7 @@ class InterfaceEditor(QtGui.QDialog):
                     column,
                     QtGui.QBrush(
                         QtGui.QColor(
-                            "#b6c4cf"
+                            TEXT_STRUCTURE_ROW
                         )
                     )
                 )
@@ -1615,6 +1574,15 @@ class InterfaceEditor(QtGui.QDialog):
                 group.setExpanded(
                     True
                 )
+
+    def filter_existing_parameters(
+        self,
+        value
+    ):
+        return filter_editor_structure(
+            self,
+            value
+        )
 
     def create_from_palette(
         self,

@@ -3,9 +3,12 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from script_toolbox.constants import CONFIG_VERSION
 from script_toolbox.core.config import load_config
 from script_toolbox.core.config import save_config
+from script_toolbox.core.config_schema import UnsupportedConfigVersionError
 from script_toolbox.core.values import find_item
 from script_toolbox.model import walk_items
 
@@ -17,22 +20,17 @@ def fixture_path(name):
     return FIXTURES / name
 
 
-def test_full_v16_golden_config_round_trip_is_idempotent(tmp_path):
+def test_current_golden_config_round_trip_is_idempotent(tmp_path):
     document = load_config(
-        path=str(fixture_path("golden_v16_full.json"))
+        path=str(fixture_path("golden_v20_current.json"))
     )
     output = tmp_path / "round_trip.json"
 
-    save_config(
-        document,
-        path=str(output)
-    )
-
-    reloaded = load_config(
-        path=str(output)
-    )
+    save_config(document, path=str(output))
+    reloaded = load_config(path=str(output))
 
     assert reloaded == document
+    assert reloaded["version"] == CONFIG_VERSION
 
     with output.open("r", encoding="utf-8") as handle:
         serialized = json.load(handle)
@@ -40,9 +38,9 @@ def test_full_v16_golden_config_round_trip_is_idempotent(tmp_path):
     assert serialized == document
 
 
-def test_full_v16_golden_config_preserves_kind_and_traversal_order():
+def test_current_golden_config_preserves_native_kinds_and_nested_order():
     document = load_config(
-        path=str(fixture_path("golden_v16_full.json"))
+        path=str(fixture_path("golden_v20_current.json"))
     )
 
     snapshot = [
@@ -51,98 +49,44 @@ def test_full_v16_golden_config_preserves_kind_and_traversal_order():
     ]
 
     assert snapshot == [
-        ("header", "label"),
         ("asset_name", "string"),
         ("samples", "integer"),
-        ("exposure", "float"),
-        ("enabled", "checkbox"),
-        ("quality", "menu"),
-        ("tint", "color"),
-        ("nodes", "field"),
-        ("render_state", "button"),
+        ("status_icon", "icon"),
+        ("render_state", "toggle_button"),
         ("actions", "row"),
         ("run_render", "button"),
-        ("frames", "integer"),
+        ("values", "column"),
         ("selection", "field"),
-        ("advanced_separator", "separator"),
-        ("cleanup", "button"),
     ]
 
+    assert find_item(document, "status_icon")["content_alignment"] == "center"
+    assert find_item(document, "render_state")["kind"] == "toggle_button"
 
-def test_full_v16_golden_config_keeps_all_ids_unique_and_stable():
+
+def test_current_golden_config_has_unique_stable_ids():
     document = load_config(
-        path=str(fixture_path("golden_v16_full.json"))
+        path=str(fixture_path("golden_v20_current.json"))
     )
     ids = [
         item["id"]
-        for item in walk_items(
-            document,
-            include_folders=True
-        )
+        for item in walk_items(document, include_folders=True)
     ]
 
-    assert len(ids) == 18
-    assert len(set(ids)) == len(ids)
+    assert len(ids) == len(set(ids))
     assert ids[0] == "folder_main"
-    assert ids[-1] == "button_cleanup"
-    assert "folder_advanced" in ids
-    assert "folder_secondary" in ids
+    assert "toggle_render" in ids
+    assert "column_values" in ids
 
 
-def test_legacy_v15_golden_config_migrates_and_normalizes_payload():
-    document = load_config(
-        path=str(fixture_path("golden_v15_legacy.json"))
+def test_old_schema_is_rejected_instead_of_migrated(tmp_path):
+    path = tmp_path / "old.json"
+    path.write_text(
+        json.dumps({
+            "version": CONFIG_VERSION - 1,
+            "sections": [],
+        }),
+        encoding="utf-8"
     )
 
-    assert document["version"] == CONFIG_VERSION
-    assert document["sections"][0]["name"] == "legacy_tools"
-
-    toggle = find_item(document, "legacy_enabled")
-    assert toggle["kind"] == "checkbox"
-    assert toggle["label_position"] == "left"
-    assert toggle["value"] is True
-
-    menu = find_item(document, "legacy_quality")
-    assert menu["items"] == ["Low", "Medium", "High"]
-    assert menu["value"] == "Low"
-
-    integer = find_item(document, "legacy_samples")
-    assert integer["min"] == 1
-    assert integer["max"] == 8
-    assert integer["step"] == 1
-    assert integer["value"] == 8
-
-    button = find_item(document, "legacy_action")
-    assert "click_script" not in button
-    assert "shift_script" not in button
-    assert len(button["bindings"]) == 2
-
-    click_binding = button["bindings"][0]
-    shift_binding = button["bindings"][1]
-    assert click_binding["event"] == "click"
-    assert click_binding["mouse_button"] == "left"
-    assert click_binding["modifiers"] == []
-    assert click_binding["script"] == "print('legacy payload')"
-    assert shift_binding["event"] == "click"
-    assert shift_binding["mouse_button"] == "left"
-    assert shift_binding["modifiers"] == ["shift"]
-    assert shift_binding["script"] == "print('legacy alternate')"
-
-
-def test_legacy_migration_becomes_stable_current_schema(tmp_path):
-    migrated = load_config(
-        path=str(fixture_path("golden_v15_legacy.json"))
-    )
-    output = tmp_path / "migrated.json"
-
-    save_config(
-        migrated,
-        path=str(output)
-    )
-
-    reloaded = load_config(
-        path=str(output)
-    )
-
-    assert reloaded == migrated
-    assert reloaded["version"] == CONFIG_VERSION
+    with pytest.raises(UnsupportedConfigVersionError):
+        load_config(path=str(path))

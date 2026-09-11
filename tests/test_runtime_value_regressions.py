@@ -13,39 +13,29 @@ from script_toolbox.model import walk_items
 FIXTURE = (
     Path(__file__).resolve().parent /
     "fixtures" /
-    "golden_v16_full.json"
+    "current_v20_full.json"
 )
 
 
 def _document():
-    return load_config(
-        path=str(FIXTURE)
-    )
+    return load_config(path=str(FIXTURE))
 
 
 def _structure_snapshot(document):
     return [
-        (
-            item["id"],
-            item["name"],
-            item["kind"],
-        )
-        for item in walk_items(
-            document,
-            include_folders=True
-        )
+        (item["id"], item["name"], item["kind"])
+        for item in walk_items(document, include_folders=True)
     ]
 
 
-def test_runtime_lookup_by_id_name_and_label_targets_same_item():
+def test_runtime_lookup_by_id_and_name_targets_same_item():
     document = _document()
 
     by_id = find_item(document, "integer_samples")
     by_name = find_item(document, "samples")
-    by_label = find_item(document, "Samples")
 
     assert by_id is by_name
-    assert by_name is by_label
+    assert find_item(document, "Samples") is None
 
 
 def test_runtime_get_value_returns_copy_for_mutable_values():
@@ -54,10 +44,7 @@ def test_runtime_get_value_returns_copy_for_mutable_values():
     values = get_value(document, "nodes")
     values.append("pCone1")
 
-    assert get_value(document, "nodes") == [
-        "pCube1",
-        "pSphere1",
-    ]
+    assert get_value(document, "nodes") == ["pCube1", "pSphere1"]
 
 
 def test_runtime_value_normalization_matches_current_contract():

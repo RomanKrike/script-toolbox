@@ -20,6 +20,12 @@ def _detect_host():
     except Exception:
         pass
 
+    try:
+        from .houdini_host import HoudiniHost
+        return HoudiniHost()
+    except Exception:
+        pass
+
     return BaseHost()
 
 

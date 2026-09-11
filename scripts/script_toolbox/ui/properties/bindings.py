@@ -7,16 +7,24 @@ from ...compat import QtCore
 from ...compat import QtGui
 from ...model.bindings import EVENT_LABELS
 from ...model.bindings import MOUSE_BUTTONS
+from ...model.bindings import STATE_TOGGLE_KINDS
 from ...model.bindings import binding_display_name
 from ...model.bindings import binding_events
 from ...model.bindings import binding_signature
 from ...model.bindings import bindings_for_editor
 from ...model.bindings import is_mouse_event
 from ...model.bindings import make_binding
-from ...model.bindings import normalize_binding
+from ...model.bindings import normalize_bindings
 from ...model.bindings import supports_bindings
 from ...pycompat import text_type
+from ...style.metrics import FORM_INLINE_SPACING
+from ...style.metrics import TRIGGER_PAGE_MARGINS
+from ...style.metrics import TRIGGER_PAGE_SPACING
+from ...style.metrics import TRIGGER_PANEL_MARGINS
+from ...style.metrics import TRIGGER_PANEL_SPACING
 from ..language_script_editor import LanguageScriptEditor
+from ..layout_helpers import configure_inline_layout
+from ..layout_helpers import configure_layout
 
 
 class AddBindingDialog(QtGui.QDialog):
@@ -69,8 +77,10 @@ class AddBindingDialog(QtGui.QDialog):
         modifier_layout = QtGui.QHBoxLayout(
             self.modifier_widget
         )
-        modifier_layout.setContentsMargins(0, 0, 0, 0)
-        modifier_layout.setSpacing(8)
+        configure_inline_layout(
+            modifier_layout,
+            spacing=FORM_INLINE_SPACING
+        )
         self.ctrl = QtGui.QCheckBox("Ctrl")
         self.alt = QtGui.QCheckBox("Alt")
         self.shift = QtGui.QCheckBox("Shift")
@@ -86,9 +96,7 @@ class AddBindingDialog(QtGui.QDialog):
 
         self.label_edit = QtGui.QLineEdit()
         try:
-            self.label_edit.setPlaceholderText(
-                "Optional tab name"
-            )
+            self.label_edit.setPlaceholderText("Optional tab name")
         except Exception:
             pass
         form.addRow("Tab Name", self.label_edit)
@@ -151,9 +159,7 @@ class AddBindingDialog(QtGui.QDialog):
         return self.events[index]
 
     def _refresh_event_controls(self, *args):
-        mouse = is_mouse_event(
-            self.current_event()
-        )
+        mouse = is_mouse_event(self.current_event())
         self.mouse_button_label.setVisible(mouse)
         self.mouse_button.setVisible(mouse)
         self.modifier_label.setVisible(mouse)
@@ -169,24 +175,6 @@ class AddBindingDialog(QtGui.QDialog):
         if self.shift.isChecked():
             modifiers.append("shift")
 
-        kind = text_type(
-            self.item.get("kind", "")
-        )
-        mode = text_type(
-            self.item.get("mode", "action")
-        )
-
-        handler = original.get("handler", "script")
-        button_mode = original.get("button_mode", "all")
-
-        if kind == "button" and not self.original:
-            if mode == "state":
-                handler = "state_toggle"
-                button_mode = "state"
-            else:
-                handler = "script"
-                button_mode = "action"
-
         return make_binding(
             self.current_event(),
             language=original.get("language", "python"),
@@ -197,8 +185,7 @@ class AddBindingDialog(QtGui.QDialog):
             modifiers=modifiers,
             label=text_type(self.label_edit.text()).strip(),
             binding_id=original.get("id"),
-            handler=handler,
-            button_mode=button_mode,
+            handler=original.get("handler", "script"),
             modifier_policy="exact"
         )
 
@@ -217,14 +204,17 @@ class BindingPage(QtGui.QWidget):
         self.binding = copy.deepcopy(binding)
 
         root = QtGui.QVBoxLayout(self)
-        root.setContentsMargins(2, 3, 2, 2)
-        root.setSpacing(4)
+        configure_layout(
+            root,
+            margins=TRIGGER_PAGE_MARGINS,
+            spacing=TRIGGER_PAGE_SPACING
+        )
 
         self.script_editor = None
         if self.binding.get("handler", "script") == "state_toggle":
             note = QtGui.QLabel(
-                "This trigger toggles the State Button. Configure the state "
-                "query and ON/OFF scripts in the State section below."
+                "This trigger toggles the state. Configure the state query "
+                "and ON/OFF scripts in the State section below."
             )
             note.setObjectName("HintText")
             note.setWordWrap(True)
@@ -247,16 +237,9 @@ class BindingPage(QtGui.QWidget):
                 )
             except Exception:
                 pass
-            self.script_editor.textChanged.connect(
-                self._script_changed
-            )
-            self.script_editor.languageChanged.connect(
-                self._script_changed
-            )
-            root.addWidget(
-                self.script_editor,
-                1
-            )
+            self.script_editor.textChanged.connect(self._script_changed)
+            self.script_editor.languageChanged.connect(self._script_changed)
+            root.addWidget(self.script_editor, 1)
 
     def _script_changed(self):
         self.write()
@@ -276,7 +259,6 @@ class BindingPage(QtGui.QWidget):
         replacement["language"] = current.get("language", "python")
         replacement["script"] = current.get("script", "")
         replacement["handler"] = current.get("handler", "script")
-        replacement["button_mode"] = current.get("button_mode", "all")
         self.binding = replacement
         self.changed.emit()
 
@@ -290,11 +272,7 @@ class BindingPanel(QtGui.QGroupBox):
         toolbox=None,
         parent=None
     ):
-        QtGui.QGroupBox.__init__(
-            self,
-            "Triggers",
-            parent
-        )
+        QtGui.QGroupBox.__init__(self, "Triggers", parent)
 
         self.toolbox = toolbox
         self.item = None
@@ -303,12 +281,14 @@ class BindingPanel(QtGui.QGroupBox):
         self.loading = False
 
         root = QtGui.QVBoxLayout(self)
-        root.setContentsMargins(5, 5, 5, 5)
-        root.setSpacing(3)
+        configure_layout(
+            root,
+            margins=TRIGGER_PANEL_MARGINS,
+            spacing=TRIGGER_PANEL_SPACING
+        )
 
         self.tabs = QtGui.QTabWidget()
         self.tabs.setTabsClosable(True)
-
         self.add_button = QtGui.QToolButton(self.tabs)
         self.add_button.setText("+")
         self.add_button.setAutoRaise(True)
@@ -328,12 +308,8 @@ class BindingPanel(QtGui.QGroupBox):
         root.addWidget(self.tabs, 1)
         root.addWidget(self.empty_label)
 
-        self.add_button.clicked.connect(
-            self.add_binding
-        )
-        self.tabs.tabCloseRequested.connect(
-            self._close_tab_requested
-        )
+        self.add_button.clicked.connect(self.add_binding)
+        self.tabs.tabCloseRequested.connect(self._close_tab_requested)
         self.tabs.tabBar().installEventFilter(self)
         self.setVisible(False)
 
@@ -344,16 +320,10 @@ class BindingPanel(QtGui.QGroupBox):
         ):
             index = watched.tabAt(event.pos())
             if 0 <= index < len(self.pages):
-                self.edit_binding(
-                    self.pages[index]
-                )
+                self.edit_binding(self.pages[index])
                 return True
 
-        return QtGui.QGroupBox.eventFilter(
-            self,
-            watched,
-            event
-        )
+        return QtGui.QGroupBox.eventFilter(self, watched, event)
 
     def clear(self):
         while self.tabs.count():
@@ -373,9 +343,7 @@ class BindingPanel(QtGui.QGroupBox):
             self.setVisible(enabled)
 
             if not enabled:
-                self.hidden_bindings = copy.deepcopy(
-                    item.get("bindings", []) or []
-                )
+                self.hidden_bindings = []
                 return
 
             visible_ids = set(
@@ -407,10 +375,7 @@ class BindingPanel(QtGui.QGroupBox):
             page,
             binding_display_name(binding)
         )
-        self._update_tab_tooltip(
-            index,
-            binding
-        )
+        self._update_tab_tooltip(index, binding)
         return page
 
     def _update_tab_tooltip(self, index, binding):
@@ -430,17 +395,13 @@ class BindingPanel(QtGui.QGroupBox):
                 index,
                 binding_display_name(binding)
             )
-            self._update_tab_tooltip(
-                index,
-                binding
-            )
+            self._update_tab_tooltip(index, binding)
         self._refresh_empty()
 
     def _refresh_empty(self):
         empty = not bool(self.pages)
         self.tabs.setVisible(True)
         self.empty_label.setVisible(empty)
-
         if empty:
             self.tabs.setMinimumHeight(28)
             self.tabs.setMaximumHeight(34)
@@ -473,10 +434,7 @@ class BindingPanel(QtGui.QGroupBox):
         if self.item is None:
             return
 
-        dialog = AddBindingDialog(
-            self.item,
-            parent=self
-        )
+        dialog = AddBindingDialog(self.item, parent=self)
         if dialog.exec_() != QtGui.QDialog.Accepted:
             return
 
@@ -511,10 +469,7 @@ class BindingPanel(QtGui.QGroupBox):
             return
 
         binding = dialog.value()
-        if self._duplicate_signature(
-            binding,
-            ignore_page=page
-        ):
+        if self._duplicate_signature(binding, ignore_page=page):
             QtGui.QMessageBox.warning(
                 self,
                 "Duplicate Trigger",
@@ -527,37 +482,39 @@ class BindingPanel(QtGui.QGroupBox):
         self.changed.emit()
 
     def _required_page(self, page):
-        if self.item is None or self.item.get("kind") != "button":
+        if self.item is None:
             return False
 
+        kind = self.item.get("kind")
         current = page.write()
-        mode = self.item.get("mode", "action")
 
-        if mode == "state":
+        if kind == "button":
+            if (
+                current.get("handler", "script") != "script" or
+                current.get("event") != "click"
+            ):
+                return False
+            return sum(
+                1
+                for candidate in self.pages
+                if candidate.write().get("handler", "script") == "script" and
+                candidate.write().get("event") == "click"
+            ) <= 1
+
+        if kind in STATE_TOGGLE_KINDS:
             if current.get("handler") != "state_toggle":
                 return False
-            count = sum(
+            return sum(
                 1
                 for candidate in self.pages
                 if candidate.write().get("handler") == "state_toggle"
-            )
-            return count <= 1
+            ) <= 1
 
-        if current.get("handler", "script") != "script":
-            return False
-        count = sum(
-            1
-            for candidate in self.pages
-            if candidate.write().get("handler", "script") == "script"
-        )
-        return count <= 1
+        return False
 
     def _close_tab_requested(self, index):
-        if index < 0 or index >= len(self.pages):
-            return
-        self.remove_binding(
-            self.pages[index]
-        )
+        if 0 <= index < len(self.pages):
+            self.remove_binding(self.pages[index])
 
     def remove_binding(self, page):
         if page not in self.pages:
@@ -567,13 +524,11 @@ class BindingPanel(QtGui.QGroupBox):
             QtGui.QMessageBox.information(
                 self,
                 "Trigger Required",
-                "A Button must keep at least one trigger for its current mode."
+                "This item must keep its required primary trigger."
             )
             return
 
-        name = binding_display_name(
-            page.write()
-        )
+        name = binding_display_name(page.write())
         answer = QtGui.QMessageBox.question(
             self,
             "Remove Trigger",
@@ -599,20 +554,10 @@ class BindingPanel(QtGui.QGroupBox):
             copy.deepcopy(page.write())
             for page in self.pages
         ]
-        combined = list(self.hidden_bindings) + visible
-        normalized = []
-
-        for binding in combined:
-            value = normalize_binding(
-                item.get("kind"),
-                binding
-            )
-            if value is not None:
-                normalized.append(value)
-
-        item["bindings"] = normalized
-        item.pop("callbacks", None)
-        item.pop("on_change_script", None)
+        item["bindings"] = normalize_bindings(
+            item.get("kind"),
+            {"bindings": list(self.hidden_bindings) + visible}
+        )
 
 
 __all__ = [

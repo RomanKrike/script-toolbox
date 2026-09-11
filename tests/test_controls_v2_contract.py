@@ -15,12 +15,9 @@ def _source(*parts):
     return open(path, "r").read()
 
 
-def test_runtime_registry_registers_icon_and_numeric_v2_renderer():
+def test_runtime_registry_registers_icon_and_numeric_renderers():
     source = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "runtime_renderers.py"
+        "scripts", "script_toolbox", "ui", "runtime_renderers.py"
     )
 
     assert '("icon", _render_icon)' in source
@@ -30,40 +27,26 @@ def test_runtime_registry_registers_icon_and_numeric_v2_renderer():
     assert "component_labels" in source
 
 
-def test_active_runtime_routes_value_changes_to_event_bindings():
+def test_debounced_runtime_uses_native_binding_dispatch_only():
     source = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "debounced_main_window.py"
+        "scripts", "script_toolbox", "ui", "debounced_main_window.py"
     )
 
-    assert '"value_changed"' in source
-    assert "dispatch_binding_event" in source
-    assert "run_item_callback" in source
-    assert '"on_change": "value_changed"' in source
+    assert "self._run_on_change(" in source
+    assert "run_item_callback" not in source
+    assert "_LEGACY_CALLBACK_EVENTS" not in source
+    assert '"on_change"' not in source
 
 
 def test_property_editor_uses_compact_trigger_tabs_and_toolbar_language():
     base_source = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "properties",
-        "base.py"
+        "scripts", "script_toolbox", "ui", "properties", "base.py"
     )
     binding_source = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "properties",
-        "bindings.py"
+        "scripts", "script_toolbox", "ui", "properties", "bindings.py"
     )
     language_source = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "language_script_editor.py"
+        "scripts", "script_toolbox", "ui", "language_script_editor.py"
     )
 
     assert "BindingPanel" in base_source
@@ -75,41 +58,28 @@ def test_property_editor_uses_compact_trigger_tabs_and_toolbar_language():
     assert "tabCloseRequested" in binding_source
     assert "MouseButtonDblClick" in binding_source
     assert "Double-click to edit trigger" in binding_source
-    assert "QMessageBox.question" in binding_source
-    assert "edit_button =" not in binding_source
-    assert "remove_button =" not in binding_source
     assert "LanguageScriptEditor" in binding_source
-    assert "toolbar_layout.addWidget" in language_source
     assert "language_combo" in language_source
-    assert 'QLabel("Language")' not in language_source
     assert "callback_tabs" not in base_source
 
 
-def test_button_editor_has_no_global_language_or_click_shift_tabs():
+def test_button_editor_is_action_only():
     source = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "properties",
-        "button.py"
+        "scripts", "script_toolbox", "ui", "properties", "button.py"
     )
 
     assert "self.language =" not in source
     assert "click_editor" not in source
     assert "shift_editor" not in source
-    assert 'item.pop("language", None)' in source
-    assert 'item.pop("click_script", None)' in source
-    assert 'item.pop("shift_script", None)' in source
-    assert "state_on_language" in source
-    assert "state_off_language" in source
+    assert "state_on_language" not in source
+    assert "state_off_language" not in source
+    assert "state_on_label" not in source
+    assert "self.mode" not in source
 
 
 def test_event_binding_runtime_installs_mouse_filter_and_double_click_delay():
     source = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "event_binding_hooks.py"
+        "scripts", "script_toolbox", "ui", "event_binding_hooks.py"
     )
 
     assert "MouseBindingFilter" in source
@@ -121,54 +91,38 @@ def test_event_binding_runtime_installs_mouse_filter_and_double_click_delay():
     assert "dispatch_item_event" in source
 
 
-def test_icon_property_editor_and_palette_are_installed():
+def test_icon_property_editor_and_palette_are_registered():
     registry = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "properties",
-        "registry.py"
+        "scripts", "script_toolbox", "ui", "properties", "registry.py"
     )
     ui_init = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "__init__.py"
+        "scripts", "script_toolbox", "ui", "__init__.py"
     )
 
     assert '"icon": IconPropertyEditor' in registry
+    assert '"toggle_icon": ToggleIconPropertyEditor' in registry
     assert '"Icon",' in ui_init
-    assert '"icon",' in ui_init
-    assert "event bindings" in ui_init
+    assert '"Toggle Icon",' in ui_init
 
 
-def test_layout_trigger_ui_is_disabled_but_folder_compatibility_hook_remains():
+def test_layout_bindings_are_not_public_runtime_events():
     binding_source = _source(
-        "scripts",
-        "script_toolbox",
-        "model",
-        "bindings.py"
+        "scripts", "script_toolbox", "model", "bindings.py"
     )
-    hook_source = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "controls_v2_hooks.py"
+    ui_init = _source(
+        "scripts", "script_toolbox", "ui", "__init__.py"
     )
 
     assert '"folder": (),' in binding_source
     assert '"row": (),' in binding_source
+    assert '"column": (),' in binding_source
     assert '"separator": (),' in binding_source
-    assert '"folder": ("opened", "closed")' in binding_source
-    assert '"on_open"' in hook_source
-    assert '"on_close"' in hook_source
+    assert "controls_v2_hooks" not in ui_init
 
 
 def test_no_specialized_composition_kinds_were_added():
     source = _source(
-        "scripts",
-        "script_toolbox",
-        "constants.py"
+        "scripts", "script_toolbox", "constants.py"
     )
 
     for forbidden in (

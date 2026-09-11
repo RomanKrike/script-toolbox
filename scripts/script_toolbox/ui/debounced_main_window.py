@@ -12,20 +12,12 @@ from ..hosts.callbacks import EVENT_SELECTION_CHANGED
 from ..hosts.callbacks import HostCallbackGroup
 from ..pycompat import text_type
 from . import main_window as base_main_window
+from .settings_ui import build_settings_toolbox_class
 from .update_channels_ui import build_update_channel_toolbox_class
 
 
 SAVE_DEBOUNCE_MS = 500
 STATE_REFRESH_INTERVAL_MS = 100
-
-_LEGACY_CALLBACK_EVENTS = {
-    "on_change": "value_changed",
-    "on_select": "selection_changed",
-    "on_double_click": "double_click",
-    "on_click": "click",
-    "on_open": "opened",
-    "on_close": "closed",
-}
 
 
 class ScriptToolbox(base_main_window.ScriptToolbox):
@@ -121,62 +113,6 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         removed = self.host_callbacks.clear()
         self._using_selection_callback = False
         return removed
-
-    # ------------------------------------------------------------------
-    # Event bindings
-    # ------------------------------------------------------------------
-
-    def run_item_callback(
-        self,
-        item_or_id,
-        event,
-        value=None,
-        old_value=None
-    ):
-        """Compatibility adapter for schema-17 callback call sites."""
-        mapped = _LEGACY_CALLBACK_EVENTS.get(
-            text_type(event or ""),
-            text_type(event or "")
-        )
-        mouse = mapped in ("click", "double_click")
-
-        results = self.dispatch_binding_event(
-            item_or_id,
-            mapped,
-            value=value,
-            old_value=old_value,
-            mouse_button="left" if mouse else None,
-            modifiers=[] if mouse else None
-        )
-
-        for result in results:
-            if result is not None:
-                return result
-        return None
-
-    def _run_on_change(
-        self,
-        item,
-        old_value,
-        value
-    ):
-        results = self.dispatch_binding_event(
-            item,
-            "value_changed",
-            value=value,
-            old_value=old_value
-        )
-        concrete = [
-            result
-            for result in results
-            if result is not None
-        ]
-        if not concrete:
-            return True
-        return all(
-            getattr(result, "success", False)
-            for result in concrete
-        )
 
     # ------------------------------------------------------------------
     # Persistence
@@ -430,8 +366,11 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
 
 
 _DebouncedScriptToolbox = ScriptToolbox
-ScriptToolbox = build_update_channel_toolbox_class(
+_UpdateChannelScriptToolbox = build_update_channel_toolbox_class(
     _DebouncedScriptToolbox
+)
+ScriptToolbox = build_settings_toolbox_class(
+    _UpdateChannelScriptToolbox
 )
 
 
@@ -464,6 +403,11 @@ def show():
     toolbox.show()
     toolbox.raise_()
     toolbox.activateWindow()
+
+    QtCore.QTimer.singleShot(
+        100,
+        toolbox.prompt_telemetry_consent
+    )
 
     return toolbox
 

@@ -20,3 +20,6 @@ maya_script_toolbox.json
 dist/
 build/
 *.egg-info/
+
+# Documentation
+site/

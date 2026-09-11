@@ -14,55 +14,34 @@ ROOT = os.path.dirname(
 
 
 def _source(*parts):
-    path = os.path.join(
-        ROOT,
-        *parts
-    )
+    path = os.path.join(ROOT, *parts)
     with open(path, "r") as handle:
         return handle.read()
 
 
 def test_distribution_spacer_positions_cover_row_and_column_semantics():
     assert distribution_spacer_positions(
-        "left",
-        3,
-        "left",
-        "right"
+        "left", 3, "left", "right"
     ) == (3,)
     assert distribution_spacer_positions(
-        "right",
-        3,
-        "left",
-        "right"
+        "right", 3, "left", "right"
     ) == (0,)
     assert distribution_spacer_positions(
-        "center",
-        3,
-        "left",
-        "right"
+        "center", 3, "left", "right"
     ) == (0, 3)
     assert distribution_spacer_positions(
-        "space_between",
-        3,
-        "left",
-        "right"
+        "space_between", 3, "left", "right"
     ) == (1, 2)
 
     assert distribution_spacer_positions(
-        "top",
-        2,
-        "top",
-        "bottom"
+        "top", 2, "top", "bottom"
     ) == (2,)
     assert distribution_spacer_positions(
-        "bottom",
-        2,
-        "top",
-        "bottom"
+        "bottom", 2, "top", "bottom"
     ) == (0,)
 
 
-def test_row_normalizes_parent_distribution_and_legacy_alignment():
+def test_row_uses_explicit_parent_distribution_only():
     row = create_item(
         "row",
         {
@@ -79,13 +58,11 @@ def test_row_normalizes_parent_distribution_and_legacy_alignment():
         }
     )
 
-    assert row["horizontal_distribution"] == "right"
+    assert row["horizontal_distribution"] == "left"
 
     explicit = create_item(
         "row",
-        {
-            "horizontal_distribution": "space_between",
-        }
+        {"horizontal_distribution": "space_between"}
     )
     assert explicit["horizontal_distribution"] == "space_between"
 
@@ -138,88 +115,76 @@ def test_column_child_height_values_are_clamped():
     assert child["column_stretch"] == 1
 
 
-def test_runtime_registry_replaces_legacy_row_renderer():
+def test_runtime_registry_registers_row_and_column_renderers():
     ui_init = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "__init__.py"
+        "scripts", "script_toolbox", "ui", "__init__.py"
     )
     row_runtime = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "row_layout.py"
+        "scripts", "script_toolbox", "ui", "row_layout.py"
     )
     column_runtime = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "column_layout.py"
+        "scripts", "script_toolbox", "ui", "column_layout.py"
     )
 
-    assert 'register_runtime_renderer(\n    "row",' in ui_init
-    assert "replace=True" in ui_init
+    assert 'register_runtime_renderer("row", render_row, replace=True)' in ui_init
+    assert 'register_runtime_renderer("column", render_column)' in ui_init
     assert '"horizontal_distribution"' in row_runtime
     assert '"vertical_distribution"' in column_runtime
     assert '"column_height_mode"' in column_runtime
 
 
-def test_property_editor_exposes_parent_layout_context_without_row_alignment():
+def test_property_editor_exposes_unified_parent_layout_adapter():
     base = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "properties",
-        "base.py"
+        "scripts", "script_toolbox", "ui", "properties", "base.py"
+    )
+    adapter = _source(
+        "scripts", "script_toolbox", "ui", "properties", "layout_adapter.py"
     )
     row = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "properties",
-        "row.py"
+        "scripts", "script_toolbox", "ui", "properties", "row.py"
     )
     column = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "properties",
-        "column.py"
+        "scripts", "script_toolbox", "ui", "properties", "column.py"
     )
 
-    assert '"Row Item Layout"' in base
-    assert '"Column Item Layout"' in base
-    assert "row_equal_widths" in base
-    assert "column_height_mode" in base
+    assert "LayoutPropertyAdapter" in base
     assert "set_parent_layout_context" in base
-    assert "row_alignment" not in base
-    assert '"Horizontal Distribution"' in row
-    assert '"Vertical Distribution"' in column
+    assert '"Width Mode"' in base
+    assert '"Height Mode"' in base
+    assert '"Horizontal Alignment"' in base
+    assert '"Vertical Alignment"' in base
+    assert '"row_width_mode"' in adapter
+    assert '"row_width"' in adapter
+    assert '"row_stretch"' in adapter
+    assert '"column_height_mode"' in adapter
+    assert '"column_height"' in adapter
+    assert '"column_stretch"' in adapter
+    assert "row_equal_widths" in adapter
+    assert "row_alignment" not in adapter
+    assert '"Distribution"' in row
+    assert '"Cross Alignment"' in row
+    assert '"Equal Child Size"' in row
+    assert '"Distribution"' in column
+    assert '"Cross Alignment"' in column
+    assert '"Equal Child Size"' in column
 
 
 def test_separator_uses_shared_layout_writer():
     registry = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "properties",
-        "registry.py"
+        "scripts", "script_toolbox", "ui", "properties", "registry.py"
     )
 
     assert "PropertyEditorBase.write_to_item" in registry
     assert 'self.item["bindings"] = []' in registry
 
 
-def test_icon_editor_distinguishes_content_alignment():
+def test_icon_editor_uses_only_canonical_content_alignment():
     icon = _source(
-        "scripts",
-        "script_toolbox",
-        "ui",
-        "properties",
-        "icon.py"
+        "scripts", "script_toolbox", "ui", "properties", "icon.py"
     )
 
     assert '"Content Alignment"' in icon
-    assert '"content_alignment"' in icon
-    assert 'item["alignment"] = content_alignment' in icon
+    assert 'item["content_alignment"]' in icon
+    assert 'item.get("content_alignment", "left")' in icon
+    assert 'item.get("alignment"' not in icon
+    assert 'item["alignment"]' not in icon

@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 
 from . import items as _items
+from .index import DocumentIndex
 from .layouts import CONTAINER_KINDS
 from .layouts import LAYOUT_KINDS
-from .layouts import install_layout_kinds
 from .layouts import is_container_kind
 from .layouts import is_layout_kind
+from .text_item import create_text_item as _create_text_item
 
 
-install_layout_kinds()
-
-# Import after layout installation so DocumentIndex binds the extended
-# walk_items implementation that traverses Row / Column subtrees.
-from .index import DocumentIndex
+_items.register_item_factory(
+    "text",
+    _create_text_item,
+    replace=True
+)
 
 create_item = _items.create_item
 normalize_document = _items.normalize_document

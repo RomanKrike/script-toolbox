@@ -3,6 +3,14 @@ from __future__ import print_function
 
 from ..compat import QtCore
 from ..compat import QtGui
+from ..style.palette import CODE_CURRENT_LINE_BG
+from ..style.palette import CODE_GUTTER_BG
+from ..style.palette import CODE_LINE_NUMBER
+from ..style.palette import SYNTAX_COMMENT
+from ..style.palette import SYNTAX_HOST
+from ..style.palette import SYNTAX_KEYWORD
+from ..style.palette import SYNTAX_NUMBER
+from ..style.palette import SYNTAX_STRING
 
 
 class LineNumberArea(QtGui.QWidget):
@@ -135,7 +143,8 @@ class CodeEditor(QtGui.QPlainTextEdit):
         )
 
     def paint_line_numbers(
-        self,        event
+        self,
+        event
     ):
         painter = QtGui.QPainter(
             self.line_numbers
@@ -143,11 +152,11 @@ class CodeEditor(QtGui.QPlainTextEdit):
 
         painter.fillRect(
             event.rect(),
-            QtGui.QColor("#252525")
+            QtGui.QColor(CODE_GUTTER_BG)
         )
 
         painter.setPen(
-            QtGui.QColor("#777777")
+            QtGui.QColor(CODE_LINE_NUMBER)
         )
 
         block = self.firstVisibleBlock()
@@ -197,7 +206,7 @@ class CodeEditor(QtGui.QPlainTextEdit):
         selection = QtGui.QTextEdit.ExtraSelection()
 
         selection.format.setBackground(
-            QtGui.QColor("#303030")
+            QtGui.QColor(CODE_CURRENT_LINE_BG)
         )
 
         selection.format.setProperty(
@@ -278,21 +287,21 @@ class ScriptHighlighter(QtGui.QSyntaxHighlighter):
         self.rules = []
 
         keyword_fmt = self._fmt(
-            "#d4a15d",
+            SYNTAX_KEYWORD,
             bold=True
         )
         string_fmt = self._fmt(
-            "#b9c66b"
+            SYNTAX_STRING
         )
         comment_fmt = self._fmt(
-            "#757575",
+            SYNTAX_COMMENT,
             italic=True
         )
         number_fmt = self._fmt(
-            "#79a8d7"
+            SYNTAX_NUMBER
         )
         host_fmt = self._fmt(
-            "#69b5b5"
+            SYNTAX_HOST
         )
 
         words = (

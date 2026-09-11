@@ -6,6 +6,7 @@ import sys
 import token as token_module
 import tokenize
 
+from ..model.layouts import is_container_kind
 from ..pycompat import StringIO
 from ..pycompat import text_type
 
@@ -85,9 +86,9 @@ def _replacement_string_token(token_text, value, encoded):
     if index >= len(original):
         return _token_text(repr(text_type(value)), encoded)
 
-    if original[index:index + 3] in ("'''", '\"\"\"'):
+    if original[index:index + 3] in ("'''", "\"\"\""):
         quote = original[index:index + 3]
-    elif original[index] in ("'", '\"'):
+    elif original[index] in ("'", "\""):
         quote = original[index]
     else:
         return _token_text(repr(text_type(value)), encoded)
@@ -97,12 +98,12 @@ def _replacement_string_token(token_text, value, encoded):
 
     if quote == "'":
         escaped = escaped.replace("'", "\\'")
-    elif quote == '\"':
-        escaped = escaped.replace('\"', '\\"')
+    elif quote == "\"":
+        escaped = escaped.replace("\"", "\\\"")
     elif quote == "'''":
         escaped = escaped.replace("'''", "\\'\\'\\'")
     else:
-        escaped = escaped.replace('\"\"\"', '\\\"\\\"\\\"')
+        escaped = escaped.replace("\"\"\"", "\\\"\\\"\\\"")
 
     return _token_text(
         prefix + quote + escaped + quote,
@@ -343,7 +344,7 @@ def _walk_subtree(item):
 
     yield item
 
-    if item.get("kind") in ("folder", "row"):
+    if is_container_kind(item.get("kind")):
         for child in item.get("items", []) or []:
             for nested in _walk_subtree(child):
                 yield nested

@@ -49,3 +49,99 @@ def test_invalid_update_channel_falls_back_to_stable(tmp_path):
     assert preferences.get_update_channel(
         path=str(path)
     ) == "stable"
+
+
+def test_telemetry_consent_is_unknown_until_user_decides(tmp_path):
+    path = tmp_path / "settings.json"
+
+    assert preferences.get_telemetry_consent(
+        path=str(path)
+    ) is None
+
+
+def test_telemetry_consent_round_trip(tmp_path):
+    path = tmp_path / "settings.json"
+
+    assert preferences.set_telemetry_consent(
+        True,
+        path=str(path)
+    ) is True
+    assert preferences.get_telemetry_consent(
+        path=str(path)
+    ) is True
+
+    assert preferences.set_telemetry_consent(
+        False,
+        path=str(path)
+    ) is False
+    assert preferences.get_telemetry_consent(
+        path=str(path)
+    ) is False
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["telemetry_consent"] is False
+
+
+def test_invalid_telemetry_consent_is_treated_as_undecided(tmp_path):
+    path = tmp_path / "settings.json"
+    path.write_text(
+        '{"telemetry_consent": "maybe"}',
+        encoding="utf-8"
+    )
+
+    assert preferences.get_telemetry_consent(
+        path=str(path)
+    ) is None
+
+
+def test_telemetry_installation_id_round_trip(tmp_path):
+    path = tmp_path / "settings.json"
+    installation_id = "stb-install-0123456789abcdef0123456789abcdef"
+
+    assert preferences.get_telemetry_installation_id(
+        path=str(path)
+    ) is None
+    assert preferences.set_telemetry_installation_id(
+        installation_id,
+        path=str(path)
+    ) == installation_id
+    assert preferences.get_telemetry_installation_id(
+        path=str(path)
+    ) == installation_id
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["telemetry_installation_id"] == installation_id
+
+
+def test_invalid_telemetry_installation_id_is_not_persisted(tmp_path):
+    path = tmp_path / "settings.json"
+
+    assert preferences.set_telemetry_installation_id(
+        "workstation-roman",
+        path=str(path)
+    ) is None
+    assert preferences.get_telemetry_installation_id(
+        path=str(path)
+    ) is None
+
+
+def test_inspector_section_state_round_trip_is_editor_preference(tmp_path):
+    path = tmp_path / "settings.json"
+
+    assert preferences.get_inspector_section_collapsed(
+        "appearance",
+        path=str(path)
+    ) is False
+    assert preferences.set_inspector_section_collapsed(
+        "appearance",
+        True,
+        path=str(path)
+    ) is True
+    assert preferences.get_inspector_section_collapsed(
+        "appearance",
+        path=str(path)
+    ) is True
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["inspector_sections"]["appearance"] is True
+    assert "config_version" not in data

@@ -1,29 +1,26 @@
 # Script Toolbox
 
-Houdini-style configurable script toolbox for Maya and Nuke.
+Configurable script toolbox for Maya, Nuke, and Houdini.
 
-Current compatibility targets:
+**Documentation:** https://romankrike.github.io/script-toolbox/
+
+Current host targets:
 
 - Maya 2015 — Python 2.7, PySide 1 / Qt 4, Python + MEL
 - Nuke 12 — Python 2.7, PySide2 / Qt 5, Python
+- Houdini 19.0 — Python 3.7 default build, PySide2 / Qt 5, Python + HScript
 
-## Refactor status
+## Architecture status
 
-The original working v15.3 implementation is preserved in:
-
-```text
-legacy/maya_script_toolbox_2015_v15_3.py
-```
-
-The modular implementation lives under:
+The active implementation lives under:
 
 ```text
 scripts/script_toolbox/
 ```
 
-The runtime and the first modular Interface Editor are now extracted. Existing configs can be loaded, nested Folders/Rows are rendered, buttons execute, parameter values persist, and interface changes remain staged until Apply/Accept.
+Script Toolbox currently uses **config schema 20 as the single supported document contract**. Earlier schemas are intentionally not converted while the plugin remains under active development. A non-empty config must declare the current schema version.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the dependency rules and migration plan.
+The model/core is Maya-independent. Runtime and Interface Editor use the same item factories, container traversal, reference rules and event-binding model. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the dependency and schema contracts.
 
 ## Maya entry point
 
@@ -68,85 +65,84 @@ script_toolbox.register_nuke_panel()
 
 See [docs/NUKE.md](docs/NUKE.md) and `nuke/menu.py.example` for installation.
 
-## Current modular feature set
+## Houdini 19 entry point
 
-- Nested Folders
-- Collapsible / Simple / Tabs / Radio folder types
-- Row layout containers with per-item Auto / Stretch / Fixed width, alignment, equal-width mode and vertical alignment
-- Button, String, Integer, Float, Checkbox, Menu, Color, Field, Label and Separator items
-- Name / Label separation
-- Optional labels
-- Python / MEL scripts
-- Click / Shift+Click actions and state-aware buttons with ON/OFF scripts, labels and colors
-- Embedded code editor
-- Import / Export JSON configuration with Replace / Append / Insert-into-Folder modes
-- Persistent parameter values
-- Interface Editor Undo / Redo, Duplicate, Copy and Paste
-- Python On Change scripts for value controls (`value`, `old_value`, `toolbox`, `host`)
-- Field List mode with multi-selection, copy, double-click scene selection and configurable visible rows
-- Field collection API: `get_field_selection`, `add_to_field`, `remove_from_field`, `clear_field`
+Point Houdini at the repository `scripts` directory through `PYTHONPATH`, then run:
 
-## Modular extraction completed
-
-- item/document model
-- config I/O
-- script execution
-- value API
-- stylesheet and icons
-- code editor
-- advanced reusable script editor with Undo/Redo, Find, comment/uncomment, indent/unindent, Run and captured output
-- runtime renderer/widgets
-- runtime main window
-
-## Updates
-
-Script Toolbox checks GitHub Releases in a background thread when the window opens.
-
-If a newer release exists, an **UPDATE x.y.z** button appears in the top bar. The updater downloads and verifies the release archive, replaces only the installed plugin package, preserves the Maya user configuration, then hot-reloads Script Toolbox and reopens it from the new files. A Maya restart is only the fallback if hot reload fails.
-
-On Maya 2015 for Windows, if Python 2.7 cannot negotiate GitHub HTTPS correctly, the updater transparently uses a hidden PowerShell/.NET TLS 1.2 fallback.
-
-Releases are created from tags matching the plugin version:
-
-```text
-v0.2.0
+```python
+import script_toolbox
+script_toolbox.show()
 ```
 
-The repository is public, so normal update checks do not require credentials. `SCRIPT_TOOLBOX_GITHUB_TOKEN` remains supported for private forks and is never stored in the toolbox configuration.
+During development:
 
+```python
+import script_toolbox
+script_toolbox.reload_toolbox()
+```
+
+See [docs/HOUDINI.md](docs/HOUDINI.md) and `houdini/script_toolbox.json.example` for the Houdini 19 package setup.
+
+## Current feature set
+
+- Folder containers: Collapsible, Simple, Tabs and Radio
+- Row and Column layout containers
+- Button and dedicated Toggle Button actions
+- Icon and dedicated Toggle Icon actions
+- String, Integer, Float, Checkbox, Menu, Color and Field values
+- Label and Separator presentation items
+- scalar and vector numeric controls with optional sliders
+- per-item `bindings` for click, double-click, value and editing events supported by each kind
+- Python / MEL / HScript event scripts according to the active host
+- stable item `id` plus script-facing symbolic `name`; `label` is presentation text only
+- nested reference rewriting for rename, duplicate, copy and paste
+- embedded code editor
+- JSON Import / Export
+- persistent parameter values and config backup/recovery
+- Interface Editor Undo / Redo, Duplicate, Copy and Paste
+- Field List mode with multi-selection, copy, double-click scene selection and configurable visible rows
+- Field collection API: `get_field_selection`, `add_to_field`, `remove_from_field`, `clear_field`
+- encrypted config/item sharing through the share-provider abstraction
+- Stable / Latest / Development update channels
+
+## Config contract
+
+New documents are written with:
+
+```json
+{
+  "version": 20,
+  "sections": []
+}
+```
+
+Only schema 20 is accepted by the current build. Older, newer, invalid and non-empty versionless documents are rejected rather than inferred or converted. An empty mapping is accepted internally only when creating a brand-new configuration.
+
+Event behavior is persisted only in `bindings`. Callback dictionaries and direct script fields are not part of the current schema.
+
+Config paths are resolved centrally by `core/user_paths.py`. Stable and Development builds use the same host user-config directory; there is no separate test/dev config path. In Maya the canonical files are `maya_script_toolbox.json` and `script_toolbox_settings.json` under Maya's user preferences directory. Runtime config/settings paths are not overridden by environment variables.
 
 ## Continuous integration
 
-Every push and pull request runs GitHub Actions checks:
+Every push and pull request runs GitHub Actions checks covering:
 
 - unit tests on Python 3.8 and Python 3.11;
-- coverage for the Maya-independent model/core code, with a minimum threshold;
-- Python 2.7 compile check in a Docker image to catch Maya 2015 syntax incompatibilities;
+- coverage for Maya-independent model/core code;
+- flake8 correctness checks;
+- package compilation;
+- Maya 2015 / Python 2.7 compile and smoke checks;
+- Nuke host import, config I/O, execution, updater, controls and encrypted-share Python 2.7 smoke checks;
 - release-package contract tests;
-- upload of the Python 3.11 coverage XML report as a workflow artifact.
+- a downloadable test-build artifact after all required checks pass.
 
-The tests cover the item model, nested Folder/Row normalization, legacy Toggle migration, value normalization, code-editor text transforms, updater version handling, release asset selection, ZIP path traversal protection, SHA-256 verification, and release package construction.
+Regression tests cover the current schema, nested Folder/Row/Column traversal, item factories, bindings, reference rewriting, runtime values, editor command history, updater behavior and package construction.
 
-## Automatic releases
+## Updates and releases
 
-Releases are gated by the **Python checks** workflow.
+Script Toolbox checks GitHub Releases using the selected update channel. Stable releases come from `main`; development builds come from `dev` through the dedicated development workflow.
 
-When a stable `PLUGIN_VERSION` such as:
+A stable release is created only after the accumulated `dev` changes are tested and intentionally merged into `main`. The release version follows SemVer according to the actual contents of that release; development commits do not create individual releases.
 
-```python
-PLUGIN_VERSION = "0.2.0"
-```
+The updater downloads and verifies release archives, preserves the user configuration, replaces the installed plugin package, then attempts a hot reload. A host restart is only the fallback if hot reload cannot complete safely.
 
-reaches `main` and all checks pass, GitHub Actions automatically:
-
-1. reads the plugin version;
-2. builds `script-toolbox-<version>.zip`;
-3. generates a SHA-256 checksum;
-4. validates the archive layout;
-5. creates the matching `v<version>` tag when needed;
-6. creates a GitHub Release with generated release notes;
-7. uploads the ZIP and checksum as release assets.
-
-Development versions such as `0.2.0-dev` are intentionally not released.
-
-Subsequent pushes with the same stable version do not create duplicate releases.
+The repository is public, so normal update checks do not require credentials. `SCRIPT_TOOLBOX_GITHUB_TOKEN` remains supported for private forks and is never stored in the toolbox configuration.

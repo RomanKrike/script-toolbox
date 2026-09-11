@@ -2,7 +2,7 @@
 
 PACKAGE_NAME = "script_toolbox"
 DISPLAY_NAME = "Script Toolbox"
-PLUGIN_VERSION = "0.9.1"
+PLUGIN_VERSION = "0.10.0"
 
 # Build metadata is stamped into Development packages by dev-build.yml.
 # Source/stable builds intentionally keep these defaults.
@@ -14,11 +14,9 @@ WINDOW_OBJECT_NAME = "MayaScriptToolbox"
 EDITOR_OBJECT_NAME = "MayaScriptToolboxInterfaceEditor"
 
 CONFIG_FILENAME = "maya_script_toolbox.json"
-CONFIG_PATH_ENV = "SCRIPT_TOOLBOX_CONFIG_PATH"
-CONFIG_VERSION = 18
+CONFIG_VERSION = 20
 
 SETTINGS_FILENAME = "script_toolbox_settings.json"
-SETTINGS_PATH_ENV = "SCRIPT_TOOLBOX_SETTINGS_PATH"
 
 GITHUB_REPOSITORY = "RomanKrike/script-toolbox"
 GITHUB_TOKEN_ENV = "SCRIPT_TOOLBOX_GITHUB_TOKEN"
@@ -38,7 +36,9 @@ FOLDER_TYPES = (
 
 ITEM_KINDS = (
     "button",
+    "toggle_button",
     "icon",
+    "toggle_icon",
     "string",
     "integer",
     "float",

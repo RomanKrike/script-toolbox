@@ -5,11 +5,10 @@ import copy
 
 from ..model import DocumentIndex
 from ..model import walk_items
-from ..model.items import clamp
+from ..model.items import normalize_numeric_value
 from ..model.items import safe_color
 from ..model.items import safe_float
 from ..model.items import safe_int
-from ..model.items import safe_numeric_size
 from ..pycompat import text_type
 
 
@@ -18,45 +17,26 @@ _INDEX_CACHE = []
 
 
 def get_document_index(document):
-    """Return the cached lookup index for ``document``.
-
-    Runtime config replacement creates a new document object, so identity is a
-    cheap and reliable cache key for the current architecture. The small LRU
-    bound prevents old editor/reload documents from being retained forever.
-    """
-    for position, entry in enumerate(
-        list(_INDEX_CACHE)
-    ):
+    """Return the cached lookup index for ``document``."""
+    for position, entry in enumerate(list(_INDEX_CACHE)):
         cached_document, index = entry
 
         if cached_document is not document:
             continue
 
-        index.ensure(
-            document
-        )
+        index.ensure(document)
 
         if position != len(_INDEX_CACHE) - 1:
-            _INDEX_CACHE.pop(
-                position
-            )
-            _INDEX_CACHE.append(
-                entry
-            )
+            _INDEX_CACHE.pop(position)
+            _INDEX_CACHE.append(entry)
 
         return index
 
-    index = DocumentIndex(
-        document
-    )
-    _INDEX_CACHE.append(
-        (document, index)
-    )
+    index = DocumentIndex(document)
+    _INDEX_CACHE.append((document, index))
 
     while len(_INDEX_CACHE) > _INDEX_CACHE_LIMIT:
-        _INDEX_CACHE.pop(
-            0
-        )
+        _INDEX_CACHE.pop(0)
 
     return index
 
@@ -73,14 +53,11 @@ def invalidate_document_index(document=None):
         if entry[0] is not document
     ]
     del _INDEX_CACHE[:]
-    _INDEX_CACHE.extend(
-        retained
-    )
+    _INDEX_CACHE.extend(retained)
 
 
 def _linear_find_item(document, key):
     key_text = text_type(key)
-
     items = list(
         walk_items(
             document,
@@ -96,10 +73,6 @@ def _linear_find_item(document, key):
         if item.get("name") == key_text:
             return item
 
-    for item in items:
-        if item.get("label") == key_text:
-            return item
-
     return None
 
 
@@ -109,35 +82,20 @@ def find_item(
     index=None
 ):
     if index is None:
-        index = get_document_index(
-            document
-        )
+        index = get_document_index(document)
     else:
-        index.ensure(
-            document
-        )
+        index.ensure(document)
 
-    item = index.find(
-        key
-    )
-
+    item = index.find(key)
     if item is not None:
         return item
 
-    item = _linear_find_item(
-        document,
-        key
-    )
-
+    item = _linear_find_item(document, key)
     if item is None:
         return None
 
-    index.rebuild(
-        document
-    )
-    return index.find(
-        key
-    )
+    index.rebuild(document)
+    return index.find(key)
 
 
 def get_value(
@@ -155,117 +113,62 @@ def get_value(
     if item is None or "value" not in item:
         return default
 
-    return copy.deepcopy(
-        item["value"]
-    )
-
-
-def _normalize_numeric_vector(
-    item,
-    value,
-    caster
-):
-    size = safe_numeric_size(
-        item.get("size", 1)
-    )
-    current = item.get("value")
-
-    if isinstance(value, (list, tuple)):
-        incoming = list(value)
-    else:
-        incoming = [value] * size
-
-    if isinstance(current, (list, tuple)):
-        fallback_values = list(current)
-    else:
-        fallback_values = [current] * size
-
-    result = []
-    for index in range(size):
-        fallback = (
-            fallback_values[index]
-            if index < len(fallback_values)
-            else 0
-        )
-        candidate = (
-            incoming[index]
-            if index < len(incoming)
-            else fallback
-        )
-        result.append(
-            clamp(
-                caster(candidate, fallback),
-                item["min"],
-                item["max"]
-            )
-        )
-
-    if size == 1:
-        return result[0]
-
-    return result
+    return copy.deepcopy(item["value"])
 
 
 def normalize_value(item, value):
-    kind = item.get(
-        "kind"
-    )
+    kind = item.get("kind")
 
     if kind == "field":
         if value is None:
             return ""
 
-        if isinstance(
-            value,
-            (list, tuple)
-        ):
+        if isinstance(value, (list, tuple)):
             return [
                 text_type(entry)
                 for entry in value
             ]
 
-        return text_type(
-            value
-        )
+        return text_type(value)
 
     if kind == "string":
-        return text_type(
-            value
-        )
+        return text_type(value)
 
     if kind == "integer":
-        return _normalize_numeric_vector(
-            item,
+        return normalize_numeric_value(
             value,
-            safe_int
+            item.get("size", 1),
+            item["min"],
+            item["max"],
+            safe_int,
+            item.get("value", 0)
         )
 
     if kind == "float":
-        return _normalize_numeric_vector(
-            item,
+        return normalize_numeric_value(
             value,
-            safe_float
+            item.get("size", 1),
+            item["min"],
+            item["max"],
+            safe_float,
+            item.get("value", 0.0)
         )
 
-    if kind == "checkbox":
-        return bool(
-            value
-        )
+    if kind in (
+        "checkbox",
+        "toggle_button",
+        "toggle_icon",
+    ):
+        return bool(value)
 
     if kind == "menu":
-        value = text_type(
-            value
-        )
-
+        value = text_type(value)
         if value in item["items"]:
             return value
-
         return item["items"][0]
 
     if kind == "color":
-        return safe_color(
-            value
-        )
+        return safe_color(value)
 
     return value
 
@@ -285,11 +188,7 @@ def store_value(
     if item is None or "value" not in item:
         return None
 
-    item["value"] = normalize_value(
-        item,
-        value
-    )
-
+    item["value"] = normalize_value(item, value)
     return item
 
 

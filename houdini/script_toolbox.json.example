@@ -1,0 +1,13 @@
+{
+    "enable": true,
+    "env": [
+        {
+            "SCRIPT_TOOLBOX_ROOT": "C:/path/to/script-toolbox"
+        },
+        {
+            "var": "PYTHONPATH",
+            "value": "$SCRIPT_TOOLBOX_ROOT/scripts",
+            "method": "prepend"
+        }
+    ]
+}

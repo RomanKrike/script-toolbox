@@ -35,7 +35,7 @@ def test_runtime_tooltip_override_avoids_qss_padding_geometry_bug():
     assert "padding: 0px;" in tooltip_rule
 
 
-def test_trigger_add_action_is_installed_as_trailing_tab():
+def test_trigger_tabs_use_compact_centered_solar_controls():
     source = _read(
         "scripts/script_toolbox/ui/properties/trigger_tabs.py"
     )
@@ -43,14 +43,30 @@ def test_trigger_add_action_is_installed_as_trailing_tab():
         "scripts/script_toolbox/ui/properties/__init__.py"
     )
 
-    assert 'self.tabs.addTab(' in source
-    assert '"+"' in source
+    assert 'builtin_icon("add")' in source
+    assert 'builtin_icon("close")' in source
+    assert '"TriggerAddButton"' in source
+    assert '"TriggerCloseButton"' in source
+    assert '"TriggerCloseHolder"' in source
+    assert "from ..painted_icon_button import PaintedIconButton" in source
+    assert "_TRIGGER_CLOSE_HOLDER_SIZE = (22, 20)" in source
+    assert "_TRIGGER_CLOSE_GLYPH_SIZE = 10" in source
+    assert "_TRIGGER_CLOSE_BUTTON_SIZE = 18" in source
+    assert "_TRIGGER_CLOSE_OFFSET = (2, 1)" in source
+    assert "_TRIGGER_ADD_GLYPH_SIZE = 12" in source
+    assert "_TRIGGER_ADD_BUTTON_SIZE = 16" in source
+    assert "_TRIGGER_ADD_SPACER_WIDTH = 12" in source
+    assert "QtGui.QToolButton" not in source
+    assert "bar.tabRect(index)" in source
+    assert "(rect.width() - size.width()) // 2" in source
+    assert "(rect.height() - size.height()) // 2" in source
+    assert "_position_add_button" in source
+    assert "QtCore.QEvent.Resize" in source
+    assert "QtCore.QEvent.LayoutRequest" in source
+    assert "self.tabs.setTabsClosable(False)" in source
     assert '"Add trigger"' in source
     assert "self.add_button.hide()" in source
     assert "self.tabs.setCornerWidget(" in source
-    assert "None," in source
-    assert "index == add_index" in source
-    assert "QtCore.QTimer.singleShot(" in source
     assert "install_integrated_trigger_tabs()" in package_source
 
 
@@ -69,6 +85,7 @@ def test_trigger_add_tab_stays_after_real_binding_pages():
 
     assert "self._remove_add_tab()" in add_page_source
     assert "_BaseBindingPanel._add_page(" in add_page_source
+    assert "self._install_trigger_close_button(" in add_page_source
     assert "self._ensure_add_tab()" in add_page_source
 
 

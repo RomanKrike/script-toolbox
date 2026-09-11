@@ -1,0 +1,226 @@
+# -*- coding: utf-8 -*-
+
+"""Shared Script Toolbox UI color palette.
+
+Keep theme colors here so QSS, runtime overrides and Qt compatibility
+fallbacks use the same source of truth. Dynamic colors that are part of user
+data (for example custom button colors) should stay local to the owning
+widget instead of being added to this palette.
+"""
+
+# Core surfaces -------------------------------------------------------------
+WINDOW_BG = "#292929"
+CONTENT_BG = WINDOW_BG
+PANEL_BG = "#303030"
+CONTROL_BG = "#202020"
+LIST_BG = "#242424"
+LIST_ALT_BG = "#282828"
+FILTER_BG = "#262626"
+STATUS_BG = "#232323"
+TOOLTIP_BG = "#1d1d1d"
+STRUCTURE_FOLDER_BG = "#302d2a"
+
+# Borders / separators -----------------------------------------------------
+BORDER_TOPBAR = "#111111"
+BORDER_DARK = "#151515"
+BORDER_PRESSED = "#161616"
+BORDER_INSET = "#171717"
+BORDER_SOFT = "#191919"
+BORDER_PANEL = "#1b1b1b"
+BORDER_TAB = "#1c1c1c"
+BORDER_DISABLED = "#252525"
+BORDER_GROUP = "#414141"
+SEPARATOR = "#414346"
+TOOLTIP_BORDER = "#555555"
+HOVER_BORDER = "#595959"
+FOCUS_BORDER = "#78604a"
+
+# Text ---------------------------------------------------------------------
+TEXT_PRIMARY = "#d6d6d6"
+TEXT_STRONG = "#eeeeee"
+TEXT_HEADING = "#e2e2e2"
+TEXT_PANE_TITLE = "#e0e0e0"
+TEXT_BUTTON = "#dedede"
+TEXT_INPUT = "#dddddd"
+TEXT_LIST = "#d4d4d4"
+TEXT_MUTED = "#858585"
+TEXT_STATUS = "#8f8f8f"
+TEXT_EDITOR_STATUS = "#8c8c8c"
+TEXT_HEADER = "#a8a8a8"
+TEXT_TAB = "#aaaaaa"
+TEXT_TAB_SELECTED = "#f0f0f0"
+TEXT_SUBTLE = "#bdbdbd"
+TEXT_DISABLED = "#686868"
+TEXT_INPUT_DISABLED = "#6f6f6f"
+TEXT_ON_ACCENT = "#ffffff"
+
+# Interface Editor structure accents --------------------------------------
+TEXT_PALETTE_GROUP = "#bda88f"
+TEXT_STRUCTURE_ROW = "#b6c4cf"
+TEXT_STRUCTURE_COLUMN = "#c7b7d7"
+
+# Generic controls ---------------------------------------------------------
+BUTTON_BG = "#3a3a3a"
+BUTTON_HOVER_BG = "#464646"
+BUTTON_PRESSED_BG = "#2f2f2f"
+ICON_BUTTON_HOVER_BG = "#404040"
+ICON_BUTTON_HOVER_BORDER = "#545454"
+ICON_BUTTON_PRESSED_BG = "#272727"
+LIST_HOVER_BG = "#333333"
+
+# Runtime semantics derived from the Interface Editor palette -------------
+# Runtime and editor now share the same neutral surfaces instead of carrying
+# a second blue/green-tinted set of folder colors.
+FOLDER_CARD_BG = PANEL_BG
+FOLDER_NESTED_BG = PANEL_BG
+FOLDER_HEADER_BG = PANEL_BG
+FOLDER_HEADER_HOVER_BG = ICON_BUTTON_HOVER_BG
+FOLDER_HEADER_PRESSED_BG = BUTTON_PRESSED_BG
+FOLDER_HEADER_COLLAPSED_BG = PANEL_BG
+FOLDER_NESTED_HEADER_BG = PANEL_BG
+FOLDER_NESTED_HEADER_HOVER_BG = ICON_BUTTON_HOVER_BG
+FOLDER_NESTED_HEADER_COLLAPSED_BG = PANEL_BG
+SIMPLE_SECTION_NESTED_BG = PANEL_BG
+BORDER_FOLDER_NESTED = BORDER_GROUP
+
+TEXT_SECTION = TEXT_PRIMARY
+TEXT_SECTION_NESTED = TEXT_PRIMARY
+TEXT_FOLDER_NESTED = TEXT_PRIMARY
+TEXT_FOLDER_HOVER = TEXT_STRONG
+TEXT_FOLDER_COLLAPSED = TEXT_SUBTLE
+
+# Accent / selection -------------------------------------------------------
+ACCENT = "#b46d35"
+SELECTION_BG = "#68462c"
+INPUT_SELECTION_BG = "#8b572c"
+SELECTION_TEXT = TEXT_ON_ACCENT
+
+# Code editor ---------------------------------------------------------------
+CODE_GUTTER_BG = BORDER_DISABLED
+CODE_CURRENT_LINE_BG = PANEL_BG
+CODE_LINE_NUMBER = "#777777"
+SYNTAX_KEYWORD = "#d4a15d"
+SYNTAX_STRING = "#b9c66b"
+SYNTAX_COMMENT = "#757575"
+SYNTAX_NUMBER = "#79a8d7"
+SYNTAX_HOST = "#69b5b5"
+TOOLBAR_ICON = TEXT_PRIMARY
+
+# Update / primary action controls ----------------------------------------
+UPDATE_BG = "#925426"
+UPDATE_BORDER = "#b36b34"
+UPDATE_HOVER_BG = "#a7622d"
+UPDATE_HOVER_BORDER = "#cc7b3c"
+UPDATE_PRESSED_BG = "#7f4720"
+UPDATE_DISABLED_BG = "#4a4038"
+UPDATE_DISABLED_TEXT = "#8b827a"
+UPDATE_DISABLED_BORDER = "#55483e"
+ACCEPT_BG = "#9a5826"
+ACCEPT_BORDER = "#ba7139"
+ACCEPT_HOVER_BG = "#ad652d"
+ACCEPT_HOVER_BORDER = "#d18447"
+
+# Tabs / scrolling ---------------------------------------------------------
+TAB_HOVER_BG = "#393939"
+TAB_SELECTED_BG = BORDER_GROUP
+SCROLL_HANDLE_BG = "#4a4a4a"
+SCROLL_HANDLE_HOVER_BG = "#5a5a5a"
+
+
+__all__ = [
+    "WINDOW_BG",
+    "CONTENT_BG",
+    "PANEL_BG",
+    "CONTROL_BG",
+    "LIST_BG",
+    "LIST_ALT_BG",
+    "FILTER_BG",
+    "STATUS_BG",
+    "TOOLTIP_BG",
+    "STRUCTURE_FOLDER_BG",
+    "BORDER_TOPBAR",
+    "BORDER_DARK",
+    "BORDER_PRESSED",
+    "BORDER_INSET",
+    "BORDER_SOFT",
+    "BORDER_PANEL",
+    "BORDER_TAB",
+    "BORDER_DISABLED",
+    "BORDER_GROUP",
+    "SEPARATOR",
+    "TOOLTIP_BORDER",
+    "HOVER_BORDER",
+    "FOCUS_BORDER",
+    "TEXT_PRIMARY",
+    "TEXT_STRONG",
+    "TEXT_HEADING",
+    "TEXT_PANE_TITLE",
+    "TEXT_BUTTON",
+    "TEXT_INPUT",
+    "TEXT_LIST",
+    "TEXT_MUTED",
+    "TEXT_STATUS",
+    "TEXT_EDITOR_STATUS",
+    "TEXT_HEADER",
+    "TEXT_TAB",
+    "TEXT_TAB_SELECTED",
+    "TEXT_SUBTLE",
+    "TEXT_DISABLED",
+    "TEXT_INPUT_DISABLED",
+    "TEXT_ON_ACCENT",
+    "TEXT_PALETTE_GROUP",
+    "TEXT_STRUCTURE_ROW",
+    "TEXT_STRUCTURE_COLUMN",
+    "BUTTON_BG",
+    "BUTTON_HOVER_BG",
+    "BUTTON_PRESSED_BG",
+    "ICON_BUTTON_HOVER_BG",
+    "ICON_BUTTON_HOVER_BORDER",
+    "ICON_BUTTON_PRESSED_BG",
+    "LIST_HOVER_BG",
+    "FOLDER_CARD_BG",
+    "FOLDER_NESTED_BG",
+    "FOLDER_HEADER_BG",
+    "FOLDER_HEADER_HOVER_BG",
+    "FOLDER_HEADER_PRESSED_BG",
+    "FOLDER_HEADER_COLLAPSED_BG",
+    "FOLDER_NESTED_HEADER_BG",
+    "FOLDER_NESTED_HEADER_HOVER_BG",
+    "FOLDER_NESTED_HEADER_COLLAPSED_BG",
+    "SIMPLE_SECTION_NESTED_BG",
+    "BORDER_FOLDER_NESTED",
+    "TEXT_SECTION",
+    "TEXT_SECTION_NESTED",
+    "TEXT_FOLDER_NESTED",
+    "TEXT_FOLDER_HOVER",
+    "TEXT_FOLDER_COLLAPSED",
+    "ACCENT",
+    "SELECTION_BG",
+    "INPUT_SELECTION_BG",
+    "SELECTION_TEXT",
+    "CODE_GUTTER_BG",
+    "CODE_CURRENT_LINE_BG",
+    "CODE_LINE_NUMBER",
+    "SYNTAX_KEYWORD",
+    "SYNTAX_STRING",
+    "SYNTAX_COMMENT",
+    "SYNTAX_NUMBER",
+    "SYNTAX_HOST",
+    "TOOLBAR_ICON",
+    "UPDATE_BG",
+    "UPDATE_BORDER",
+    "UPDATE_HOVER_BG",
+    "UPDATE_HOVER_BORDER",
+    "UPDATE_PRESSED_BG",
+    "UPDATE_DISABLED_BG",
+    "UPDATE_DISABLED_TEXT",
+    "UPDATE_DISABLED_BORDER",
+    "ACCEPT_BG",
+    "ACCEPT_BORDER",
+    "ACCEPT_HOVER_BG",
+    "ACCEPT_HOVER_BORDER",
+    "TAB_HOVER_BG",
+    "TAB_SELECTED_BG",
+    "SCROLL_HANDLE_BG",
+    "SCROLL_HANDLE_HOVER_BG",
+]

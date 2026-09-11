@@ -39,42 +39,39 @@ def sample_document():
     })
 
 
-def test_document_index_finds_by_id_name_and_label():
+def test_document_index_finds_by_id_and_name_only():
     document = sample_document()
     index = DocumentIndex(document)
     item = document["sections"][0]["items"][0]
 
     assert index.find(item["id"]) is item
     assert index.find("count") is item
-    assert index.find("Count Label") is item
+    assert index.find("Count Label") is None
     assert index.find("missing") is None
 
 
-def test_document_index_preserves_id_name_label_precedence():
+def test_document_index_preserves_id_over_name_precedence():
     document = sample_document()
     count = document["sections"][0]["items"][0]
     amount = document["sections"][0]["items"][1]
 
     amount["id"] = "count"
-    amount["label"] = "count"
-
     index = DocumentIndex(document)
 
     assert index.find("count") is amount
     assert count["name"] == "count"
 
 
-def test_document_index_preserves_first_item_for_duplicate_field():
+def test_document_index_preserves_first_item_for_duplicate_name():
     document = sample_document()
     first = document["sections"][0]["items"][0]
     second = document["sections"][0]["items"][1]
 
-    first["label"] = "Shared"
-    second["label"] = "Shared"
-
+    first["name"] = "shared"
+    second["name"] = "shared"
     index = DocumentIndex(document)
 
-    assert index.find("Shared") is first
+    assert index.find("shared") is first
 
 
 def test_value_api_reuses_cached_index_for_successful_lookups(monkeypatch):
@@ -87,16 +84,8 @@ def test_value_api_reuses_cached_index_for_successful_lookups(monkeypatch):
             "stable indexed lookup must not traverse the document again"
         )
 
-    monkeypatch.setattr(
-        index_module,
-        "walk_items",
-        fail_walk
-    )
-    monkeypatch.setattr(
-        values_module,
-        "walk_items",
-        fail_walk
-    )
+    monkeypatch.setattr(index_module, "walk_items", fail_walk)
+    monkeypatch.setattr(values_module, "walk_items", fail_walk)
 
     assert find_item(document, "count") is item
     assert get_value(document, "count") == 3
@@ -109,12 +98,8 @@ def test_document_replacement_gets_a_new_index():
     first_document = sample_document()
     second_document = sample_document()
 
-    first_index = get_document_index(
-        first_document
-    )
-    second_index = get_document_index(
-        second_document
-    )
+    first_index = get_document_index(first_document)
+    second_index = get_document_index(second_document)
 
     assert first_index is not second_index
     assert first_index.document is first_document
@@ -125,15 +110,9 @@ def test_invalidate_document_index_rebuilds_on_next_access():
     invalidate_document_index()
     document = sample_document()
 
-    first_index = get_document_index(
-        document
-    )
-    invalidate_document_index(
-        document
-    )
-    second_index = get_document_index(
-        document
-    )
+    first_index = get_document_index(document)
+    invalidate_document_index(document)
+    second_index = get_document_index(document)
 
     assert first_index is not second_index
 
@@ -171,9 +150,7 @@ def test_in_place_structure_addition_self_heals_cached_index():
         ]
     })["sections"][0]["items"][0]
 
-    document["sections"][0]["items"].append(
-        new_item
-    )
+    document["sections"][0]["items"].append(new_item)
 
     assert find_item(document, "late_item") is new_item
     assert get_value(document, "late_item") == 5

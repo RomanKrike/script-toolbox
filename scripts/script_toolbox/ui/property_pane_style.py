@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
 from ..compat import QtGui
+from ..style.palette import WINDOW_BG
 
 
-PROPERTY_PANE_BACKGROUND = "#292929"
+PROPERTY_PANE_BACKGROUND = WINDOW_BG
 
 
 def _apply_background(widget):
@@ -21,13 +22,30 @@ def _apply_background(widget):
         pass
 
 
-def install_property_pane_style(interface_editor_class, property_editor_class):
-    """Keep Parameter Description on the same dark surface as the dialog.
+def apply_property_pane_style(editor):
+    """Apply the Qt4-safe Property Pane surface to one editor instance."""
+    try:
+        pane = editor.property_scroll.parentWidget()
+        if pane is not None:
+            pane.setObjectName("PropertyPane")
+            _apply_background(pane)
+    except Exception:
+        pass
 
-    Maya 2015 / Qt4 is inconsistent about QScrollArea viewport QSS, so the
-    property pane needs both a late stylesheet override and an explicit
-    palette fallback. Patch the final editor class so this also survives the
-    layout/document/view-state wrappers installed by ``ui.__init__``.
+    try:
+        _apply_background(editor.property_scroll)
+        _apply_background(editor.property_scroll.viewport())
+        _apply_background(editor.property_host)
+    except Exception:
+        pass
+
+
+def install_property_pane_style(interface_editor_class, property_editor_class=None):
+    """Compatibility installer for older direct imports.
+
+    Active UI composition calls ``apply_property_pane_style`` directly and no
+    longer patches the final InterfaceEditor class. PropertyEditorBase already
+    applies the same shared background in its own constructor.
     """
     if getattr(interface_editor_class, "_property_pane_style_installed", False):
         return
@@ -37,38 +55,13 @@ def install_property_pane_style(interface_editor_class, property_editor_class):
 
     def build_ui(self):
         original_build_ui(self)
-
-        try:
-            pane = self.property_scroll.parentWidget()
-            if pane is not None:
-                pane.setObjectName("PropertyPane")
-                _apply_background(pane)
-        except Exception:
-            pass
-
-        try:
-            _apply_background(self.property_scroll)
-            _apply_background(self.property_scroll.viewport())
-            _apply_background(self.property_host)
-        except Exception:
-            pass
+        apply_property_pane_style(self)
 
     interface_editor_class.build_ui = build_ui
-
-    if getattr(property_editor_class, "_property_pane_style_installed", False):
-        return
-    property_editor_class._property_pane_style_installed = True
-
-    original_property_init = property_editor_class.__init__
-
-    def property_editor_init(self, *args, **kwargs):
-        original_property_init(self, *args, **kwargs)
-        _apply_background(self)
-
-    property_editor_class.__init__ = property_editor_init
 
 
 __all__ = [
     "PROPERTY_PANE_BACKGROUND",
+    "apply_property_pane_style",
     "install_property_pane_style",
 ]

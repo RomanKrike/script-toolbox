@@ -129,12 +129,12 @@ class ScriptEditorResizeHandle(QtGui.QLabel):
 def install_expanding_script_editors():
     """Give property script editors a large default and manual resizing.
 
-    Property editors live in a resizable QScrollArea.  The legacy layout kept
-    the Triggers group at its sizeHint, so extra dialog height could end up as
-    unused space instead of growing the code editor.  Keep property fields
+    Property editors live in a resizable QScrollArea. Keep property fields
     compact, give trigger scripts a useful default height, and expose a visible
     vertical drag handle so the editor can be resized without resizing the
-    entire Interface Editor window.
+    entire Interface Editor window. The active Inspector now nests the binding
+    panel in the stable TRIGGERS section, so that section receives the old
+    stretch behavior instead of the panel directly.
     """
     global _INSTALLED
     if _INSTALLED:
@@ -216,8 +216,13 @@ def install_expanding_script_editors():
             pass
 
         try:
-            index = self.root_layout.indexOf(
+            stretch_widget = getattr(
+                self,
+                "trigger_section",
                 self.binding_panel
+            )
+            index = self.root_layout.indexOf(
+                stretch_widget
             )
             if index >= 0:
                 self.root_layout.setStretch(

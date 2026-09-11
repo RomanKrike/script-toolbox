@@ -1,5 +1,31 @@
 # -*- coding: utf-8 -*-
 
+from .metrics import BORDER_RADIUS_CARD
+from .metrics import BORDER_RADIUS_PANEL
+from .metrics import LIST_ITEM_MIN_HEIGHT
+from .metrics import LIST_ITEM_PADDING_HORIZONTAL
+from .metrics import LIST_ITEM_PADDING_VERTICAL
+from .metrics import RUNTIME_TAB_BAR_OFFSET
+from .metrics import RUNTIME_TAB_MIN_HEIGHT
+from .metrics import RUNTIME_TAB_PADDING_HORIZONTAL
+from .metrics import RUNTIME_TAB_PADDING_VERTICAL
+from .metrics import RUNTIME_TAB_SELECTED_OVERLAP
+from .metrics import TAB_BORDER_WIDTH
+from .metrics import TAB_MARGIN_RIGHT
+from .metrics import TAB_PANE_TOP_OFFSET
+from .palette import FOLDER_CARD_BG
+from .palette import FOLDER_HEADER_HOVER_BG
+from .palette import LIST_BG
+from .palette import SELECTION_BG
+from .palette import SELECTION_TEXT
+from .palette import SEPARATOR
+from .palette import TEXT_FOLDER_COLLAPSED
+from .palette import TEXT_FOLDER_HOVER
+from .palette import TEXT_HEADING
+from .palette import TEXT_LIST
+from .palette import WINDOW_BG
+
+
 # Runtime-only QSS fixes that must override the base theme. Keeping these
 # rules separate makes host-specific Qt4/Qt5 rendering quirks explicit.
 RUNTIME_OVERRIDES = """
@@ -8,56 +34,136 @@ RUNTIME_OVERRIDES = """
    line was clipped until the cursor moves to another control. Keep tooltip
    colors/border from the base theme, but let the native style own its text
    margins so geometry is stable in Maya 2015 and newer hosts. */
-QToolTip {
+QToolTip {{
     padding: 0px;
-}
+}}
 
 /* Keep Parameter Description on the same surface as the main dialog. The
-   base theme historically used #303030 here, which reads as a light slab
-   against the #292929 editor window. Explicit palette fallbacks are installed
-   separately for Maya 2015 / Qt4, where viewport QSS is not reliable. */
+   base theme historically used the lighter panel surface here. Explicit
+   palette fallbacks are installed separately for Maya 2015 / Qt4, where
+   viewport QSS is not reliable. */
 QWidget#PropertyPane,
 QScrollArea#PropertyScroll,
 QWidget#PropertyViewport,
 QWidget#PropertyHost,
-QWidget#PropertyEditor {
-    background-color: #292929;
+QWidget#PropertyEditor {{
+    background-color: {window_bg};
     border: 0px;
-}
+}}
 
-QFrame#RuntimeSeparatorLine {
+QFrame#RuntimeSeparatorLine {{
     background-color: transparent;
     border: 0px;
-    border-top: 1px solid #414346;
-}
+    border-top: 1px solid {separator};
+}}
 
-QFrame#RuntimeSeparatorLineVertical {
+QFrame#RuntimeSeparatorLineVertical {{
     background-color: transparent;
     border: 0px;
-    border-left: 1px solid #414346;
-}
+    border-left: 1px solid {separator};
+}}
 
-/* Runtime Field lists are QAbstractScrollArea widgets. Maya/Qt4 paints their
-   scrollbars inside the frame rect, so a border on the QListWidget itself can
-   disappear behind the right/bottom scrollbar. ScrollSurfaceFrame owns the
-   visible border; the list owns only its viewport/background. */
-QListWidget#RuntimeFieldList {
-    background-color: #202020;
+/* Runtime tabs and editor Items/Presets tabs intentionally share one visual
+   contract. Geometry comes from metrics.py and colors from palette.py; the
+   selectors differ only because the widgets live in different UI scopes.
+   Keep the selected label weight stable so Qt4 never has to reconcile a tab
+   width calculated from the normal font with a wider bold selected label. */
+QWidget#ToolboxContent QTabWidget::pane,
+QTabWidget#CreatePaletteTabs::pane {{
+    background-color: {folder_card_bg};
+    border: {tab_border_width}px solid {separator};
+    border-radius: {card_radius}px;
+    top: {tab_pane_top_offset}px;
+}}
+
+QWidget#ToolboxContent QTabWidget::tab-bar,
+QTabWidget#CreatePaletteTabs::tab-bar {{
+    left: {runtime_tab_bar_offset}px;
+}}
+
+QWidget#ToolboxContent QTabBar::tab,
+QTabWidget#CreatePaletteTabs QTabBar::tab {{
+    background-color: {window_bg};
+    color: {text_folder_collapsed};
+    border: {tab_border_width}px solid {separator};
+    border-bottom: {tab_border_width}px solid {separator};
+    border-top-left-radius: {panel_radius}px;
+    border-top-right-radius: {panel_radius}px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+    min-height: {runtime_tab_min_height}px;
+    padding: {runtime_tab_padding_vertical}px {runtime_tab_padding_horizontal}px;
+    margin-right: {tab_margin_right}px;
+    font-weight: normal;
+}}
+
+QWidget#ToolboxContent QTabBar::tab:hover,
+QTabWidget#CreatePaletteTabs QTabBar::tab:hover {{
+    background-color: {folder_header_hover_bg};
+    color: {text_folder_hover};
+}}
+
+QWidget#ToolboxContent QTabBar::tab:selected,
+QTabWidget#CreatePaletteTabs QTabBar::tab:selected {{
+    background-color: {folder_card_bg};
+    color: {text_heading};
+    border-color: {separator};
+    border-bottom-color: {folder_card_bg};
+    margin-bottom: {runtime_tab_selected_overlap}px;
+    font-weight: normal;
+}}
+
+/* Runtime Field keeps the editor list surface without row decoration:
+   one flat background, no alternating rows or separators, and only the
+   selected row receives the editor's orange highlight. The visible outer
+   pane border is owned by ScrollSurfaceFrame so Maya/Qt4 scrollbars cannot
+   cover its bottom/right edge. */
+QListWidget#RuntimeFieldList {{
+    background-color: {list_bg};
+    alternate-background-color: {list_bg};
+    color: {text_list};
     border: 0px;
     border-radius: 0px;
-    padding: 1px;
-}
+    outline: 0px;
+    padding: 0px;
+}}
 
-QListWidget#RuntimeFieldList::item {
-    min-height: 18px;
-    padding: 1px 4px;
-}
+QListWidget#RuntimeFieldList::item {{
+    min-height: {list_item_min_height}px;
+    padding: {list_item_padding_vertical}px {list_item_padding_horizontal}px;
+    border: 0px;
+}}
 
-QListWidget#RuntimeFieldList::item:selected {
-    background-color: #3b4348;
-    color: #eeeeee;
-}
+QListWidget#RuntimeFieldList::item:selected {{
+    background-color: {selection_bg};
+    color: {selection_text};
+}}
 
-"""
+""".format(
+    window_bg=WINDOW_BG,
+    separator=SEPARATOR,
+    folder_card_bg=FOLDER_CARD_BG,
+    folder_header_hover_bg=FOLDER_HEADER_HOVER_BG,
+    text_folder_collapsed=TEXT_FOLDER_COLLAPSED,
+    text_folder_hover=TEXT_FOLDER_HOVER,
+    text_heading=TEXT_HEADING,
+    card_radius=BORDER_RADIUS_CARD,
+    panel_radius=BORDER_RADIUS_PANEL,
+    tab_border_width=TAB_BORDER_WIDTH,
+    tab_pane_top_offset=TAB_PANE_TOP_OFFSET,
+    tab_margin_right=TAB_MARGIN_RIGHT,
+    runtime_tab_min_height=RUNTIME_TAB_MIN_HEIGHT,
+    runtime_tab_padding_vertical=RUNTIME_TAB_PADDING_VERTICAL,
+    runtime_tab_padding_horizontal=RUNTIME_TAB_PADDING_HORIZONTAL,
+    runtime_tab_bar_offset=RUNTIME_TAB_BAR_OFFSET,
+    runtime_tab_selected_overlap=RUNTIME_TAB_SELECTED_OVERLAP,
+    list_bg=LIST_BG,
+    text_list=TEXT_LIST,
+    selection_bg=SELECTION_BG,
+    selection_text=SELECTION_TEXT,
+    list_item_min_height=LIST_ITEM_MIN_HEIGHT,
+    list_item_padding_vertical=LIST_ITEM_PADDING_VERTICAL,
+    list_item_padding_horizontal=LIST_ITEM_PADDING_HORIZONTAL,
+)
 
 __all__ = ["RUNTIME_OVERRIDES"]

@@ -6,10 +6,8 @@ import json
 import os
 
 from ..constants import BUILD_CHANNEL
-from ..constants import SETTINGS_FILENAME
-from ..constants import SETTINGS_PATH_ENV
-from ..hosts import HOST
 from ..pycompat import text_type
+from .user_paths import settings_path
 
 
 UPDATE_CHANNEL_STABLE = "stable"
@@ -18,6 +16,10 @@ UPDATE_CHANNELS = (
     UPDATE_CHANNEL_STABLE,
     UPDATE_CHANNEL_DEVELOPMENT,
 )
+INSPECTOR_SECTIONS_KEY = "inspector_sections"
+TELEMETRY_CONSENT_KEY = "telemetry_consent"
+TELEMETRY_INSTALLATION_ID_KEY = "telemetry_installation_id"
+_TELEMETRY_INSTALLATION_ID_PREFIX = "stb-install-"
 
 
 def normalize_update_channel(
@@ -41,30 +43,43 @@ def normalize_update_channel(
     return default
 
 
-def settings_path():
-    override = text_type(
-        os.environ.get(
-            SETTINGS_PATH_ENV,
-            ""
-        )
-    ).strip()
+def normalize_telemetry_consent(value):
+    """Return True, False, or None when the user has not decided yet."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if value == 1:
+        return True
+    if value == 0:
+        return False
 
-    if override:
-        return os.path.normpath(
-            override
-        )
+    normalized = text_type(value).strip().lower()
+    if normalized in ("true", "yes", "1", "enabled"):
+        return True
+    if normalized in ("false", "no", "0", "disabled"):
+        return False
+    return None
 
-    try:
-        folder = HOST.user_config_dir()
-    except Exception:
-        folder = os.path.expanduser("~")
 
-    return os.path.normpath(
-        os.path.join(
-            folder,
-            SETTINGS_FILENAME
-        )
-    )
+def normalize_telemetry_installation_id(value):
+    """Return a valid random Script Toolbox installation id or ``None``."""
+    value = text_type(
+        value or ""
+    ).strip().lower()
+
+    if not value.startswith(_TELEMETRY_INSTALLATION_ID_PREFIX):
+        return None
+
+    token = value[len(_TELEMETRY_INSTALLATION_ID_PREFIX):]
+    if len(token) != 32:
+        return None
+
+    for character in token:
+        if character not in "0123456789abcdef":
+            return None
+
+    return _TELEMETRY_INSTALLATION_ID_PREFIX + token
 
 
 def default_preferences():
@@ -72,6 +87,8 @@ def default_preferences():
         "update_channel": normalize_update_channel(
             BUILD_CHANNEL
         ),
+        TELEMETRY_CONSENT_KEY: None,
+        TELEMETRY_INSTALLATION_ID_KEY: None,
     }
 
 
@@ -83,9 +100,7 @@ def load_preferences(
     )
     result = default_preferences()
 
-    if not os.path.isfile(
-        path
-    ):
+    if not os.path.isfile(path):
         return result
 
     try:
@@ -94,28 +109,25 @@ def load_preferences(
             "r",
             encoding="utf-8"
         ) as handle:
-            data = json.load(
-                handle
-            )
+            data = json.load(handle)
     except Exception:
         return result
 
-    if not isinstance(
-        data,
-        dict
-    ):
+    if not isinstance(data, dict):
         return result
 
-    result.update(
-        data
-    )
-    result[
-        "update_channel"
-    ] = normalize_update_channel(
-        result.get(
-            "update_channel"
-        ),
+    result.update(data)
+    result["update_channel"] = normalize_update_channel(
+        result.get("update_channel"),
         default=BUILD_CHANNEL
+    )
+    result[TELEMETRY_CONSENT_KEY] = normalize_telemetry_consent(
+        result.get(TELEMETRY_CONSENT_KEY)
+    )
+    result[TELEMETRY_INSTALLATION_ID_KEY] = (
+        normalize_telemetry_installation_id(
+            result.get(TELEMETRY_INSTALLATION_ID_KEY)
+        )
     )
     return result
 
@@ -127,28 +139,23 @@ def save_preferences(
     path = os.path.normpath(
         path or settings_path()
     )
-    folder = os.path.dirname(
-        path
-    )
+    folder = os.path.dirname(path)
 
-    if (
-        folder and
-        not os.path.isdir(folder)
-    ):
-        os.makedirs(
-            folder
-        )
+    if folder and not os.path.isdir(folder):
+        os.makedirs(folder)
 
-    payload = dict(
-        preferences or {}
-    )
-    payload[
-        "update_channel"
-    ] = normalize_update_channel(
-        payload.get(
-            "update_channel"
-        ),
+    payload = dict(preferences or {})
+    payload["update_channel"] = normalize_update_channel(
+        payload.get("update_channel"),
         default=BUILD_CHANNEL
+    )
+    payload[TELEMETRY_CONSENT_KEY] = normalize_telemetry_consent(
+        payload.get(TELEMETRY_CONSENT_KEY)
+    )
+    payload[TELEMETRY_INSTALLATION_ID_KEY] = (
+        normalize_telemetry_installation_id(
+            payload.get(TELEMETRY_INSTALLATION_ID_KEY)
+        )
     )
 
     serialized = json.dumps(
@@ -157,25 +164,16 @@ def save_preferences(
         sort_keys=True
     )
 
-    if not isinstance(
-        serialized,
-        text_type
-    ):
-        serialized = serialized.decode(
-            "utf-8"
-        )
+    if not isinstance(serialized, text_type):
+        serialized = serialized.decode("utf-8")
 
     with io.open(
         path,
         "w",
         encoding="utf-8"
     ) as handle:
-        handle.write(
-            serialized
-        )
-        handle.write(
-            u"\n"
-        )
+        handle.write(serialized)
+        handle.write(u"\n")
 
     return path
 
@@ -185,9 +183,7 @@ def get_update_channel(
 ):
     return load_preferences(
         path=path
-    )[
-        "update_channel"
-    ]
+    )["update_channel"]
 
 
 def set_update_channel(
@@ -201,9 +197,7 @@ def set_update_channel(
     preferences = load_preferences(
         path=path
     )
-    preferences[
-        "update_channel"
-    ] = channel
+    preferences["update_channel"] = channel
     save_preferences(
         preferences,
         path=path
@@ -211,15 +205,123 @@ def set_update_channel(
     return channel
 
 
+def get_telemetry_consent(path=None):
+    """Return explicit telemetry consent state: True, False, or None."""
+    return load_preferences(
+        path=path
+    ).get(TELEMETRY_CONSENT_KEY)
+
+
+def set_telemetry_consent(consent, path=None):
+    """Persist explicit opt-in/opt-out state without enabling telemetry itself."""
+    consent = normalize_telemetry_consent(consent)
+    preferences = load_preferences(
+        path=path
+    )
+    preferences[TELEMETRY_CONSENT_KEY] = consent
+    save_preferences(
+        preferences,
+        path=path
+    )
+    return consent
+
+
+def get_telemetry_installation_id(path=None):
+    """Return the persisted pseudonymous installation id, if one exists."""
+    return load_preferences(
+        path=path
+    ).get(TELEMETRY_INSTALLATION_ID_KEY)
+
+
+def set_telemetry_installation_id(installation_id, path=None):
+    """Persist a validated random installation id without changing consent."""
+    installation_id = normalize_telemetry_installation_id(
+        installation_id
+    )
+    preferences = load_preferences(
+        path=path
+    )
+    preferences[TELEMETRY_INSTALLATION_ID_KEY] = installation_id
+    save_preferences(
+        preferences,
+        path=path
+    )
+    return installation_id
+
+
+def _inspector_section_states(preferences):
+    states = preferences.get(
+        INSPECTOR_SECTIONS_KEY,
+        {}
+    )
+    if not isinstance(states, dict):
+        return {}
+    return states
+
+
+def get_inspector_section_collapsed(
+    key,
+    default=False,
+    path=None
+):
+    """Return editor-only collapsed state for one stable Inspector section."""
+    preferences = load_preferences(
+        path=path
+    )
+    states = _inspector_section_states(preferences)
+    key = text_type(key or "").strip()
+    if not key:
+        return bool(default)
+    return bool(
+        states.get(key, default)
+    )
+
+
+def set_inspector_section_collapsed(
+    key,
+    collapsed,
+    path=None
+):
+    """Persist Inspector presentation state outside the config document."""
+    key = text_type(key or "").strip()
+    if not key:
+        return bool(collapsed)
+
+    preferences = load_preferences(
+        path=path
+    )
+    states = dict(
+        _inspector_section_states(preferences)
+    )
+    states[key] = bool(collapsed)
+    preferences[INSPECTOR_SECTIONS_KEY] = states
+    save_preferences(
+        preferences,
+        path=path
+    )
+    return bool(collapsed)
+
+
 __all__ = [
+    "INSPECTOR_SECTIONS_KEY",
+    "TELEMETRY_CONSENT_KEY",
+    "TELEMETRY_INSTALLATION_ID_KEY",
     "UPDATE_CHANNEL_DEVELOPMENT",
     "UPDATE_CHANNEL_STABLE",
     "UPDATE_CHANNELS",
     "default_preferences",
+    "get_inspector_section_collapsed",
+    "get_telemetry_consent",
+    "get_telemetry_installation_id",
     "get_update_channel",
     "load_preferences",
+    "normalize_telemetry_consent",
+    "normalize_telemetry_installation_id",
     "normalize_update_channel",
     "save_preferences",
+    "set_inspector_section_collapsed",
+    "set_telemetry_consent",
+    "set_telemetry_installation_id",
     "set_update_channel",
     "settings_path",
 ]

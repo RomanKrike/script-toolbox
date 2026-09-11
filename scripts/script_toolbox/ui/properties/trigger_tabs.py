@@ -3,20 +3,40 @@ from __future__ import print_function
 
 from ...compat import QtCore
 from ...compat import QtGui
+from ...pycompat import text_type
+from ...style.builtin_icons import builtin_icon
+from ..painted_icon_button import PaintedIconButton
 from . import base as base_module
 from . import bindings as bindings_module
 
 
 _BaseBindingPanel = bindings_module.BindingPanel
 
+# Trigger-tab geometry is a local Maya/Qt4 compatibility contract. These
+# values intentionally stay beside the QTabBar implementation instead of
+# becoming generic button metrics: the holder/offset exist specifically to
+# prevent old host styles from clipping right-side tab glyphs.
+_TRIGGER_TAB_PADDING_HORIZONTAL = 7
+_TRIGGER_CLOSE_HOLDER_SIZE = (22, 20)
+_TRIGGER_CLOSE_BUTTON_SIZE = 18
+_TRIGGER_CLOSE_GLYPH_SIZE = 10
+_TRIGGER_CLOSE_OFFSET = (2, 1)
+_TRIGGER_ADD_BUTTON_SIZE = 16
+_TRIGGER_ADD_GLYPH_SIZE = 12
+_TRIGGER_ADD_SPACER_WIDTH = 12
+
+_TRIGGER_TAB_STYLE = """
+QTabBar::tab {
+    padding-left: %(padding)spx;
+    padding-right: %(padding)spx;
+}
+""" % {
+    "padding": _TRIGGER_TAB_PADDING_HORIZONTAL,
+}
+
 
 class TriggerTabBindingPanel(_BaseBindingPanel):
-    """Binding panel whose add action is a real trailing tab.
-
-    The legacy panel used QTabWidget.setCornerWidget(), which leaves '+' as a
-    visually separate tool button. Keep the existing binding behavior, but
-    expose Add Trigger as the final tab so it belongs to the trigger strip.
-    """
+    """Binding panel whose add action is a compact trailing tab."""
 
     def __init__(
         self,
@@ -24,14 +44,27 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
         parent=None
     ):
         self._add_tab_page = None
+        self._add_tab_spacer = None
+        self._add_tab_button = None
         _BaseBindingPanel.__init__(
             self,
             toolbox=toolbox,
             parent=parent
         )
 
-        # Remove the legacy corner button. It is deliberately kept out of the
-        # layout instead of restyling it, so there is only one visible Add UI.
+        self.tabs.setTabsClosable(False)
+        bar = self.tabs.tabBar()
+        try:
+            bar.setStyleSheet(
+                text_type(bar.styleSheet()) +
+                "\n" +
+                _TRIGGER_TAB_STYLE
+            )
+        except Exception:
+            bar.setStyleSheet(
+                _TRIGGER_TAB_STYLE
+            )
+
         try:
             self.tabs.setCornerWidget(
                 None,
@@ -62,6 +95,7 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
                 )
                 if button is not None:
                     button.hide()
+                    button.deleteLater()
                 bar.setTabButton(
                     index,
                     side,
@@ -69,6 +103,141 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
                 )
             except Exception:
                 pass
+
+    def _install_trigger_close_button(self, page):
+        if page not in self.pages:
+            return
+
+        index = self.pages.index(page)
+        bar = self.tabs.tabBar()
+
+        # Maya/Qt4 can crop a QTabBar right-side control by one pixel. Keep the
+        # proven holder geometry, but paint the glyph ourselves so QToolButton
+        # and host QStyle no longer control its icon rectangle.
+        holder = QtGui.QWidget(bar)
+        holder.setObjectName(
+            "TriggerCloseHolder"
+        )
+        holder.setFixedSize(
+            *_TRIGGER_CLOSE_HOLDER_SIZE
+        )
+
+        button = PaintedIconButton(
+            builtin_icon("close"),
+            _TRIGGER_CLOSE_GLYPH_SIZE,
+            parent=holder,
+            interactive=True,
+            hover_feedback=True
+        )
+        button.setObjectName(
+            "TriggerCloseButton"
+        )
+        button.setFixedSize(
+            _TRIGGER_CLOSE_BUTTON_SIZE,
+            _TRIGGER_CLOSE_BUTTON_SIZE
+        )
+        button.move(
+            *_TRIGGER_CLOSE_OFFSET
+        )
+        button.setToolTip("Remove trigger")
+        button.clicked.connect(
+            lambda current=page:
+            self.remove_binding(current)
+        )
+
+        try:
+            bar.setTabButton(
+                index,
+                QtGui.QTabBar.RightSide,
+                holder
+            )
+        except Exception:
+            holder.deleteLater()
+
+    def _ensure_add_button(self):
+        if self._add_tab_button is not None:
+            return
+
+        bar = self.tabs.tabBar()
+        button = PaintedIconButton(
+            builtin_icon("add"),
+            _TRIGGER_ADD_GLYPH_SIZE,
+            parent=bar,
+            interactive=False,
+            hover_feedback=False
+        )
+        button.setObjectName("TriggerAddButton")
+        button.setFixedSize(
+            _TRIGGER_ADD_BUTTON_SIZE,
+            _TRIGGER_ADD_BUTTON_SIZE
+        )
+        button.setToolTip("Add trigger")
+
+        # PaintedIconButton makes non-interactive glyphs transparent for mouse
+        # events. Input therefore continues to fall through to QTabBar so the
+        # whole trailing tab owns hover/press/click behaviour.
+        self._add_tab_button = button
+
+    def _install_add_tab_spacer(self, index):
+        bar = self.tabs.tabBar()
+
+        if self._add_tab_spacer is not None:
+            try:
+                self._add_tab_spacer.deleteLater()
+            except Exception:
+                pass
+
+        spacer = QtGui.QWidget(bar)
+        spacer.setFixedSize(
+            _TRIGGER_ADD_SPACER_WIDTH,
+            1
+        )
+        try:
+            spacer.setAttribute(
+                QtCore.Qt.WA_TransparentForMouseEvents,
+                True
+            )
+        except Exception:
+            pass
+
+        bar.setTabButton(
+            index,
+            QtGui.QTabBar.LeftSide,
+            spacer
+        )
+        self._add_tab_spacer = spacer
+
+    def _position_add_button(self):
+        if (
+            self._add_tab_page is None or
+            self._add_tab_button is None
+        ):
+            return
+
+        bar = self.tabs.tabBar()
+        index = self.tabs.indexOf(
+            self._add_tab_page
+        )
+        if index < 0:
+            self._add_tab_button.hide()
+            return
+
+        rect = bar.tabRect(index)
+        size = self._add_tab_button.size()
+        x_pos = rect.x() + max(
+            0,
+            (rect.width() - size.width()) // 2
+        )
+        y_pos = rect.y() + max(
+            0,
+            (rect.height() - size.height()) // 2
+        )
+        self._add_tab_button.move(
+            x_pos,
+            y_pos
+        )
+        self._add_tab_button.show()
+        self._add_tab_button.raise_()
 
     def _ensure_add_tab(self):
         if self._add_tab_page is None:
@@ -85,7 +254,7 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
         if index < 0:
             index = self.tabs.addTab(
                 self._add_tab_page,
-                "+"
+                ""
             )
 
         self.tabs.setTabToolTip(
@@ -95,8 +264,19 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
         self._hide_add_tab_close_button(
             index
         )
+        self._install_add_tab_spacer(
+            index
+        )
+        self._ensure_add_button()
+        QtCore.QTimer.singleShot(
+            0,
+            self._position_add_button
+        )
 
     def _remove_add_tab(self):
+        if self._add_tab_button is not None:
+            self._add_tab_button.hide()
+
         if self._add_tab_page is None:
             return
 
@@ -109,26 +289,44 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
             )
 
     def clear(self):
+        if self._add_tab_button is not None:
+            self._add_tab_button.hide()
         _BaseBindingPanel.clear(
             self
         )
         self._add_tab_page = None
+        self._add_tab_spacer = None
         self._ensure_add_tab()
 
     def _add_page(self, binding):
-        # Real trigger tabs must always stay before the trailing '+' tab.
         self._remove_add_tab()
         try:
-            return _BaseBindingPanel._add_page(
+            page = _BaseBindingPanel._add_page(
                 self,
                 binding
             )
+            self._install_trigger_close_button(
+                page
+            )
+            return page
         finally:
             self._ensure_add_tab()
 
     def eventFilter(self, watched, event):
         if watched is self.tabs.tabBar():
-            if event.type() == QtCore.QEvent.MouseButtonPress:
+            event_type = event.type()
+
+            if event_type in (
+                QtCore.QEvent.Resize,
+                QtCore.QEvent.Show,
+                QtCore.QEvent.LayoutRequest,
+            ):
+                QtCore.QTimer.singleShot(
+                    0,
+                    self._position_add_button
+                )
+
+            if event_type == QtCore.QEvent.MouseButtonPress:
                 index = watched.tabAt(
                     event.pos()
                 )
@@ -143,8 +341,6 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
                     except Exception:
                         pass
 
-                    # Do not select the dummy page. Open the existing dialog
-                    # after the mouse event finishes instead.
                     QtCore.QTimer.singleShot(
                         0,
                         self.add_binding

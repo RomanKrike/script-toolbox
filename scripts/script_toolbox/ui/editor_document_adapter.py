@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..compat import QtCore
 from ..compat import QtGui
 from ..core.editor_commands import CommandHistory
 from ..core.editor_commands import DocumentCapture
@@ -10,30 +11,185 @@ from ..core.editor_commands import build_document_delta
 from ..core.editor_document import EditorDocumentController
 from ..model import normalize_document
 from ..pycompat import text_type
+from .editor_search import apply_editor_presentation
+from .editor_search import reapply_existing_filter
+from .layout_context import apply_layout_property_context
+from .layout_editor_adapter import create_layout_from_palette
+from .layout_editor_adapter import delete_layout_selected
+from .layout_editor_adapter import fix_layout_tree_structure
+from .layout_editor_adapter import insert_layout_cloned_tree_item
+from .layout_editor_adapter import make_layout_tree_item
+from .layout_editor_adapter import sync_layout_working_from_tree
+from .share_hooks import install_share_controller
 
 
 _ADAPTER_MARKER = "_script_toolbox_document_controller_adapter"
-_LEGACY_BASE = "_script_toolbox_legacy_interface_editor"
+_ADAPTER_BASE = "_script_toolbox_interface_editor_adapter_base"
+_VIEW_ROLE_ID = QtCore.Qt.UserRole + 1
+
+
+def capture_editor_view_state(editor):
+    """Capture selection, expansion and scroll state before an Apply rebuild."""
+    expanded = {}
+
+    def visit(tree_item):
+        item_id = editor.item_data(
+            tree_item,
+            _VIEW_ROLE_ID
+        )
+        if item_id:
+            expanded[text_type(item_id)] = bool(
+                tree_item.isExpanded()
+            )
+
+        for index in range(
+            tree_item.childCount()
+        ):
+            visit(
+                tree_item.child(index)
+            )
+
+    for index in range(
+        editor.tree.topLevelItemCount()
+    ):
+        visit(
+            editor.tree.topLevelItem(index)
+        )
+
+    current = editor.tree.currentItem()
+    current_id = (
+        editor.item_data(
+            current,
+            _VIEW_ROLE_ID
+        )
+        if current is not None
+        else editor.current_item_id
+    )
+
+    state = {
+        "current_id": text_type(current_id or ""),
+        "expanded": expanded,
+        "tree_vertical_scroll": 0,
+        "tree_horizontal_scroll": 0,
+        "property_vertical_scroll": 0,
+    }
+
+    try:
+        state["tree_vertical_scroll"] = int(
+            editor.tree.verticalScrollBar().value()
+        )
+        state["tree_horizontal_scroll"] = int(
+            editor.tree.horizontalScrollBar().value()
+        )
+    except Exception:
+        pass
+
+    try:
+        state["property_vertical_scroll"] = int(
+            editor.property_scroll.verticalScrollBar().value()
+        )
+    except Exception:
+        pass
+
+    return state
+
+
+def restore_editor_view_state(editor, state):
+    """Restore an Interface Editor view state after its tree is rebuilt."""
+    if not state:
+        return
+
+    expanded = state.get(
+        "expanded",
+        {}
+    )
+
+    def visit(tree_item):
+        item_id = editor.item_data(
+            tree_item,
+            _VIEW_ROLE_ID
+        )
+        item_id = text_type(
+            item_id or ""
+        )
+        if item_id in expanded:
+            tree_item.setExpanded(
+                bool(expanded[item_id])
+            )
+
+        for index in range(
+            tree_item.childCount()
+        ):
+            visit(
+                tree_item.child(index)
+            )
+
+    for index in range(
+        editor.tree.topLevelItemCount()
+    ):
+        visit(
+            editor.tree.topLevelItem(index)
+        )
+
+    current_id = text_type(
+        state.get("current_id", "") or ""
+    )
+    if current_id:
+        selected = editor.tree_item_by_id(
+            current_id
+        )
+        if selected is not None:
+            editor.tree.setCurrentItem(
+                selected
+            )
+
+    try:
+        editor.tree.verticalScrollBar().setValue(
+            int(state.get("tree_vertical_scroll", 0))
+        )
+        editor.tree.horizontalScrollBar().setValue(
+            int(state.get("tree_horizontal_scroll", 0))
+        )
+    except Exception:
+        pass
+
+    try:
+        editor.property_scroll.verticalScrollBar().setValue(
+            int(state.get("property_vertical_scroll", 0))
+        )
+    except Exception:
+        pass
 
 
 def _unwrap_base(base_class):
+    """Avoid stacking this active adapter across development reloads."""
     while getattr(base_class, _ADAPTER_MARKER, False):
-        legacy = getattr(base_class, _LEGACY_BASE, None)
-        if legacy is None or legacy is base_class:
+        previous = getattr(
+            base_class,
+            _ADAPTER_BASE,
+            None
+        )
+        if previous is None or previous is base_class:
             break
-        base_class = legacy
+        base_class = previous
     return base_class
 
 
-def build_interface_editor_class(base_class):
-    """Build a controller-backed adapter around the current legacy class."""
+def build_interface_editor_class(
+    base_class,
+    controller_class=None,
+    layout_support=False
+):
+    """Build the active controller-backed InterfaceEditor."""
     base_class = _unwrap_base(base_class)
+    if controller_class is None:
+        controller_class = EditorDocumentController
 
     class InterfaceEditor(base_class):
-        """Compatibility adapter moving editor state/history into core."""
+        """Controller-backed Interface Editor with command history."""
 
         def __init__(self, toolbox, parent=None):
-            self.document_controller = EditorDocumentController(
+            self.document_controller = controller_class(
                 toolbox.config
             )
             self._command_ready = False
@@ -42,6 +198,10 @@ def build_interface_editor_class(base_class):
             self._pending_document_capture = None
             self._pending_document_selection = None
             self._next_tree_label = None
+
+            # Share exists before the base constructor calls build_ui(), where
+            # _icon_button() resolves dynamically on this instance.
+            install_share_controller(self)
 
             base_class.__init__(
                 self,
@@ -53,8 +213,7 @@ def build_interface_editor_class(base_class):
                 self.document_controller,
                 limit=100
             )
-            # Preserve legacy UI checks such as bool(self.undo_stack) while
-            # changing the stack contents from documents to commands.
+            # Keep the active base UI wired to the command-history lists.
             self.undo_stack = self.command_history.undo_stack
             self.redo_stack = self.command_history.redo_stack
             self._command_ready = True
@@ -66,7 +225,97 @@ def build_interface_editor_class(base_class):
                 pass
 
         # --------------------------------------------------------------
-        # Document ownership compatibility
+        # Direct UI feature composition
+        # --------------------------------------------------------------
+
+        def build_ui(self):
+            base_class.build_ui(
+                self
+            )
+            apply_editor_presentation(self)
+
+        def _icon_button(
+            self,
+            icon_name,
+            tooltip,
+            callback
+        ):
+            return self.share_controller.icon_button(
+                icon_name,
+                tooltip,
+                callback
+            )
+
+        def show_tree_context_menu(self, point):
+            return self.share_controller.show_tree_context_menu(
+                point
+            )
+
+        def share_settings(self):
+            return self.share_controller.share_settings()
+
+        def paste_shared_settings(self):
+            return self.share_controller.paste_shared_settings()
+
+        def share_selected(self, target_item=None):
+            return self.share_controller.share_selected(
+                target_item
+            )
+
+        def paste_shared_selected(self):
+            return self.share_controller.paste_shared_selected()
+
+        def populate_tree(self):
+            base_class.populate_tree(
+                self
+            )
+            reapply_existing_filter(self)
+
+        # --------------------------------------------------------------
+        # Layout composition
+        # --------------------------------------------------------------
+
+        def make_tree_item(self, data):
+            if not layout_support:
+                return base_class.make_tree_item(
+                    self,
+                    data
+                )
+            return make_layout_tree_item(
+                self,
+                data,
+                base_class.make_tree_item
+            )
+
+        def fix_tree_structure(self):
+            if not layout_support:
+                return base_class.fix_tree_structure(self)
+            return fix_layout_tree_structure(self)
+
+        def sync_working_from_tree(self):
+            if not layout_support:
+                return base_class.sync_working_from_tree(self)
+            return sync_layout_working_from_tree(self)
+
+        def _insert_cloned_tree_item(
+            self,
+            data,
+            sibling=False
+        ):
+            if not layout_support:
+                return base_class._insert_cloned_tree_item(
+                    self,
+                    data,
+                    sibling=sibling
+                )
+            return insert_layout_cloned_tree_item(
+                self,
+                data,
+                sibling=sibling
+            )
+
+        # --------------------------------------------------------------
+        # Document ownership
         # --------------------------------------------------------------
 
         @property
@@ -75,9 +324,8 @@ def build_interface_editor_class(base_class):
 
         @working.setter
         def working(self, document):
-            # Legacy InterfaceEditor callers already copy/normalize external
-            # documents before assignment. Internal tree synchronization
-            # assembles current item dicts directly, so adopt preserves them.
+            # Tree synchronization assembles current item dictionaries
+            # directly, so adopt preserves their object identity.
             self.document_controller.adopt(document)
 
         @property
@@ -364,6 +612,11 @@ def build_interface_editor_class(base_class):
                 current,
                 previous
             )
+            if layout_support:
+                apply_layout_property_context(
+                    self,
+                    current
+                )
             self._sync_property_baseline()
             return result
 
@@ -414,9 +667,14 @@ def build_interface_editor_class(base_class):
                     self._next_tree_label = previous
 
         def create_from_palette(self, palette_item, column=0):
+            callback = (
+                create_layout_from_palette
+                if layout_support
+                else base_class.create_from_palette
+            )
             return self._call_tree_action(
                 "Create Parameter",
-                base_class.create_from_palette,
+                callback,
                 palette_item,
                 column
             )
@@ -442,6 +700,12 @@ def build_interface_editor_class(base_class):
             )
 
         def delete_selected(self):
+            if layout_support:
+                return self._call_tree_action(
+                    "Delete Parameter",
+                    delete_layout_selected,
+                    base_class.delete_selected
+                )
             return self._call_tree_action(
                 "Delete Parameter",
                 base_class.delete_selected
@@ -466,7 +730,24 @@ def build_interface_editor_class(base_class):
                 self._pending_document_selection = None
                 self._sync_property_baseline()
 
+        # --------------------------------------------------------------
+        # Apply view-state preservation
+        # --------------------------------------------------------------
+
+        def _capture_tree_view_state(self):
+            return capture_editor_view_state(
+                self
+            )
+
+        def _restore_tree_view_state(self, state):
+            restore_editor_view_state(
+                self,
+                state
+            )
+
         def apply_changes(self):
+            view_state = self._capture_tree_view_state()
+
             if self.history_timer.isActive():
                 self.commit_history()
 
@@ -492,6 +773,9 @@ def build_interface_editor_class(base_class):
             self.status.setText(
                 "Applied."
             )
+            self._restore_tree_view_state(
+                view_state
+            )
             self._sync_property_baseline()
             return True
 
@@ -502,7 +786,7 @@ def build_interface_editor_class(base_class):
     )
     setattr(
         InterfaceEditor,
-        _LEGACY_BASE,
+        _ADAPTER_BASE,
         base_class
     )
     InterfaceEditor.__name__ = "InterfaceEditor"
@@ -511,4 +795,6 @@ def build_interface_editor_class(base_class):
 
 __all__ = [
     "build_interface_editor_class",
+    "capture_editor_view_state",
+    "restore_editor_view_state",
 ]

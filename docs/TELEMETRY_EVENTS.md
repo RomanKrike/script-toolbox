@@ -35,6 +35,7 @@ Telemetry is intentionally sparse. We collect durable product actions rather tha
 
 | Event | Event-specific properties | Meaning |
 | --- | --- | --- |
+| `installation_created` | none | A new random opted-in Script Toolbox installation identity was created and persisted. |
 | `plugin_started` | none | One Script Toolbox telemetry runtime started. |
 | `item_created` | `item_type` | A parameter/layout item was created from the editor palette. |
 | `item_duplicated` | `item_type` | An existing item/subtree was duplicated. |
@@ -42,6 +43,8 @@ Telemetry is intentionally sparse. We collect durable product actions rather tha
 | `config_exported` | none | A JSON toolbox export completed successfully. |
 | `share_created` | `share_type` | An encrypted share operation completed successfully and produced an STB1 code. |
 | `share_pasted` | `share_type` | Shared data was downloaded, decrypted and inserted into the editor. |
+
+`installation_created` is emitted only when Script Toolbox creates a new persisted `stb-install-...` identifier. Existing installations do not emit it again on subsequent application launches.
 
 The following high-frequency or low-value UI interactions are deliberately not tracked:
 

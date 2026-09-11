@@ -9,7 +9,7 @@ from .settings_dialog import show_settings_dialog
 
 
 _GITHUB_URL = "https://github.com/RomanKrike/script-toolbox"
-_DOCS_URL = "https://github.com/RomanKrike/script-toolbox/tree/main/docs"
+_DOCS_URL = "https://romankrike.github.io/script-toolbox/"
 
 
 def build_settings_toolbox_class(base_class):

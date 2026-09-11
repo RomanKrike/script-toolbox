@@ -29,6 +29,23 @@ def test_product_event_schema_accepts_reviewed_enum_properties():
     )
 
 
+def test_installation_created_accepts_no_event_specific_properties():
+    assert events.sanitize_product_event(
+        "installation_created",
+        {}
+    ) == (
+        "installation_created",
+        {}
+    )
+
+    assert events.sanitize_product_event(
+        "installation_created",
+        {
+            "installation_id": "must-not-be-a-property",
+        }
+    ) is None
+
+
 def test_product_event_schema_maps_future_item_types_to_other():
     assert events.sanitize_product_event(
         "item_created",

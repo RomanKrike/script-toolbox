@@ -3,8 +3,6 @@ from __future__ import print_function
 
 from ..compat import QtGui
 from ..style import toolbar_icon
-from .icon_button import ICON_BUTTON_HEADER
-from .icon_button import create_icon_button
 from .settings_dialog import prompt_telemetry_consent
 from .settings_dialog import show_settings_dialog
 
@@ -16,43 +14,91 @@ def build_settings_toolbox_class(base_class):
 
         def __init__(self, parent=None):
             self.settings_button = None
+            self.settings_menu = None
+            self.open_editor_action = None
+            self.usage_statistics_action = None
             base_class.__init__(self, parent)
 
         def build_ui(self):
             base_class.build_ui(self)
-            self._install_settings_button()
+            self._install_settings_menu()
 
-        def _install_settings_button(self):
-            editor_button = getattr(
+        def _install_settings_menu(self):
+            button = getattr(
                 self,
                 "interface_editor_button",
                 None
             )
-            if editor_button is not None:
-                editor_button.setIcon(
-                    toolbar_icon("clipboard")
-                )
-                editor_button.setToolTip(
-                    "Edit Interface"
-                )
-
-            topbar = self.findChild(
-                QtGui.QFrame,
-                "TopBar"
-            )
-            if topbar is None or topbar.layout() is None:
+            if button is None:
                 return
 
-            self.settings_button = create_icon_button(
-                "gear",
-                "Script Toolbox Settings",
-                self.open_settings_dialog,
-                parent=self,
-                preset=ICON_BUTTON_HEADER
+            try:
+                button.clicked.disconnect()
+            except Exception:
+                pass
+
+            button.setIcon(
+                toolbar_icon("gear")
             )
-            topbar.layout().addWidget(
-                self.settings_button
+            button.setToolTip(
+                "Script Toolbox Menu"
             )
+
+            menu = QtGui.QMenu(
+                button
+            )
+
+            self.open_editor_action = menu.addAction(
+                "Open Editor"
+            )
+            self.open_editor_action.triggered.connect(
+                self._open_editor_from_menu
+            )
+
+            menu.addSeparator()
+
+            self.usage_statistics_action = menu.addAction(
+                "Usage Statistics..."
+            )
+            self.usage_statistics_action.triggered.connect(
+                self._open_usage_statistics_from_menu
+            )
+
+            button.clicked.connect(
+                self._show_settings_menu
+            )
+
+            self.settings_button = button
+            self.settings_menu = menu
+
+        def _show_settings_menu(
+            self,
+            checked=False
+        ):
+            if (
+                self.settings_button is None or
+                self.settings_menu is None
+            ):
+                return
+
+            position = self.settings_button.mapToGlobal(
+                self.settings_button.rect().bottomLeft()
+            )
+            self.settings_menu.exec_(
+                position
+            )
+
+        def _open_editor_from_menu(
+            self,
+            checked=False
+        ):
+            return self.open_interface_editor()
+
+        def _open_usage_statistics_from_menu(
+            self,
+            checked=False
+        ):
+            return self.open_settings_dialog()
 
         def open_settings_dialog(self):
             return show_settings_dialog(

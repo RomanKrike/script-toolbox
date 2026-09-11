@@ -30,8 +30,11 @@ def test_create_palette_uses_runtime_folder_tab_style_for_items_and_presets():
     assert "QTabWidget#CreatePaletteTabs::pane" in runtime_style
     assert "QWidget#ToolboxContent QTabBar::tab," in runtime_style
     assert "QTabWidget#CreatePaletteTabs QTabBar::tab" in runtime_style
+    assert "QWidget#ToolboxContent QTabBar::tab:selected," in runtime_style
     assert "QTabWidget#CreatePaletteTabs QTabBar::tab:selected" in runtime_style
     assert "RUNTIME_TAB_SELECTED_OVERLAP" in runtime_style
+    assert "font-weight: bold" not in runtime_style
+    assert "font-weight: normal" in runtime_style
     assert "palette_tabs.setStyleSheet" not in source
 
 

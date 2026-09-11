@@ -16,7 +16,7 @@ def build_settings_toolbox_class(base_class):
             self.settings_button = None
             self.settings_menu = None
             self.open_editor_action = None
-            self.usage_statistics_action = None
+            self.settings_action = None
             base_class.__init__(self, parent)
 
         def build_ui(self):
@@ -57,11 +57,11 @@ def build_settings_toolbox_class(base_class):
 
             menu.addSeparator()
 
-            self.usage_statistics_action = menu.addAction(
-                "Usage Statistics..."
+            self.settings_action = menu.addAction(
+                "Settings..."
             )
-            self.usage_statistics_action.triggered.connect(
-                self._open_usage_statistics_from_menu
+            self.settings_action.triggered.connect(
+                self._open_settings_from_menu
             )
 
             button.clicked.connect(
@@ -94,7 +94,7 @@ def build_settings_toolbox_class(base_class):
         ):
             return self.open_interface_editor()
 
-        def _open_usage_statistics_from_menu(
+        def _open_settings_from_menu(
             self,
             checked=False
         ):

@@ -26,12 +26,20 @@ def test_create_palette_uses_runtime_folder_tab_style_for_items_and_presets():
     assert '"palette_scroll_frame"' in source
     assert "self.palette_filter.setPlaceholderText(" in source
 
-    assert "QWidget#ToolboxContent QTabWidget::pane," in runtime_style
-    assert "QTabWidget#CreatePaletteTabs::pane" in runtime_style
+    # Runtime and editor tabs share header sizing/colors, while their pane
+    # geometry is intentionally independent so host-specific seam handling
+    # cannot leak into the Interface Editor.
+    assert "QWidget#ToolboxContent QTabWidget::pane {{" in runtime_style
+    assert "QTabWidget#CreatePaletteTabs::pane {{" in runtime_style
+    assert (
+        "QWidget#ToolboxContent QTabWidget::pane,\n"
+        "QTabWidget#CreatePaletteTabs::pane"
+    ) not in runtime_style
     assert "QWidget#ToolboxContent QTabBar::tab," in runtime_style
     assert "QTabWidget#CreatePaletteTabs QTabBar::tab" in runtime_style
     assert "QWidget#ToolboxContent QTabBar::tab:selected," in runtime_style
     assert "QTabWidget#CreatePaletteTabs QTabBar::tab:selected" in runtime_style
+    assert "RUNTIME_TAB_PANE_TOP_OFFSET" in runtime_style
     assert "RUNTIME_TAB_SELECTED_OVERLAP" in runtime_style
     assert "font-weight: bold" not in runtime_style
     assert "font-weight: normal" in runtime_style

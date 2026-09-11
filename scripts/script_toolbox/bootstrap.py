@@ -21,7 +21,18 @@ def show():
         pass
 
     from .ui.debounced_main_window import show as _show
-    return _show()
+    window = _show()
+
+    try:
+        from .ui.window_geometry import install_window_geometry_persistence
+        install_window_geometry_persistence(
+            window
+        )
+    except Exception:
+        # Window placement recovery must never prevent the toolbox from opening.
+        pass
+
+    return window
 
 
 def package_child_module_names(

@@ -7,7 +7,6 @@ import os
 import shutil
 import subprocess
 import tempfile
-import zipfile
 
 try:
     from urllib2 import HTTPError

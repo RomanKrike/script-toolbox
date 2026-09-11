@@ -10,22 +10,18 @@ from ..style.palette import SELECTION_TEXT
 def _tree_selection_stylesheet():
     return (
         "QTreeWidget { "
-        "show-decoration-selected: 1; "
+        "show-decoration-selected: 0; "
         "selection-background-color: %s; "
         "selection-color: %s; "
-        "} "
-        "QTreeWidget::branch:selected { "
-        "background-color: %s; "
         "}"
     ) % (
         SELECTION_BG,
         SELECTION_TEXT,
-        SELECTION_BG,
     )
 
 
 def _apply_selection_palette(widget):
-    """Keep native tree branch selection aligned with the QSS row color."""
+    """Keep tree-row selection dark without covering branch decorations."""
     if widget is None:
         return
 
@@ -59,10 +55,10 @@ def _apply_selection_palette(widget):
         except Exception:
             pass
 
-    # Maya's native Qt style paints the tree decoration / branch area through
-    # the QTreeView branch sub-control instead of QPalette.Highlight.  Keep a
-    # widget-local rule here so both Create Parameters and Existing Interface
-    # use the same selection color without changing tree branches elsewhere.
+    # Keep selection on the actual item cells only.  Maya/Nuke can paint the
+    # indentation/branch decoration area separately; selecting that area hides
+    # the connector lines and +/- controls.  Disabling decoration selection
+    # preserves the tree structure while the row itself still uses SELECTION_BG.
     try:
         current_style = widget.styleSheet() or ""
         selection_style = _tree_selection_stylesheet()

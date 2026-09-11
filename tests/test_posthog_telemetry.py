@@ -155,6 +155,7 @@ def test_default_runtime_never_creates_identity_without_explicit_consent(monkeyp
 
 def test_default_runtime_reuses_persisted_installation_id(monkeypatch):
     installation_id = "stb-install-0123456789abcdef0123456789abcdef"
+    captured = []
 
     monkeypatch.setattr(
         runtime,
@@ -176,6 +177,11 @@ def test_default_runtime_reuses_persisted_installation_id(monkeypatch):
         "get_telemetry_installation_id",
         lambda: installation_id,
     )
+    monkeypatch.setattr(
+        runtime,
+        "track_product_event",
+        lambda name, properties=None: captured.append(name) or True,
+    )
 
     status = runtime.configure_default_telemetry()
     provider = telemetry.get_provider("posthog")
@@ -183,10 +189,12 @@ def test_default_runtime_reuses_persisted_installation_id(monkeypatch):
     assert status["provider"] == "posthog"
     assert status["enabled"] is True
     assert provider.distinct_id == installation_id
+    assert captured == []
 
 
 def test_default_runtime_creates_installation_id_after_opt_in(monkeypatch):
     persisted = []
+    captured = []
 
     monkeypatch.setattr(
         runtime,
@@ -218,6 +226,11 @@ def test_default_runtime_creates_installation_id_after_opt_in(monkeypatch):
         "set_telemetry_installation_id",
         lambda value: persisted.append(value) or value,
     )
+    monkeypatch.setattr(
+        runtime,
+        "track_product_event",
+        lambda name, properties=None: captured.append(name) or True,
+    )
 
     status = runtime.configure_default_telemetry()
     provider = telemetry.get_provider("posthog")
@@ -226,6 +239,7 @@ def test_default_runtime_creates_installation_id_after_opt_in(monkeypatch):
     assert persisted == [expected]
     assert status["enabled"] is True
     assert provider.distinct_id == expected
+    assert captured == ["installation_created"]
 
 
 def test_missing_build_token_falls_back_without_creating_identity(monkeypatch):

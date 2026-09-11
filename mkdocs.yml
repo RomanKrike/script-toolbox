@@ -22,6 +22,42 @@ theme:
     - content.code.copy
     - content.action.edit
 
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: ru
+          name: Русский
+          build: true
+          site_description: Настраиваемый набор скриптов и конструктор интерфейсов для Maya, Nuke и Houdini
+          nav_translations:
+            Home: Главная
+            Getting started: Начало работы
+            Installation: Установка
+            Quick start: Быстрый старт
+            Guide: Руководство
+            Interface and workflow: Интерфейс и рабочий процесс
+            Items: Элементы
+            Scripting: Скрипты
+            Sharing and updates: Обмен и обновления
+            Hosts: Хосты
+            Developer: Разработчикам
+            Overview: Обзор
+            Architecture: Архитектура
+            Config store: Хранение конфигурации
+            Runtime renderer: Рендерер Runtime
+            Host callbacks: Колбэки хоста
+            Telemetry: Телеметрия
+            Updater: Обновления
+
 nav:
   - Home: index.md
   - Getting started:

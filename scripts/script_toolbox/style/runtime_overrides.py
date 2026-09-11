@@ -65,19 +65,28 @@ QFrame#RuntimeSeparatorLineVertical {{
     border-left: 1px solid {separator};
 }}
 
-/* Runtime tabs keep the pane at its native origin so rounded pane corners
-   stay fully inside the QTabWidget paint rect on Qt4 and Qt5. Instead of
-   shifting both pane and selected tab, the whole tab bar moves down by one
-   border width and owns the seam. Selected tabs keep natural geometry.
+/* Runtime QTabWidget owns switching and tab-bar geometry only. Its pane is
+   intentionally frameless: Qt/Houdini can clip or anti-alias a one-pixel
+   rounded QTabWidget::pane border inconsistently at the corners. The existing
+   embedded RuntimeFolder tab page already is a QFrame and exposes the semantic
+   folderType="tabs" property, so that stable widget owns the visible surface
+   and outline instead. No extra wrapper or runtime item type is introduced.
 
-   CreatePaletteTabs keeps its existing editor geometry independently; both
-   surfaces still share tab sizing and colors below. */
+   The whole runtime tab bar still moves down by one border width and owns the
+   seam with the page frame. CreatePaletteTabs keeps its editor geometry
+   independently; both surfaces still share tab sizing and colors below. */
 QWidget#ToolboxContent QTabWidget::pane {{
+    background-color: transparent;
+    border: 0px;
+    border-radius: 0px;
+    top: {runtime_tab_pane_top_offset}px;
+}}
+
+QFrame#RuntimeFolder[folderType="tabs"] {{
     background-color: {folder_card_bg};
     border: {tab_border_width}px solid {separator};
     border-radius: {panel_radius}px;
     border-top-left-radius: 0px;
-    top: {runtime_tab_pane_top_offset}px;
 }}
 
 QTabWidget#CreatePaletteTabs::pane {{

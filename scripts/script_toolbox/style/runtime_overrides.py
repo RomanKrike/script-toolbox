@@ -110,7 +110,19 @@ QTabWidget#CreatePaletteTabs QTabBar::tab:selected {{
     border-color: {separator};
     border-bottom-color: {folder_card_bg};
     margin-bottom: {runtime_tab_selected_overlap}px;
+}}
+
+QWidget#ToolboxContent QTabBar::tab:selected {{
     font-weight: bold;
+}}
+
+/* Maya 2015 / Qt4 calculates the palette-tab width from the normal font.
+   Making the selected tab bold can then overrun that cached width and clip
+   the first/last glyph (most visible on "Presets"). Keep the editor palette
+   label geometry stable; background, text color and pane overlap still show
+   the active tab clearly. */
+QTabWidget#CreatePaletteTabs QTabBar::tab:selected {{
+    font-weight: normal;
 }}
 
 /* Runtime Field keeps the editor list surface without row decoration:

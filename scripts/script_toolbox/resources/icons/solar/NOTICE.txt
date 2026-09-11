@@ -1,40 +1,18 @@
 Solar Icons attribution
 =======================
 
-This directory contains selected, recolored SVG icons from the Solar Icons set.
+This directory contains selected SVG icons from the Solar collection distributed through Iconify.
 
-Upstream project:
-https://github.com/saoudi-h/solar-icons
+Iconify:
+https://iconify.design/
+
+Iconify Solar collection dataset:
+https://github.com/iconify/icon-sets/blob/master/json/solar.json
 
 Solar Icons Set by 480 Design:
 https://www.figma.com/community/file/1166831539721848736
 
-The upstream project is distributed under the MIT License and notes that the
-Solar icon artwork is licensed under Creative Commons Attribution 4.0 (CC BY
-4.0). The selected SVGs in this directory have only been recolored from the
-upstream #1C274C stroke to #d9d9d9 for visibility in ScriptToolbox's dark UI.
-
-CC BY 4.0:
+License: Creative Commons Attribution 4.0 (CC BY 4.0)
 https://creativecommons.org/licenses/by/4.0/
 
-MIT License
-
-Copyright (c) 2024 Hakim Saoudi
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+For ScriptToolbox's dark UI, the monochrome Linear SVG variants are stored locally with #d9d9d9 as their stroke/fill color. Geometry is sourced from the Iconify Solar collection; only the display color is normalized for the plugin UI.

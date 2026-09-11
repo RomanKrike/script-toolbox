@@ -19,7 +19,7 @@ def _read(relative_path):
         return handle.read()
 
 
-def test_editor_tree_branch_highlight_uses_shared_dark_selection_color():
+def test_editor_tree_selection_keeps_branch_decoration_visible():
     source = _read(
         "scripts/script_toolbox/ui/editor_selection_state.py"
     )
@@ -27,10 +27,9 @@ def test_editor_tree_branch_highlight_uses_shared_dark_selection_color():
     assert "SELECTION_BG" in source
     assert "QtGui.QPalette.Highlight" in source
     assert "QtGui.QPalette.HighlightedText" in source
-    assert "show-decoration-selected: 1" in source
-    assert "QTreeWidget::branch:selected" in source
+    assert "show-decoration-selected: 0" in source
     assert "selection-background-color: %s" in source
-    assert "background-color: %s" in source
+    assert "QTreeWidget::branch:selected" not in source
     assert "_apply_selection_palette(\n            self.palette" in source
     assert "_apply_selection_palette(\n            self.tree" in source
 

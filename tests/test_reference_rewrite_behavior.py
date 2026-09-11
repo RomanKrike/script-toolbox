@@ -96,9 +96,8 @@ def test_duplicate_subtree_remaps_internal_links_and_reports_alias():
     }
     controller = EditorDocumentController(_document([source]))
 
-    clone, result = controller.clone_subtree(
-        controller.find_by_id("group"),
-        return_result=True
+    clone, result = controller.clone_subtree_result(
+        controller.find_by_id("group")
     )
 
     cloned_source = clone["items"][0]

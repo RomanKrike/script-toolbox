@@ -108,8 +108,16 @@ class EditorDocumentController(object):
                 return candidate
             index += 1
 
-    def clone_subtree(self, data, used_names=None, return_result=False):
+    def clone_subtree(self, data, used_names=None):
         """Clone a subtree and remap links that target items inside it."""
+        clone, result = self.clone_subtree_result(
+            data,
+            used_names=used_names
+        )
+        return clone
+
+    def clone_subtree_result(self, data, used_names=None):
+        """Clone a subtree and return rewrite diagnostics with the clone."""
         if used_names is None:
             used_names = self.used_names()
 
@@ -149,9 +157,7 @@ class EditorDocumentController(object):
             clone,
             replacements
         )
-        if return_result:
-            return clone, result
-        return clone
+        return clone, result
 
     def rename_item_references_result(
         self,

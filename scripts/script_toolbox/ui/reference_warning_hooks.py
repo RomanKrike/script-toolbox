@@ -57,10 +57,9 @@ def build_reference_warning_editor_class(base_class):
             self.status.setText(message)
 
         def _clone_data(self, data, used_names=None):
-            clone, result = self.document_controller.clone_subtree(
+            clone, result = self.document_controller.clone_subtree_result(
                 data,
-                used_names,
-                return_result=True
+                used_names
             )
             unresolved = result.get("unresolved_items", [])
             if unresolved:

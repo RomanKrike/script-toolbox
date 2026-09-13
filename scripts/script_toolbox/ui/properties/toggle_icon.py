@@ -8,6 +8,7 @@ from ...pycompat import text_type
 from ..icon_browse import install_icon_browse
 from ..language_script_editor import LanguageScriptEditor
 from .base import PropertyEditorBase
+from .inspector_tabs import style_inspector_tabs
 
 
 class ToggleIconPropertyEditor(PropertyEditorBase):
@@ -62,6 +63,7 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
         )
 
         self.state_tabs = QtGui.QTabWidget()
+        style_inspector_tabs(self.state_tabs)
         self.state_get_editor = LanguageScriptEditor(
             language="python",
             toolbox=self.toolbox
@@ -122,14 +124,14 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
             not scripted,
             "Internal State is controlled by Get State when State Source is Script."
         )
-        try:
-            self.state_tabs.setTabEnabled(0, scripted)
-            self.state_tabs.setTabToolTip(
-                0,
-                "" if scripted else "Get State is used only when State Source is Script."
-            )
-        except Exception:
-            self.state_get_editor.setEnabled(scripted)
+        self.state_tabs.setTabEnabled(0, True)
+        self.state_tabs.setTabToolTip(
+            0,
+            "State query used when State Source is Script."
+            if not scripted else
+            "State query used to evaluate the current toggle state."
+        )
+        self.state_get_editor.setEnabled(True)
 
     def load_specific(self, item):
         self.state_source.setCurrentIndex(

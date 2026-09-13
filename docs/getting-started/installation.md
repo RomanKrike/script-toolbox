@@ -8,9 +8,9 @@ The same package supports these DCC generations:
 
 - **Maya 2015+** — PySide / Qt 4 on Maya 2015–2016, PySide2 / Qt 5 on Maya 2017–2024, and PySide6 / Qt 6 on Maya 2025+;
 - **Nuke 12+** — PySide2 / Qt 5 on Nuke 12–15 and PySide6 / Qt 6 on Nuke 16+;
-- **Houdini 19+** — PySide2 / Qt 5 on Houdini 19–20.x, optional PySide6 / Qt 6 on Houdini 20.5 Qt 6 builds, and PySide6 / Qt 6 on Houdini 21+.
+- **Houdini 19+** — PySide2 / Qt 5 on Houdini 19–20.x; optional PySide6 / Qt 6 on Houdini 20.5 Qt 6 builds; Houdini 21 main builds use PySide6 / Qt 6 while separate Qt 5.15.2 builds use PySide2; Houdini 22+ uses PySide6 / Qt 6.
 
-Script Toolbox resolves the Qt/PySide binding at runtime and prefers the binding already loaded by the host, so separate plugin packages are not required for Qt 4, Qt 5, and Qt 6 generations.
+Script Toolbox resolves the Qt/PySide binding at runtime and prefers the binding already loaded or selected by the host, so separate plugin packages are not required for Qt 4, Qt 5, and Qt 6 generations.
 
 ## Download a stable release
 

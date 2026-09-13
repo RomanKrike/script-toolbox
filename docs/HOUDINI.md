@@ -8,12 +8,13 @@ Supported Houdini generations:
 
 - Houdini 19–20.x standard Qt 5 builds — PySide2 / Qt 5
 - Houdini 20.5 optional Qt 6 builds — PySide6 / Qt 6 when the host selects that binding
-- Houdini 21+ — PySide6 / Qt 6
+- Houdini 21 main builds — PySide6 / Qt 6; separate Qt 5.15.2 builds are also supported through PySide2
+- Houdini 22+ — PySide6 / Qt 6; Qt 5 builds were dropped in Houdini 22
 - Python and HScript button languages
 
 The host adapter remains Python 2.7 syntax-compatible because Houdini 19.0 was the final Houdini release family with separately published Python 2 builds.
 
-Script Toolbox resolves the binding from the Houdini version, `HOUDINI_QT_PREFERRED_BINDING`, and any binding already loaded by the host. An already-loaded binding wins so Script Toolbox does not intentionally mix Qt major versions in one Houdini process.
+Script Toolbox resolves the binding from the Houdini version, `HOUDINI_QT_PREFERRED_BINDING`, and any binding already loaded by the host. An already-loaded or host-preferred binding wins so Script Toolbox does not intentionally mix Qt major versions in one Houdini process. This also lets Houdini 21 Qt 5 variant builds select PySide2 while the main Houdini 21 build selects PySide6.
 
 ## Installation for development
 
@@ -78,7 +79,7 @@ The main Script Toolbox window is parented to Houdini's Qt main window. The inte
 
 The shared UI retains the original Qt 4-style `QtGui` widget namespace. On PySide2 and PySide6 hosts, Script Toolbox mirrors `QtWidgets` into that namespace so the runtime and Interface Editor do not need separate implementations per Houdini generation.
 
-The compatibility layer also supplies the Qt 6 compatibility surface required by the existing editor: the used `QRegExp` API subset, legacy `exec_()` aliases and font-metric width access.
+The compatibility layer also supplies the Qt 6 compatibility surface required by the existing editor: the used `QRegExp` API subset, legacy `exec_()` aliases, font-metric width access, and the modern tab-stop API fallback.
 
 ## Current scope
 

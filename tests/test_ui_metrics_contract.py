@@ -93,8 +93,8 @@ def test_trigger_panel_layouts_use_shared_metrics():
         "FORM_INLINE_SPACING = 8",
         "TRIGGER_PAGE_MARGINS = (2, 3, 2, 2)",
         "TRIGGER_PAGE_SPACING = 4",
-        "TRIGGER_PANEL_MARGINS = (5, 5, 5, 5)",
-        "TRIGGER_PANEL_SPACING = 3",
+        "TRIGGER_PANEL_MARGINS = MARGINS_NONE",
+        "TRIGGER_PANEL_SPACING = 0",
     ):
         assert definition in metrics
 

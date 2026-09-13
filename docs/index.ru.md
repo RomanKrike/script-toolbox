@@ -45,9 +45,9 @@ Script Toolbox поддерживает вложенные Folder-контейн
 | --- | --- | --- | --- |
 | Maya | Maya 2015+ | PySide / Qt 4 на 2015–2016; PySide2 / Qt 5 на 2017–2024; PySide6 / Qt 6 на 2025+ | Python, MEL |
 | Nuke | Nuke 12+ | PySide2 / Qt 5 на 12–15; PySide6 / Qt 6 на 16+ | Python |
-| Houdini | Houdini 19+ | PySide2 / Qt 5 на 19–20.x; опционально PySide6 / Qt 6 в Qt 6-сборках Houdini 20.5; PySide6 / Qt 6 на 21+ | Python, HScript |
+| Houdini | Houdini 19+ | PySide2 / Qt 5 на 19–20.x; опционально PySide6 / Qt 6 в Qt 6-сборках Houdini 20.5; основные сборки Houdini 21 используют PySide6 / Qt 6, отдельные Qt 5.15.2-сборки — PySide2; Houdini 22+ использует PySide6 / Qt 6 | Python, HScript |
 
-Для всех поддерживаемых DCC используется одна реализация UI. Runtime compatibility layer выбирает подходящее поколение Qt/PySide, предпочитает binding, уже загруженный самим DCC, и сохраняет legacy QtGui-style API исходной реализации для Maya 2015.
+Для всех поддерживаемых DCC используется одна реализация UI. Runtime compatibility layer выбирает подходящее поколение Qt/PySide, предпочитает binding, уже загруженный или выбранный самим DCC, и сохраняет legacy QtGui-style API исходной реализации для Maya 2015.
 
 ## Карта документации
 

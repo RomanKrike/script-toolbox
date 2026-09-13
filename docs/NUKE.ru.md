@@ -1,15 +1,16 @@
 # Интеграция с Nuke
 
-Script Toolbox поддерживает Nuke через ту же core-модель, Interface Editor, Runtime widgets, updater и JSON-схему, что используются в Maya.
+Script Toolbox поддерживает Nuke через ту же core-модель, Interface Editor, Runtime widgets, updater и JSON-схему, что используются в Maya и Houdini.
 
 ## Целевая совместимость
 
-Первый целевой вариант Nuke:
+Поддерживаемые поколения Nuke:
 
-- Nuke 12
-- Python 2.7
-- PySide2 / Qt 5
-- Python для button scripts
+- Nuke 12–15 — PySide2 / Qt 5
+- Nuke 16+ — PySide6 / Qt 6
+- Python для button scripts во всех поддерживаемых версиях
+
+Runtime определяет версию Nuke и выбирает соответствующий Qt binding. Если DCC уже загрузил конкретное поколение PySide, Script Toolbox переиспользует его вместо загрузки другого Qt major в тот же процесс.
 
 MEL доступен только когда активный хост — Maya.
 
@@ -111,8 +112,14 @@ Nuke использует:
 
 Оба хоста используют одну JSON-схему, поэтому конфигурации можно экспортировать и импортировать между ними. Host-specific scripts при этом должны использовать API соответствующего DCC.
 
+## Qt compatibility
+
+Общий UI изначально написан под структуру Qt 4 / PySide 1, где widgets находятся в `QtGui`. Для Qt 5 и Qt 6 Script Toolbox зеркалирует `QtWidgets` в compatibility namespace `QtGui`, поэтому Nuke 12–15 и Nuke 16+ используют одну реализацию интерфейса.
+
+Compatibility layer также закрывает используемые Editor API, удалённые или переименованные в Qt 6: необходимый subset `QRegExp`, legacy-вызовы `exec_()`, font-metric width и современный tab-stop API.
+
 ## Обновления
 
-GitHub Releases общие для обоих хостов. На Windows старый HTTPS stack Python 2.7 при необходимости может использовать скрытый PowerShell/.NET TLS transport.
+GitHub Releases общие для всех поддерживаемых хостов. На Windows старый HTTPS stack Python 2.7 при необходимости может использовать скрытый PowerShell/.NET TLS transport.
 
 Текущий пакет полностью Python/PySide, поэтому успешное обновление по возможности выполняет hot reload. Перезапуск хоста остаётся fallback-вариантом при неудаче reload.

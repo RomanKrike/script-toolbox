@@ -14,6 +14,81 @@ from ..style.palette import SYNTAX_STRING
 from .autocomplete import CompletionController
 
 
+def _font_text_width(
+    metrics,
+    text
+):
+    """Return text width across Qt4/Qt5/Qt6 font-metrics APIs."""
+    callback = getattr(
+        metrics,
+        "width",
+        None
+    )
+    if callable(
+        callback
+    ):
+        try:
+            return callback(
+                text
+            )
+        except Exception:
+            pass
+
+    callback = getattr(
+        metrics,
+        "horizontalAdvance",
+        None
+    )
+    if callable(
+        callback
+    ):
+        try:
+            return callback(
+                text
+            )
+        except Exception:
+            pass
+
+    return 0
+
+
+def _set_tab_stop_width(
+    editor,
+    width
+):
+    """Use the modern floating-point API when available, then Qt4 fallback."""
+    callback = getattr(
+        editor,
+        "setTabStopDistance",
+        None
+    )
+    if callable(
+        callback
+    ):
+        try:
+            callback(
+                float(width)
+            )
+            return
+        except Exception:
+            pass
+
+    callback = getattr(
+        editor,
+        "setTabStopWidth",
+        None
+    )
+    if callable(
+        callback
+    ):
+        try:
+            callback(
+                int(width)
+            )
+        except Exception:
+            pass
+
+
 class LineNumberArea(QtGui.QWidget):
 
     def __init__(self, editor):
@@ -56,12 +131,13 @@ class CodeEditor(QtGui.QPlainTextEdit):
         font.setPointSize(10)
         self.setFont(font)
 
-        try:
-            self.setTabStopWidth(
-                self.fontMetrics().width(" ") * 4
-            )
-        except Exception:
-            pass
+        _set_tab_stop_width(
+            self,
+            _font_text_width(
+                self.fontMetrics(),
+                " "
+            ) * 4
+        )
 
         self.setLineWrapMode(
             QtGui.QPlainTextEdit.NoWrap
@@ -95,7 +171,10 @@ class CodeEditor(QtGui.QPlainTextEdit):
         )
 
         return 10 + (
-            self.fontMetrics().width("9") *
+            _font_text_width(
+                self.fontMetrics(),
+                "9"
+            ) *
             digits
         )
 

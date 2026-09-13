@@ -5,22 +5,24 @@ Script Toolbox — модульный multi-DCC toolbox для Maya, Nuke и Hou
 ## Целевая совместимость
 
 ### Maya
-- Autodesk Maya 2015
-- Python 2.7
-- PySide 1 / Qt 4
+- Maya 2015–2016 — Python 2.7-era hosts, PySide / Qt 4
+- Maya 2017–2024 — PySide2 / Qt 5
+- Maya 2025+ — PySide6 / Qt 6
 - Python и MEL для event scripts
 
 ### Nuke
-- Nuke 12
-- Python 2.7
-- PySide2 / Qt 5
+- Nuke 12–15 — PySide2 / Qt 5
+- Nuke 16+ — PySide6 / Qt 6
 - Python для event scripts
 
 ### Houdini
-- Houdini 19.0
-- стандартная сборка Python 3.7
-- PySide2 / Qt 5
+- Houdini 19–20.x в стандартных Qt 5-сборках — PySide2 / Qt 5
+- опциональные Qt 6-сборки Houdini 20.5 — PySide6 / Qt 6, когда этот binding выбран хостом
+- основные сборки Houdini 21 — PySide6 / Qt 6; отдельные Qt 5.15.2-сборки также поддерживаются через PySide2
+- Houdini 22+ — PySide6 / Qt 6; Qt 5-сборки прекращены начиная с Houdini 22
 - Python и HScript для event scripts
+
+Общий UI не форкается по поколениям DCC. `qt_compat.py` во время запуска выбирает PySide / PySide2 / PySide6, предпочитает binding, уже загруженный или выбранный самим хостом, зеркалирует Qt5/Qt6 `QtWidgets` в legacy-поверхность `QtGui` и предоставляет небольшой набор legacy API, необходимый существующему Editor под Qt 6. Это правило host preference также покрывает отдельные Qt 5-сборки Houdini 21.
 
 Исторические схемы конфигурации Script Toolbox намеренно **не** являются целью совместимости, пока плагин активно развивается.
 
@@ -37,6 +39,7 @@ ui/main_window -> ui/runtime -> core/values -> model
       -> core/user_paths -> hosts
       -> core/event_bindings -> core/executor
       -> compat -> hosts
+                 -> qt_compat
 
 core/http_transport -> только Python stdlib
 core/executor -> hosts
@@ -45,9 +48,10 @@ hosts/base -> только Python stdlib
 hosts/maya_host -> maya.cmds / maya.mel
 hosts/nuke_host -> nuke / nukescripts
 hosts/houdini_host -> hou
+qt_compat -> Python stdlib + выбранное поколение PySide
 ```
 
-Слой model должен импортироваться без Maya и Qt. Host-specific imports находятся за `hosts/`, `compat.py` и модулями интеграции конкретных DCC. `core/http_transport.py` не зависит от Qt/DCC и не должен импортировать UI.
+Слой model должен импортироваться без Maya и Qt. Host-specific imports находятся за `hosts/`, `compat.py` и модулями интеграции конкретных DCC. Выбор Qt binding и bridging API между Qt4/Qt5/Qt6 принадлежат `qt_compat.py`; UI-модули не должны самостоятельно выбирать поколение PySide. `core/http_transport.py` не зависит от Qt/DCC и не должен импортировать UI.
 
 ## Пути пользовательской конфигурации
 
@@ -150,6 +154,7 @@ Compatibility symbols классифицируются по фактическо
 
 Текущие compatibility layers:
 
+- `qt_compat.py`, который владеет выбором поколения PySide, legacy QtGui widget surface и subset Qt 6 compatibility API, используемым Editor;
 - private transport helpers updater, например `_download_with_powershell`, теперь делегируют в `core.http_transport`;
 - private Windows/PowerShell helpers share provider также делегируют в `core.http_transport`;
 - `ui/icon_ui_hooks.py` сохранён как документированный набор no-op shims для старых direct imports;
@@ -165,6 +170,7 @@ scripts/script_toolbox/
   __init__.py
   bootstrap.py
   compat.py
+  qt_compat.py
   pycompat.py
   constants.py
   nuke_integration.py
@@ -241,5 +247,6 @@ scripts/script_toolbox/
 - Новые item types регистрируются через model, renderer и property-editor registries.
 - Structural recursion использует общий container predicate.
 - Shared network compatibility принадлежит `core/http_transport.py`; updater/share не должны дублировать PowerShell transport logic.
+- Выбор Qt binding и Qt4/Qt5/Qt6 compatibility принадлежат `qt_compat.py`; host/UI modules не должны создавать параллельную binding logic.
 - Порядок UI/runtime composition принадлежит `ui/bootstrap.py`; `ui/__init__.py` должен оставаться небольшим public export surface.
-- Исходный код остаётся совместимым с Python 2.7 до намеренного прекращения поддержки Maya 2015.
+- Исходный код остаётся совместимым с Python 2.7 до намеренного прекращения поддержки legacy-поколений Maya 2015 / Nuke 12.

@@ -5,22 +5,24 @@ Script Toolbox is a modular multi-DCC toolbox targeting Maya, Nuke and Houdini f
 ## Compatibility targets
 
 ### Maya
-- Autodesk Maya 2015
-- Python 2.7
-- PySide 1 / Qt 4
+- Maya 2015–2016 — Python 2.7-era hosts, PySide / Qt 4
+- Maya 2017–2024 — PySide2 / Qt 5
+- Maya 2025+ — PySide6 / Qt 6
 - Python and MEL event scripts
 
 ### Nuke
-- Nuke 12
-- Python 2.7
-- PySide2 / Qt 5
+- Nuke 12–15 — PySide2 / Qt 5
+- Nuke 16+ — PySide6 / Qt 6
 - Python event scripts
 
 ### Houdini
-- Houdini 19.0
-- Python 3.7 default build
-- PySide2 / Qt 5
+- Houdini 19–20.x standard Qt 5 builds — PySide2 / Qt 5
+- Houdini 20.5 optional Qt 6 builds — PySide6 / Qt 6 when selected by the host
+- Houdini 21 main builds — PySide6 / Qt 6; separate Qt 5.15.2 builds remain supported through PySide2
+- Houdini 22+ — PySide6 / Qt 6; Qt 5 builds were dropped in Houdini 22
 - Python and HScript event scripts
+
+The shared UI is not forked per DCC generation. `qt_compat.py` resolves PySide / PySide2 / PySide6 at runtime, prefers a binding already loaded or selected by the host, mirrors Qt5/Qt6 `QtWidgets` onto the legacy `QtGui` widget surface, and supplies the small legacy API subset needed by the existing editor under Qt 6. This host-preference rule also covers Houdini 21 Qt 5 variant builds.
 
 Historical Script Toolbox config schemas are intentionally **not** a compatibility target while the plugin remains under active development.
 
@@ -37,6 +39,7 @@ ui/main_window -> ui/runtime -> core/values -> model
       -> core/user_paths -> hosts
       -> core/event_bindings -> core/executor
       -> compat -> hosts
+                 -> qt_compat
 
 core/http_transport -> Python stdlib only
 core/executor -> hosts
@@ -45,9 +48,10 @@ hosts/base -> Python stdlib only
 hosts/maya_host -> maya.cmds / maya.mel
 hosts/nuke_host -> nuke / nukescripts
 hosts/houdini_host -> hou
+qt_compat -> Python stdlib + selected PySide generation
 ```
 
-The model layer must remain importable without Maya or Qt. Host-specific imports live behind `hosts/`, `compat.py`, and host integration modules. `core/http_transport.py` is Qt/DCC-independent and must not import UI code.
+The model layer must remain importable without Maya or Qt. Host-specific imports live behind `hosts/`, `compat.py`, and host integration modules. Qt binding selection and Qt4/Qt5/Qt6 API bridging belong in `qt_compat.py`; UI modules must not select PySide generations directly. `core/http_transport.py` is Qt/DCC-independent and must not import UI code.
 
 ## User config paths
 
@@ -150,6 +154,7 @@ Compatibility symbols are classified by whether they are internal dead code or e
 
 Current compatibility layers include:
 
+- `qt_compat.py`, which owns PySide generation selection, the legacy QtGui widget surface, and the Qt 6 compatibility subset used by the editor;
 - updater private transport helpers such as `_download_with_powershell`, which now forward to `core.http_transport`;
 - share provider private Windows/PowerShell helpers, which also forward to `core.http_transport`;
 - `ui/icon_ui_hooks.py`, retained as documented no-op shims for older direct imports;
@@ -165,6 +170,7 @@ scripts/script_toolbox/
   __init__.py
   bootstrap.py
   compat.py
+  qt_compat.py
   pycompat.py
   constants.py
   nuke_integration.py
@@ -241,5 +247,6 @@ scripts/script_toolbox/
 - New item types register through model, renderer and property-editor registries.
 - Structural recursion uses the shared container predicate.
 - Shared network compatibility belongs in `core/http_transport.py`; updater/share must not duplicate PowerShell transport logic.
+- Qt binding selection and Qt4/Qt5/Qt6 compatibility belong in `qt_compat.py`; host/UI modules must not create parallel binding logic.
 - UI/runtime composition ordering belongs in `ui/bootstrap.py`; `ui/__init__.py` should remain a small public export surface.
-- Source remains Python 2.7 compatible until Maya 2015 support is intentionally dropped.
+- Source remains Python 2.7 compatible until support for the legacy Maya 2015 / Nuke 12 generation is intentionally dropped.

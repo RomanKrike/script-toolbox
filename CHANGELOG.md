@@ -8,12 +8,14 @@
 - Add `Internal` state for persisted boolean toggles and `Script` state for host-driven/query-driven toggles.
 - Add a first-run opt-in dialog for anonymous Script Toolbox usage statistics.
 - Add Script Toolbox Settings with update-channel and Privacy controls for telemetry consent.
+- Add cross-version Qt/PySide compatibility for Maya 2015+, Nuke 12+, and Houdini 19+, including PySide6 / Qt 6 hosts.
 
 ### Changed
 
 - Make the regular `Button` item action-only instead of combining action and state behavior in one control type.
 - Upgrade config schema to version 19 and migrate existing `button` items with `mode: state` to `toggle_button` with scripted state automatically.
 - Keep scripted Toggle Button state external: only Internal toggles persist a boolean `value` in the document.
+- Resolve the host Qt binding centrally and reuse an already-loaded binding to avoid intentionally mixing Qt major versions in one DCC process.
 
 ## 0.4.4
 

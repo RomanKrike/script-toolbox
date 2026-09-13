@@ -41,11 +41,13 @@ Common workflows include:
 
 ## Supported hosts
 
-| Host | Baseline | Script languages |
-| --- | --- | --- |
-| Maya | Maya 2015, Python 2.7, PySide 1 / Qt 4 | Python, MEL |
-| Nuke | Nuke 12, Python 2.7, PySide2 / Qt 5 | Python |
-| Houdini | Houdini 19.0 default Python 3.7 build, PySide2 / Qt 5 | Python, HScript |
+| Host | Supported generations | Qt / PySide | Script languages |
+| --- | --- | --- | --- |
+| Maya | Maya 2015+ | PySide / Qt 4 on 2015–2016; PySide2 / Qt 5 on 2017–2024; PySide6 / Qt 6 on 2025+ | Python, MEL |
+| Nuke | Nuke 12+ | PySide2 / Qt 5 on 12–15; PySide6 / Qt 6 on 16+ | Python |
+| Houdini | Houdini 19+ | PySide2 / Qt 5 on 19–20.x; optional PySide6 / Qt 6 on Houdini 20.5 Qt 6 builds; Houdini 21 main builds use PySide6 / Qt 6 while separate Qt 5.15.2 builds use PySide2; Houdini 22+ uses PySide6 / Qt 6 | Python, HScript |
+
+Script Toolbox uses one shared UI implementation across all supported hosts. The runtime compatibility layer selects the host-appropriate Qt/PySide generation, prefers a binding already loaded or selected by the DCC, and keeps the legacy QtGui-style API used by the original Maya 2015 implementation.
 
 ## Documentation map
 

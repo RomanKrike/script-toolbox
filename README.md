@@ -6,9 +6,11 @@ Configurable script toolbox for Maya, Nuke, and Houdini.
 
 Current host targets:
 
-- Maya 2015 — Python 2.7, PySide 1 / Qt 4, Python + MEL
-- Nuke 12 — Python 2.7, PySide2 / Qt 5, Python
-- Houdini 19.0 — Python 3.7 default build, PySide2 / Qt 5, Python + HScript
+- Maya 2015+ — PySide / Qt 4 on Maya 2015–2016, PySide2 / Qt 5 on Maya 2017–2024, and PySide6 / Qt 6 on Maya 2025+; Python + MEL
+- Nuke 12+ — PySide2 / Qt 5 on Nuke 12–15 and PySide6 / Qt 6 on Nuke 16+; Python
+- Houdini 19+ — PySide2 / Qt 5 on Houdini 19–20.x; Houdini 20.5 also has optional Qt 6 / PySide6 builds; Houdini 21 defaults to Qt 6 / PySide6 while separate Qt 5 builds remain supported; Houdini 22+ is Qt 6 / PySide6; Python + HScript
+
+The UI keeps one shared widget tree across these hosts. A compatibility layer resolves the Qt/PySide generation at runtime, honors Houdini's host binding preference, and preserves the legacy QtGui-style widget API used by the Maya 2015 codebase.
 
 ## Architecture status
 
@@ -65,7 +67,7 @@ script_toolbox.register_nuke_panel()
 
 See [docs/NUKE.md](docs/NUKE.md) and `nuke/menu.py.example` for installation.
 
-## Houdini 19 entry point
+## Houdini entry point
 
 Point Houdini at the repository `scripts` directory through `PYTHONPATH`, then run:
 
@@ -81,7 +83,7 @@ import script_toolbox
 script_toolbox.reload_toolbox()
 ```
 
-See [docs/HOUDINI.md](docs/HOUDINI.md) and `houdini/script_toolbox.json.example` for the Houdini 19 package setup.
+See [docs/HOUDINI.md](docs/HOUDINI.md) and `houdini/script_toolbox.json.example` for the Houdini package setup.
 
 ## Current feature set
 
@@ -132,6 +134,7 @@ Every push and pull request runs GitHub Actions checks covering:
 - package compilation;
 - Maya 2015 / Python 2.7 compile and smoke checks;
 - Nuke host import, config I/O, execution, updater, controls and encrypted-share Python 2.7 smoke checks;
+- Qt binding-generation and legacy API compatibility tests;
 - release-package contract tests;
 - a downloadable test-build artifact after all required checks pass.
 

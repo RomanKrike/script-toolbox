@@ -4,13 +4,13 @@ Script Toolbox распространяется как версионирова�
 
 ## Поддерживаемые хосты
 
-Один и тот же пакет поддерживает следующие поколения DCC:
+Один пакет поддерживает следующие поколения DCC:
 
 - **Maya 2015+** — PySide / Qt 4 на Maya 2015–2016, PySide2 / Qt 5 на Maya 2017–2024 и PySide6 / Qt 6 на Maya 2025+;
 - **Nuke 12+** — PySide2 / Qt 5 на Nuke 12–15 и PySide6 / Qt 6 на Nuke 16+;
-- **Houdini 19+** — PySide2 / Qt 5 на Houdini 19–20.x, опционально PySide6 / Qt 6 в Qt 6-сборках Houdini 20.5 и PySide6 / Qt 6 на Houdini 21+.
+- **Houdini 19+** — PySide2 / Qt 5 на Houdini 19–20.x; опционально PySide6 / Qt 6 в Qt 6-сборках Houdini 20.5; основные сборки Houdini 21 используют PySide6 / Qt 6, а отдельные Qt 5.15.2-сборки — PySide2; Houdini 22+ использует PySide6 / Qt 6.
 
-Script Toolbox определяет Qt/PySide binding во время запуска и предпочитает binding, уже загруженный самим DCC, поэтому отдельные пакеты плагина для Qt 4, Qt 5 и Qt 6 не нужны.
+Script Toolbox определяет Qt/PySide binding во время запуска и предпочитает binding, уже загруженный или выбранный самим DCC, поэтому отдельные пакеты плагина для Qt 4, Qt 5 и Qt 6 не нужны.
 
 ## Скачивание стабильного релиза
 
@@ -24,7 +24,7 @@ Script Toolbox определяет Qt/PySide binding во время запус
 
 В релиз входит `MayaScriptToolbox.mod` для установки через модульную систему Maya.
 
-Сделайте папку, содержащую `MayaScriptToolbox.mod`, доступной Maya через ваш обычный module path. После подключения модуля откройте Script Toolbox из Python:
+Сделайте папку, содержащую `MayaScriptToolbox.mod`, доступной Maya через обычный module path. После подключения модуля откройте Script Toolbox из Python:
 
 ```python
 import script_toolbox
@@ -89,7 +89,7 @@ Script Toolbox поддерживает три канала обновления
 - **Latest** — самая новая подходящая опубликованная версия;
 - **Development** — тестовые сборки из `dev`.
 
-Для обычной production-работы используйте Stable. Development выбирайте только когда намеренно тестируете следующий релиз.
+Для обычной работы используйте Stable. Development выбирайте только когда намеренно тестируете следующий релиз.
 
 ## Пользовательская конфигурация
 

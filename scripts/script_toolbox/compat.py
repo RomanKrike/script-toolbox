@@ -5,6 +5,9 @@ from .hosts import HOST
 from .pycompat import StringIO
 from .pycompat import integer_type
 from .pycompat import text_type
+from .qt_compat import houdini_preferred_binding
+from .qt_compat import load_qt_binding
+from .qt_compat import mirror_widgets_onto_qtgui
 
 
 HOST_KEY = HOST.key
@@ -16,49 +19,12 @@ mel = None
 nuke = None
 nukescripts = None
 hou = None
-shiboken = None
 omui = None
-
-
-def _mirror_qtwidgets_onto_qtgui(
-    qt_gui,
-    qt_widgets
-):
-    for name in dir(
-        qt_widgets
-    ):
-        if hasattr(
-            qt_gui,
-            name
-        ):
-            continue
-
-        try:
-            setattr(
-                qt_gui,
-                name,
-                getattr(
-                    qt_widgets,
-                    name
-                )
-            )
-        except Exception:
-            pass
-
-    return qt_gui
 
 
 if HOST_KEY == "maya":
     import maya.cmds as cmds
     import maya.mel as mel
-
-    from PySide import QtCore
-    from PySide import QtGui
-
-    try:
-        import shiboken
-    except ImportError:
-        shiboken = None
 
     try:
         from maya import OpenMayaUI as omui
@@ -73,58 +39,38 @@ elif HOST_KEY == "nuke":
     except ImportError:
         nukescripts = None
 
-    from PySide2 import QtCore
-    from PySide2 import QtGui as _QtGui
-    from PySide2 import QtWidgets
-
-    # The Maya 2015 codebase uses the Qt4/PySide1 layout where widgets live
-    # under QtGui. Mirror QtWidgets onto QtGui so the same UI code works in
-    # Nuke 12 / PySide2 without maintaining a second widget tree.
-    QtGui = _mirror_qtwidgets_onto_qtgui(
-        _QtGui,
-        QtWidgets
-    )
-
-    try:
-        import shiboken2 as shiboken
-    except ImportError:
-        shiboken = None
-
 elif HOST_KEY == "houdini":
     import hou
 
-    from PySide2 import QtCore
-    from PySide2 import QtGui as _QtGui
-    from PySide2 import QtWidgets
 
-    # Houdini 19 uses PySide2/Qt5. Preserve the legacy QtGui widget namespace
-    # expected by the original Maya UI so all hosts can share one widget tree.
-    QtGui = _mirror_qtwidgets_onto_qtgui(
-        _QtGui,
-        QtWidgets
+preferred_binding = ""
+if HOST_KEY == "houdini":
+    preferred_binding = houdini_preferred_binding()
+
+_QT_BINDING = load_qt_binding(
+    HOST_KEY,
+    HOST.app_version(),
+    preferred_binding=preferred_binding
+)
+
+QtCore = _QT_BINDING.QtCore
+QtGui = _QT_BINDING.QtGui
+QtWidgets = _QT_BINDING.QtWidgets
+shiboken = _QT_BINDING.shiboken
+QT_BINDING = _QT_BINDING.name
+QT_MAJOR = _QT_BINDING.qt_major
+
+
+# Backward-compatible helper name retained for third-party imports that used
+# the original Nuke/Houdini Qt5 bridge directly.
+def _mirror_qtwidgets_onto_qtgui(
+    qt_gui,
+    qt_widgets
+):
+    return mirror_widgets_onto_qtgui(
+        qt_gui,
+        qt_widgets
     )
-
-    try:
-        import shiboken2 as shiboken
-    except ImportError:
-        shiboken = None
-
-else:
-    # Standalone imports are useful for development tooling. Prefer PySide2
-    # when available and fall back to PySide1.
-    try:
-        from PySide2 import QtCore
-        from PySide2 import QtGui as _QtGui
-        from PySide2 import QtWidgets
-
-        QtGui = _mirror_qtwidgets_onto_qtgui(
-            _QtGui,
-            QtWidgets
-        )
-
-    except ImportError:
-        from PySide import QtCore
-        from PySide import QtGui
 
 
 def _maya_main_window():
@@ -290,6 +236,8 @@ __all__ = [
     "HOST",
     "HOST_DISPLAY_NAME",
     "HOST_KEY",
+    "QT_BINDING",
+    "QT_MAJOR",
     "cmds",
     "mel",
     "nuke",
@@ -297,6 +245,7 @@ __all__ = [
     "hou",
     "QtCore",
     "QtGui",
+    "QtWidgets",
     "StringIO",
     "text_type",
     "integer_type",

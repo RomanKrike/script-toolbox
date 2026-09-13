@@ -8,6 +8,7 @@ from ...pycompat import text_type
 from ..language_script_editor import LanguageScriptEditor
 from .base import PropertyEditorBase
 from .button import ButtonPropertyEditor
+from .inspector_tabs import style_inspector_tabs
 
 
 class ToggleButtonPropertyEditor(ButtonPropertyEditor):
@@ -54,6 +55,7 @@ class ToggleButtonPropertyEditor(ButtonPropertyEditor):
         section.addRow("OFF Color", self.state_off_color_button)
 
         self.state_tabs = QtGui.QTabWidget()
+        style_inspector_tabs(self.state_tabs)
         self.state_get_editor = LanguageScriptEditor(
             language="python",
             toolbox=self.toolbox
@@ -116,14 +118,14 @@ class ToggleButtonPropertyEditor(ButtonPropertyEditor):
             not scripted,
             "Internal State is controlled by Get State when State Source is Script."
         )
-        try:
-            self.state_tabs.setTabEnabled(0, scripted)
-            self.state_tabs.setTabToolTip(
-                0,
-                "" if scripted else "Get State is used only when State Source is Script."
-            )
-        except Exception:
-            self.state_get_editor.setEnabled(scripted)
+        self.state_tabs.setTabEnabled(0, True)
+        self.state_tabs.setTabToolTip(
+            0,
+            "State query used when State Source is Script."
+            if not scripted else
+            "State query used to evaluate the current toggle state."
+        )
+        self.state_get_editor.setEnabled(True)
 
     def _refresh_state_colors(self):
         self.state_on_color_button.setStyleSheet(

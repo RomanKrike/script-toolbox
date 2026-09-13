@@ -15,12 +15,14 @@ from .metrics import RUNTIME_TAB_SELECTED_OVERLAP
 from .metrics import TAB_BORDER_WIDTH
 from .metrics import TAB_MARGIN_RIGHT
 from .metrics import TAB_PANE_TOP_OFFSET
+from .palette import CONTENT_BG
 from .palette import FOLDER_CARD_BG
 from .palette import FOLDER_HEADER_HOVER_BG
 from .palette import LIST_BG
 from .palette import SELECTION_BG
 from .palette import SELECTION_TEXT
 from .palette import SEPARATOR
+from .palette import SIMPLE_SECTION_NESTED_BG
 from .palette import TEXT_FOLDER_COLLAPSED
 from .palette import TEXT_FOLDER_HOVER
 from .palette import TEXT_HEADING
@@ -170,17 +172,22 @@ QListWidget#RuntimeFieldList::item:selected {{
     color: {selection_text};
 }}
 
-/* Maya 2015 / Qt4 can render a visible rectangle behind QGroupBox titles
-   when the title surface is forced to a fixed theme color. Resolve the
-   title fill from the widget's effective QPalette instead, so the legend
-   masks the border with the same Window surface Maya is actually painting. */
-QGroupBox#SimpleSectionGroupBox::title,
+/* Maya 2015 / Qt4 needs the Simple Section title surface restated after the
+   runtime overrides. Keep the colors owned by style/palette.py: top-level
+   sections mask the border with CONTENT_BG, while nested sections use the
+   nested section surface from the same shared palette. */
+QGroupBox#SimpleSectionGroupBox::title {{
+    background-color: {content_bg};
+}}
+
 QGroupBox#SimpleSectionGroupBox[nested="true"]::title {{
-    background-color: palette(window);
+    background-color: {simple_section_nested_bg};
 }}
 
 """.format(
     window_bg=WINDOW_BG,
+    content_bg=CONTENT_BG,
+    simple_section_nested_bg=SIMPLE_SECTION_NESTED_BG,
     separator=SEPARATOR,
     folder_card_bg=FOLDER_CARD_BG,
     folder_header_hover_bg=FOLDER_HEADER_HOVER_BG,

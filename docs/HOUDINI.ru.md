@@ -8,12 +8,13 @@ Script Toolbox поддерживает Houdini 19 и новее через об
 
 - Houdini 19–20.x в стандартных Qt 5-сборках — PySide2 / Qt 5
 - опциональные Qt 6-сборки Houdini 20.5 — PySide6 / Qt 6, когда хост выбирает этот binding
-- Houdini 21+ — PySide6 / Qt 6
+- основные сборки Houdini 21 — PySide6 / Qt 6; отдельные Qt 5.15.2-сборки также поддерживаются через PySide2
+- Houdini 22+ — PySide6 / Qt 6; Qt 5-сборки были прекращены начиная с Houdini 22
 - Python и HScript для button scripts
 
 Host adapter сохраняет синтаксическую совместимость с Python 2.7, потому что Houdini 19.0 был последним семейством Houdini с отдельно публиковавшимися Python 2-сборками.
 
-Script Toolbox определяет binding по версии Houdini, `HOUDINI_QT_PREFERRED_BINDING` и binding, уже загруженному самим хостом. Уже загруженный binding имеет приоритет, чтобы Script Toolbox намеренно не смешивал разные Qt major в одном процессе Houdini.
+Script Toolbox определяет binding по версии Houdini, `HOUDINI_QT_PREFERRED_BINDING` и binding, уже загруженному самим хостом. Уже загруженный или явно выбранный хостом binding имеет приоритет, чтобы Script Toolbox намеренно не смешивал разные Qt major в одном процессе Houdini. Это также позволяет отдельным Qt 5-сборкам Houdini 21 выбирать PySide2, тогда как основная сборка Houdini 21 использует PySide6.
 
 ## Установка для разработки
 

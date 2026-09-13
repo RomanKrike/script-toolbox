@@ -50,13 +50,14 @@ def test_property_editor_uses_compact_trigger_tabs_and_toolbar_language():
     )
 
     assert "BindingPanel" in base_source
-    assert 'QtGui.QGroupBox.__init__(self, "", parent)' in binding_source
-    assert 'QtGui.QGroupBox.setTitle(self, "")' in binding_source
-    assert "setCornerWidget" in binding_source
-    assert "QToolButton(self.tabs)" in binding_source
-    assert 'setText("+")' in binding_source
+    assert "class BindingPanel(QtGui.QWidget):" in binding_source
+    assert "class TriggerTabWidget(QtGui.QTabWidget):" in binding_source
+    assert "setCornerWidget" not in binding_source
+    assert 'self._add_page.setObjectName("TriggerAddTabPage")' in binding_source
+    assert 'self._add_page,\n            "+"' in binding_source
     assert "setTabsClosable(True)" in binding_source
     assert "tabCloseRequested" in binding_source
+    assert "MouseButtonPress" in binding_source
     assert "MouseButtonDblClick" in binding_source
     assert "Double-click to edit trigger" in binding_source
     assert "LanguageScriptEditor" in binding_source

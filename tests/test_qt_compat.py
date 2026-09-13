@@ -117,6 +117,10 @@ def test_houdini_binding_generations(monkeypatch):
         "houdini",
         "21.0.440"
     )[0] == PYSIDE6
+    assert binding_candidates(
+        "houdini",
+        "22.0.100"
+    )[0] == PYSIDE6
 
 
 def test_houdini_preferred_binding_can_select_optional_qt6(monkeypatch):
@@ -129,6 +133,18 @@ def test_houdini_preferred_binding_can_select_optional_qt6(monkeypatch):
         "20.5.550",
         preferred_binding="PySide6"
     )[0] == PYSIDE6
+
+
+def test_houdini_21_preferred_binding_can_select_qt5_variant(monkeypatch):
+    _clear_loaded_bindings(
+        monkeypatch
+    )
+
+    assert binding_candidates(
+        "houdini",
+        "21.0.440",
+        preferred_binding="PySide2"
+    )[0] == PYSIDE2
 
 
 def test_loaded_binding_takes_precedence_over_version_guess(monkeypatch):

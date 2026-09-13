@@ -16,11 +16,39 @@ def test_toggle_state_tabs_stay_accessible_and_share_inspector_style():
         "scripts/script_toolbox/ui/properties/toggle_icon.py",
     ):
         source = _read(relative_path)
+        assert "from .inspector_tabs import add_inspector_script_tab" in source
         assert "from .inspector_tabs import style_inspector_tabs" in source
         assert "style_inspector_tabs(self.state_tabs)" in source
+        assert "self.state_get_page = add_inspector_script_tab(" in source
+        assert "self.state_on_page = add_inspector_script_tab(" in source
+        assert "self.state_off_page = add_inspector_script_tab(" in source
+        assert "self.state_get_page.setEnabled(True)" in source
         assert "self.state_tabs.setTabEnabled(0, True)" in source
+        assert "self.state_tabs.tabBar().setTabEnabled(0, True)" in source
         assert "self.state_get_editor.setEnabled(True)" in source
         assert "setTabEnabled(0, scripted)" not in source
+
+
+def test_state_script_tabs_use_same_page_geometry_as_event_binding_pages():
+    tab_source = _read(
+        "scripts/script_toolbox/ui/properties/inspector_tabs.py"
+    )
+    binding_source = _read(
+        "scripts/script_toolbox/ui/properties/bindings.py"
+    )
+
+    for expected in (
+        "TRIGGER_PAGE_MARGINS",
+        "TRIGGER_PAGE_SPACING",
+    ):
+        assert expected in tab_source
+        assert expected in binding_source
+
+    assert "def add_inspector_script_tab(" in tab_source
+    assert "margins=TRIGGER_PAGE_MARGINS" in tab_source
+    assert "spacing=TRIGGER_PAGE_SPACING" in tab_source
+    assert "margins=TRIGGER_PAGE_MARGINS" in binding_source
+    assert "spacing=TRIGGER_PAGE_SPACING" in binding_source
 
 
 def test_trigger_panel_has_no_redundant_events_group_box_chrome():

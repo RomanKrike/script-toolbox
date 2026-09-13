@@ -198,7 +198,7 @@ def test_item_editors_route_controls_to_semantic_sections():
 
     assert 'self.behavior_section.addRow(' in toggle_icon
     assert "section = self.appearance_section" in toggle_icon
-    assert "self.add_trigger_widget(" in toggle_icon
+    assert "tabs = self.binding_panel.tabs" in toggle_icon
     assert "state_get_script" in toggle_icon
     assert "state_on_script" in toggle_icon
     assert "state_off_script" in toggle_icon

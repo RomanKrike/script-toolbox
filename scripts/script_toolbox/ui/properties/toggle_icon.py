@@ -9,7 +9,6 @@ from ..icon_browse import install_icon_browse
 from ..language_script_editor import LanguageScriptEditor
 from .base import PropertyEditorBase
 from .inspector_tabs import add_inspector_script_tab
-from .inspector_tabs import style_inspector_tabs
 
 
 class ToggleIconPropertyEditor(PropertyEditorBase):
@@ -63,8 +62,6 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
             form=section.form
         )
 
-        self.state_tabs = QtGui.QTabWidget()
-        style_inspector_tabs(self.state_tabs)
         self.state_get_editor = LanguageScriptEditor(
             language="python",
             toolbox=self.toolbox
@@ -82,34 +79,12 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
             toolbox=self.toolbox
         )
 
-        self.state_get_page = add_inspector_script_tab(
-            self.state_tabs,
-            self.state_get_editor,
-            "Get State"
-        )
-        self.state_on_page = add_inspector_script_tab(
-            self.state_tabs,
-            self.state_on_editor,
-            "Turn ON"
-        )
-        self.state_off_page = add_inspector_script_tab(
-            self.state_tabs,
-            self.state_off_editor,
-            "Turn OFF"
-        )
-
-        # The query page remains editable for both state-source modes. Internal
-        # means the query is ignored by runtime state resolution; it is not a
-        # reason to disable the editor tab in the Inspector.
-        self.state_get_page.setEnabled(True)
-        self.state_get_editor.setEnabled(True)
-        self.state_tabs.setTabEnabled(0, True)
-        try:
-            self.state_tabs.tabBar().setTabEnabled(0, True)
-        except Exception:
-            pass
-
-        self.add_trigger_widget(self.state_tabs, 1)
+        # State scripts are fixed pages of the same QTabWidget that owns event
+        # bindings. This prevents a second tab pane from overlapping Get State
+        # and guarantees identical page geometry for every trigger tab.
+        self.state_get_page = None
+        self.state_on_page = None
+        self.state_off_page = None
 
         self.state_source.currentIndexChanged.connect(
             self._state_source_changed
@@ -120,6 +95,7 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
         self.width.valueChanged.connect(self._control_changed)
         self.height.valueChanged.connect(self._control_changed)
         self.alignment.currentIndexChanged.connect(self._control_changed)
+        self.binding_panel.changed.connect(self._sync_state_tabs)
 
         for editor in (
             self.state_get_editor,
@@ -129,6 +105,78 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
             editor.textChanged.connect(self._control_changed)
             editor.languageChanged.connect(self._control_changed)
 
+        self._refresh_state_source()
+
+    def bind(self, item):
+        # BindingPanel.load() rebuilds event-binding pages. Detach the fixed
+        # state pages first so its clear() only destroys binding-owned pages.
+        self._detach_state_tabs()
+        PropertyEditorBase.bind(self, item)
+
+    def _state_tab_specs(self):
+        return (
+            ("state_get_page", self.state_get_editor, "Get State"),
+            ("state_on_page", self.state_on_editor, "Turn ON"),
+            ("state_off_page", self.state_off_editor, "Turn OFF"),
+        )
+
+    def _detach_state_tabs(self):
+        tabs = self.binding_panel.tabs
+        for attr, editor, label in self._state_tab_specs():
+            page = getattr(self, attr)
+            if page is None:
+                continue
+            index = tabs.indexOf(page)
+            if index >= 0:
+                tabs.removeTab(index)
+            try:
+                page.setParent(self)
+            except Exception:
+                pass
+
+    def _hide_state_tab_close_button(self, index):
+        if index < 0:
+            return
+        try:
+            tab_bar = self.binding_panel.tabs.tabBar()
+            for side_name in ("LeftSide", "RightSide"):
+                side = getattr(QtGui.QTabBar, side_name, None)
+                if side is not None:
+                    tab_bar.setTabButton(index, side, None)
+        except Exception:
+            pass
+
+    def _sync_state_tabs(self):
+        tabs = self.binding_panel.tabs
+
+        # BindingPanel assumes all event-binding pages occupy the leading tab
+        # indices. Keep fixed state pages after them after every add/edit/remove.
+        self._detach_state_tabs()
+        for attr, editor, label in self._state_tab_specs():
+            page = getattr(self, attr)
+            if page is None:
+                page = add_inspector_script_tab(
+                    tabs,
+                    editor,
+                    label
+                )
+                setattr(self, attr, page)
+            else:
+                tabs.addTab(page, label)
+
+            page.setEnabled(True)
+            index = tabs.indexOf(page)
+            if index >= 0:
+                tabs.setTabEnabled(index, True)
+                try:
+                    tabs.tabBar().setTabEnabled(index, True)
+                except Exception:
+                    pass
+                self._hide_state_tab_close_button(index)
+
+        tabs.setMinimumHeight(0)
+        tabs.setMaximumHeight(16777215)
+        self.binding_panel.empty_label.setVisible(False)
         self._refresh_state_source()
 
     def current_state_source(self):
@@ -149,16 +197,26 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
             not scripted,
             "Internal State is controlled by Get State when State Source is Script."
         )
-        self.state_get_page.setEnabled(True)
         self.state_get_editor.setEnabled(True)
-        self.state_tabs.setTabEnabled(0, True)
+
+        page = self.state_get_page
+        if page is None:
+            return
+
+        page.setEnabled(True)
+        tabs = self.binding_panel.tabs
+        index = tabs.indexOf(page)
+        if index < 0:
+            return
+
+        tabs.setTabEnabled(index, True)
         try:
-            self.state_tabs.tabBar().setTabEnabled(0, True)
+            tabs.tabBar().setTabEnabled(index, True)
         except Exception:
             pass
-        self.state_tabs.setTabToolTip(
-            0,
-            "State query used when State Source is Script."
+        tabs.setTabToolTip(
+            index,
+            "State query available for editing; runtime uses it when State Source is Script."
             if not scripted else
             "State query used to evaluate the current toggle state."
         )
@@ -203,7 +261,7 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
         self.state_off_editor.setPlainText(
             text_type(item.get("state_off_script", ""))
         )
-        self._refresh_state_source()
+        self._sync_state_tabs()
 
     def write_specific(self, item):
         item["state_source"] = self.current_state_source()

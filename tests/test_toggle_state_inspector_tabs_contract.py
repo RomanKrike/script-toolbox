@@ -10,23 +10,49 @@ def _read(relative_path):
     return (ROOT / relative_path).read_text(encoding="utf-8")
 
 
-def test_toggle_state_tabs_stay_accessible_and_share_inspector_style():
+def test_toggle_state_pages_share_binding_panel_tab_widget():
     for relative_path in (
         "scripts/script_toolbox/ui/properties/toggle_button.py",
         "scripts/script_toolbox/ui/properties/toggle_icon.py",
     ):
         source = _read(relative_path)
+
         assert "from .inspector_tabs import add_inspector_script_tab" in source
-        assert "from .inspector_tabs import style_inspector_tabs" in source
-        assert "style_inspector_tabs(self.state_tabs)" in source
-        assert "self.state_get_page = add_inspector_script_tab(" in source
-        assert "self.state_on_page = add_inspector_script_tab(" in source
-        assert "self.state_off_page = add_inspector_script_tab(" in source
-        assert "self.state_get_page.setEnabled(True)" in source
-        assert "self.state_tabs.setTabEnabled(0, True)" in source
-        assert "self.state_tabs.tabBar().setTabEnabled(0, True)" in source
+        assert "self.state_tabs = QtGui.QTabWidget()" not in source
+        assert "style_inspector_tabs(self.state_tabs)" not in source
+        assert "self.add_trigger_widget(self.state_tabs" not in source
+
+        assert "tabs = self.binding_panel.tabs" in source
+        assert "def _detach_state_tabs(" in source
+        assert "def _sync_state_tabs(" in source
+        assert "page = add_inspector_script_tab(" in source
+        assert "tabs.setTabEnabled(index, True)" in source
+        assert "tabs.tabBar().setTabEnabled(index, True)" in source
         assert "self.state_get_editor.setEnabled(True)" in source
-        assert "setTabEnabled(0, scripted)" not in source
+
+
+def test_toggle_bind_detaches_fixed_pages_before_binding_panel_rebuild():
+    button_source = _read(
+        "scripts/script_toolbox/ui/properties/toggle_button.py"
+    )
+    icon_source = _read(
+        "scripts/script_toolbox/ui/properties/toggle_icon.py"
+    )
+
+    assert "self._detach_state_tabs()\n        ButtonPropertyEditor.bind(self, item)" in button_source
+    assert "self._detach_state_tabs()\n        PropertyEditorBase.bind(self, item)" in icon_source
+
+
+def test_toggle_state_pages_are_reappended_after_event_binding_pages():
+    for relative_path in (
+        "scripts/script_toolbox/ui/properties/toggle_button.py",
+        "scripts/script_toolbox/ui/properties/toggle_icon.py",
+    ):
+        source = _read(relative_path)
+        assert "self.binding_panel.changed.connect(self._sync_state_tabs)" in source
+        assert "self._detach_state_tabs()" in source
+        assert "tabs.addTab(page, label)" in source
+        assert "self._hide_state_tab_close_button(index)" in source
 
 
 def test_state_script_tabs_use_same_page_geometry_as_event_binding_pages():

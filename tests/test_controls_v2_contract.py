@@ -50,7 +50,8 @@ def test_property_editor_uses_compact_trigger_tabs_and_toolbar_language():
     )
 
     assert "BindingPanel" in base_source
-    assert '"Triggers"' in binding_source
+    assert 'QtGui.QGroupBox.__init__(self, "", parent)' in binding_source
+    assert 'QtGui.QGroupBox.setTitle(self, "")' in binding_source
     assert "setCornerWidget" in binding_source
     assert "QToolButton(self.tabs)" in binding_source
     assert 'setText("+")' in binding_source

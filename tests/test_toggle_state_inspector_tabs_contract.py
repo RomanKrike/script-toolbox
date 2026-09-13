@@ -55,6 +55,21 @@ def test_toggle_state_pages_are_reappended_after_event_binding_pages():
         assert "self._hide_state_tab_close_button(index)" in source
 
 
+def test_add_trigger_button_stays_right_of_event_tabs_before_fixed_state_tabs():
+    binding_source = _read(
+        "scripts/script_toolbox/ui/properties/bindings.py"
+    )
+    assert "self.tabs.setCornerWidget(" in binding_source
+    assert "QtCore.Qt.TopRightCorner" in binding_source
+
+    for relative_path in (
+        "scripts/script_toolbox/ui/properties/toggle_button.py",
+        "scripts/script_toolbox/ui/properties/toggle_icon.py",
+    ):
+        source = _read(relative_path)
+        assert "tabs.addTab(page, label)" in source
+
+
 def test_state_script_tabs_use_same_page_geometry_as_event_binding_pages():
     tab_source = _read(
         "scripts/script_toolbox/ui/properties/inspector_tabs.py"
@@ -78,19 +93,28 @@ def test_state_script_tabs_use_same_page_geometry_as_event_binding_pages():
 
 
 def test_trigger_panel_has_no_redundant_events_group_box_chrome():
-    source = _read(
+    binding_source = _read(
         "scripts/script_toolbox/ui/properties/bindings.py"
     )
+    tab_source = _read(
+        "scripts/script_toolbox/ui/properties/inspector_tabs.py"
+    )
 
-    assert "from .inspector_tabs import style_binding_panel" in source
-    assert "from .inspector_tabs import style_inspector_tabs" in source
-    assert 'QtGui.QGroupBox.__init__(self, "", parent)' in source
-    assert "style_binding_panel(self)" in source
-    assert "style_inspector_tabs(self.tabs)" in source
-    assert 'QtGui.QGroupBox.setTitle(self, "")' in source
+    assert "from .inspector_tabs import style_binding_panel" in binding_source
+    assert "from .inspector_tabs import style_inspector_tabs" in binding_source
+    assert 'QtGui.QGroupBox.__init__(self, "", parent)' in binding_source
+    assert "style_binding_panel(self)" in binding_source
+    assert "style_inspector_tabs(self.tabs)" in binding_source
+    assert 'QtGui.QGroupBox.setTitle(self, "")' in binding_source
+
+    assert "QGroupBox#TriggerBindingPanel" in tab_source
+    assert "background-color: transparent" in tab_source
+    assert "margin: 0px" in tab_source
+    assert "padding: 0px" in tab_source
+    assert "panel.setContentsMargins(0, 0, 0, 0)" in tab_source
 
 
-def test_inspector_tabs_reuse_runtime_tab_palette_and_metrics():
+def test_inspector_tabs_reuse_runtime_tab_palette_and_metrics_without_nested_pane():
     source = _read(
         "scripts/script_toolbox/ui/properties/inspector_tabs.py"
     )
@@ -114,5 +138,7 @@ def test_inspector_tabs_reuse_runtime_tab_palette_and_metrics():
         assert expected in source
 
     assert "QTabWidget#InspectorTabs::pane" in source
+    assert "background-color: transparent" in source
+    assert "border: 0px" in source
+    assert "border-radius: 0px" in source
     assert "QTabWidget#InspectorTabs QTabBar::tab:selected" in source
-    assert "QGroupBox#TriggerBindingPanel" in source

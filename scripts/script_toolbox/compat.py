@@ -22,6 +22,23 @@ hou = None
 omui = None
 
 
+def _host_app_version():
+    callback = getattr(
+        HOST,
+        "app_version",
+        None
+    )
+    if not callable(
+        callback
+    ):
+        return ""
+
+    try:
+        return callback() or ""
+    except Exception:
+        return ""
+
+
 if HOST_KEY == "maya":
     import maya.cmds as cmds
     import maya.mel as mel
@@ -49,7 +66,7 @@ if HOST_KEY == "houdini":
 
 _QT_BINDING = load_qt_binding(
     HOST_KEY,
-    HOST.app_version(),
+    _host_app_version(),
     preferred_binding=preferred_binding
 )
 

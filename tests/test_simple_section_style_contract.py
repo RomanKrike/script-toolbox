@@ -63,7 +63,9 @@ def test_simple_section_reuses_runtime_folder_and_shared_group_box_style():
     assert 'RUNTIME_SIMPLE_HEADER_' not in runtime
     assert 'RUNTIME_SIMPLE_HEADER_' not in metrics
 
-    # No new color source is introduced for this fix.
+    # No new color source is introduced for this fix. Nested Simple Section
+    # titles deliberately resolve to the same content surface as top-level
+    # titles so Qt4 does not expose a contrasting rectangle behind the text.
     assert 'BORDER_GROUP = "#414141"' in palette
     assert 'TEXT_SECTION = TEXT_PRIMARY' in palette
-    assert 'SIMPLE_SECTION_NESTED_BG = PANEL_BG' in palette
+    assert 'SIMPLE_SECTION_NESTED_BG = CONTENT_BG' in palette

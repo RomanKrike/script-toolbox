@@ -8,6 +8,7 @@ from ...pycompat import text_type
 from ..language_script_editor import LanguageScriptEditor
 from .base import PropertyEditorBase
 from .button import ButtonPropertyEditor
+from .inspector_tabs import add_inspector_script_tab
 from .inspector_tabs import style_inspector_tabs
 
 
@@ -72,9 +73,34 @@ class ToggleButtonPropertyEditor(ButtonPropertyEditor):
             language="python",
             toolbox=self.toolbox
         )
-        self.state_tabs.addTab(self.state_get_editor, "Get State")
-        self.state_tabs.addTab(self.state_on_editor, "Turn ON")
-        self.state_tabs.addTab(self.state_off_editor, "Turn OFF")
+
+        self.state_get_page = add_inspector_script_tab(
+            self.state_tabs,
+            self.state_get_editor,
+            "Get State"
+        )
+        self.state_on_page = add_inspector_script_tab(
+            self.state_tabs,
+            self.state_on_editor,
+            "Turn ON"
+        )
+        self.state_off_page = add_inspector_script_tab(
+            self.state_tabs,
+            self.state_off_editor,
+            "Turn OFF"
+        )
+
+        # Keep the state query page interactive even when Internal is the
+        # active state source. Internal only controls runtime use of the query;
+        # it must not prevent users from opening or editing Get State.
+        self.state_get_page.setEnabled(True)
+        self.state_get_editor.setEnabled(True)
+        self.state_tabs.setTabEnabled(0, True)
+        try:
+            self.state_tabs.tabBar().setTabEnabled(0, True)
+        except Exception:
+            pass
+
         self.add_trigger_widget(self.state_tabs, 1)
 
         self.state_source.currentIndexChanged.connect(
@@ -118,14 +144,19 @@ class ToggleButtonPropertyEditor(ButtonPropertyEditor):
             not scripted,
             "Internal State is controlled by Get State when State Source is Script."
         )
+        self.state_get_page.setEnabled(True)
+        self.state_get_editor.setEnabled(True)
         self.state_tabs.setTabEnabled(0, True)
+        try:
+            self.state_tabs.tabBar().setTabEnabled(0, True)
+        except Exception:
+            pass
         self.state_tabs.setTabToolTip(
             0,
             "State query used when State Source is Script."
             if not scripted else
             "State query used to evaluate the current toggle state."
         )
-        self.state_get_editor.setEnabled(True)
 
     def _refresh_state_colors(self):
         self.state_on_color_button.setStyleSheet(

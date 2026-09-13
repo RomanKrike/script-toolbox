@@ -2,6 +2,7 @@
 
 """Shared Inspector tab chrome matching runtime Tabs folders."""
 
+from ...compat import QtGui
 from ...style.metrics import BORDER_RADIUS_PANEL
 from ...style.metrics import RUNTIME_TAB_BAR_OFFSET
 from ...style.metrics import RUNTIME_TAB_BAR_VERTICAL_OFFSET
@@ -12,6 +13,8 @@ from ...style.metrics import RUNTIME_TAB_PANE_TOP_OFFSET
 from ...style.metrics import RUNTIME_TAB_SELECTED_OVERLAP
 from ...style.metrics import TAB_BORDER_WIDTH
 from ...style.metrics import TAB_MARGIN_RIGHT
+from ...style.metrics import TRIGGER_PAGE_MARGINS
+from ...style.metrics import TRIGGER_PAGE_SPACING
 from ...style.palette import FOLDER_CARD_BG
 from ...style.palette import FOLDER_HEADER_HOVER_BG
 from ...style.palette import SEPARATOR
@@ -19,6 +22,7 @@ from ...style.palette import TEXT_FOLDER_COLLAPSED
 from ...style.palette import TEXT_FOLDER_HOVER
 from ...style.palette import TEXT_HEADING
 from ...style.palette import WINDOW_BG
+from ..layout_helpers import configure_layout
 
 
 _INSPECTOR_TAB_STYLE = """
@@ -100,6 +104,20 @@ def style_inspector_tabs(tab_widget):
     return tab_widget
 
 
+def add_inspector_script_tab(tab_widget, editor, label):
+    """Add a script editor page using the shared trigger-page geometry."""
+    page = QtGui.QWidget(tab_widget)
+    root = QtGui.QVBoxLayout(page)
+    configure_layout(
+        root,
+        margins=TRIGGER_PAGE_MARGINS,
+        spacing=TRIGGER_PAGE_SPACING
+    )
+    root.addWidget(editor, 1)
+    tab_widget.addTab(page, label)
+    return page
+
+
 def style_binding_panel(panel):
     """Let the Inspector TRIGGERS section own the heading and outer chrome."""
     panel.setObjectName("TriggerBindingPanel")
@@ -108,6 +126,7 @@ def style_binding_panel(panel):
 
 
 __all__ = [
+    "add_inspector_script_tab",
     "style_binding_panel",
     "style_inspector_tabs",
 ]

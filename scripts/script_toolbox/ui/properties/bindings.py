@@ -149,8 +149,6 @@ class AddBindingDialog(QtGui.QDialog):
             self.alt.setChecked("alt" in modifiers)
             self.shift.setChecked("shift" in modifiers)
             self.label_edit.setText(
-                text_type(self.label_edit.text()).strip()
-                if False else
                 text_type(binding.get("label", ""))
             )
 

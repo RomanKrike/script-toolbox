@@ -149,6 +149,8 @@ class AddBindingDialog(QtGui.QDialog):
             self.alt.setChecked("alt" in modifiers)
             self.shift.setChecked("shift" in modifiers)
             self.label_edit.setText(
+                text_type(self.label_edit.text()).strip()
+                if False else
                 text_type(binding.get("label", ""))
             )
 
@@ -265,7 +267,51 @@ class BindingPage(QtGui.QWidget):
         self.changed.emit()
 
 
-class BindingPanel(QtGui.QGroupBox):
+class TriggerTabWidget(QtGui.QTabWidget):
+    """QTabWidget that keeps a structural + tab after all real trigger tabs."""
+
+    def __init__(self, parent=None):
+        QtGui.QTabWidget.__init__(self, parent)
+        self._add_page = None
+
+    def addTab(self, widget, label):
+        add_index = self.add_tab_index()
+        if add_index >= 0 and widget is not self._add_page:
+            return QtGui.QTabWidget.insertTab(
+                self,
+                add_index,
+                widget,
+                label
+            )
+        return QtGui.QTabWidget.addTab(
+            self,
+            widget,
+            label
+        )
+
+    def add_tab_index(self):
+        if self._add_page is None:
+            return -1
+        return self.indexOf(self._add_page)
+
+    def ensure_add_tab(self):
+        index = self.add_tab_index()
+        if index >= 0:
+            return index
+
+        self._add_page = QtGui.QWidget(self)
+        self._add_page.setObjectName("TriggerAddTabPage")
+        return QtGui.QTabWidget.addTab(
+            self,
+            self._add_page,
+            "+"
+        )
+
+    def reset_add_tab(self):
+        self._add_page = None
+
+
+class BindingPanel(QtGui.QWidget):
 
     changed = QtCore.Signal()
 
@@ -274,10 +320,9 @@ class BindingPanel(QtGui.QGroupBox):
         toolbox=None,
         parent=None
     ):
-        # The Inspector section already owns the TRIGGERS heading. Keep this
-        # implementation as QGroupBox for compatibility, but remove its own
-        # visual card/title so there is no redundant nested "Events" box.
-        QtGui.QGroupBox.__init__(self, "", parent)
+        # TRIGGERS already owns the outer card. BindingPanel is deliberately
+        # structural only so there is no second group-box frame around tabs.
+        QtGui.QWidget.__init__(self, parent)
         style_binding_panel(self)
 
         self.toolbox = toolbox
@@ -293,18 +338,9 @@ class BindingPanel(QtGui.QGroupBox):
             spacing=TRIGGER_PANEL_SPACING
         )
 
-        self.tabs = QtGui.QTabWidget()
+        self.tabs = TriggerTabWidget(self)
         style_inspector_tabs(self.tabs)
         self.tabs.setTabsClosable(True)
-        self.add_button = QtGui.QToolButton(self.tabs)
-        self.add_button.setText("+")
-        self.add_button.setAutoRaise(True)
-        self.add_button.setFixedSize(24, 22)
-        self.add_button.setToolTip("Add trigger")
-        self.tabs.setCornerWidget(
-            self.add_button,
-            QtCore.Qt.TopRightCorner
-        )
 
         self.empty_label = QtGui.QLabel(
             "No triggers. Use + to add one."
@@ -315,27 +351,56 @@ class BindingPanel(QtGui.QGroupBox):
         root.addWidget(self.tabs, 1)
         root.addWidget(self.empty_label)
 
-        self.add_button.clicked.connect(self.add_binding)
         self.tabs.tabCloseRequested.connect(self._close_tab_requested)
         self.tabs.tabBar().installEventFilter(self)
         self.setVisible(False)
 
     def setTitle(self, title):
-        # PropertyEditorBase historically assigns "Events" after construction.
-        # The panel is intentionally titleless now; TRIGGERS is the sole label.
-        QtGui.QGroupBox.setTitle(self, "")
+        # Compatibility with PropertyEditorBase's historical Events title.
+        # TRIGGERS is now the only visible heading.
+        return None
+
+    def _hide_tab_close_button(self, index):
+        if index < 0:
+            return
+        try:
+            tab_bar = self.tabs.tabBar()
+            for side_name in ("LeftSide", "RightSide"):
+                side = getattr(QtGui.QTabBar, side_name, None)
+                if side is not None:
+                    tab_bar.setTabButton(index, side, None)
+        except Exception:
+            pass
+
+    def _ensure_add_tab(self):
+        index = self.tabs.ensure_add_tab()
+        if index >= 0:
+            self.tabs.setTabToolTip(index, "Add trigger")
+            self._hide_tab_close_button(index)
+        return index
 
     def eventFilter(self, watched, event):
-        if (
-            watched is self.tabs.tabBar() and
-            event.type() == QtCore.QEvent.MouseButtonDblClick
-        ):
+        if watched is self.tabs.tabBar():
             index = watched.tabAt(event.pos())
-            if 0 <= index < len(self.pages):
-                self.edit_binding(self.pages[index])
+
+            if (
+                event.type() == QtCore.QEvent.MouseButtonPress and
+                index == self.tabs.add_tab_index()
+            ):
+                try:
+                    if event.button() != QtCore.Qt.LeftButton:
+                        return True
+                except Exception:
+                    pass
+                self.add_binding()
                 return True
 
-        return QtGui.QGroupBox.eventFilter(self, watched, event)
+            if event.type() == QtCore.QEvent.MouseButtonDblClick:
+                if 0 <= index < len(self.pages):
+                    self.edit_binding(self.pages[index])
+                    return True
+
+        return QtGui.QWidget.eventFilter(self, watched, event)
 
     def clear(self):
         while self.tabs.count():
@@ -343,6 +408,7 @@ class BindingPanel(QtGui.QGroupBox):
             self.tabs.removeTab(0)
             if widget is not None:
                 widget.deleteLater()
+        self.tabs.reset_add_tab()
         self.pages = []
 
     def load(self, item):
@@ -383,7 +449,8 @@ class BindingPanel(QtGui.QGroupBox):
         )
         page.changed.connect(self._page_changed)
         self.pages.append(page)
-        index = self.tabs.addTab(
+        index = self.tabs.insertTab(
+            len(self.pages) - 1,
             page,
             binding_display_name(binding)
         )
@@ -408,6 +475,7 @@ class BindingPanel(QtGui.QGroupBox):
                 binding_display_name(binding)
             )
             self._update_tab_tooltip(index, binding)
+        self._ensure_add_tab()
         self._refresh_empty()
 
     def _refresh_empty(self):
@@ -576,4 +644,5 @@ __all__ = [
     "AddBindingDialog",
     "BindingPage",
     "BindingPanel",
+    "TriggerTabWidget",
 ]

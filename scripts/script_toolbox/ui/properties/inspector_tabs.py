@@ -105,7 +105,7 @@ def style_inspector_tabs(tab_widget):
     return tab_widget
 
 
-def add_inspector_script_tab(tab_widget, editor, label):
+def add_inspector_script_tab(tab_widget, editor, label, index=None):
     """Add a script editor page using the shared trigger-page geometry."""
     page = QtGui.QWidget(tab_widget)
     root = QtGui.QVBoxLayout(page)
@@ -115,7 +115,10 @@ def add_inspector_script_tab(tab_widget, editor, label):
         spacing=TRIGGER_PAGE_SPACING
     )
     root.addWidget(editor, 1)
-    tab_widget.addTab(page, label)
+    if index is None:
+        tab_widget.addTab(page, label)
+    else:
+        tab_widget.insertTab(index, page, label)
     return page
 
 

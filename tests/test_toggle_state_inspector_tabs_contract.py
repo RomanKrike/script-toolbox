@@ -43,19 +43,44 @@ def test_toggle_bind_detaches_fixed_pages_before_binding_panel_rebuild():
     assert "self._detach_state_tabs()\n        PropertyEditorBase.bind(self, item)" in icon_source
 
 
-def test_toggle_state_pages_are_reappended_after_event_binding_pages():
+def test_toggle_system_tabs_precede_user_binding_tabs():
+    tab_source = _read(
+        "scripts/script_toolbox/ui/properties/inspector_tabs.py"
+    )
+
+    assert "def add_inspector_script_tab(tab_widget, editor, label, index=None):" in tab_source
+    assert "tab_widget.insertTab(index, page, label)" in tab_source
+
     for relative_path in (
         "scripts/script_toolbox/ui/properties/toggle_button.py",
         "scripts/script_toolbox/ui/properties/toggle_icon.py",
     ):
         source = _read(relative_path)
         assert "self.binding_panel.changed.connect(self._sync_state_tabs)" in source
-        assert "self._detach_state_tabs()" in source
-        assert "tabs.addTab(page, label)" in source
+        assert "for system_index, spec in enumerate(self._state_tab_specs()):" in source
+        assert "index=system_index" in source
+        assert "tabs.insertTab(system_index, page, label)" in source
         assert "self._hide_state_tab_close_button(index)" in source
+        assert "system tabs first" in source
+        assert "then user triggers" in source
 
 
-def test_add_trigger_tab_stays_immediately_after_all_real_tabs():
+def test_binding_pages_do_not_depend_on_absolute_tab_indices():
+    binding_source = _read(
+        "scripts/script_toolbox/ui/properties/bindings.py"
+    )
+
+    assert "def _binding_page_at_tab(self, index):" in binding_source
+    assert "widget = self.tabs.widget(index)" in binding_source
+    assert "if widget in self.pages:" in binding_source
+    assert "page = self._binding_page_at_tab(index)" in binding_source
+    assert "index = self.tabs.indexOf(page)" in binding_source
+    assert "for page in self.pages:" in binding_source
+    assert "for index, page in enumerate(self.pages):" not in binding_source
+    assert "self.tabs.insertTab(\n            len(self.pages) - 1" not in binding_source
+
+
+def test_add_trigger_tab_stays_after_system_and_user_tabs():
     binding_source = _read(
         "scripts/script_toolbox/ui/properties/bindings.py"
     )
@@ -67,6 +92,7 @@ def test_add_trigger_tab_stays_immediately_after_all_real_tabs():
     assert "QtGui.QTabWidget.insertTab(" in binding_source
     assert "self.tabs.setCornerWidget(" not in binding_source
     assert "index == self.tabs.add_tab_index()" in binding_source
+    assert "index = self.tabs.addTab(" in binding_source
 
 
 def test_state_script_tabs_use_same_page_geometry_as_event_binding_pages():

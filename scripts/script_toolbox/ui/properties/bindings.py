@@ -377,6 +377,14 @@ class BindingPanel(QtGui.QWidget):
             self._hide_tab_close_button(index)
         return index
 
+    def _binding_page_at_tab(self, index):
+        if index < 0:
+            return None
+        widget = self.tabs.widget(index)
+        if widget in self.pages:
+            return widget
+        return None
+
     def eventFilter(self, watched, event):
         if watched is self.tabs.tabBar():
             index = watched.tabAt(event.pos())
@@ -394,8 +402,9 @@ class BindingPanel(QtGui.QWidget):
                 return True
 
             if event.type() == QtCore.QEvent.MouseButtonDblClick:
-                if 0 <= index < len(self.pages):
-                    self.edit_binding(self.pages[index])
+                page = self._binding_page_at_tab(index)
+                if page is not None:
+                    self.edit_binding(page)
                     return True
 
         return QtGui.QWidget.eventFilter(self, watched, event)
@@ -447,8 +456,7 @@ class BindingPanel(QtGui.QWidget):
         )
         page.changed.connect(self._page_changed)
         self.pages.append(page)
-        index = self.tabs.insertTab(
-            len(self.pages) - 1,
+        index = self.tabs.addTab(
             page,
             binding_display_name(binding)
         )
@@ -466,8 +474,11 @@ class BindingPanel(QtGui.QWidget):
         )
 
     def _refresh_tabs(self):
-        for index, page in enumerate(self.pages):
+        for page in self.pages:
             binding = page.write()
+            index = self.tabs.indexOf(page)
+            if index < 0:
+                continue
             self.tabs.setTabText(
                 index,
                 binding_display_name(binding)
@@ -591,8 +602,9 @@ class BindingPanel(QtGui.QWidget):
         return False
 
     def _close_tab_requested(self, index):
-        if 0 <= index < len(self.pages):
-            self.remove_binding(self.pages[index])
+        page = self._binding_page_at_tab(index)
+        if page is not None:
+            self.remove_binding(page)
 
     def remove_binding(self, page):
         if page not in self.pages:
@@ -617,9 +629,10 @@ class BindingPanel(QtGui.QWidget):
         if answer != QtGui.QMessageBox.Yes:
             return
 
-        index = self.pages.index(page)
+        index = self.tabs.indexOf(page)
         self.pages.remove(page)
-        self.tabs.removeTab(index)
+        if index >= 0:
+            self.tabs.removeTab(index)
         page.deleteLater()
         self._refresh_tabs()
         self.changed.emit()

@@ -79,9 +79,9 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
             toolbox=self.toolbox
         )
 
-        # State scripts are fixed pages of the same QTabWidget that owns event
-        # bindings. This prevents a second tab pane from overlapping Get State
-        # and guarantees identical page geometry for every trigger tab.
+        # System state scripts are fixed pages of the same QTabWidget that owns
+        # user event bindings. Their visual order is fixed: system tabs first,
+        # then user triggers, then the structural + tab.
         self.state_get_page = None
         self.state_on_page = None
         self.state_off_page = None
@@ -108,8 +108,8 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
         self._refresh_state_source()
 
     def bind(self, item):
-        # BindingPanel.load() rebuilds event-binding pages. Detach the fixed
-        # state pages first so its clear() only destroys binding-owned pages.
+        # BindingPanel.load() rebuilds user-binding pages. Detach the fixed
+        # system pages first so its clear() only destroys binding-owned pages.
         self._detach_state_tabs()
         PropertyEditorBase.bind(self, item)
 
@@ -149,20 +149,23 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
     def _sync_state_tabs(self):
         tabs = self.binding_panel.tabs
 
-        # BindingPanel assumes all event-binding pages occupy the leading tab
-        # indices. Keep fixed state pages after them after every add/edit/remove.
+        # System state pages always lead the tab strip. BindingPanel resolves
+        # user bindings by page widget rather than by absolute tab index, so
+        # user tabs can safely follow these fixed pages.
         self._detach_state_tabs()
-        for attr, editor, label in self._state_tab_specs():
+        for system_index, spec in enumerate(self._state_tab_specs()):
+            attr, editor, label = spec
             page = getattr(self, attr)
             if page is None:
                 page = add_inspector_script_tab(
                     tabs,
                     editor,
-                    label
+                    label,
+                    index=system_index
                 )
                 setattr(self, attr, page)
             else:
-                tabs.addTab(page, label)
+                tabs.insertTab(system_index, page, label)
 
             page.setEnabled(True)
             index = tabs.indexOf(page)

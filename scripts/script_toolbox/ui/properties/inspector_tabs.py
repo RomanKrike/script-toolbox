@@ -27,9 +27,10 @@ from ..layout_helpers import configure_layout
 
 _INSPECTOR_TAB_STYLE = """
 QTabWidget#InspectorTabs::pane {{
-    background-color: transparent;
-    border: 0px;
-    border-radius: 0px;
+    background-color: {folder_card_bg};
+    border: {tab_border_width}px solid {separator};
+    border-radius: {panel_radius}px;
+    border-top-left-radius: 0px;
     top: {runtime_tab_pane_top_offset}px;
 }}
 
@@ -88,7 +89,7 @@ QTabWidget#InspectorTabs QTabBar::tab:selected {{
 
 
 _TRIGGER_PANEL_STYLE = """
-QGroupBox#TriggerBindingPanel {{
+QWidget#TriggerBindingPanel {{
     background-color: transparent;
     border: 0px;
     margin: 0px;
@@ -98,7 +99,7 @@ QGroupBox#TriggerBindingPanel {{
 
 
 def style_inspector_tabs(tab_widget):
-    """Give an Inspector QTabWidget runtime-like tabs without a nested pane."""
+    """Give an Inspector QTabWidget the same framed pane as runtime tabs."""
     tab_widget.setObjectName("InspectorTabs")
     tab_widget.setStyleSheet(_INSPECTOR_TAB_STYLE)
     return tab_widget
@@ -119,7 +120,7 @@ def add_inspector_script_tab(tab_widget, editor, label):
 
 
 def style_binding_panel(panel):
-    """Keep BindingPanel structural only; TRIGGERS owns all outer chrome."""
+    """Keep BindingPanel structural only; TRIGGERS owns outer section chrome."""
     panel.setObjectName("TriggerBindingPanel")
     panel.setStyleSheet(_TRIGGER_PANEL_STYLE)
     try:

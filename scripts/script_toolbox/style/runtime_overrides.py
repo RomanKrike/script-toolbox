@@ -170,6 +170,15 @@ QListWidget#RuntimeFieldList::item:selected {{
     color: {selection_text};
 }}
 
+/* Maya 2015 / Qt4 can render a visible rectangle behind QGroupBox titles
+   when the title surface is forced to a fixed theme color. Resolve the
+   title fill from the widget's effective QPalette instead, so the legend
+   masks the border with the same Window surface Maya is actually painting. */
+QGroupBox#SimpleSectionGroupBox::title,
+QGroupBox#SimpleSectionGroupBox[nested="true"]::title {{
+    background-color: palette(window);
+}}
+
 """.format(
     window_bg=WINDOW_BG,
     separator=SEPARATOR,

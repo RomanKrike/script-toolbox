@@ -13,6 +13,7 @@ def _read(relative_path):
 def test_simple_section_reuses_runtime_folder_and_shared_group_box_style():
     runtime = _read("scripts/script_toolbox/ui/runtime.py")
     stylesheet = _read("scripts/script_toolbox/style/stylesheet.py")
+    runtime_overrides = _read("scripts/script_toolbox/style/runtime_overrides.py")
     metrics = _read("scripts/script_toolbox/style/metrics.py")
     palette = _read("scripts/script_toolbox/style/palette.py")
 
@@ -43,6 +44,17 @@ def test_simple_section_reuses_runtime_folder_and_shared_group_box_style():
     assert 'font-weight: bold;' in stylesheet
     assert 'QGroupBox#SimpleSectionGroupBox[nested="true"]::title {' in stylesheet
     assert 'background-color: %(SIMPLE_SECTION_NESTED_BG)s;' in stylesheet
+
+    # Maya 2015 / Qt4 compatibility must restate those same palette-owned
+    # surfaces rather than introducing a host palette lookup or hard-coded
+    # replacement color.
+    assert 'from .palette import CONTENT_BG' in runtime_overrides
+    assert 'from .palette import SIMPLE_SECTION_NESTED_BG' in runtime_overrides
+    assert 'background-color: {content_bg};' in runtime_overrides
+    assert 'background-color: {simple_section_nested_bg};' in runtime_overrides
+    assert 'content_bg=CONTENT_BG' in runtime_overrides
+    assert 'simple_section_nested_bg=SIMPLE_SECTION_NESTED_BG' in runtime_overrides
+    assert 'palette(window)' not in runtime_overrides
 
     # The failed header-frame approach must not survive alongside QGroupBox,
     # otherwise nested/top-level sections can regain a second outline.

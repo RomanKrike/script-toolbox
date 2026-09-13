@@ -18,10 +18,11 @@ Script Toolbox — модульный multi-DCC toolbox для Maya, Nuke и Hou
 ### Houdini
 - Houdini 19–20.x в стандартных Qt 5-сборках — PySide2 / Qt 5
 - опциональные Qt 6-сборки Houdini 20.5 — PySide6 / Qt 6, когда этот binding выбран хостом
-- Houdini 21+ — PySide6 / Qt 6
+- основные сборки Houdini 21 — PySide6 / Qt 6; отдельные Qt 5.15.2-сборки также поддерживаются через PySide2
+- Houdini 22+ — PySide6 / Qt 6; Qt 5-сборки прекращены начиная с Houdini 22
 - Python и HScript для event scripts
 
-Общий UI не форкается по поколениям DCC. `qt_compat.py` во время запуска выбирает PySide / PySide2 / PySide6, предпочитает binding, уже загруженный самим хостом, зеркалирует Qt5/Qt6 `QtWidgets` в legacy-поверхность `QtGui` и предоставляет небольшой набор legacy API, необходимый существующему Editor под Qt 6.
+Общий UI не форкается по поколениям DCC. `qt_compat.py` во время запуска выбирает PySide / PySide2 / PySide6, предпочитает binding, уже загруженный или выбранный самим хостом, зеркалирует Qt5/Qt6 `QtWidgets` в legacy-поверхность `QtGui` и предоставляет небольшой набор legacy API, необходимый существующему Editor под Qt 6. Это правило host preference также покрывает отдельные Qt 5-сборки Houdini 21.
 
 Исторические схемы конфигурации Script Toolbox намеренно **не** являются целью совместимости, пока плагин активно развивается.
 

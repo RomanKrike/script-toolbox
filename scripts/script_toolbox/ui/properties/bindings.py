@@ -25,6 +25,8 @@ from ...style.metrics import TRIGGER_PANEL_SPACING
 from ..language_script_editor import LanguageScriptEditor
 from ..layout_helpers import configure_inline_layout
 from ..layout_helpers import configure_layout
+from .inspector_tabs import style_binding_panel
+from .inspector_tabs import style_inspector_tabs
 
 
 class AddBindingDialog(QtGui.QDialog):
@@ -272,7 +274,11 @@ class BindingPanel(QtGui.QGroupBox):
         toolbox=None,
         parent=None
     ):
-        QtGui.QGroupBox.__init__(self, "Triggers", parent)
+        # The Inspector section already owns the TRIGGERS heading. Keep this
+        # implementation as QGroupBox for compatibility, but remove its own
+        # visual card/title so there is no redundant nested "Events" box.
+        QtGui.QGroupBox.__init__(self, "", parent)
+        style_binding_panel(self)
 
         self.toolbox = toolbox
         self.item = None
@@ -288,6 +294,7 @@ class BindingPanel(QtGui.QGroupBox):
         )
 
         self.tabs = QtGui.QTabWidget()
+        style_inspector_tabs(self.tabs)
         self.tabs.setTabsClosable(True)
         self.add_button = QtGui.QToolButton(self.tabs)
         self.add_button.setText("+")
@@ -312,6 +319,11 @@ class BindingPanel(QtGui.QGroupBox):
         self.tabs.tabCloseRequested.connect(self._close_tab_requested)
         self.tabs.tabBar().installEventFilter(self)
         self.setVisible(False)
+
+    def setTitle(self, title):
+        # PropertyEditorBase historically assigns "Events" after construction.
+        # The panel is intentionally titleless now; TRIGGERS is the sole label.
+        QtGui.QGroupBox.setTitle(self, "")
 
     def eventFilter(self, watched, event):
         if (

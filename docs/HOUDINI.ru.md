@@ -1,17 +1,19 @@
-# Интеграция с Houdini 19
+# Интеграция с Houdini
 
-Script Toolbox поддерживает Houdini 19.0 как один из целевых DCC-хостов.
+Script Toolbox поддерживает Houdini 19 и новее через общую host/runtime-архитектуру.
 
 ## Целевая совместимость
 
-Начальная цель для Houdini:
+Поддерживаемые поколения Houdini:
 
-- Houdini 19.0
-- стандартные сборки Python 3.7
-- PySide2 / Qt 5
+- Houdini 19–20.x в стандартных Qt 5-сборках — PySide2 / Qt 5
+- опциональные Qt 6-сборки Houdini 20.5 — PySide6 / Qt 6, когда хост выбирает этот binding
+- Houdini 21+ — PySide6 / Qt 6
 - Python и HScript для button scripts
 
-Host adapter также сохраняет синтаксическую совместимость с Python 2.7, потому что Houdini 19.0 был последним семейством Houdini с отдельно публиковавшимися Python 2-сборками.
+Host adapter сохраняет синтаксическую совместимость с Python 2.7, потому что Houdini 19.0 был последним семейством Houdini с отдельно публиковавшимися Python 2-сборками.
+
+Script Toolbox определяет binding по версии Houdini, `HOUDINI_QT_PREFERRED_BINDING` и binding, уже загруженному самим хостом. Уже загруженный binding имеет приоритет, чтобы Script Toolbox намеренно не смешивал разные Qt major в одном процессе Houdini.
 
 ## Установка для разработки
 
@@ -72,8 +74,14 @@ Python button scripts получают и `host`, и `hou` в execution namespac
 
 Главное окно Script Toolbox становится дочерним для Qt main window Houdini. Интеграция предпочитает `hou.qt.mainWindow()` и сохраняет `hou.ui.mainQtWindow()` как compatibility fallback.
 
+## Qt compatibility
+
+Общий UI сохраняет исходный Qt 4-style namespace widgets через `QtGui`. На PySide2 и PySide6 Script Toolbox зеркалирует `QtWidgets` в этот namespace, поэтому Runtime и Interface Editor не требуют отдельных реализаций для разных поколений Houdini.
+
+Compatibility layer также предоставляет нужную поверхность Qt 6 для существующего Editor: используемый subset `QRegExp`, legacy aliases `exec_()`, font-metric width и современный tab-stop API.
+
 ## Текущий scope
 
-Это первый слой интеграции Houdini. Он покрывает общий Runtime и Editor Script Toolbox как обычное Qt-окно.
+Общий Runtime и Interface Editor Script Toolbox работают как обычное Qt-окно во всех поддерживаемых поколениях Houdini.
 
-Нативный Houdini Python Panel descriptor и packaged release installer намеренно оставлены отдельной последующей задачей. Их стоит добавлять после проверки Houdini 19 Runtime в реальной сессии Houdini.
+Нативный Houdini Python Panel descriptor и packaged release installer остаются отдельными последующими задачами. Их следует валидировать независимо от cross-version runtime compatibility layer.

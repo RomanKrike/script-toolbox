@@ -71,9 +71,9 @@ class ToggleButtonPropertyEditor(ButtonPropertyEditor):
             toolbox=self.toolbox
         )
 
-        # State scripts are fixed pages of the same QTabWidget that owns event
-        # bindings. Keeping one tab widget removes overlapping panes and makes
-        # Click/Ctrl+Click/Get State/Turn ON/Turn OFF share identical geometry.
+        # System state scripts are fixed pages of the same QTabWidget that owns
+        # user event bindings. Their visual order is fixed: system tabs first,
+        # then user triggers, then the structural + tab.
         self.state_get_page = None
         self.state_on_page = None
         self.state_off_page = None
@@ -103,8 +103,8 @@ class ToggleButtonPropertyEditor(ButtonPropertyEditor):
         self._refresh_state_source()
 
     def bind(self, item):
-        # BindingPanel.load() rebuilds event-binding pages. Detach the fixed
-        # state pages first so its clear() only destroys binding-owned pages.
+        # BindingPanel.load() rebuilds user-binding pages. Detach the fixed
+        # system pages first so its clear() only destroys binding-owned pages.
         self._detach_state_tabs()
         ButtonPropertyEditor.bind(self, item)
 
@@ -144,21 +144,23 @@ class ToggleButtonPropertyEditor(ButtonPropertyEditor):
     def _sync_state_tabs(self):
         tabs = self.binding_panel.tabs
 
-        # Event pages must stay first because BindingPanel maps their list
-        # positions directly to tab indices. Re-appending the fixed pages after
-        # every binding mutation preserves that invariant.
+        # System state pages always lead the tab strip. BindingPanel resolves
+        # user bindings by page widget rather than by absolute tab index, so
+        # user tabs can safely follow these fixed pages.
         self._detach_state_tabs()
-        for attr, editor, label in self._state_tab_specs():
+        for system_index, spec in enumerate(self._state_tab_specs()):
+            attr, editor, label = spec
             page = getattr(self, attr)
             if page is None:
                 page = add_inspector_script_tab(
                     tabs,
                     editor,
-                    label
+                    label,
+                    index=system_index
                 )
                 setattr(self, attr, page)
             else:
-                tabs.addTab(page, label)
+                tabs.insertTab(system_index, page, label)
 
             page.setEnabled(True)
             index = tabs.indexOf(page)

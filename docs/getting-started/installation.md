@@ -2,6 +2,16 @@
 
 Script Toolbox is distributed as a versioned ZIP archive in GitHub Releases. The archive contains the shared `scripts/script_toolbox` package plus host-specific integration files.
 
+## Supported hosts
+
+The same package supports these DCC generations:
+
+- **Maya 2015+** — PySide / Qt 4 on Maya 2015–2016, PySide2 / Qt 5 on Maya 2017–2024, and PySide6 / Qt 6 on Maya 2025+;
+- **Nuke 12+** — PySide2 / Qt 5 on Nuke 12–15 and PySide6 / Qt 6 on Nuke 16+;
+- **Houdini 19+** — PySide2 / Qt 5 on Houdini 19–20.x, optional PySide6 / Qt 6 on Houdini 20.5 Qt 6 builds, and PySide6 / Qt 6 on Houdini 21+.
+
+Script Toolbox resolves the Qt/PySide binding at runtime and prefers the binding already loaded by the host, so separate plugin packages are not required for Qt 4, Qt 5, and Qt 6 generations.
+
 ## Download a stable release
 
 1. Open the repository **Releases** page.

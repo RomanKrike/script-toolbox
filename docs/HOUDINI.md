@@ -1,17 +1,19 @@
-# Houdini 19 integration
+# Houdini integration
 
-Script Toolbox supports Houdini 19.0 as a host target.
+Script Toolbox supports Houdini 19 and newer through the shared host/runtime architecture.
 
 ## Compatibility target
 
-The initial Houdini target is:
+Supported Houdini generations:
 
-- Houdini 19.0
-- Python 3.7 default builds
-- PySide2 / Qt 5
+- Houdini 19–20.x standard Qt 5 builds — PySide2 / Qt 5
+- Houdini 20.5 optional Qt 6 builds — PySide6 / Qt 6 when the host selects that binding
+- Houdini 21+ — PySide6 / Qt 6
 - Python and HScript button languages
 
-The host adapter is also kept Python 2.7 syntax-compatible because Houdini 19.0 was the final Houdini release family with separately published Python 2 builds.
+The host adapter remains Python 2.7 syntax-compatible because Houdini 19.0 was the final Houdini release family with separately published Python 2 builds.
+
+Script Toolbox resolves the binding from the Houdini version, `HOUDINI_QT_PREFERRED_BINDING`, and any binding already loaded by the host. An already-loaded binding wins so Script Toolbox does not intentionally mix Qt major versions in one Houdini process.
 
 ## Installation for development
 
@@ -72,8 +74,14 @@ Python button scripts receive both `host` and `hou` in their execution namespace
 
 The main Script Toolbox window is parented to Houdini's Qt main window. The integration prefers `hou.qt.mainWindow()` and retains `hou.ui.mainQtWindow()` as a compatibility fallback.
 
+## Qt compatibility
+
+The shared UI retains the original Qt 4-style `QtGui` widget namespace. On PySide2 and PySide6 hosts, Script Toolbox mirrors `QtWidgets` into that namespace so the runtime and Interface Editor do not need separate implementations per Houdini generation.
+
+The compatibility layer also supplies the Qt 6 compatibility surface required by the existing editor: the used `QRegExp` API subset, legacy `exec_()` aliases and font-metric width access.
+
 ## Current scope
 
-This is the first Houdini integration slice. It covers the common Script Toolbox runtime and editor as a normal Qt window.
+The common Script Toolbox runtime and editor run as a normal Qt window across the supported Houdini generations.
 
-A Houdini-native Python Panel descriptor and packaged release installer are intentionally separate follow-up work. They should be added after the Houdini 19 runtime is validated inside a real Houdini session.
+A Houdini-native Python Panel descriptor and packaged release installer remain separate follow-up work. They should be validated independently from the cross-version runtime compatibility layer.

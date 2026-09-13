@@ -137,8 +137,10 @@ PROPERTY_GROUP_VERTICAL_SPACING = 5
 # Trigger editor ------------------------------------------------------------
 TRIGGER_PAGE_MARGINS = (2, 3, 2, 2)
 TRIGGER_PAGE_SPACING = 4
-TRIGGER_PANEL_MARGINS = (5, 5, 5, 5)
-TRIGGER_PANEL_SPACING = 3
+# TRIGGERS already owns the outer card. BindingPanel is structural only and
+# must not add a second inset/container around the shared tab surface.
+TRIGGER_PANEL_MARGINS = MARGINS_NONE
+TRIGGER_PANEL_SPACING = 0
 
 
 __all__ = [

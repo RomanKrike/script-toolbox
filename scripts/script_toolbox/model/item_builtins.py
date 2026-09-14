@@ -121,7 +121,9 @@ def _definition(
     ui_defaults=None,
     normalize_props=None,
     default_bindings=None,
-    description=""
+    description="",
+    renderer_path=None,
+    inspector_path=None
 ):
     return ItemTypeDefinition(
         kind=kind,
@@ -138,6 +140,8 @@ def _definition(
         ui_defaults=ui_defaults,
         normalize_props=normalize_props,
         default_bindings=default_bindings,
+        renderer_path=renderer_path,
+        inspector_path=inspector_path,
     )
 
 
@@ -158,6 +162,8 @@ def builtin_item_definitions():
             capabilities=("container", "section"),
             default_label="Folder",
             description="Container: Collapsible, Simple, Tabs or Radio.",
+            renderer_path=".runtime_renderers:_render_folder",
+            inspector_path=".properties.folder:FolderPropertyEditor",
         ),
         _definition(
             "row", "Row", "Layout", 20,
@@ -175,6 +181,8 @@ def builtin_item_definitions():
             capabilities=("container", "layout"),
             default_label="Row",
             description="Horizontal layout for compact controls and buttons.",
+            renderer_path=".row_layout:render_row",
+            inspector_path=".properties.row:RowPropertyEditor",
         ),
         _definition(
             "column", "Column", "Layout", 30,
@@ -193,6 +201,8 @@ def builtin_item_definitions():
             default_label="Column",
             ui_defaults={"width_mode": "stretch"},
             description="Vertical layout for stacking controls, Rows and Columns.",
+            renderer_path=".column_layout:render_column",
+            inspector_path=".properties.column:ColumnPropertyEditor",
         ),
         _definition(
             "button", "Button", "Controls", 10,
@@ -207,6 +217,8 @@ def builtin_item_definitions():
             default_label="New Button",
             default_bindings=_default_click_script,
             description="Run Python or the active host native script language.",
+            renderer_path=".runtime_renderers:_render_button",
+            inspector_path=".properties.button:ButtonPropertyEditor",
         ),
         _definition(
             "toggle_button", "Toggle Button", "Controls", 20,
@@ -233,6 +245,8 @@ def builtin_item_definitions():
             normalize_props=_normalize_toggle,
             default_bindings=_default_click_toggle,
             description="Stateful ON/OFF action with internal or scripted state.",
+            renderer_path=".toggle_button_runtime:render_toggle_button",
+            inspector_path=".properties.toggle_button:ToggleButtonPropertyEditor",
         ),
         _definition(
             "icon", "Icon", "Display", 10,
@@ -249,6 +263,8 @@ def builtin_item_definitions():
             default_label="Icon",
             ui_defaults={"show_label": False},
             description="Standalone icon with optional event bindings.",
+            renderer_path=".runtime_renderers:_render_icon",
+            inspector_path=".properties.icon:IconPropertyEditor",
         ),
         _definition(
             "toggle_icon", "Toggle Icon", "Controls", 30,
@@ -276,6 +292,8 @@ def builtin_item_definitions():
             normalize_props=_normalize_toggle,
             default_bindings=_default_click_toggle,
             description="Stateful ON/OFF icon with independent images and actions.",
+            renderer_path=".toggle_icon_runtime:render_toggle_icon",
+            inspector_path=".properties.toggle_icon:ToggleIconPropertyEditor",
         ),
         _definition(
             "string", "String", "Controls", 40,
@@ -284,6 +302,8 @@ def builtin_item_definitions():
             capabilities=("bindable", "has_value", "supports_compact"),
             default_label="String",
             description="Editable text value.",
+            renderer_path=".runtime_renderers:_render_string",
+            inspector_path=".properties.basic:StringPropertyEditor",
         ),
         _definition(
             "integer", "Integer", "Controls", 50,
@@ -301,6 +321,8 @@ def builtin_item_definitions():
             default_label="Integer",
             normalize_props=_normalize_integer,
             description="Integer value with min, max and step.",
+            renderer_path=".runtime_renderers:_render_integer",
+            inspector_path=".properties.basic:IntegerPropertyEditor",
         ),
         _definition(
             "float", "Float", "Controls", 60,
@@ -319,6 +341,8 @@ def builtin_item_definitions():
             default_label="Float",
             normalize_props=_normalize_float,
             description="Floating-point value with range and precision.",
+            renderer_path=".runtime_renderers:_render_float",
+            inspector_path=".properties.basic:FloatPropertyEditor",
         ),
         _definition(
             "checkbox", "Checkbox", "Controls", 70,
@@ -330,6 +354,8 @@ def builtin_item_definitions():
             capabilities=("bindable", "has_value", "supports_compact"),
             default_label="Checkbox",
             description="Boolean on/off value.",
+            renderer_path=".runtime_renderers:_render_checkbox",
+            inspector_path=".properties.basic:CheckboxPropertyEditor",
         ),
         _definition(
             "menu", "Menu", "Controls", 80,
@@ -342,6 +368,8 @@ def builtin_item_definitions():
             default_label="Menu",
             normalize_props=_normalize_menu,
             description="Choose one value from a list.",
+            renderer_path=".runtime_renderers:_render_menu",
+            inspector_path=".properties.basic:MenuPropertyEditor",
         ),
         _definition(
             "color", "Color", "Controls", 90,
@@ -350,6 +378,8 @@ def builtin_item_definitions():
             capabilities=("bindable", "has_value", "supports_compact"),
             default_label="Color",
             description="RGB color value.",
+            renderer_path=".runtime_renderers:_render_color",
+            inspector_path=".properties.basic:ColorPropertyEditor",
         ),
         _definition(
             "field", "Field", "Controls", 100,
@@ -365,10 +395,17 @@ def builtin_item_definitions():
                 "visible_rows": IntField(default=4, minimum=1, maximum=20),
             },
             events=("value_changed", "selection_changed", "click", "double_click"),
-            capabilities=("bindable", "has_value", "supports_compact"),
+            capabilities=(
+                "bindable",
+                "has_value",
+                "supports_compact",
+                "field_widget",
+            ),
             default_label="Field",
             normalize_props=_normalize_field,
             description="Manual value or live DCC selection.",
+            renderer_path=".runtime_renderers:_render_field",
+            inspector_path=".properties.field:FieldPropertyEditor",
         ),
         _definition(
             "label", "Label", "Display", 20,
@@ -377,6 +414,8 @@ def builtin_item_definitions():
             capabilities=("bindable",),
             default_label="Label",
             description="Static text for headings and notes.",
+            renderer_path=".runtime_renderers:_render_label",
+            inspector_path=".properties.basic:LabelPropertyEditor",
         ),
         _definition(
             "text", "Text", "Display", 30,
@@ -385,6 +424,8 @@ def builtin_item_definitions():
             default_label="Text",
             ui_defaults={"show_label": False},
             description="Multiline static explanatory text with word wrapping.",
+            renderer_path=".text_runtime:render_text",
+            inspector_path=".properties.text:TextPropertyEditor",
         ),
         _definition(
             "separator", "Separator", "Display", 40,
@@ -392,6 +433,8 @@ def builtin_item_definitions():
             capabilities=(),
             default_label="Separator",
             description="Visual divider between parameter groups.",
+            renderer_path=".runtime_renderers:_render_separator",
+            inspector_path=".properties.separator:SeparatorPropertyEditor",
         ),
         _definition(
             "image", "Image", "Display", 50,
@@ -406,6 +449,8 @@ def builtin_item_definitions():
             default_label="Image",
             ui_defaults={"show_label": False},
             description="Display a raster image with configurable fit mode.",
+            renderer_path=".image_item:render_image",
+            inspector_path=".image_item:ImagePropertyEditor",
         ),
     )
 

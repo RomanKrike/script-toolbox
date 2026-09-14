@@ -96,7 +96,7 @@ Identity contract:
 - `name` — символический идентификатор для scripts/API;
 - `ui.label` — только presentation text и не участвует в lookup.
 
-Unknown `kind` отклоняется, а не преобразуется в другой тип. `kind` — единственный discriminator; параллельного `type` нет.
+Unknown `kind` отклоняется, а не преобразуется в другой тип. `kind` — единственный discriminator; параллельного `type`, `UnknownItem`, `RawItem` или placeholder storage нет.
 
 ## ItemTypeRegistry
 
@@ -105,46 +105,99 @@ Unknown `kind` отклоняется, а не преобразуется в д�
 Definition хранит:
 
 - `kind`, `title`, `category`, `description`, `order`, `creatable`;
-- typed `fields` для `props`;
+- typed `fields` как data contract для `props`;
 - public `events` и `internal_events`;
 - semantic `capabilities`, например `container`, `layout`, `section`, `has_value`, `state_toggle`, `resizable`, `field_widget`, `native_button`, `divider`;
+- optional `LayoutSpec` и `SectionSpec` для явной semantic metadata;
 - defaults для `ui` и bindings;
 - optional `normalize_props` hook для cross-field invariants;
 - `renderer_path` и `inspector_path` для lazy Qt-side resolution;
 - после UI resolution — реальные `renderer` и `inspector` callables/classes.
 
-`layout_axis` выводится из schema metadata layout-definition, поэтому generic editor/layout code не идентифицирует Row/Column по имени.
+Capabilities остаются authoritative semantic flags. Convenience properties вроде `definition.is_layout`, `definition.is_section`, `definition.layout_spec` и `definition.section_spec` делают generic consumers явными, не создавая hierarchy Item-классов.
 
-Core routing больше не использует `_FACTORIES`, `EVENT_CAPABILITIES`, `LAYOUT_KINDS`, `CONTAINER_KINDS`, `STATE_TOGGLE_KINDS`, central property-editor mapping, renderer switch или authored palette list.
+Core routing больше не использует `_FACTORIES`, `EVENT_CAPABILITIES`, `LAYOUT_KINDS`, `CONTAINER_KINDS`, `FOLDER_TYPES`, `STATE_TOGGLE_KINDS`, central property-editor mapping, renderer switch или authored palette list.
 
-Standard built-ins регистрируются `model/item_builtins.py`. Отдельно расширяемые built-ins находятся в `model/item_definitions/`; `Image` определён в `model/item_definitions/image.py` и включён через явный built-in bootstrap. Для нового built-in допустима одна запись в explicit bootstrap/import list.
+Standard built-ins регистрируются `model/item_builtins.py`. Их `ItemTypeDefinition`/Field objects lazily создаются один раз на загруженный module graph `item_builtins` и повторно используются при последующих вызовах `register_builtin_items()`. Это убирает постоянное пересоздание schema objects и не вводит второй registry. Reload модуля естественно сбрасывает этот cache; `ITEM_TYPES` остаётся единственным authoritative registry текущих definitions.
 
-`ui/item_ui_bootstrap.py` generic и re-entrant: он каждый раз проходит по текущему `ITEM_TYPES`, разрешает только ещё не разрешённые `renderer_path` / `inspector_path` и записывает callables обратно в definition. Поэтому тип может быть зарегистрирован как до, так и после первого UI bootstrap.
+Отдельно расширяемые built-ins находятся в `model/item_definitions/`; `Image` определён в `model/item_definitions/image.py` и включён через явный built-in bootstrap. Для нового built-in допустима только type-specific реализация плюс, максимум, одна запись в explicit bootstrap/import list.
 
-## Field schema
+`ui/item_ui_bootstrap.py` generic и re-entrant: он проходит по текущему `ITEM_TYPES`, разрешает ещё не разрешённые UI paths и записывает renderer/Inspector обратно в definition. `ui/runtime_renderers.py`, `ui/properties/registry.py`, bindings, values, Interface Editor containment и palette используют ту же registry metadata.
 
-Model предоставляет декларативные `TextField`, `BoolField`, `IntField`, `FloatField`, `ChoiceField`, `ColorField`, `PathField` и `ListField`.
+## Field schema и validation pipeline
 
-Field отвечает за:
+Model предоставляет декларативные `TextField`, `BoolField`, `IntField`, `FloatField`, `ChoiceField`, `ColorField`, `PathField` и `ListField`. Field classes остаются model-only и не знают про Qt controls.
 
-- default;
-- normalization;
-- validation;
-- numeric bounds, когда применимо;
-- choices, когда применимо.
-
-Сложные зависимости остаются на уровне `ItemTypeDefinition.normalize_props`:
+Field отвечает за default, поддерживаемый coercion/parsing, normalization и validation. Production pipeline для `props`:
 
 ```text
 raw props
-  -> per-field normalization
-  -> ItemTypeDefinition.normalize_props
-  -> normalized props
+  -> field parsing / supported coercion
+  -> field normalization, включая numeric bounds
+  -> per-field validation
+  -> ItemTypeDefinition.normalize_props cross-field hook
+  -> final field validation
+  -> canonical props
 ```
 
-Так реализуются numeric vector invariants, Menu values, Field display semantics и state-toggle storage behavior.
+`ItemTypeDefinition.validate_props()` использует те же правила допустимого coercion для diagnostic validation. Canonical construction, `normalize_document()`, Inspector writes через `normalize_item_props()`, config load и runtime value writes используют `ItemTypeDefinition.normalize_props()`, поэтому validation теперь является частью реального data path, а не отдельным optional helper.
 
-## Как добавить новый Item type
+Граница coercion определена явно:
+
+- `IntField`: `"12"` может стать `12`; `"hello"` является ошибкой и не превращается в default.
+- `FloatField`: numeric text может быть преобразован; произвольный text invalid.
+- `ChoiceField`: case-insensitive text может разрешиться в один из declared choices; отсутствующий choice invalid.
+- `BoolField`: принимает booleans, `1`/`0` и explicit case-insensitive strings `true`/`false`, `yes`/`no`, `1`/`0`; произвольная непустая строка invalid. В частности, `BoolField.normalize("false")` возвращает `False`, а не Python-семантику `bool("false") == True`.
+- numeric/color bounds применяют clamp только после успешного parsing; parsing failure не является случаем bounds и приводит к validation error.
+
+`FieldValidationError` описывает parse/validation failure конкретного Field. `ItemValidationError` — Item-level error contract с `kind`, optional `id`/`name`, `field`, ошибочным `value` и `reason`. Config recovery показывает эту structured ошибку для malformed current-schema data вместо silent repair.
+
+Complex cross-field invariants остаются на уровне definition через `normalize_props`; Inspector не становится вторым validator. Specialized editors могут записать raw UI values в `props`, после чего `PropertyEditorBase.write_to_item()` вызывает `normalize_item_props()` до emission changed state.
+
+## Layout semantics
+
+Layout behavior задаётся explicit metadata, а не выводится из имён полей. Layout definition объявляет capability `layout` и `LayoutSpec`:
+
+```python
+LayoutSpec(
+    axis="horizontal",
+    distribution_field="distribution",
+    cross_alignment_field="cross_alignment",
+    equal_size_field="equal_sizes",
+)
+```
+
+Любое поле semantic spec может быть `None`, если конкретный layout не поддерживает эту возможность. `axis` описывает текущие linear layouts и оставляет место для будущих Grid/Flow/Wrap/Stack semantics без обучения generic кода конкретным `kind` names.
+
+Текущие Row/Column сохраняют существующие persisted prop names, чтобы не делать лишний schema churn:
+
+```text
+Row:    axis=horizontal, distribution_field=horizontal_distribution,
+        cross_alignment_field=vertical_alignment, equal_size_field=equal_widths
+Column: axis=vertical, distribution_field=vertical_distribution,
+        cross_alignment_field=horizontal_alignment
+```
+
+`ui/properties/layout_adapter.py` получает эти имена через `definition.layout_spec`. В нём нет persisted Row/Column field-name routing и нет `kind == "row"` / `kind == "column"` dispatch. Type-specific Row/Column renderer/Inspector modules при этом естественно могут знать собственную schema.
+
+Synthetic horizontal `Flow Layout` может использовать, например, `flow_policy`, `cross_policy` и `same_extent`; generic editor semantics продолжают работать через `LayoutSpec` без новых core kind checks.
+
+## Section semantics
+
+Section определяется capability `section`; её type-specific mode field задаётся отдельно через `SectionSpec`:
+
+```python
+SectionSpec(
+    mode_field="display_mode",
+    modes=("cards", "stack"),
+)
+```
+
+Capability `section` **не** подразумевает property с именем `folder_type`. Generic runtime получает mode через `definition.section_mode(props)`, который использует `section_spec.mode_field` и declared Field. Folder сохраняет существующий persisted `folder_type` через `SectionSpec(mode_field="folder_type", ...)`, но generic runtime не знает этот literal.
+
+Future Card Section с `props.display_mode`, Accordion Section, Tool Group или Asset Group могут участвовать в generic section routing без изменения `ui/runtime.py` и без concrete-kind branch. Type-specific rendering behavior остаётся в renderer конкретного Item type.
+
+## Добавление и регистрация Item type
 
 Routing core менять не нужно.
 
@@ -155,41 +208,78 @@ Routing core менять не нужно.
 3. включить `video_definition()` в explicit built-in bootstrap tuple;
 4. добавить tests.
 
-Пример:
+Пример обычного Item:
 
 ```python
-from script_toolbox.model.fields import BoolField, ChoiceField, PathField
+from script_toolbox.model.fields import PathField
 from script_toolbox.model.item_registry import ItemTypeDefinition
 
-
-def video_definition():
-    return ItemTypeDefinition(
-        kind="video",
-        title="Video",
-        category="Display",
-        fields={
-            "source": PathField(default=""),
-            "autoplay": BoolField(default=False),
-            "loop": BoolField(default=False),
-            "fit": ChoiceField(
-                ("contain", "cover", "stretch"),
-                default="contain"
-            ),
-        },
-        events=("click", "double_click"),
-        capabilities=("bindable", "resizable"),
-        renderer_path=".video_item:render_video",
-        inspector_path=".video_item:VideoPropertyEditor",
-    )
+resource = ItemTypeDefinition(
+    kind="file",
+    title="File",
+    fields={"source": PathField(default="")},
+    renderer_path=".file_item:render_file",
+    inspector_path=".file_item:FilePropertyEditor",
+)
 ```
 
-Правки не требуются в `bindings.py`, `layouts.py`, runtime dispatch, `properties/registry.py`, `interface_editor.py`, `item_palette.py` или document normalization.
+Пример layout type:
 
-Future/external code может вызвать `register_item_type()` напрямую и не менять built-in bootstrap. Registration поддерживается и после первого UI composition: следующий Inspector/UI binding lookup разрешит paths, а активный runtime renderer registry при следующем lookup синхронизирует отсутствующий renderer и применит generic event/value decorators. Уже открытая palette не refresh-ится магически; новый entry гарантированно появляется при следующем построении palette из `ITEM_TYPES.creatable()`.
+```python
+from script_toolbox.model.item_registry import ItemTypeDefinition, LayoutSpec
 
-Built-in `Image` — production proof этого контракта. Он определяет только `source`, `fit`, `width`, `height`, поддерживает `contain` / `cover` / `stretch`, объявляет `click` / `double_click` и поставляет renderer/Inspector через definition metadata.
+flow = ItemTypeDefinition(
+    kind="flow",
+    title="Flow Layout",
+    fields={...},
+    capabilities=("container", "layout"),
+    layout=LayoutSpec(
+        axis="horizontal",
+        distribution_field="flow_policy",
+        cross_alignment_field="cross_policy",
+        equal_size_field="same_extent",
+    ),
+    renderer_path=".flow_layout:render_flow",
+    inspector_path=".flow_layout:FlowPropertyEditor",
+)
+```
 
-`tests/test_universal_item_extensibility.py` дополнительно регистрирует временный module-based `video` уже после simulated UI bootstrap и проверяет path resolution, bindings, active runtime registry и auto-palette без правок core routing.
+Пример section type:
+
+```python
+from script_toolbox.model.item_registry import ItemTypeDefinition, SectionSpec
+
+card = ItemTypeDefinition(
+    kind="card_section",
+    title="Card Section",
+    fields={...},
+    capabilities=("container", "section"),
+    section=SectionSpec(
+        mode_field="display_mode",
+        modes=("cards", "stack"),
+    ),
+    renderer_path=".card_section:render_card_section",
+    inspector_path=".card_section:CardSectionPropertyEditor",
+)
+```
+
+Для этих типов правки не требуются в `bindings.py`, `layouts.py`, runtime dispatch, `properties/registry.py`, `interface_editor.py`, `item_palette.py` или document normalization. Future/external code может вызвать `register_item_type()` напрямую и не менять built-in bootstrap.
+
+Built-in `Image` — production proof обычного Item pattern. Test-only Video, Flow Layout и Card Section доказывают late runtime registration, custom layout semantics и section semantics с mode field, отличным от `folder_type`.
+
+## Lifecycle внешней регистрации
+
+External definitions, которые могут встречаться в persisted config, **должны быть зарегистрированы до config normalization/load**. Канонический future plugin startup order:
+
+```text
+initialize model
+  -> register built-in Item types
+  -> register external/plugin Item types
+  -> load + normalize config
+  -> initialize UI
+```
+
+Late registration после UI composition поддерживается для runtime-added types: re-entrant UI path resolution и runtime registry synchronization обнаружат новую definition. Но если config loading уже встретил unknown persisted `kind`, loader не обязан сохранять raw Item до возможной поздней регистрации plugin. Unknown persisted kinds остаются invalid по clean-break policy; placeholder compatibility layer не добавляется.
 
 ## Containers, bindings и values
 
@@ -197,13 +287,13 @@ Container semantics принадлежат definitions. Traversal, indexing, clo
 
 Top-level sections выражаются capability `section`. `walk_items(document)` по умолчанию не возвращает section Items; `walk_items(document, include_sections=True)` включает их явно. Старого `include_folders` compatibility API нет.
 
-Layout containers используют capability `layout`; generic editor rules запрещают layout владеть section без проверки конкретного имени kind.
+Layout containers используют capability `layout`; generic editor rules не требуют проверки конкретного имени kind для containment semantics.
 
 `bindings` — единственный persisted/runtime event mechanism. Callback dictionaries и прямые script fields не являются вторым event API. Обычный `button` action-only. Stateful semantics определяются capability `state_toggle`, а button chrome — `native_button`.
 
 Toggle Button и Toggle Icon участвуют в generic value API только при `state_source == "internal"`. Script-driven toggle не получает искусственный `props.value` через `store_value()`.
 
-Numeric scalar/vector values нормализуются теми же definition hooks при construction и runtime writes. Field сохраняет runtime semantics: scalar -> text, list/tuple -> list of text, single-value field берёт первый элемент списка.
+Numeric scalar/vector construction и runtime writes используют одни и те же definition normalizers, поэтому size, min/max clamping и component count не расходятся. Invalid numeric content отклоняется вместо silent замены на unrelated fallback. Field сохраняет runtime semantics: scalar -> text, list/tuple -> list of text, single-value field берёт первый элемент списка.
 
 ## Editor и palette
 
@@ -225,19 +315,19 @@ _RUNTIME = initialize_ui()
 
 UI binding конкретного типа принадлежит `ItemTypeDefinition`, а не bootstrap table. Re-entrant `ui/item_ui_bootstrap.py` разрешает UI paths для текущего состава registry, включая late registrations.
 
-## Runtime rendering
+## Runtime rendering и synchronization
 
 `RuntimeFolder.build_runtime_widget()` dispatch-ит через runtime renderer registry. Default registry строится из `definition.renderer` после generic UI binding resolution.
 
-Активный registry также синхронизируется с `ITEM_TYPES` при lookup. Если definition зарегистрирован поздно и имеет renderer path, UI binding resolution загружает callable, registry добавляет отсутствующий kind, а generic event/value decorators применяются идемпотентно. Центрального kind -> renderer switch нет.
+Initial registry composition, late Item discovery и manual `register_runtime_renderer()` сходятся в один semantic generic decoration function: `_decorate_runtime_renderer_registry(registry)`. Этот pipeline применяет event-binding wrappers и runtime-value wrappers. Их marker-based guards делают повторную synchronization идемпотентной: повторный запуск pipeline не создаёт wrapper-on-wrapper stacking.
 
-Runtime renderer получает raw universal Item envelope и явно читает `ui` / `props`.
+Startup-only UI polish, installer которого имеет более широкие runtime-module responsibilities, например scroll-frame composition или существующие visual polish hooks, остаётся в bootstrap и не replay-ится автоматически при каждой late registration. Shared pipeline содержит только generic renderer decorators, которые безопасно повторять.
 
-Runtime event filters подключают только events, объявленные definition, и dispatch-ят их через `bindings`.
+Runtime renderer получает raw universal Item envelope и явно читает `ui` / `props`. Runtime event filters подключают только events, объявленные definition, и dispatch-ят их через `bindings`. Runtime value synchronization capability-driven: обычные `has_value` Item регистрируют `RuntimeValueBinding`; специальный Field refresh определяется capability `field_widget`, а не concrete kind branch.
 
-Runtime value synchronization capability-driven. Обычные `has_value` Item регистрируют `RuntimeValueBinding`; специальный Field refresh определяется capability `field_widget`, а не `kind == "field"`.
+Explicit runtime renderer unregister сохраняется: synchronization не resurrect-ит disabled renderer только потому, что definition всё ещё содержит declarative path. Последующая explicit registration снова включает renderer и применяет тот же generic decoration pipeline.
 
-Section mode validation также следует schema metadata: допустимые `folder_type` значения и default принадлежат `ChoiceField` Folder definition, а runtime не хранит второй validation list.
+Section mode validation следует definition metadata через `SectionSpec` и declared Field; generic runtime не содержит второго validation list и не знает Folder-specific field name.
 
 ## Пути пользовательской конфигурации
 
@@ -318,13 +408,16 @@ scripts/script_toolbox/
 - Никакого JSON file I/O в `ui`.
 - Поддерживается только current config schema.
 - Persisted/runtime Item использует только schema 21 envelope; flat compatibility view не добавляется.
-- Unknown item kind нельзя silently convert в другой kind.
+- Unknown item kind нельзя silently convert в другой kind и нельзя сохранять через placeholder Item.
 - `kind` — единственный type discriminator.
 - `ui.label` нельзя использовать как identity.
 - Event behavior сохраняется только в `bindings`.
 - Новый Item type регистрируется через `ItemTypeDefinition`; core, palette, events, runtime и Inspector routing выводятся из metadata без central kind tables.
+- `LayoutSpec` и `SectionSpec` являются semantic metadata для generic layout/section consumers; common code не выводит semantics из concrete field names.
+- External Item types, которые могут присутствовать в config, регистрируются до config load/normalization.
 - Structural recursion и editor containment используют registry capabilities.
 - Section traversal называется `include_sections`; folder-specific compatibility naming не поддерживается.
+- Runtime initial/late/manual renderer registration использует один idempotent generic decoration pipeline.
 - Qt compatibility принадлежит `qt_compat.py`.
 - UI/runtime composition ordering принадлежит `ui/bootstrap.py`.
 - Source остаётся Python 2.7 compatible, пока поддержка Maya 2015 / Nuke 12 не будет намеренно прекращена.

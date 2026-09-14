@@ -79,13 +79,12 @@ class LayoutSpec(object):
 class SectionSpec(object):
     """Explicit semantic contract for a top-level/nested section Item."""
 
-    def __init__(self, mode_field=None, modes=None):
+    def __init__(self, mode_field=None):
         self.mode_field = (
             text_type(mode_field).strip()
             if mode_field
             else None
         )
-        self.modes = tuple(modes or ())
 
 
 class ItemTypeDefinition(object):
@@ -316,14 +315,7 @@ class ItemTypeDefinition(object):
                 "SectionSpec mode_field is not declared in fields"
             )
         props = props if isinstance(props, dict) else {}
-        value = field.normalize(props.get(spec.mode_field))
-        if spec.modes and value not in spec.modes:
-            raise self._item_error(
-                spec.mode_field,
-                value,
-                "Section mode is not declared by SectionSpec"
-            )
-        return value
+        return field.normalize(props.get(spec.mode_field))
 
     def default_bindings(self):
         if self.default_bindings_hook is None:

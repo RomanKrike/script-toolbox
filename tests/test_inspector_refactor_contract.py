@@ -227,7 +227,7 @@ def test_universal_applicability_disables_controls_without_schema_changes():
     assert "Controlled by parent Column > Cross Alignment." in adapter
     assert "self.set_property_available(" in basic
     assert "Separator does not display a label." in basic
-    assert "CONFIG_VERSION = 20" in constants
+    assert "CONFIG_VERSION = 21" in constants
 
     for forbidden in (
         "expression_language",

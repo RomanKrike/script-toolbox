@@ -59,7 +59,7 @@ def _linear_find_item(document, key):
     items = list(
         walk_items(
             document,
-            include_folders=False
+            include_sections=False
         )
     )
 

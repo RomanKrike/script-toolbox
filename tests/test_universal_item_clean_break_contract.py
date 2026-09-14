@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import json
 import os
 
 
@@ -17,6 +18,14 @@ def _path(*parts):
 def _source(*parts):
     with open(_path(*parts), "r") as handle:
         return handle.read()
+
+
+def _raw_items(document):
+    stack = list(document.get("sections", []) or [])
+    while stack:
+        item = stack.pop(0)
+        yield item
+        stack[0:0] = list(item.get("items", []) or [])
 
 
 def test_runtime_section_routing_has_no_folder_kind_switch():
@@ -49,6 +58,33 @@ def test_clean_break_has_no_migration_registry_or_v20_fixtures():
     assert not os.path.exists(_path(
         "tests", "fixtures", "golden_v20_current.json"
     ))
+
+
+def test_current_v21_fixtures_use_canonical_item_envelope():
+    required = set((
+        "kind",
+        "id",
+        "name",
+        "ui",
+        "props",
+        "bindings",
+    ))
+
+    for fixture in (
+        "current_v21_full.json",
+        "golden_v21_current.json",
+    ):
+        with open(_path("tests", "fixtures", fixture), "r") as handle:
+            document = json.load(handle)
+
+        assert document["version"] == 21
+        for item in _raw_items(document):
+            assert required.issubset(set(item)), (fixture, item.get("id"))
+            assert isinstance(item["ui"], dict)
+            assert isinstance(item["props"], dict)
+            assert isinstance(item["bindings"], list)
+            if "items" in item:
+                assert isinstance(item["items"], list)
 
 
 def test_item_inspector_does_not_persist_legacy_callbacks():

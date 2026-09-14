@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from .registry import PROPERTY_EDITORS
 from .registry import create_editor
 from .registry import editor_class
 from .sections import InspectorSection
@@ -19,7 +18,6 @@ install_trigger_signature_validation()
 
 __all__ = [
     "InspectorSection",
-    "PROPERTY_EDITORS",
     "create_editor",
     "editor_class",
     "set_property_available",

@@ -8,6 +8,7 @@ from script_toolbox.model.fields import IntField
 from script_toolbox.model.fields import ListField
 from script_toolbox.model.fields import PathField
 from script_toolbox.model.fields import TextField
+from script_toolbox.model.item_registry import ItemTypeDefinition
 
 
 def test_scalar_fields_expose_validation_separately_from_normalization():
@@ -57,3 +58,25 @@ def test_color_list_path_and_custom_validation_contracts():
     assert path.validate("D:/refs/front.png")
     assert text.validate("abcd")
     assert not text.validate("abcde")
+
+
+def test_item_definition_reports_declarative_field_validation_errors():
+    definition = ItemTypeDefinition(
+        kind="sample",
+        title="Sample",
+        fields={
+            "count": IntField(default=1, minimum=1, maximum=4),
+            "mode": ChoiceField(("a", "b"), default="a"),
+        },
+    )
+
+    assert definition.validate_props({
+        "count": 2,
+        "mode": "b",
+    }) == {}
+
+    errors = definition.validate_props({
+        "count": 10,
+        "mode": "c",
+    })
+    assert set(errors) == set(("count", "mode"))

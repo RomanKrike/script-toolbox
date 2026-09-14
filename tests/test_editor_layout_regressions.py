@@ -59,7 +59,8 @@ def test_row_gives_nested_layouts_cross_axis_height():
     )
 
     assert "_layout_child_fills_height" in row_runtime
-    assert '"column"' in row_runtime
+    assert "ITEM_TYPES.get" in row_runtime
+    assert "definition.is_layout" in row_runtime
     assert "QtGui.QSizePolicy.Expanding" in row_runtime
     assert "if fill_height:" in row_runtime
 

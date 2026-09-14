@@ -48,50 +48,58 @@ def test_row_uses_explicit_parent_distribution_only():
             "items": [
                 {
                     "kind": "button",
-                    "row_alignment": "right",
+                    "ui": {"alignment": "right"},
                 },
                 {
                     "kind": "button",
-                    "row_alignment": "right",
+                    "ui": {"alignment": "right"},
                 },
             ],
         }
     )
 
-    assert row["horizontal_distribution"] == "left"
+    assert row["props"]["horizontal_distribution"] == "left"
 
     explicit = create_item(
         "row",
-        {"horizontal_distribution": "space_between"}
+        {
+            "props": {
+                "horizontal_distribution": "space_between",
+            },
+        }
     )
-    assert explicit["horizontal_distribution"] == "space_between"
+    assert explicit["props"]["horizontal_distribution"] == "space_between"
 
 
 def test_column_normalizes_distribution_and_child_height_contract():
     column = create_item(
         "column",
         {
-            "vertical_distribution": "bottom",
+            "props": {"vertical_distribution": "bottom"},
             "items": [
                 {
                     "kind": "button",
-                    "column_height_mode": "fixed",
-                    "column_height": 44,
+                    "ui": {
+                        "height_mode": "fixed",
+                        "height": 44,
+                    },
                 },
                 {
                     "kind": "field",
-                    "column_height_mode": "stretch",
-                    "column_stretch": 3,
+                    "ui": {
+                        "height_mode": "stretch",
+                        "vertical_stretch": 3,
+                    },
                 },
             ],
         }
     )
 
-    assert column["vertical_distribution"] == "bottom"
-    assert column["items"][0]["column_height_mode"] == "fixed"
-    assert column["items"][0]["column_height"] == 44
-    assert column["items"][1]["column_height_mode"] == "stretch"
-    assert column["items"][1]["column_stretch"] == 3
+    assert column["props"]["vertical_distribution"] == "bottom"
+    assert column["items"][0]["ui"]["height_mode"] == "fixed"
+    assert column["items"][0]["ui"]["height"] == 44
+    assert column["items"][1]["ui"]["height_mode"] == "stretch"
+    assert column["items"][1]["ui"]["vertical_stretch"] == 3
 
 
 def test_column_child_height_values_are_clamped():
@@ -101,23 +109,25 @@ def test_column_child_height_values_are_clamped():
             "items": [
                 {
                     "kind": "button",
-                    "column_height_mode": "invalid",
-                    "column_height": 99999,
-                    "column_stretch": 0,
+                    "ui": {
+                        "height_mode": "invalid",
+                        "height": 99999,
+                        "vertical_stretch": 0,
+                    },
                 },
             ],
         }
     )
-    child = column["items"][0]
+    child_ui = column["items"][0]["ui"]
 
-    assert child["column_height_mode"] == "auto"
-    assert child["column_height"] == 2000
-    assert child["column_stretch"] == 1
+    assert child_ui["height_mode"] == "auto"
+    assert child_ui["height"] == 2000
+    assert child_ui["vertical_stretch"] == 1
 
 
 def test_runtime_registry_registers_row_and_column_renderers():
-    bootstrap = _source(
-        "scripts", "script_toolbox", "ui", "bootstrap.py"
+    ui_bindings = _source(
+        "scripts", "script_toolbox", "ui", "item_ui_bootstrap.py"
     )
     row_runtime = _source(
         "scripts", "script_toolbox", "ui", "row_layout.py"
@@ -126,8 +136,8 @@ def test_runtime_registry_registers_row_and_column_renderers():
         "scripts", "script_toolbox", "ui", "column_layout.py"
     )
 
-    assert 'registry.register("row", render_row, replace=True)' in bootstrap
-    assert 'registry.register("column", render_column, replace=True)' in bootstrap
+    assert '("row", render_row)' in ui_bindings
+    assert '("column", render_column)' in ui_bindings
     assert '"horizontal_distribution"' in row_runtime
     assert '"vertical_distribution"' in column_runtime
     assert '"column_height_mode"' in column_runtime
@@ -169,13 +179,15 @@ def test_property_editor_exposes_unified_parent_layout_adapter():
     assert '"Equal Child Size"' in column
 
 
-def test_separator_uses_shared_layout_writer():
+def test_property_registry_routes_editors_through_universal_item_view():
     registry = _source(
         "scripts", "script_toolbox", "ui", "properties", "registry.py"
     )
 
-    assert "PropertyEditorBase.write_to_item" in registry
-    assert 'self.item["bindings"] = []' in registry
+    assert "item_view(item)" in registry
+    assert "EnvelopeRoutedEditor" in registry
+    assert "definition.inspector" in registry
+    assert "PROPERTY_EDITORS" not in registry
 
 
 def test_icon_editor_uses_only_canonical_content_alignment():

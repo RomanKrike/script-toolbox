@@ -37,6 +37,8 @@ def test_runtime_section_routing_has_no_folder_kind_switch():
     assert 'get("kind") != "folder"' not in source
     assert "ITEM_TYPES.get" in source
     assert "build_runtime_widget" in source
+    assert 'definition.fields.get("folder_type")' in source
+    assert 'mode_field.normalize(' in source
 
 
 def test_clean_break_has_no_migration_surface_or_v20_fixtures():
@@ -105,6 +107,30 @@ def test_item_inspector_does_not_persist_legacy_callbacks():
         source = _source(*parts)
         assert '["callbacks"]' not in source
         assert ".get(\"callbacks\"" not in source
+
+
+def test_item_source_has_no_legacy_folder_traversal_or_type_constant():
+    legacy_traversal = "include_" + "folders"
+    legacy_constant = "FOLDER_" + "TYPES"
+    offenders = []
+
+    scripts_root = _path("scripts")
+    for directory, subdirectories, filenames in os.walk(scripts_root):
+        subdirectories[:] = [
+            name
+            for name in subdirectories
+            if name != "__pycache__"
+        ]
+        for filename in filenames:
+            if not filename.endswith(".py"):
+                continue
+            path = os.path.join(directory, filename)
+            with open(path, "r") as handle:
+                source = handle.read()
+            if legacy_traversal in source or legacy_constant in source:
+                offenders.append(os.path.relpath(path, ROOT))
+
+    assert offenders == []
 
 
 def test_current_schema_is_v21_only_and_documented_as_clean_break():

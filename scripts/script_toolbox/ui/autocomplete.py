@@ -359,8 +359,7 @@ class CompletionController(QtCore.QObject):
             ):
                 return list(
                     walk_items(
-                        working,
-                        include_folders=False
+                        working
                     )
                 )
 

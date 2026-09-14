@@ -125,8 +125,11 @@ def test_column_child_height_values_are_clamped():
     assert child_ui["vertical_stretch"] == 1
 
 
-def test_runtime_registry_registers_row_and_column_renderers():
-    ui_bindings = _source(
+def test_runtime_registry_resolves_row_and_column_from_type_metadata():
+    definitions = _source(
+        "scripts", "script_toolbox", "model", "item_builtins.py"
+    )
+    ui_bootstrap = _source(
         "scripts", "script_toolbox", "ui", "item_ui_bootstrap.py"
     )
     row_runtime = _source(
@@ -136,8 +139,10 @@ def test_runtime_registry_registers_row_and_column_renderers():
         "scripts", "script_toolbox", "ui", "column_layout.py"
     )
 
-    assert '("row", render_row)' in ui_bindings
-    assert '("column", render_column)' in ui_bindings
+    assert 'renderer_path=".row_layout:render_row"' in definitions
+    assert 'renderer_path=".column_layout:render_column"' in definitions
+    assert "for definition in ITEM_TYPES.all():" in ui_bootstrap
+    assert "definition.renderer_path" in ui_bootstrap
     assert '"horizontal_distribution"' in row_runtime
     assert '"vertical_distribution"' in column_runtime
     assert '"column_height_mode"' in column_runtime

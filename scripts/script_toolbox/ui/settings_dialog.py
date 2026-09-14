@@ -17,6 +17,10 @@ from ..core.preferences import UPDATE_CHANNEL_STABLE
 from ..core.preferences import get_telemetry_consent
 from ..core.preferences import get_update_channel
 from ..pycompat import text_type
+from ..style.metrics import RUNTIME_FOLDER_CONTENT_MARGINS
+from ..style.metrics import RUNTIME_FOLDER_CONTENT_SPACING
+from ..style.metrics import RUNTIME_FOLDER_ROOT_MARGINS
+from ..style.metrics import RUNTIME_FOLDER_ROOT_SPACING
 
 
 _CONSENT_PROMPT_SHOWN = False
@@ -309,6 +313,33 @@ class SettingsDialog(QtGui.QDialog):
         layout.addWidget(description)
         return header
 
+    def _build_simple_section(self, title_text, tooltip=""):
+        """Build settings chrome from the existing Runtime Simple Folder."""
+        section = QtGui.QGroupBox(text_type(title_text))
+        section.setObjectName("SimpleSectionGroupBox")
+        section.setProperty("nested", False)
+        section.setToolTip(text_type(tooltip or ""))
+
+        section_layout = QtGui.QVBoxLayout(section)
+        section_layout.setContentsMargins(*RUNTIME_FOLDER_ROOT_MARGINS)
+        section_layout.setSpacing(RUNTIME_FOLDER_ROOT_SPACING)
+
+        content = QtGui.QWidget(section)
+        content.setObjectName("RuntimeFolderContent")
+        content_layout = QtGui.QVBoxLayout(content)
+        content_layout.setContentsMargins(*RUNTIME_FOLDER_CONTENT_MARGINS)
+        content_layout.setSpacing(RUNTIME_FOLDER_CONTENT_SPACING)
+
+        section_layout.addWidget(content)
+        return section, content_layout
+
+    @staticmethod
+    def _build_section_form():
+        form = QtGui.QFormLayout()
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setSpacing(RUNTIME_FOLDER_CONTENT_SPACING)
+        return form
+
     def _build_general_page(self):
         page = QtGui.QWidget()
         layout = QtGui.QVBoxLayout(page)
@@ -322,11 +353,12 @@ class SettingsDialog(QtGui.QDialog):
             )
         )
 
-        form = QtGui.QFormLayout()
-        form.setContentsMargins(0, 0, 0, 0)
-        form.setSpacing(10)
+        section, section_layout = self._build_simple_section("Updates")
+        form = self._build_section_form()
         form.addRow("Update channel", self.update_channel_combo)
-        layout.addLayout(form)
+        section_layout.addLayout(form)
+        layout.addWidget(section)
+
         layout.addStretch(1)
         return page
 
@@ -343,15 +375,9 @@ class SettingsDialog(QtGui.QDialog):
             )
         )
 
-        section_title = QtGui.QLabel("Proxy")
-        font = section_title.font()
-        font.setBold(True)
-        section_title.setFont(font)
-        layout.addWidget(section_title)
+        section, section_layout = self._build_simple_section("Proxy")
 
-        form = QtGui.QFormLayout()
-        form.setContentsMargins(0, 0, 0, 0)
-        form.setSpacing(9)
+        form = self._build_section_form()
         form.addRow("Proxy mode", self.proxy_mode_combo)
         form.addRow("Proxy type", self.proxy_type_combo)
         form.addRow("Host", self.proxy_host_edit)
@@ -360,14 +386,14 @@ class SettingsDialog(QtGui.QDialog):
         form.addRow("Username", self.proxy_username_edit)
         form.addRow("Password", self.proxy_password_edit)
         form.addRow("", self.proxy_show_password_check)
-        layout.addLayout(form)
+        section_layout.addLayout(form)
 
         actions = QtGui.QHBoxLayout()
         actions.addWidget(self.proxy_test_button)
         actions.addStretch(1)
-        layout.addLayout(actions)
+        section_layout.addLayout(actions)
 
-        layout.addWidget(self.proxy_status_label)
+        section_layout.addWidget(self.proxy_status_label)
 
         security_note = QtGui.QLabel(
             "Proxy passwords are never written to settings.json in clear text. "
@@ -376,7 +402,9 @@ class SettingsDialog(QtGui.QDialog):
             "be re-entered after restart."
         )
         security_note.setWordWrap(True)
-        layout.addWidget(security_note)
+        section_layout.addWidget(security_note)
+
+        layout.addWidget(section)
         layout.addStretch(1)
         return page
 
@@ -393,11 +421,13 @@ class SettingsDialog(QtGui.QDialog):
             )
         )
 
-        form = QtGui.QFormLayout()
-        form.setContentsMargins(0, 0, 0, 0)
-        form.setSpacing(10)
+        section, section_layout = self._build_simple_section(
+            "Usage statistics"
+        )
+
+        form = self._build_section_form()
         form.addRow("Usage statistics", self.telemetry_combo)
-        layout.addLayout(form)
+        section_layout.addLayout(form)
 
         privacy_text = QtGui.QLabel(
             "When enabled, Script Toolbox sends only reviewed technical "
@@ -406,7 +436,7 @@ class SettingsDialog(QtGui.QDialog):
             "from hardware, account, username, hostname, scene, or project data."
         )
         privacy_text.setWordWrap(True)
-        layout.addWidget(privacy_text)
+        section_layout.addWidget(privacy_text)
 
         provider = telemetry.active_provider_name()
         if provider == "none":
@@ -418,7 +448,9 @@ class SettingsDialog(QtGui.QDialog):
             transport_text = "Telemetry transport is available in this build."
 
         self.telemetry_status_label.setText(transport_text)
-        layout.addWidget(self.telemetry_status_label)
+        section_layout.addWidget(self.telemetry_status_label)
+
+        layout.addWidget(section)
         layout.addStretch(1)
         return page
 
@@ -435,16 +467,11 @@ class SettingsDialog(QtGui.QDialog):
             )
         )
 
-        product_name = QtGui.QLabel(DISPLAY_NAME)
-        product_font = product_name.font()
-        product_font.setBold(True)
-        product_font.setPointSize(product_font.pointSize() + 1)
-        product_name.setFont(product_font)
-        layout.addWidget(product_name)
+        product_section, product_layout = self._build_simple_section(
+            DISPLAY_NAME
+        )
 
-        version_form = QtGui.QFormLayout()
-        version_form.setContentsMargins(0, 0, 0, 0)
-        version_form.setSpacing(8)
+        version_form = self._build_section_form()
         version_form.addRow("Version", QtGui.QLabel(PLUGIN_VERSION))
 
         build_text = BUILD_CHANNEL.title()
@@ -454,7 +481,7 @@ class SettingsDialog(QtGui.QDialog):
             build_text += " ({0})".format(BUILD_COMMIT[:8])
 
         version_form.addRow("Build", QtGui.QLabel(build_text))
-        layout.addLayout(version_form)
+        product_layout.addLayout(version_form)
 
         links = QtGui.QLabel(
             '<a href="{0}">GitHub repository</a> &nbsp;&middot;&nbsp; '
@@ -464,13 +491,12 @@ class SettingsDialog(QtGui.QDialog):
             )
         )
         links.setOpenExternalLinks(True)
-        layout.addWidget(links)
+        product_layout.addWidget(links)
+        layout.addWidget(product_section)
 
-        credits_title = QtGui.QLabel("Third-party assets")
-        credits_font = credits_title.font()
-        credits_font.setBold(True)
-        credits_title.setFont(credits_font)
-        layout.addWidget(credits_title)
+        credits_section, credits_layout = self._build_simple_section(
+            "Third-party assets"
+        )
 
         credits = QtGui.QLabel(
             'Solar Icons by 480 Design<br>'
@@ -482,7 +508,7 @@ class SettingsDialog(QtGui.QDialog):
         )
         credits.setOpenExternalLinks(True)
         credits.setWordWrap(True)
-        layout.addWidget(credits)
+        credits_layout.addWidget(credits)
 
         credits_note = QtGui.QLabel(
             "Script Toolbox bundles selected monochrome Solar Linear icons "
@@ -490,7 +516,9 @@ class SettingsDialog(QtGui.QDialog):
             "The full attribution notice is included with the icon resources."
         )
         credits_note.setWordWrap(True)
-        layout.addWidget(credits_note)
+        credits_layout.addWidget(credits_note)
+        layout.addWidget(credits_section)
+
         layout.addStretch(1)
         return page
 

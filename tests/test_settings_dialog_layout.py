@@ -87,3 +87,26 @@ def test_about_page_exposes_version_links_and_icon_attribution():
     assert "Iconify" in source
     assert "CC BY 4.0" in source
     assert "setOpenExternalLinks(True)" in source
+
+
+def test_settings_pages_reuse_existing_simple_folder_contract():
+    source = _read(
+        "scripts/script_toolbox/ui/settings_dialog.py"
+    )
+
+    assert "from ..style.metrics import RUNTIME_FOLDER_CONTENT_MARGINS" in source
+    assert "from ..style.metrics import RUNTIME_FOLDER_CONTENT_SPACING" in source
+    assert "from ..style.metrics import RUNTIME_FOLDER_ROOT_MARGINS" in source
+    assert "from ..style.metrics import RUNTIME_FOLDER_ROOT_SPACING" in source
+    assert 'section = QtGui.QGroupBox(text_type(title_text))' in source
+    assert 'section.setObjectName("SimpleSectionGroupBox")' in source
+    assert 'section.setProperty("nested", False)' in source
+    assert 'content.setObjectName("RuntimeFolderContent")' in source
+    assert "section_layout.setContentsMargins(*RUNTIME_FOLDER_ROOT_MARGINS)" in source
+    assert "section_layout.setSpacing(RUNTIME_FOLDER_ROOT_SPACING)" in source
+    assert "content_layout.setContentsMargins(*RUNTIME_FOLDER_CONTENT_MARGINS)" in source
+    assert "content_layout.setSpacing(RUNTIME_FOLDER_CONTENT_SPACING)" in source
+    assert 'self._build_simple_section("Updates")' in source
+    assert 'self._build_simple_section("Proxy")' in source
+    assert '"Usage statistics"' in source
+    assert '"Third-party assets"' in source

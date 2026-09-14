@@ -56,6 +56,17 @@ def test_document_index_finds_by_id_and_name_only():
     assert index.find("missing") is None
 
 
+def test_document_index_can_include_registered_sections():
+    document = sample_document()
+    section = document["sections"][0]
+
+    default_index = DocumentIndex(document)
+    section_index = DocumentIndex(document, include_sections=True)
+
+    assert default_index.find("root") is None
+    assert section_index.find("root") is section
+
+
 def test_document_index_preserves_id_over_name_precedence():
     document = sample_document()
     count = document["sections"][0]["items"][0]

@@ -5,7 +5,6 @@ from ..compat import QtGui
 from ..model.fields import ColorField
 from ..model.item_builtins import register_builtin_items
 from ..model.item_registry import ITEM_TYPES
-from ..model.item_view import item_view
 from ..pycompat import text_type
 
 
@@ -111,14 +110,14 @@ class RuntimeValueBinding(object):
                 unique.append(control)
         return unique
 
-    def _sync_numeric(self, item, is_float):
+    def _sync_numeric(self, props, is_float):
         spin_class = QtGui.QDoubleSpinBox if is_float else QtGui.QSpinBox
         spins = _controls(self.root, spin_class)
         if not spins:
             return False
 
         values = _numeric_values(
-            item.get("value", 0.0 if is_float else 0),
+            props.get("value", 0.0 if is_float else 0),
             len(spins)
         )
         for index, control in enumerate(spins):
@@ -127,8 +126,8 @@ class RuntimeValueBinding(object):
             )
 
         sliders = _controls(self.root, QtGui.QSlider)
-        minimum = item.get("min", 0.0 if is_float else 0)
-        maximum = item.get("max", 1.0 if is_float else 1)
+        minimum = props.get("min", 0.0 if is_float else 0)
+        maximum = props.get("max", 1.0 if is_float else 1)
         for index, slider in enumerate(sliders):
             if index >= len(values):
                 break
@@ -144,25 +143,25 @@ class RuntimeValueBinding(object):
                 slider.setValue(int(values[index]))
         return True
 
-    def sync(self, raw_item):
-        item = item_view(raw_item)
+    def sync(self, item):
+        props = item.get("props", {}) or {}
         previous = _block_signals(self._signal_controls())
         try:
-            if self._sync_numeric(item, is_float=True):
+            if self._sync_numeric(props, is_float=True):
                 return True
-            if self._sync_numeric(item, is_float=False):
+            if self._sync_numeric(props, is_float=False):
                 return True
 
             checkboxes = _controls(self.root, QtGui.QCheckBox)
             if checkboxes:
-                value = bool(item.get("value", False))
+                value = bool(props.get("value", False))
                 for control in checkboxes:
                     control.setChecked(value)
                 return True
 
             combos = _controls(self.root, QtGui.QComboBox)
             if combos:
-                value = text_type(item.get("value", "") or "")
+                value = text_type(props.get("value", "") or "")
                 for control in combos:
                     index = control.findText(value)
                     if index >= 0:
@@ -171,7 +170,7 @@ class RuntimeValueBinding(object):
 
             lines = _controls(self.root, QtGui.QLineEdit)
             if lines:
-                value = text_type(item.get("value", "") or "")
+                value = text_type(props.get("value", "") or "")
                 for control in lines:
                     control.setText(value)
                 return True
@@ -191,7 +190,7 @@ class RuntimeValueBinding(object):
                 if styler is None:
                     return False
                 for control in _controls(self.root, QtGui.QPushButton):
-                    styler(control, item.get("value"))
+                    styler(control, props.get("value"))
                 return True
         finally:
             _restore_signals(previous)

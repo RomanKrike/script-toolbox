@@ -89,11 +89,18 @@ def _normalize_float(props, raw):
 
 def _normalize_field(props, raw):
     value = raw.get("value", props.get("value", ""))
-    if isinstance(value, tuple):
-        value = list(value)
     multiple = bool(props.get("multiple", True))
+
+    if value is None:
+        value = ""
+    elif isinstance(value, (list, tuple)):
+        value = [text_type(entry) for entry in value]
+    else:
+        value = text_type(value)
+
     if not multiple and isinstance(value, list):
         value = value[0] if value else ""
+
     props["value"] = value
     if not multiple:
         props["display_mode"] = "single"
@@ -398,17 +405,16 @@ def builtin_item_definitions():
             capabilities=("bindable", "resizable"),
             default_label="Image",
             ui_defaults={"show_label": False},
-            description="Display a local image with contain, cover or stretch fit.",
+            description="Display a raster image with configurable fit mode.",
         ),
     )
 
 
-def register_builtin_items(registry=None):
-    registry = registry or ITEM_TYPES
+def register_builtin_items():
     for definition in builtin_item_definitions():
-        if registry.get(definition.kind) is None:
-            registry.register(definition)
-    return registry
+        if ITEM_TYPES.get(definition.kind) is None:
+            ITEM_TYPES.register(definition)
+    return ITEM_TYPES
 
 
 __all__ = [

@@ -21,6 +21,7 @@ class ItemTypeDefinition(object):
         capabilities=None,
         creatable=True,
         default_label=None,
+        ui_defaults=None,
         normalize_props=None,
         default_bindings=None,
         renderer=None,
@@ -41,6 +42,7 @@ class ItemTypeDefinition(object):
         self.default_label = text_type(
             default_label if default_label is not None else self.title
         )
+        self.ui_defaults = dict(ui_defaults or {})
         self.normalize_props_hook = normalize_props
         self.default_bindings_hook = default_bindings
         self.renderer = renderer

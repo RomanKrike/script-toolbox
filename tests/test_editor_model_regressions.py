@@ -96,7 +96,7 @@ def test_editor_tree_nested_structure_matches_current_baseline():
 
 def test_editor_model_names_and_ids_are_unique_in_current_baseline():
     document = load_config(path=str(FIXTURE))
-    items = list(walk_items(document, include_folders=True))
+    items = list(walk_items(document, include_sections=True))
 
     ids = [item["id"] for item in items]
     names = [item["name"] for item in items]

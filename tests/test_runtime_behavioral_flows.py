@@ -11,34 +11,39 @@ from script_toolbox.core.state_toggle import state_toggle_action
 def test_internal_toggle_flow_is_off_on_off_and_selects_scripts(kind):
     item = {
         "kind": kind,
-        "state_source": "internal",
-        "value": False,
-        "state_on_script": "turn_on()",
-        "state_on_language": "python",
-        "state_off_script": "turn_off()",
-        "state_off_language": "mel",
+        "props": {
+            "state_source": "internal",
+            "value": False,
+            "state_on_script": "turn_on()",
+            "state_on_language": "python",
+            "state_off_script": "turn_off()",
+            "state_off_language": "mel",
+        },
     }
 
-    first = state_toggle_action(item, item["value"])
+    props = item["props"]
+    first = state_toggle_action(item, props["value"])
     assert first["script"] == "turn_on()"
     assert first["language"] == "python"
     assert first["stores_value"] is True
-    item["value"] = first["next_state"]
-    assert item["value"] is True
+    props["value"] = first["next_state"]
+    assert props["value"] is True
 
-    second = state_toggle_action(item, item["value"])
+    second = state_toggle_action(item, props["value"])
     assert second["script"] == "turn_off()"
     assert second["language"] == "mel"
-    item["value"] = second["next_state"]
-    assert item["value"] is False
+    props["value"] = second["next_state"]
+    assert props["value"] is False
 
 
 def test_script_driven_toggle_uses_action_scripts_without_internal_storage():
     item = {
         "kind": "toggle_button",
-        "state_source": "script",
-        "state_on_script": "enable()",
-        "state_off_script": "disable()",
+        "props": {
+            "state_source": "script",
+            "state_on_script": "enable()",
+            "state_off_script": "disable()",
+        },
     }
     assert state_toggle_action(item, False)["stores_value"] is False
     assert state_toggle_action(item, True)["stores_value"] is False

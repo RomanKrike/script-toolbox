@@ -65,11 +65,7 @@ def safe_color(value):
 
 def safe_menu_items(value):
     if isinstance(value, (list, tuple)):
-        result = [
-            text_type(item)
-            for item in value
-            if text_type(item).strip()
-        ]
+        result = [text_type(item) for item in value if text_type(item).strip()]
     else:
         raw = text_type(value or "")
         result = [
@@ -90,10 +86,7 @@ def safe_component_labels(value, size):
         labels = [text_type(entry).strip() for entry in value]
     else:
         raw = text_type(value or "")
-        labels = [
-            part.strip()
-            for part in raw.replace(";", ",").split(",")
-        ] if raw.strip() else []
+        labels = [part.strip() for part in raw.replace(";", ",").split(",")] if raw.strip() else []
     return [
         labels[index] if index < len(labels) and labels[index]
         else DEFAULT_COMPONENT_LABELS[index]
@@ -101,36 +94,15 @@ def safe_component_labels(value, size):
     ]
 
 
-def normalize_numeric_value(
-    value,
-    size,
-    minimum,
-    maximum,
-    caster,
-    fallback
-):
+def normalize_numeric_value(value, size, minimum, maximum, caster, fallback):
     size = safe_numeric_size(size)
     incoming = list(value) if isinstance(value, (list, tuple)) else [value] * size
-    fallback_values = (
-        list(fallback)
-        if isinstance(fallback, (list, tuple))
-        else [fallback] * size
-    )
+    fallback_values = list(fallback) if isinstance(fallback, (list, tuple)) else [fallback] * size
     result = []
     for index in range(size):
-        current_fallback = (
-            fallback_values[index]
-            if index < len(fallback_values)
-            else 0
-        )
+        current_fallback = fallback_values[index] if index < len(fallback_values) else 0
         current = incoming[index] if index < len(incoming) else current_fallback
-        result.append(
-            clamp(
-                caster(current, current_fallback),
-                minimum,
-                maximum
-            )
-        )
+        result.append(clamp(caster(current, current_fallback), minimum, maximum))
     return result[0] if size == 1 else result
 
 
@@ -148,10 +120,7 @@ def sanitize_name(value, fallback="item"):
 
 
 def default_name(kind, item_id):
-    return sanitize_name(
-        "{0}_{1}".format(kind, text_type(item_id)[:4]),
-        kind,
-    )
+    return sanitize_name("{0}_{1}".format(kind, text_type(item_id)[:4]), kind)
 
 
 def _normalize_ui(definition, raw_ui=None):
@@ -175,21 +144,25 @@ def base_item(kind, data=None, default_label=None):
     data = data if isinstance(data, dict) else {}
     definition = ITEM_TYPES.get(kind, required=True)
     item_id = text_type(data.get("id") or new_id())
-    name = sanitize_name(
-        data.get("name") or default_name(definition.kind, item_id),
-        definition.kind
-    )
+    name = sanitize_name(data.get("name") or default_name(definition.kind, item_id), definition.kind)
     raw_ui = dict(data.get("ui") or {})
     if default_label is not None and "label" not in raw_ui:
         raw_ui["label"] = text_type(default_label)
     ui = _normalize_ui(definition, raw_ui)
+    props = definition.normalize_props(data.get("props"))
+    raw_props = data.get("props") if isinstance(data.get("props"), dict) else {}
+    if definition.has_capability("state_toggle"):
+        if "state_on_label" not in raw_props:
+            props["state_on_label"] = ui["label"]
+        if "state_off_label" not in raw_props:
+            props["state_off_label"] = ui["label"]
 
     return {
         "kind": definition.kind,
         "id": item_id,
         "name": name,
         "ui": ui,
-        "props": definition.normalize_props(data.get("props")),
+        "props": props,
         "bindings": [],
     }
 
@@ -205,10 +178,7 @@ def create_item(kind, data=None):
         raw_bindings = definition.default_bindings()
 
     from .bindings import normalize_bindings
-    item["bindings"] = normalize_bindings(
-        definition.kind,
-        {"bindings": raw_bindings}
-    )
+    item["bindings"] = normalize_bindings(definition.kind, {"bindings": raw_bindings})
 
     if definition.is_container:
         children = []
@@ -217,6 +187,11 @@ def create_item(kind, data=None):
                 continue
             child_kind = text_type(raw.get("kind") or "").lower()
             if not child_kind:
+                continue
+            child_definition = ITEM_TYPES.get(child_kind)
+            if child_definition is None:
+                raise ValueError("Unsupported Script Toolbox item kind: {0!r}".format(child_kind))
+            if definition.is_layout and child_definition.has_capability("section"):
                 continue
             children.append(create_item(child_kind, raw))
         item["items"] = children
@@ -244,11 +219,9 @@ def normalize_document(data):
     register_builtin_items()
     if not isinstance(data, dict):
         return default_document()
-
     raw_sections = data.get("sections")
     if not isinstance(raw_sections, list):
         raw_sections = []
-
     sections = []
     for raw in raw_sections:
         if not isinstance(raw, dict):
@@ -258,14 +231,9 @@ def normalize_document(data):
         if definition is None or not definition.has_capability("section"):
             continue
         sections.append(create_item(kind, raw))
-
     if not sections:
         sections = default_document()["sections"]
-
-    return {
-        "version": CONFIG_VERSION,
-        "sections": sections,
-    }
+    return {"version": CONFIG_VERSION, "sections": sections}
 
 
 def walk_items(document, include_folders=False):
@@ -298,21 +266,8 @@ register_builtin_items()
 
 
 __all__ = [
-    "DEFAULT_COMPONENT_LABELS",
-    "base_item",
-    "clamp",
-    "create_item",
-    "default_document",
-    "default_name",
-    "new_id",
-    "normalize_document",
-    "normalize_numeric_value",
-    "safe_color",
-    "safe_component_labels",
-    "safe_float",
-    "safe_int",
-    "safe_menu_items",
-    "safe_numeric_size",
-    "sanitize_name",
-    "walk_items",
+    "DEFAULT_COMPONENT_LABELS", "base_item", "clamp", "create_item", "default_document",
+    "default_name", "new_id", "normalize_document", "normalize_numeric_value", "safe_color",
+    "safe_component_labels", "safe_float", "safe_int", "safe_menu_items", "safe_numeric_size",
+    "sanitize_name", "walk_items",
 ]

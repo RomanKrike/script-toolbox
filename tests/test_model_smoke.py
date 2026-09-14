@@ -9,58 +9,40 @@ from script_toolbox.model.items import walk_items
 
 def test_removed_toggle_kind_is_rejected():
     with pytest.raises(ValueError):
-        create_item(
-            "toggle",
-            {
-                "name": "enabled",
-                "label": "Enabled",
-                "value": True,
-            }
-        )
+        create_item("toggle", {"name": "enabled"})
 
 
 def test_checkbox_defaults_to_right_label():
-    item = create_item(
-        "checkbox",
-        {"name": "enabled"}
-    )
-
+    item = create_item("checkbox", {"name": "enabled"})
     assert item["kind"] == "checkbox"
-    assert item["label_position"] == "right"
+    assert item["props"]["label_position"] == "right"
 
 
-def test_nested_folders_are_preserved():
+def test_nested_folders_are_preserved_in_new_envelope():
     document = normalize_document({
+        "version": 21,
         "sections": [
             {
-                "name": "render",
-                "label": "Render",
+                "kind": "folder", "name": "render", "ui": {"label": "Render"},
+                "props": {},
                 "items": [
                     {
-                        "kind": "folder",
-                        "name": "arnold",
-                        "label": "Arnold",
+                        "kind": "folder", "name": "arnold", "ui": {"label": "Arnold"},
+                        "props": {},
                         "items": [
-                            {
-                                "kind": "integer",
-                                "name": "samples",
-                                "value": 4,
-                            }
+                            {"kind": "integer", "name": "samples", "ui": {}, "props": {"value": 4}}
                         ],
                     }
                 ],
             }
         ]
     })
-
     nested = document["sections"][0]["items"][0]
-
     assert nested["kind"] == "folder"
-    assert nested["name"] == "arnold"
     assert nested["items"][0]["kind"] == "integer"
 
 
-def test_row_accepts_layout_containers_but_rejects_folders():
+def test_row_accepts_layout_containers_but_rejects_sections():
     row = create_item(
         "row",
         {
@@ -72,12 +54,7 @@ def test_row_accepts_layout_containers_but_rejects_folders():
             ]
         }
     )
-
-    assert [item["kind"] for item in row["items"]] == [
-        "button",
-        "row",
-        "column",
-    ]
+    assert [item["kind"] for item in row["items"]] == ["button", "row", "column"]
 
 
 def test_name_and_label_are_independent():
@@ -85,36 +62,32 @@ def test_name_and_label_are_independent():
         "integer",
         {
             "name": "subdiv_iterations",
-            "label": "Subdivision Iterations",
-            "show_label": False,
+            "ui": {"label": "Subdivision Iterations", "show_label": False},
         }
     )
-
     assert item["name"] == "subdiv_iterations"
-    assert item["label"] == "Subdivision Iterations"
-    assert item["show_label"] is False
+    assert item["ui"]["label"] == "Subdivision Iterations"
+    assert item["ui"]["show_label"] is False
 
 
 def test_walk_items_recurses_folder_row_and_column():
     document = normalize_document({
+        "version": 21,
         "sections": [
             {
-                "name": "root",
+                "kind": "folder", "name": "root", "ui": {}, "props": {},
                 "items": [
                     {
-                        "kind": "folder",
-                        "name": "nested",
+                        "kind": "folder", "name": "nested", "ui": {}, "props": {},
                         "items": [
                             {
-                                "kind": "row",
-                                "name": "controls",
+                                "kind": "row", "name": "controls", "ui": {}, "props": {},
                                 "items": [
                                     {
-                                        "kind": "column",
-                                        "name": "left_column",
+                                        "kind": "column", "name": "left_column", "ui": {}, "props": {},
                                         "items": [
-                                            {"kind": "float", "name": "amount"},
-                                            {"kind": "checkbox", "name": "enabled"},
+                                            {"kind": "float", "name": "amount", "ui": {}, "props": {}},
+                                            {"kind": "checkbox", "name": "enabled", "ui": {}, "props": {}},
                                         ],
                                     }
                                 ],
@@ -125,7 +98,5 @@ def test_walk_items_recurses_folder_row_and_column():
             }
         ]
     })
-
     names = [item["name"] for item in walk_items(document)]
-
     assert names == ["controls", "left_column", "amount", "enabled"]

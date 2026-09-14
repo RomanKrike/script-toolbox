@@ -15,23 +15,29 @@ def sample_document():
     return normalize_document({
         "sections": [
             {
+                "kind": "folder",
                 "name": "root",
+                "ui": {"label": "Root"},
                 "items": [
                     {
                         "kind": "integer",
                         "name": "count",
-                        "label": "Count Label",
-                        "min": 0,
-                        "max": 10,
-                        "value": 3,
+                        "ui": {"label": "Count Label"},
+                        "props": {
+                            "min": 0,
+                            "max": 10,
+                            "value": 3,
+                        },
                     },
                     {
                         "kind": "float",
                         "name": "amount",
-                        "label": "Amount Label",
-                        "min": -1.0,
-                        "max": 1.0,
-                        "value": 0.25,
+                        "ui": {"label": "Amount Label"},
+                        "props": {
+                            "min": -1.0,
+                            "max": 1.0,
+                            "value": 0.25,
+                        },
                     },
                 ],
             }
@@ -136,14 +142,17 @@ def test_in_place_structure_addition_self_heals_cached_index():
     new_item = normalize_document({
         "sections": [
             {
+                "kind": "folder",
                 "name": "temp",
                 "items": [
                     {
                         "kind": "integer",
                         "name": "late_item",
-                        "min": 0,
-                        "max": 10,
-                        "value": 5,
+                        "props": {
+                            "min": 0,
+                            "max": 10,
+                            "value": 5,
+                        },
                     }
                 ],
             }

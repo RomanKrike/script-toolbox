@@ -28,7 +28,7 @@ def _raw_items(document):
         stack[0:0] = list(item.get("items", []) or [])
 
 
-def test_runtime_section_routing_has_no_folder_kind_switch():
+def test_runtime_section_routing_uses_sectionspec_not_folder_schema_name():
     source = _source(
         "scripts", "script_toolbox", "ui", "runtime.py"
     )
@@ -37,8 +37,35 @@ def test_runtime_section_routing_has_no_folder_kind_switch():
     assert 'get("kind") != "folder"' not in source
     assert "ITEM_TYPES.get" in source
     assert "build_runtime_widget" in source
-    assert 'definition.fields.get("folder_type")' in source
-    assert 'mode_field.normalize(' in source
+    assert "definition.section_mode(" in source
+    assert 'definition.fields.get("folder_type")' not in source
+    assert '_props(item).get("folder_type")' not in source
+
+
+def test_generic_layout_metadata_has_no_magic_row_column_schema_inference():
+    registry_source = _source(
+        "scripts", "script_toolbox", "model", "item_registry.py"
+    )
+    adapter_source = _source(
+        "scripts", "script_toolbox", "ui", "properties", "layout_adapter.py"
+    )
+
+    assert "class LayoutSpec" in registry_source
+    assert "return spec.axis" in registry_source
+    assert '"horizontal_distribution" in self.fields' not in registry_source
+    assert '"vertical_distribution" in self.fields' not in registry_source
+
+    for magic_name in (
+        "horizontal_distribution",
+        "vertical_distribution",
+        "horizontal_alignment",
+        "vertical_alignment",
+        "equal_widths",
+    ):
+        assert magic_name not in adapter_source
+    assert "parent_definition.layout_spec" in adapter_source
+    assert "spec.distribution_field" in adapter_source
+    assert "spec.cross_alignment_field" in adapter_source
 
 
 def test_clean_break_has_no_migration_surface_or_v20_fixtures():
@@ -98,7 +125,12 @@ def test_current_v21_fixtures_use_canonical_item_envelope():
                 assert isinstance(item["items"], list)
 
 
-def test_item_inspector_does_not_persist_legacy_callbacks():
+def test_item_inspector_routes_props_through_schema_and_has_no_callbacks():
+    base_source = _source(
+        "scripts", "script_toolbox", "ui", "properties", "base.py"
+    )
+    assert "normalize_item_props(self.item)" in base_source
+
     for parts in (
         ("scripts", "script_toolbox", "ui", "properties", "basic.py"),
         ("scripts", "script_toolbox", "ui", "properties", "separator.py"),

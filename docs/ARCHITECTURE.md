@@ -73,13 +73,13 @@ Schema **21** is the single supported configuration contract.
 ```text
 JSON read
   -> validate schema version 21
-  -> normalize current-schema Item envelopes and field values
+  -> normalize and validate current-schema Item envelopes/props
   -> runtime document
 ```
 
-A non-empty document without a version, an older schema, and a newer schema are all rejected. The config layer never infers, migrates or down-converts historical payloads. In particular, there is intentionally no schema 20 -> 21 migration. An empty mapping is used internally only to construct a brand-new current-schema document.
+Config version validation and Item validation are separate layers. A non-empty document without a version, an older schema, and a newer schema are rejected by `core/config_schema.py` before Item normalization. Current-schema Items are then constructed through the model schema. Malformed typed props are not silently replaced with unrelated defaults. In particular, there is intentionally no schema 20 -> 21 migration. An empty mapping is used internally only to construct a brand-new current-schema document.
 
-Breaking schema changes during development may advance `CONFIG_VERSION`, but the repository keeps only the current schema contract and current-schema tests unless backward compatibility is explicitly reintroduced as a product requirement.
+Breaking schema changes during development may advance `CONFIG_VERSION`, but these architecture changes do not modify the persisted envelope, so the current schema remains 21.
 
 ## Universal Item model
 
@@ -120,7 +120,7 @@ Identity has one explicit contract:
 - `name` is the supported symbolic identifier for scripts and human-readable API usage;
 - `ui.label` is presentation text only and never participates in lookup.
 
-Unknown kinds are rejected instead of silently converting to another type. `kind` is the only Item type discriminator; there is no parallel `type` field.
+Unknown kinds are rejected instead of silently converting to another type. `kind` is the only Item type discriminator; there is no parallel `type` field, `UnknownItem`, `RawItem`, or placeholder compatibility storage.
 
 ## Item type registry
 
@@ -129,39 +129,98 @@ Unknown kinds are rejected instead of silently converting to another type. `kind
 A definition owns:
 
 - `kind`, `title`, `category`, `description`, `order`, `creatable`;
-- typed `fields` for `props` normalization;
+- typed `fields` for the `props` data contract;
 - public `events` and `internal_events`;
 - semantic `capabilities` such as `container`, `layout`, `section`, `has_value`, `state_toggle`, `resizable`, `field_widget`, `native_button` or `divider`;
+- optional `LayoutSpec` and `SectionSpec` semantic metadata;
 - default UI metadata and default bindings;
 - optional `normalize_props` hook for cross-field invariants;
 - `renderer_path` and `inspector_path` for lazy Qt-side resolution.
 
-`layout_axis` is derived from a layout definition's schema metadata, so generic editor/layout code does not need to identify Row or Column by name.
+Capabilities remain the authoritative semantic flags. Convenience properties such as `definition.is_layout`, `definition.is_section`, `definition.layout_spec` and `definition.section_spec` make generic consumers explicit without introducing a type hierarchy.
 
-Core routing no longer depends on `_FACTORIES`, `EVENT_CAPABILITIES`, `LAYOUT_KINDS`, `CONTAINER_KINDS`, `STATE_TOGGLE_KINDS`, a central property-editor map, a renderer switch, or an authored palette kind list.
+Core routing no longer depends on `_FACTORIES`, `EVENT_CAPABILITIES`, `LAYOUT_KINDS`, `CONTAINER_KINDS`, `FOLDER_TYPES`, `STATE_TOGGLE_KINDS`, a central property-editor map, a renderer switch, or an authored palette kind list.
 
-Standard built-ins are registered by `model/item_builtins.py`. Independently extensible built-ins live under `model/item_definitions/`; `Image` is defined in `model/item_definitions/image.py` and is included by the explicit built-in definition bootstrap. This keeps import order obvious and Python 2/Maya 2015 friendly while allowing a new built-in type to be added as a type-specific module plus one bootstrap entry.
+Standard built-ins are registered by `model/item_builtins.py`. Their `ItemTypeDefinition`/Field objects are lazily constructed once per loaded `item_builtins` module graph and reused by repeated `register_builtin_items()` calls. This avoids rebuilding schemas on every lookup without adding a second registry. Reloading the module resets that cache naturally; `ITEM_TYPES` remains authoritative about which definitions are currently registered.
 
-`ui/item_ui_bootstrap.py` is generic: it iterates `ITEM_TYPES`, resolves each definition's UI paths and binds the resulting renderer/inspector. `ui/runtime_renderers.py`, `ui/properties/registry.py`, bindings, values, Interface Editor containment and palette logic consume the same registry metadata.
+Independently extensible built-ins live under `model/item_definitions/`; `Image` is defined in `model/item_definitions/image.py` and is included by the explicit built-in definition bootstrap. A new built-in therefore requires only its type-specific module plus, at most, one explicit bootstrap entry.
 
-## Field schema
+`ui/item_ui_bootstrap.py` is generic and re-entrant: it iterates the current `ITEM_TYPES`, resolves unresolved UI paths and binds the resulting renderer/Inspector. `ui/runtime_renderers.py`, `ui/properties/registry.py`, bindings, values, Interface Editor containment and palette logic consume the same registry metadata.
 
-The model provides declarative field definitions including `TextField`, `BoolField`, `IntField`, `FloatField`, `ChoiceField`, `ColorField`, `PathField` and `ListField`.
+## Field schema and validation pipeline
 
-Fields own defaults and value-level normalization. Numeric fields may clamp to minimum/maximum bounds; choice fields validate against declared choices; list fields can normalize their members through another Field.
+The model provides declarative field definitions including `TextField`, `BoolField`, `IntField`, `FloatField`, `ChoiceField`, `ColorField`, `PathField` and `ListField`. Field classes remain model-only and do not map themselves to Qt controls.
 
-Complex invariants stay at Item-definition level through `normalize_props`. The normalization pipeline is:
+Fields own defaults, supported coercion/parsing, value normalization and value validation. The production `props` pipeline is:
 
 ```text
 raw props
-  -> per-field normalization
-  -> ItemTypeDefinition.normalize_props hook
-  -> normalized props
+  -> field parsing / supported coercion
+  -> field normalization (including numeric bounds)
+  -> per-field validation
+  -> ItemTypeDefinition.normalize_props cross-field hook
+  -> final field validation
+  -> canonical props
 ```
 
-This is used for numeric vector size/range invariants, Menu values, Field display semantics and state-toggle storage behavior.
+`ItemTypeDefinition.validate_props()` uses the same supported coercion rules for diagnostic validation. Canonical construction, `normalize_document()`, editor writes through `normalize_item_props()`, config load and runtime value writes all use `ItemTypeDefinition.normalize_props()`; validation is therefore part of the real data path rather than an optional helper.
 
-## Adding a new Item type
+The coercion boundary is explicit:
+
+- `IntField`: `"12"` may coerce to `12`; `"hello"` is invalid rather than becoming a default.
+- `FloatField`: numeric text may coerce; unrelated text is invalid.
+- `ChoiceField`: case-insensitive text may resolve to one declared choice; an undeclared choice is invalid.
+- `BoolField`: accepts booleans, `1`/`0`, and the explicit case-insensitive strings `true`/`false`, `yes`/`no`, `1`/`0`; arbitrary non-empty strings are invalid. In particular, `BoolField.normalize("false")` is `False`, never Python's `bool("false") == True` behavior.
+- numeric/color bounds normalize by clamping after successful parsing; parsing failure is not a bound case and raises validation error.
+
+`FieldValidationError` describes a field-level parse/validation failure. `ItemValidationError` is the Item-level error contract and carries `kind`, optional `id`/`name`, `field`, bad `value`, and `reason`. Config recovery surfaces that structured message for malformed current-schema data instead of silently repairing it.
+
+Complex cross-field invariants stay at definition level through `normalize_props`; the Inspector does not become a second validator. Specialized editors may write raw UI values into `props`, but `PropertyEditorBase.write_to_item()` then calls `normalize_item_props()` before emitting the changed state.
+
+## Layout semantics
+
+Layout behavior is explicit metadata, not an inference from field names. A layout definition declares capability `layout` and a `LayoutSpec`:
+
+```python
+LayoutSpec(
+    axis="horizontal",
+    distribution_field="distribution",
+    cross_alignment_field="cross_alignment",
+    equal_size_field="equal_sizes",
+)
+```
+
+Any field entry may be `None` when that layout does not support the semantic. `axis` may describe current linear layouts and leaves room for future Grid/Flow/Wrap/Stack semantics without teaching generic code concrete `kind` names.
+
+Current Row/Column keep their persisted prop names to avoid needless schema churn:
+
+```text
+Row:    axis=horizontal, distribution_field=horizontal_distribution,
+        cross_alignment_field=vertical_alignment, equal_size_field=equal_widths
+Column: axis=vertical, distribution_field=vertical_distribution,
+        cross_alignment_field=horizontal_alignment
+```
+
+`ui/properties/layout_adapter.py` reads those names through `definition.layout_spec`. It contains no persisted Row/Column field-name routing and no `kind == "row"` / `kind == "column"` dispatch. Specialized Row/Column renderer/Inspector modules may naturally understand their own schema.
+
+A synthetic horizontal `Flow Layout` can therefore use properties such as `flow_policy`, `cross_policy` and `same_extent`; generic editor semantics still work from `LayoutSpec` and require no new core `kind` checks.
+
+## Section semantics
+
+A section is identified by capability `section`; its type-specific mode field is declared separately by `SectionSpec`:
+
+```python
+SectionSpec(
+    mode_field="display_mode",
+    modes=("cards", "stack"),
+)
+```
+
+The `section` capability does **not** imply a property named `folder_type`. Generic runtime obtains the mode through `definition.section_mode(props)`, which resolves `section_spec.mode_field` and the declared Field. Folder keeps its existing persisted `folder_type` schema through `SectionSpec(mode_field="folder_type", ...)`, but the generic runtime does not know that literal.
+
+A future Card Section with `props.display_mode`, an Accordion Section, Tool Group or Asset Group can therefore participate in generic section routing without changing `ui/runtime.py` or adding a concrete-kind branch. Type-specific rendering behavior still belongs to that Item's renderer.
+
+## Adding and registering Item types
 
 Add the type-specific implementation; do not edit routing core.
 
@@ -169,42 +228,83 @@ For a built-in `video`:
 
 1. add `model/item_definitions/video.py` with its `ItemTypeDefinition`;
 2. add its renderer and Inspector modules/classes;
-3. include `video_definition()` in the explicit `model/item_definitions/__init__.py` bootstrap tuple;
+3. include `video_definition()` in the explicit built-in bootstrap tuple;
 4. add tests.
 
-Example definition:
+Example ordinary Item definition:
 
 ```python
-from script_toolbox.model.fields import BoolField, ChoiceField, PathField
+from script_toolbox.model.fields import PathField
 from script_toolbox.model.item_registry import ItemTypeDefinition
 
-
-def video_definition():
-    return ItemTypeDefinition(
-        kind="video",
-        title="Video",
-        category="Display",
-        fields={
-            "source": PathField(default=""),
-            "autoplay": BoolField(default=False),
-            "loop": BoolField(default=False),
-            "fit": ChoiceField(
-                ("contain", "cover", "stretch"),
-                default="contain"
-            ),
-        },
-        events=("click", "double_click"),
-        capabilities=("bindable", "resizable"),
-        renderer_path=".video_item:render_video",
-        inspector_path=".video_item:VideoPropertyEditor",
-    )
+resource = ItemTypeDefinition(
+    kind="file",
+    title="File",
+    fields={"source": PathField(default="")},
+    renderer_path=".file_item:render_file",
+    inspector_path=".file_item:FilePropertyEditor",
+)
 ```
 
-No change is required in `bindings.py`, `layouts.py`, runtime dispatch, the property registry, `interface_editor.py`, `item_palette.py`, or document normalization. External/future plugin code can instead call `register_item_type()` directly and does not need the built-in bootstrap entry.
+Example layout definition:
 
-Built-in `Image` is the production proof of this pattern. It defines only `source`, `fit`, `width`, `height`; supports `contain`, `cover`, `stretch`; declares `click`/`double_click`; and supplies its renderer and specialized Inspector through its definition metadata.
+```python
+from script_toolbox.model.item_registry import ItemTypeDefinition, LayoutSpec
 
-## Container and value contracts
+flow = ItemTypeDefinition(
+    kind="flow",
+    title="Flow Layout",
+    fields={...},
+    capabilities=("container", "layout"),
+    layout=LayoutSpec(
+        axis="horizontal",
+        distribution_field="flow_policy",
+        cross_alignment_field="cross_policy",
+        equal_size_field="same_extent",
+    ),
+    renderer_path=".flow_layout:render_flow",
+    inspector_path=".flow_layout:FlowPropertyEditor",
+)
+```
+
+Example section definition:
+
+```python
+from script_toolbox.model.item_registry import ItemTypeDefinition, SectionSpec
+
+card = ItemTypeDefinition(
+    kind="card_section",
+    title="Card Section",
+    fields={...},
+    capabilities=("container", "section"),
+    section=SectionSpec(
+        mode_field="display_mode",
+        modes=("cards", "stack"),
+    ),
+    renderer_path=".card_section:render_card_section",
+    inspector_path=".card_section:CardSectionPropertyEditor",
+)
+```
+
+No change is required in `bindings.py`, `layouts.py`, runtime dispatch, the property registry, `interface_editor.py`, `item_palette.py`, or document normalization for these types. External/future plugin code can call `register_item_type()` directly and does not need a built-in bootstrap entry.
+
+Built-in `Image` is the production proof of the ordinary Item pattern. The test-only Video, Flow Layout and Card Section definitions prove late runtime registration, custom layout semantics and section semantics with a non-`folder_type` mode field.
+
+## External registration lifecycle
+
+External definitions that may appear in persisted config **must be registered before config normalization/load**. The canonical future plugin startup order is:
+
+```text
+initialize model
+  -> register built-in Item types
+  -> register external/plugin Item types
+  -> load + normalize config
+  -> initialize UI
+```
+
+Late registration is supported for runtime-added types after UI composition: re-entrant UI path resolution and runtime registry synchronization discover the new definition. However, if config loading already encountered an unknown persisted `kind`, the loader is not required to preserve that raw Item for a plugin that might register later. Unknown persisted kinds remain invalid by clean-break policy; there is no placeholder compatibility layer.
+
+## Container, binding and value contracts
 
 Container semantics are definition-owned. Traversal, indexing, reference rewriting, cloning, topology and editor containment use registry capabilities and canonical `walk_items()` behavior rather than a maintained container-kind tuple.
 
@@ -214,7 +314,7 @@ Top-level document sections are expressed by the `section` capability. Layout co
 
 Toggle Button and Toggle Icon participate in the generic value API only when `state_source == "internal"`. Script-driven toggles do not persist or acquire a synthetic `props.value` through `store_value()`.
 
-Numeric scalar/vector construction and runtime writes share definition normalizers so size, min/max clamping, component count and fallback behavior cannot diverge. Field values preserve the established runtime contract: scalar values become text, list/tuple values become lists of text values, and single-value fields collapse list input to the first value.
+Numeric scalar/vector construction and runtime writes share definition normalizers so size, min/max clamping and component count cannot diverge. Invalid numeric content is rejected instead of being silently replaced with an unrelated fallback. Field values preserve the established runtime contract: scalar values become text, list/tuple values become lists of text values, and single-value fields collapse list input to the first value.
 
 For Icon and Toggle Icon alignment, `content_alignment` is the only type-specific property key. Generic layout alignment belongs to `ui.alignment`.
 
@@ -230,7 +330,7 @@ The Add Item palette is generated from `ITEM_TYPES.creatable()` metadata each ti
 
 ## UI composition lifecycle
 
-`ui/bootstrap.py` is the UI/runtime composition root. It owns ordered construction of the final `InterfaceEditor` and `ScriptToolbox` classes and installs generic registry-driven UI/runtime hooks.
+`ui/bootstrap.py` is the UI/runtime composition root. It owns ordered construction of the final `InterfaceEditor` and `ScriptToolbox` classes and installs registry-driven UI/runtime hooks.
 
 `ui/__init__.py` is intentionally declarative. Importing `script_toolbox.ui` initializes the complete UI automatically through one visible composition call:
 
@@ -240,23 +340,19 @@ _RUNTIME = initialize_ui()
 
 The resulting `UIComposition` contains the final public classes and the active runtime renderer registry. `from script_toolbox.ui import ScriptToolbox` and `from script_toolbox.ui import InterfaceEditor` therefore keep their public contract.
 
-`initialize_ui()` is idempotent within one loaded module graph: a completed composition is cached and returned on repeated calls. A failed composition is not cached, so a later retry can recover. Hook modules retain only markers needed to prevent duplicate wrapping, event filters or method replacement during development hot reload.
+`initialize_ui()` is idempotent within one loaded module graph: a completed composition is cached and returned on repeated calls. A failed composition is not cached, so a later retry can recover. For development hot reload, bootstrap reuses the active renderer registry when the runtime module object has not changed; reloading `ui.runtime` creates a fresh default registry for the new runtime classes.
 
-For development hot reload, bootstrap reuses the active renderer registry when the runtime module object has not changed. When `ui.runtime` itself is reloaded, bootstrap creates a fresh default registry for the new runtime classes.
+## Runtime rendering and synchronization
 
-The telemetry-aware share installer assignment into `editor_document_adapter` is unrelated to Item serialization/type routing; it remains centralized in the UI composition root.
+`RuntimeFolder.build_runtime_widget()` routes through the runtime renderer registry directly. Runtime renderer registration is derived from `ItemTypeDefinition.renderer` after generic UI path resolution; adding a new type does not require editing a renderer switch/table.
 
-## Runtime rendering
+Initial registry composition, late Item discovery and manual `register_runtime_renderer()` all converge on one semantic generic decoration function: `_decorate_runtime_renderer_registry(registry)`. That pipeline applies event-binding wrappers and runtime-value wrappers. Their existing marker-based guards make repeated synchronization idempotent; calling the pipeline twice does not produce wrapper-on-wrapper stacking.
 
-`RuntimeFolder.build_runtime_widget()` routes through the runtime renderer registry directly. The registry lifecycle is owned by UI bootstrap. Runtime renderer registration is derived from `ItemTypeDefinition.renderer` after generic UI path resolution; adding a new type does not require editing a renderer switch/table.
+Startup-only UI polish whose installer has broader runtime-module responsibilities (for example scroll-frame composition or existing visual polish hooks) remains in bootstrap and is not blindly replayed on every late registration. The shared pipeline contains only generic renderer decorators that are safe to synchronize repeatedly.
 
-All runtime renderers receive the raw universal Item envelope and read `ui` and `props` explicitly. `core/runtime_registry.py` has no Item-shape adapter.
+All runtime renderers receive the raw universal Item envelope and read `ui` and `props` explicitly. Runtime event filters attach only events declared by the Item definition and dispatch through `bindings`. Runtime value synchronization is capability-driven: ordinary `has_value` Items register a `RuntimeValueBinding`; specialized field refresh uses `field_widget` instead of a concrete kind branch.
 
-Runtime event filters attach only events declared by the Item definition and dispatch through `bindings`. Renderer-specific modules do not patch main-window event semantics.
-
-Runtime value synchronization is capability-driven. Ordinary `has_value` Items register a `RuntimeValueBinding`; specialized field refresh uses the `field_widget` capability instead of a `kind == "field"` branch.
-
-Stateful execution and refresh use capabilities and definition fields. Toggle renderers only create/register their widgets; state semantics do not depend on `toggle_button`/`toggle_icon` name checks.
+Explicit runtime renderer unregister is respected: synchronization does not resurrect a disabled renderer merely because its definition still has a declarative path. A later explicit registration re-enables it and applies the same generic decoration pipeline.
 
 ## Network transport
 
@@ -351,6 +447,7 @@ scripts/script_toolbox/
 
     properties/
       base.py
+      layout_adapter.py
       registry.py
       folder.py
       row.py
@@ -369,16 +466,20 @@ scripts/script_toolbox/
 
 - No circular imports.
 - No DCC UI/API code in `model`.
+- Field schema remains model-only; it does not define Qt widgets.
 - Host-specific API access belongs in `hosts/` or host integration modules.
 - No JSON file I/O in `ui`.
 - Runtime config/settings paths are owned only by `core/user_paths.py`.
 - Stable and Development builds share the same canonical user config files.
 - Only the current config schema is supported while the project remains in development.
 - Persist and operate on Items only through the schema 21 envelope; do not add type-specific root keys or a flat compatibility view.
-- Never silently convert an unknown item kind to another kind.
+- Never silently convert an unknown item kind to another kind or preserve it as a placeholder.
 - Never use `ui.label` as item identity.
 - Persist event behavior only as `bindings`.
-- New item types register through `ItemTypeDefinition`; core, palette, events, runtime and Inspector routing must derive from that metadata instead of central kind tables.
+- New item types register through `ItemTypeDefinition`; core, palette, events, runtime and Inspector routing derive from that metadata instead of central kind tables.
+- Layout semantics belong to `LayoutSpec`; generic layout code must not infer behavior from concrete prop names or Item kinds.
+- Section semantics belong to `SectionSpec`; generic section code must not assume a `folder_type` field.
+- External definitions that can occur in config register before config load/normalization.
 - Structural recursion and editor containment use registry capabilities and canonical traversal.
 - Shared network compatibility belongs in `core/http_transport.py`; updater/share must not duplicate PowerShell transport logic.
 - Qt binding selection and Qt4/Qt5/Qt6 compatibility belong in `qt_compat.py`; host/UI modules must not create parallel binding logic.

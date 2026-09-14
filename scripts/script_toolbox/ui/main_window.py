@@ -16,6 +16,7 @@ from ..core.executor import evaluate_python_state
 from ..core.executor import execute_script_result
 from ..core.values import find_item
 from ..core.values import get_value as get_document_value
+from ..core.values import normalize_value as normalize_document_value
 from ..core.values import store_value as store_document_value
 from ..model import walk_items
 from ..model.item_builtins import register_builtin_items
@@ -488,6 +489,7 @@ class ScriptToolbox(QtGui.QMainWindow):
                     new_value = values
 
                 old_value = props.get("value", "")
+                new_value = normalize_document_value(item, new_value)
                 props["value"] = new_value
                 self.refresh_field_widget(item["id"])
                 if old_value != new_value:

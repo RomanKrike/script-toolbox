@@ -75,6 +75,30 @@ def test_default_registry_is_built_from_item_type_renderer_metadata():
     assert 'renderer_path=".image_item:render_image"' in image_definition
 
 
+def test_initial_late_and_manual_registration_share_generic_decoration():
+    bootstrap_source = _read("scripts/script_toolbox/ui/bootstrap.py")
+    runtime_source = _read("scripts/script_toolbox/ui/runtime_renderers.py")
+
+    assert "def _decorate_runtime_renderer_registry(registry):" in runtime_source
+    assert "install_event_binding_hooks(registry)" in runtime_source
+    assert "synchronize_runtime_value_renderers(registry)" in runtime_source
+
+    # Initial composition uses the same semantic pipeline.
+    assert "_decorate_runtime_renderer_registry(registry)" in bootstrap_source
+    assert "install_event_binding_hooks(registry)" not in bootstrap_source
+
+    # Late discovery and manual registration both use that same pipeline.
+    synchronize_start = runtime_source.index(
+        "def synchronize_runtime_renderer_registry("
+    )
+    register_start = runtime_source.index("def register_runtime_renderer(")
+    unregister_start = runtime_source.index("def unregister_runtime_renderer(")
+    late_source = runtime_source[synchronize_start:register_start]
+    manual_source = runtime_source[register_start:unregister_start]
+    assert "_decorate_runtime_renderer_registry(registry)" in late_source
+    assert "_decorate_runtime_renderer_registry(_ACTIVE_REGISTRY)" in manual_source
+
+
 def test_ui_binding_resolution_is_reentrant_for_late_item_registration():
     ui_bootstrap = _read("scripts/script_toolbox/ui/item_ui_bootstrap.py")
     runtime_source = _read("scripts/script_toolbox/ui/runtime_renderers.py")

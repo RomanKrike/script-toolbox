@@ -88,7 +88,10 @@ def test_toggle_icon_does_not_translate_plain_icon_path():
 
 
 def test_toggle_icon_editor_renderer_and_state_runtime_are_registered():
-    ui_bindings = _source(
+    definitions = _source(
+        "scripts", "script_toolbox", "model", "item_builtins.py"
+    )
+    ui_bootstrap = _source(
         "scripts", "script_toolbox", "ui", "item_ui_bootstrap.py"
     )
     renderer_source = _source(
@@ -98,8 +101,15 @@ def test_toggle_icon_editor_renderer_and_state_runtime_are_registered():
         "scripts", "script_toolbox", "ui", "main_window.py"
     )
 
-    assert '("toggle_icon", ToggleIconPropertyEditor)' in ui_bindings
-    assert '("toggle_icon", render_toggle_icon)' in ui_bindings
+    assert (
+        'inspector_path=".properties.toggle_icon:ToggleIconPropertyEditor"'
+        in definitions
+    )
+    assert (
+        'renderer_path=".toggle_icon_runtime:render_toggle_icon"'
+        in definitions
+    )
+    assert "_resolve_ui_target" in ui_bootstrap
     assert "register_toggle_icon" in renderer_source
     assert "refresh_toggle_icon" in renderer_source
     assert "state_on_path" in main_source

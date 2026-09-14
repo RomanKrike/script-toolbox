@@ -83,7 +83,7 @@ Breaking schema changes during development may advance `CONFIG_VERSION`, but the
 
 ## Universal Item model
 
-Every persisted Item uses one stable envelope:
+Every persisted and in-memory document Item uses one stable envelope:
 
 ```json
 {
@@ -112,9 +112,7 @@ Every persisted Item uses one stable envelope:
 }
 ```
 
-Containers add only `items`. Presentation/layout state belongs to `ui`; type-specific data belongs to `props`; event behavior belongs to `bindings`. Type-specific root keys are not a second persistence format.
-
-`model/item_view.py` provides `ItemDataView`, a non-persisted adapter for existing runtime/property-editor code. It routes presentation keys to `ui` and type-specific keys to `props` while the serialized document remains schema 21 only.
+Containers add only `items`. Presentation/layout state belongs to `ui`; type-specific data belongs to `props`; event behavior belongs to `bindings`. Runtime and Inspector code read these namespaces explicitly. There is no flat Item compatibility view and no second in-memory Item format.
 
 Identity has one explicit contract:
 
@@ -122,7 +120,7 @@ Identity has one explicit contract:
 - `name` is the supported symbolic identifier for scripts and human-readable API usage;
 - `ui.label` is presentation text only and never participates in lookup.
 
-Unknown kinds are rejected instead of silently converting to another type.
+Unknown kinds are rejected instead of silently converting to another type. `kind` is the only Item type discriminator; there is no parallel `type` field.
 
 ## Item type registry
 
@@ -133,45 +131,86 @@ A definition owns:
 - `kind`, `title`, `category`, `description`, `order`, `creatable`;
 - typed `fields` for `props` normalization;
 - public `events` and `internal_events`;
-- semantic `capabilities` such as `container`, `layout`, `has_value`, `state_toggle`, `resizable` or `field_widget`;
+- semantic `capabilities` such as `container`, `layout`, `section`, `has_value`, `state_toggle`, `resizable`, `field_widget`, `native_button` or `divider`;
 - default UI metadata and default bindings;
-- optional normalization hooks;
+- optional `normalize_props` hook for cross-field invariants;
 - `renderer_path` and `inspector_path` for lazy Qt-side resolution.
 
-Built-ins live in `model/item_builtins.py`. Core routing no longer depends on `_FACTORIES`, `EVENT_CAPABILITIES`, `LAYOUT_KINDS`, `CONTAINER_KINDS`, `STATE_TOGGLE_KINDS` or a central property-editor map.
+`layout_axis` is derived from a layout definition's schema metadata, so generic editor/layout code does not need to identify Row or Column by name.
 
-`ui/item_ui_bootstrap.py` is generic: it iterates `ITEM_TYPES`, resolves each definition's UI paths and binds the resulting renderer/inspector. `ui/runtime_renderers.py`, `ui/properties/registry.py`, bindings, values and palette logic consume the same registry metadata.
+Core routing no longer depends on `_FACTORIES`, `EVENT_CAPABILITIES`, `LAYOUT_KINDS`, `CONTAINER_KINDS`, `STATE_TOGGLE_KINDS`, a central property-editor map, a renderer switch, or an authored palette kind list.
 
-### Adding a new Item type
+Standard built-ins are registered by `model/item_builtins.py`. Independently extensible built-ins live under `model/item_definitions/`; `Image` is defined in `model/item_definitions/image.py` and is included by the explicit built-in definition bootstrap. This keeps import order obvious and Python 2/Maya 2015 friendly while allowing a new built-in type to be added as a type-specific module plus one bootstrap entry.
 
-A new type should be registerable without editing central dispatch tables. For example, a Video type can declare its complete model/UI contract in one definition:
+`ui/item_ui_bootstrap.py` is generic: it iterates `ITEM_TYPES`, resolves each definition's UI paths and binds the resulting renderer/inspector. `ui/runtime_renderers.py`, `ui/properties/registry.py`, bindings, values, Interface Editor containment and palette logic consume the same registry metadata.
 
-```python
-from script_toolbox.model.fields import BoolField, PathField
-from script_toolbox.model.item_registry import ItemTypeDefinition, register_item_type
+## Field schema
 
-register_item_type(ItemTypeDefinition(
-    kind="video",
-    title="Video",
-    category="Display",
-    fields={
-        "source": PathField(default=""),
-        "autoplay": BoolField(default=False),
-    },
-    events=("click", "double_click"),
-    capabilities=("bindable", "resizable"),
-    renderer_path=".video_item:render_video",
-    inspector_path=".video_item:VideoPropertyEditor",
-))
+The model provides declarative field definitions including `TextField`, `BoolField`, `IntField`, `FloatField`, `ChoiceField`, `ColorField`, `PathField` and `ListField`.
+
+Fields own defaults and value-level normalization. Numeric fields may clamp to minimum/maximum bounds; choice fields validate against declared choices; list fields can normalize their members through another Field.
+
+Complex invariants stay at Item-definition level through `normalize_props`. The normalization pipeline is:
+
+```text
+raw props
+  -> per-field normalization
+  -> ItemTypeDefinition.normalize_props hook
+  -> normalized props
 ```
 
-After registration, model construction and normalization recognize `video`; the Add Item palette derives its entry from registry metadata; runtime and Inspector binding resolve from the definition. Built-in `image` is the production proof of this pattern, and `tests/test_universal_item_extensibility.py` protects the same contract with a temporary Video type.
+This is used for numeric vector size/range invariants, Menu values, Field display semantics and state-toggle storage behavior.
+
+## Adding a new Item type
+
+Add the type-specific implementation; do not edit routing core.
+
+For a built-in `video`:
+
+1. add `model/item_definitions/video.py` with its `ItemTypeDefinition`;
+2. add its renderer and Inspector modules/classes;
+3. include `video_definition()` in the explicit `model/item_definitions/__init__.py` bootstrap tuple;
+4. add tests.
+
+Example definition:
+
+```python
+from script_toolbox.model.fields import BoolField, ChoiceField, PathField
+from script_toolbox.model.item_registry import ItemTypeDefinition
+
+
+def video_definition():
+    return ItemTypeDefinition(
+        kind="video",
+        title="Video",
+        category="Display",
+        fields={
+            "source": PathField(default=""),
+            "autoplay": BoolField(default=False),
+            "loop": BoolField(default=False),
+            "fit": ChoiceField(
+                ("contain", "cover", "stretch"),
+                default="contain"
+            ),
+        },
+        events=("click", "double_click"),
+        capabilities=("bindable", "resizable"),
+        renderer_path=".video_item:render_video",
+        inspector_path=".video_item:VideoPropertyEditor",
+    )
+```
+
+No change is required in `bindings.py`, `layouts.py`, runtime dispatch, the property registry, `interface_editor.py`, `item_palette.py`, or document normalization. External/future plugin code can instead call `register_item_type()` directly and does not need the built-in bootstrap entry.
+
+Built-in `Image` is the production proof of this pattern. It defines only `source`, `fit`, `width`, `height`; supports `contain`, `cover`, `stretch`; declares `click`/`double_click`; and supplies its renderer and specialized Inspector through its definition metadata.
 
 ## Container and value contracts
 
-Container semantics are definition-owned. Traversal, indexing, reference rewriting, cloning, topology and cache logic use registry capabilities and canonical `walk_items()` behavior rather than a maintained container-kind tuple.
+Container semantics are definition-owned. Traversal, indexing, reference rewriting, cloning, topology and editor containment use registry capabilities and canonical `walk_items()` behavior rather than a maintained container-kind tuple.
 
-`bindings` are the only persisted/runtime event mechanism. Callback dictionaries and direct script fields are not read or translated. A normal `button` is action-only. Stateful behavior belongs to `toggle_button` and `toggle_icon`, using the native `state_toggle` binding handler.
+Top-level document sections are expressed by the `section` capability. Layout containers use `layout`; generic editor rules prevent a layout from owning a section without knowing any concrete kind name.
+
+`bindings` are the only persisted/runtime event mechanism. Callback dictionaries and direct script fields are not read or translated. A normal `button` is action-only. Stateful behavior belongs to definitions with `state_toggle`; button chrome is selected through `native_button` rather than concrete kind checks.
 
 Toggle Button and Toggle Icon participate in the generic value API only when `state_source == "internal"`. Script-driven toggles do not persist or acquire a synthetic `props.value` through `store_value()`.
 
@@ -183,39 +222,41 @@ For Icon and Toggle Icon alignment, `content_alignment` is the only type-specifi
 
 `EditorDocumentController` owns the staged document, identity cache, clone/reference operations and topology. It is Qt-independent.
 
-The active Interface Editor composes controller ownership, command history, Row/Column tree helpers, search presentation, sharing and view-state preservation through `ui/editor_document_adapter.py`.
+The base Interface Editor itself uses the registry for palette entries, type titles, container/section semantics and tree structure. `ui/layout_editor_adapter.py` contains reusable capability-driven tree helpers; it does not contain a second list of Folder/Row/Column kinds.
 
-`ui/layout_editor_adapter.py` contains helper functions only; it does not publish a second editor wrapper class or separate layout document controller. A small marker on the active document adapter exists solely to prevent duplicate wrapping during development hot reload.
+`ui/editor_document_adapter.py` composes controller ownership, command history, search presentation, sharing and view-state preservation around that registry-driven editor. Layout routing no longer requires an adapter-specific kind switch.
 
-The Add Item palette is populated from `ITEM_TYPES.creatable()` metadata through `ui/item_palette.py`; built-in type metadata, not editor command code, is the authoritative catalog.
+The Add Item palette is generated from `ITEM_TYPES.creatable()` metadata each time the editor UI is built. Categories are derived from definition metadata, so a newly registered category appears without editing the Interface Editor.
 
 ## UI composition lifecycle
 
-`ui/bootstrap.py` is the UI/runtime composition root. It owns ordered construction of the final `InterfaceEditor` and `ScriptToolbox` classes and installs generic registry-driven UI/runtime adapters.
+`ui/bootstrap.py` is the UI/runtime composition root. It owns ordered construction of the final `InterfaceEditor` and `ScriptToolbox` classes and installs generic registry-driven UI/runtime hooks.
 
-`ui/__init__.py` is intentionally declarative. For backward compatibility, importing `script_toolbox.ui` still initializes the complete UI automatically, but package import contains one visible composition call:
+`ui/__init__.py` is intentionally declarative. Importing `script_toolbox.ui` initializes the complete UI automatically through one visible composition call:
 
 ```python
 _RUNTIME = initialize_ui()
 ```
 
-The resulting `UIComposition` contains the final public classes and the active runtime renderer registry. `from script_toolbox.ui import ScriptToolbox` and `from script_toolbox.ui import InterfaceEditor` therefore keep their existing public contract.
+The resulting `UIComposition` contains the final public classes and the active runtime renderer registry. `from script_toolbox.ui import ScriptToolbox` and `from script_toolbox.ui import InterfaceEditor` therefore keep their public contract.
 
-`initialize_ui()` is idempotent within one loaded module graph: a completed composition is cached and returned on repeated calls. A failed composition is not cached, so a later retry can recover. Hook modules retain only the markers that are still needed to prevent duplicate wrapping, event filters or method replacement.
+`initialize_ui()` is idempotent within one loaded module graph: a completed composition is cached and returned on repeated calls. A failed composition is not cached, so a later retry can recover. Hook modules retain only markers needed to prevent duplicate wrapping, event filters or method replacement during development hot reload.
 
-For development hot reload, bootstrap reuses the active renderer registry when the runtime module object has not changed. This preserves third-party renderer registrations and existing registry-owned install markers if only the composition module is reloaded. When `ui.runtime` itself is reloaded, bootstrap creates a fresh default registry for the new runtime classes.
+For development hot reload, bootstrap reuses the active renderer registry when the runtime module object has not changed. When `ui.runtime` itself is reloaded, bootstrap creates a fresh default registry for the new runtime classes.
 
-The remaining assignment of the telemetry-aware share installer into `editor_document_adapter` is a deliberately contained transitional compatibility monkeypatch. It is centralized in the composition root instead of being spread across package import code; removing that adapter-global dependency is deferred until it can be done without breaking direct builder imports.
+The telemetry-aware share installer assignment into `editor_document_adapter` is unrelated to Item serialization/type routing; it remains centralized in the UI composition root.
 
 ## Runtime rendering
 
 `RuntimeFolder.build_runtime_widget()` routes through the runtime renderer registry directly. The registry lifecycle is owned by UI bootstrap. Runtime renderer registration is derived from `ItemTypeDefinition.renderer` after generic UI path resolution; adding a new type does not require editing a renderer switch/table.
 
+All runtime renderers receive the raw universal Item envelope and read `ui` and `props` explicitly. `core/runtime_registry.py` has no Item-shape adapter.
+
 Runtime event filters attach only events declared by the Item definition and dispatch through `bindings`. Renderer-specific modules do not patch main-window event semantics.
 
 Runtime value synchronization is capability-driven. Ordinary `has_value` Items register a `RuntimeValueBinding`; specialized field refresh uses the `field_widget` capability instead of a `kind == "field"` branch.
 
-Stateful execution and refresh are owned by the main runtime API. Toggle Button and Toggle Icon renderers only create and register their widgets.
+Stateful execution and refresh use capabilities and definition fields. Toggle renderers only create/register their widgets; state semantics do not depend on `toggle_button`/`toggle_icon` name checks.
 
 ## Network transport
 
@@ -234,18 +275,15 @@ PowerShell requests use .NET `HttpWebRequest`, TLS 1.2, hidden-process startup f
 
 ## Compatibility policy
 
-Compatibility symbols are classified by whether they are internal dead code or externally importable API. Internal duplicate implementations may be removed after repository-wide usage checks. Potentially externally imported symbols are kept as small forwarding/no-op shims until an intentional breaking change.
+The Item architecture intentionally has no compatibility layer for pre-v21 Item shapes: no flat Item view, no schema 20 -> 21 migration, no dual registry and no legacy factory routing.
 
-Current compatibility layers include:
+Compatibility code for unrelated product/platform concerns remains allowed where it is part of the supported runtime contract, for example:
 
-- `qt_compat.py`, which owns PySide generation selection, the legacy QtGui widget surface, and the Qt 6 compatibility subset used by the editor;
-- updater private transport helpers such as `_download_with_powershell`, which now forward to `core.http_transport`;
-- share provider private Windows/PowerShell helpers, which also forward to `core.http_transport`;
-- `ui/icon_ui_hooks.py`, retained as documented no-op shims for older direct imports;
-- selected base `InterfaceEditor` methods that are overridden by the production adapter chain but may still be reached through direct module imports;
-- `install_runtime_folder_chrome`, retained as a forwarding compatibility alias.
+- `qt_compat.py` for PySide generation selection and Qt API bridging;
+- updater/share transport forwarding required by legacy Windows/Python hosts;
+- documented host-integration compatibility surfaces.
 
-These compatibility layers must not grow independent implementations. New production flow should use the canonical APIs directly.
+These unrelated compatibility layers must not become an alternate Item data/type architecture.
 
 ## Current package layout
 
@@ -287,9 +325,11 @@ scripts/script_toolbox/
     index.py
     item_builtins.py
     item_registry.py
-    item_view.py
     items.py
     layouts.py
+    item_definitions/
+      __init__.py
+      image.py
 
   style/
     ...
@@ -334,12 +374,12 @@ scripts/script_toolbox/
 - Runtime config/settings paths are owned only by `core/user_paths.py`.
 - Stable and Development builds share the same canonical user config files.
 - Only the current config schema is supported while the project remains in development.
-- Persist Items only in the schema 21 envelope; do not add type-specific root keys as a compatibility layer.
+- Persist and operate on Items only through the schema 21 envelope; do not add type-specific root keys or a flat compatibility view.
 - Never silently convert an unknown item kind to another kind.
 - Never use `ui.label` as item identity.
 - Persist event behavior only as `bindings`.
 - New item types register through `ItemTypeDefinition`; core, palette, events, runtime and Inspector routing must derive from that metadata instead of central kind tables.
-- Structural recursion uses registry container capabilities and canonical traversal.
+- Structural recursion and editor containment use registry capabilities and canonical traversal.
 - Shared network compatibility belongs in `core/http_transport.py`; updater/share must not duplicate PowerShell transport logic.
 - Qt binding selection and Qt4/Qt5/Qt6 compatibility belong in `qt_compat.py`; host/UI modules must not create parallel binding logic.
 - UI/runtime composition ordering belongs in `ui/bootstrap.py`; `ui/__init__.py` should remain a small public export surface.

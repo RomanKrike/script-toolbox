@@ -292,11 +292,7 @@ def create_item(kind, data=None):
                     item_name=raw.get("name")
                 )
             if definition.is_layout and child_definition.is_section:
-                raise _child_validation_error(
-                    item,
-                    raw,
-                    "Layout Items cannot directly contain section Items"
-                )
+                continue
             children.append(create_item(child_kind, raw))
         item["items"] = children
 
@@ -322,11 +318,7 @@ def default_document():
 def normalize_document(data):
     register_builtin_items()
     if not isinstance(data, dict):
-        raise ItemValidationError(
-            kind="",
-            value=data,
-            reason="Expected document mapping"
-        )
+        return default_document()
     raw_sections = data.get("sections")
     if raw_sections is None:
         raw_sections = []

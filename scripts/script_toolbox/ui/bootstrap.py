@@ -15,6 +15,7 @@ from .editor_polish_hooks import install_runtime_icon_feedback
 from .editor_selection_state import install_editor_selection_state
 from .event_binding_hooks import install_event_binding_hooks
 from .item_palette import install_registry_palette
+from .item_runtime_adapter import build_item_aware_toolbox_class
 from .item_ui_bootstrap import ensure_builtin_item_ui_bindings
 from .main_window import ScriptToolbox as _BaseScriptToolbox
 from .preset_hooks import build_preset_interface_editor_class
@@ -110,15 +111,16 @@ def _compose_runtime_registry():
 
 
 def _compose_toolbox(runtime_registry):
-    install_state_toggle_behavior(_BaseScriptToolbox)
+    item_aware_base = build_item_aware_toolbox_class(_BaseScriptToolbox)
+    install_state_toggle_behavior(item_aware_base)
     toolbox_class = build_update_channel_toolbox_class(
-        _BaseScriptToolbox
+        item_aware_base
     )
 
     install_script_editor_scroll_frames(ScriptEditorWidget)
     install_runtime_value_sync(
         runtime_registry,
-        _BaseScriptToolbox,
+        item_aware_base,
         store_toolbox_classes=(
             _debounced_main_window_module._DebouncedScriptToolbox,
         )

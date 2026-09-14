@@ -12,6 +12,7 @@
         "folder_type": "collapsible",
         "collapsed": false
       },
+      "bindings": [],
       "items": [
         {
           "kind": "string",
@@ -46,7 +47,8 @@
             "max": 64,
             "step": 1,
             "value": 8
-          }
+          },
+          "bindings": []
         },
         {
           "kind": "icon",
@@ -60,7 +62,8 @@
             "width": 24,
             "height": 24,
             "content_alignment": "center"
-          }
+          },
+          "bindings": []
         },
         {
           "kind": "toggle_button",
@@ -76,7 +79,8 @@
             "state_off_label": "Rendering: OFF",
             "state_on_color": [0.2, 0.6, 0.3],
             "state_off_color": [0.3, 0.3, 0.3]
-          }
+          },
+          "bindings": []
         },
         {
           "kind": "row",
@@ -91,6 +95,7 @@
             "horizontal_distribution": "left",
             "vertical_alignment": "center"
           },
+          "bindings": [],
           "items": [
             {
               "kind": "button",
@@ -99,6 +104,7 @@
               "ui": {
                 "label": "Run"
               },
+              "props": {},
               "bindings": [
                 {
                   "id": "run_click",
@@ -120,6 +126,8 @@
               "ui": {
                 "label": "Values"
               },
+              "props": {},
+              "bindings": [],
               "items": [
                 {
                   "kind": "field",
@@ -132,7 +140,8 @@
                     "value": [],
                     "multiple": true,
                     "display_mode": "list"
-                  }
+                  },
+                  "bindings": []
                 }
               ]
             }

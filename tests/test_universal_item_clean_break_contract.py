@@ -55,14 +55,16 @@ def test_generic_layout_metadata_has_no_magic_row_column_schema_inference():
     assert '"horizontal_distribution" in self.fields' not in registry_source
     assert '"vertical_distribution" in self.fields' not in registry_source
 
-    for magic_name in (
+    # Method/control names may still contain words like horizontal_alignment;
+    # the forbidden contract is hard-coded persisted prop lookup in generic UI.
+    for persisted_name in (
         "horizontal_distribution",
         "vertical_distribution",
         "horizontal_alignment",
         "vertical_alignment",
         "equal_widths",
     ):
-        assert magic_name not in adapter_source
+        assert '"{0}"'.format(persisted_name) not in adapter_source
     assert "parent_definition.layout_spec" in adapter_source
     assert "spec.distribution_field" in adapter_source
     assert "spec.cross_alignment_field" in adapter_source

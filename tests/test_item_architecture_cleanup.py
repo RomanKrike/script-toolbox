@@ -12,6 +12,7 @@ from script_toolbox.model import DocumentIndex
 from script_toolbox.model import ITEM_TYPES
 from script_toolbox.model import ItemTypeDefinition
 from script_toolbox.model import ItemTypeRegistry
+from script_toolbox.model import ItemValidationError
 from script_toolbox.model import create_item
 from script_toolbox.model import walk_items
 from script_toolbox.model.bindings import binding_events
@@ -137,7 +138,7 @@ def test_registry_rejects_duplicates_and_unknown_required_kind():
         registry.get("missing", required=True)
 
 
-def test_field_schema_defaults_clamps_choices_and_custom_normalizer():
+def test_field_schema_clamps_coercible_values_and_rejects_invalid_choices():
     def normalize(props, raw):
         if props["low"] > props["high"]:
             props["low"], props["high"] = props["high"], props["low"]
@@ -156,9 +157,16 @@ def test_field_schema_defaults_clamps_choices_and_custom_normalizer():
     props = definition.normalize_props({
         "low": 99,
         "high": -99,
-        "mode": "invalid",
+        "mode": "B",
     })
-    assert props == {"low": -10, "high": 10, "mode": "a"}
+    assert props == {"low": -10, "high": 10, "mode": "b"}
+
+    with pytest.raises(ItemValidationError):
+        definition.normalize_props({
+            "low": 0,
+            "high": 5,
+            "mode": "invalid",
+        })
 
 
 def test_universal_item_envelope_keeps_type_data_out_of_root():
@@ -172,7 +180,7 @@ def test_universal_item_envelope_keeps_type_data_out_of_root():
                 "size": 3,
                 "min": -10,
                 "max": 10,
-                "value": [99, "bad", -99],
+                "value": [99, "4", -99],
             },
         }
     )
@@ -181,7 +189,7 @@ def test_universal_item_envelope_keeps_type_data_out_of_root():
         "kind", "id", "name", "ui", "props", "bindings"
     ))
     assert integer["ui"]["label"] == "Count"
-    assert integer["props"]["value"] == [10, 0, -10]
+    assert integer["props"]["value"] == [10, 4, -10]
     assert "value" not in integer
     assert "min" not in integer
 
@@ -235,7 +243,8 @@ def test_base_editor_controller_handles_universal_container_topology_and_links()
     assert "'button_a'" not in clone_script
 
 
-def test_numeric_schema_and_store_normalization_share_contract():
+def test_numeric_schema_and_store_normalization_share_strict_contract():
+    # Legacy low-level helper remains permissive for explicit caller fallbacks.
     assert normalize_numeric_value(
         [99, "bad", -99],
         3,
@@ -252,12 +261,14 @@ def test_numeric_schema_and_store_normalization_share_contract():
                 "size": 3,
                 "min": -10,
                 "max": 10,
-                "value": [99, "bad", -99],
+                "value": [99, "2", -99],
             },
         }
     )
-    assert integer["props"]["value"] == [10, 0, -10]
-    assert normalize_value(integer, [8, "bad", -50]) == [8, 0, -10]
+    assert integer["props"]["value"] == [10, 2, -10]
+    assert normalize_value(integer, [8, "3", -50]) == [8, 3, -10]
+    with pytest.raises(ItemValidationError):
+        normalize_value(integer, [8, "bad", -50])
 
     scalar = create_item(
         "float",

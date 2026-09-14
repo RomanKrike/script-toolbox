@@ -18,13 +18,7 @@ _RUNTIME_COMPOSITION_MARKER = (
 
 
 class CollapsibleSection(QtGui.QFrame):
-    """Reusable collapsible UI primitive with no persistence knowledge.
-
-    The widget owns the complete visual/interaction contract: card, header,
-    disclosure SVG, content container, dynamic QSS properties and the Qt4
-    repolish workaround. Callers only decide what content is inserted and
-    what to do when ``collapsedChanged`` is emitted.
-    """
+    """Reusable collapsible UI primitive with no persistence knowledge."""
 
     collapsedChanged = QtCore.Signal(bool)
 
@@ -185,22 +179,14 @@ class CollapsibleSection(QtGui.QFrame):
 
 
 def install_runtime_folder_composition(runtime_module):
-    """Make legacy RuntimeFolder compose CollapsibleSection.
-
-    ``RuntimeFolder`` remains the runtime/domain renderer responsible for
-    config data and child construction. Only its ``collapsible`` mode uses the
-    shared UI primitive. Simple/tabs/radio behavior stays on the legacy path.
-
-    This installation keeps the existing public RuntimeFolder class identity
-    stable for registry/hooks compatibility; it does not create a subclass.
-    """
+    """Compose the shared collapsible primitive into RuntimeFolder."""
     runtime_class = runtime_module.RuntimeFolder
     if getattr(runtime_class, _RUNTIME_COMPOSITION_MARKER, False):
         return runtime_class
 
-    legacy_init = runtime_class.__init__
-    legacy_toggle = runtime_class.toggle
-    legacy_update_state = runtime_class.update_state
+    standard_init = runtime_class.__init__
+    standard_toggle = runtime_class.toggle
+    standard_update_state = runtime_class.update_state
 
     def runtime_folder_init(
         self,
@@ -209,15 +195,15 @@ def install_runtime_folder_composition(runtime_module):
         parent=None,
         embedded=False
     ):
-        folder_type = section.get(
+        props = section.get("props", {}) or {}
+        ui = section.get("ui", {}) or {}
+        folder_type = props.get(
             "folder_type",
             "collapsible"
         )
 
-        # Embedded tab/radio pages and all non-collapsible folder modes keep
-        # their specialized legacy presentation.
         if embedded or folder_type != "collapsible":
-            legacy_init(
+            standard_init(
                 self,
                 toolbox,
                 section,
@@ -244,8 +230,6 @@ def install_runtime_folder_composition(runtime_module):
         except Exception:
             self.is_nested = False
 
-        # Preserve compatibility properties on the runtime host while the
-        # visual QSS properties live on CollapsibleSection itself.
         self.setProperty("folderType", self.folder_type)
         self.setProperty("nested", self.is_nested)
 
@@ -254,27 +238,21 @@ def install_runtime_folder_composition(runtime_module):
         root.setSpacing(0)
 
         label = (
-            section.get(
-                "label",
-                section["name"]
-            )
-            if section.get("show_label", True)
+            ui.get("label", section["name"])
+            if ui.get("show_label", True)
             else ""
         )
         self.header_label = text_type(label)
 
         self.collapsible_section = CollapsibleSection(
             title=self.header_label,
-            collapsed=bool(
-                section.get("collapsed", False)
-            ),
+            collapsed=bool(props.get("collapsed", False)),
             nested=self.is_nested,
-            tooltip=section.get("tooltip", ""),
+            tooltip=ui.get("tooltip", ""),
             parent=self
         )
         root.addWidget(self.collapsible_section)
 
-        # Stable compatibility aliases used by older runtime hooks/tests.
         self.header = None
         self.header_button = self.collapsible_section.header
         self.arrow = self.header_button
@@ -286,19 +264,18 @@ def install_runtime_folder_composition(runtime_module):
         )
 
         self._populate_runtime_items(
-            section["items"]
+            section.get("items", []) or []
         )
         self.update_state()
 
     def collapsible_section_changed(self, collapsed):
         collapsed = bool(collapsed)
-        previous = bool(
-            self.section.get("collapsed", False)
-        )
+        props = self.section.setdefault("props", {})
+        previous = bool(props.get("collapsed", False))
         if previous == collapsed:
             return
 
-        self.section["collapsed"] = collapsed
+        props["collapsed"] = collapsed
         self.toolbox.save()
 
     def runtime_folder_toggle(self):
@@ -310,7 +287,7 @@ def install_runtime_folder_composition(runtime_module):
         if current is not None:
             current.toggle()
             return
-        return legacy_toggle(self)
+        return standard_toggle(self)
 
     def runtime_folder_update_state(self):
         current = getattr(
@@ -319,17 +296,13 @@ def install_runtime_folder_composition(runtime_module):
             None
         )
         if current is not None:
+            props = self.section.get("props", {}) or {}
             current.set_collapsed(
-                bool(
-                    self.section.get(
-                        "collapsed",
-                        False
-                    )
-                ),
+                bool(props.get("collapsed", False)),
                 notify=False
             )
             return
-        return legacy_update_state(self)
+        return standard_update_state(self)
 
     runtime_class.__init__ = runtime_folder_init
     runtime_class._collapsible_section_changed = collapsible_section_changed
@@ -343,16 +316,10 @@ def install_runtime_folder_composition(runtime_module):
     return runtime_class
 
 
-# Compatibility alias for integrations that imported the transitional name.
-def install_runtime_folder_chrome(runtime_module):
-    return install_runtime_folder_composition(runtime_module)
-
-
 __all__ = [
     "COLLAPSIBLE_FOLDER_CONTENT_MARGINS",
     "COLLAPSIBLE_FOLDER_CONTENT_SPACING",
     "COLLAPSIBLE_FOLDER_ICON_SIZE",
     "CollapsibleSection",
-    "install_runtime_folder_chrome",
     "install_runtime_folder_composition",
 ]

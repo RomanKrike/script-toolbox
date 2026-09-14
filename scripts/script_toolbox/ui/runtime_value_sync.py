@@ -211,12 +211,13 @@ def _sync_runtime_value(self, key):
     if item is None:
         return False
 
-    item_id = text_type(item.get("id", ""))
-    field_widgets = getattr(self, "field_widgets", {})
-    if item_id in field_widgets:
-        self.refresh_field_widget(item_id)
+    register_builtin_items()
+    definition = ITEM_TYPES.get(item.get("kind"))
+    if definition is not None and definition.has_capability("field_widget"):
+        self.refresh_field_widget(item["id"])
         return True
 
+    item_id = text_type(item.get("id", ""))
     binding = getattr(self, "value_widgets", {}).get(item_id)
     if binding is None:
         return False

@@ -63,6 +63,23 @@ def safe_color(value):
     ]
 
 
+def safe_menu_items(value):
+    if isinstance(value, (list, tuple)):
+        result = [
+            text_type(item)
+            for item in value
+            if text_type(item).strip()
+        ]
+    else:
+        raw = text_type(value or "")
+        result = [
+            line.strip()
+            for line in raw.replace(",", "\n").splitlines()
+            if line.strip()
+        ]
+    return result or ["Option 1", "Option 2"]
+
+
 def safe_numeric_size(value):
     return clamp(safe_int(value, 1), 1, 4)
 
@@ -82,6 +99,39 @@ def safe_component_labels(value, size):
         else DEFAULT_COMPONENT_LABELS[index]
         for index in range(size)
     ]
+
+
+def normalize_numeric_value(
+    value,
+    size,
+    minimum,
+    maximum,
+    caster,
+    fallback
+):
+    size = safe_numeric_size(size)
+    incoming = list(value) if isinstance(value, (list, tuple)) else [value] * size
+    fallback_values = (
+        list(fallback)
+        if isinstance(fallback, (list, tuple))
+        else [fallback] * size
+    )
+    result = []
+    for index in range(size):
+        current_fallback = (
+            fallback_values[index]
+            if index < len(fallback_values)
+            else 0
+        )
+        current = incoming[index] if index < len(incoming) else current_fallback
+        result.append(
+            clamp(
+                caster(current, current_fallback),
+                minimum,
+                maximum
+            )
+        )
+    return result[0] if size == 1 else result
 
 
 def sanitize_name(value, fallback="item"):
@@ -129,15 +179,10 @@ def base_item(kind, data=None, default_label=None):
         data.get("name") or default_name(definition.kind, item_id),
         definition.kind
     )
-    if default_label is not None and not data.get("ui"):
-        definition_default = definition.default_label
-        definition.default_label = text_type(default_label)
-        try:
-            ui = _normalize_ui(definition, data.get("ui"))
-        finally:
-            definition.default_label = definition_default
-    else:
-        ui = _normalize_ui(definition, data.get("ui"))
+    raw_ui = dict(data.get("ui") or {})
+    if default_label is not None and "label" not in raw_ui:
+        raw_ui["label"] = text_type(default_label)
+    ui = _normalize_ui(definition, raw_ui)
 
     return {
         "kind": definition.kind,
@@ -210,7 +255,7 @@ def normalize_document(data):
             continue
         kind = text_type(raw.get("kind") or "").lower()
         definition = ITEM_TYPES.get(kind)
-        if definition is None or not definition.is_container:
+        if definition is None or not definition.has_capability("section"):
             continue
         sections.append(create_item(kind, raw))
 
@@ -261,10 +306,12 @@ __all__ = [
     "default_name",
     "new_id",
     "normalize_document",
+    "normalize_numeric_value",
     "safe_color",
     "safe_component_labels",
     "safe_float",
     "safe_int",
+    "safe_menu_items",
     "safe_numeric_size",
     "sanitize_name",
     "walk_items",

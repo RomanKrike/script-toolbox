@@ -74,6 +74,21 @@ def test_default_registry_is_built_from_item_type_renderer_metadata():
     assert 'renderer_path=".image_item:render_image"' in image_definition
 
 
+def test_ui_binding_resolution_is_reentrant_for_late_item_registration():
+    ui_bootstrap = _read("scripts/script_toolbox/ui/item_ui_bootstrap.py")
+    runtime_source = _read("scripts/script_toolbox/ui/runtime_renderers.py")
+
+    assert "_BOOTSTRAPPED" not in ui_bootstrap
+    assert "for definition in ITEM_TYPES.all():" in ui_bootstrap
+    assert "renderer is None and definition.renderer_path" in ui_bootstrap
+    assert "inspector is None and definition.inspector_path" in ui_bootstrap
+
+    assert "def synchronize_runtime_renderer_registry(" in runtime_source
+    assert "ensure_builtin_item_ui_bindings()" in runtime_source
+    assert "registry.has(definition.kind)" in runtime_source
+    assert "return synchronize_runtime_renderer_registry(" in runtime_source
+
+
 def test_specialized_current_renderers_are_definition_owned():
     definitions = _read("scripts/script_toolbox/model/item_builtins.py")
     image_definition = _read(

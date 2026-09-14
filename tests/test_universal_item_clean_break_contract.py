@@ -109,6 +109,19 @@ def test_item_inspector_does_not_persist_legacy_callbacks():
         assert ".get(\"callbacks\"" not in source
 
 
+def test_reference_rewrite_uses_only_props_and_bindings_item_scripts():
+    source = _source(
+        "scripts", "script_toolbox", "core", "references.py"
+    )
+
+    assert "python_prop_script_keys" in source
+    assert 'item.get("props"' in source
+    assert 'item.get("callbacks")' not in source
+    assert "schema-17" not in source.lower()
+    assert "click_script" not in source
+    assert "on_change_script" not in source
+
+
 def test_item_source_has_no_legacy_folder_traversal_or_type_constant():
     legacy_traversal = "include_" + "folders"
     legacy_constant = "FOLDER_" + "TYPES"
@@ -135,6 +148,11 @@ def test_item_source_has_no_legacy_folder_traversal_or_type_constant():
 
 def test_current_schema_is_v21_only_and_documented_as_clean_break():
     docs = _source("docs", "ARCHITECTURE.md")
+    docs_ru = _source("docs", "ARCHITECTURE.ru.md")
 
     assert "Schema **21** is the single supported configuration contract" in docs
     assert "there is intentionally no schema 20 -> 21 migration" in docs
+    assert "ItemDataView" not in docs
+    assert "ItemDataView" not in docs_ru
+    assert "item_view.py" not in docs
+    assert "item_view.py" not in docs_ru

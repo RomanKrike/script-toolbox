@@ -42,7 +42,8 @@ def test_default_registry_is_built_from_item_type_renderer_metadata():
     ui_bootstrap = _read("scripts/script_toolbox/ui/item_ui_bootstrap.py")
 
     assert "for definition in ITEM_TYPES.all():" in source
-    assert "if definition.renderer is not None:" in source
+    assert "definition.renderer is not None" in source
+    assert "definition.kind not in _DISABLED_RENDERERS" in source
     assert "definition.kind" in source
     assert "definition.renderer" in source
     assert "for definition in ITEM_TYPES.all():" in ui_bootstrap
@@ -87,6 +88,9 @@ def test_ui_binding_resolution_is_reentrant_for_late_item_registration():
     assert "ensure_builtin_item_ui_bindings()" in runtime_source
     assert "registry.has(definition.kind)" in runtime_source
     assert "return synchronize_runtime_renderer_registry(" in runtime_source
+    assert "_DISABLED_RENDERERS" in runtime_source
+    assert "_DISABLED_RENDERERS.add(definition.kind)" in runtime_source
+    assert "_DISABLED_RENDERERS.discard(definition.kind)" in runtime_source
 
 
 def test_specialized_current_renderers_are_definition_owned():

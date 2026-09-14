@@ -18,6 +18,8 @@ from ..core.values import find_item
 from ..core.values import get_value as get_document_value
 from ..core.values import store_value as store_document_value
 from ..model import walk_items
+from ..model.item_builtins import register_builtin_items
+from ..model.item_registry import ITEM_TYPES
 from ..model.items import safe_color
 from ..pycompat import text_type
 from ..style import STYLE
@@ -33,6 +35,28 @@ from .update_ui import UpdateInstallThread
 
 
 _TOOLBOX = None
+
+
+def _definition(item):
+    register_builtin_items()
+    if not isinstance(item, dict):
+        return None
+    return ITEM_TYPES.get(item.get("kind"))
+
+
+def _props(item):
+    value = item.get("props", {}) if isinstance(item, dict) else {}
+    return value if isinstance(value, dict) else {}
+
+
+def _ui(item):
+    value = item.get("ui", {}) if isinstance(item, dict) else {}
+    return value if isinstance(value, dict) else {}
+
+
+def _has_capability(item, capability):
+    definition = _definition(item)
+    return bool(definition and definition.has_capability(capability))
 
 
 class ScriptToolbox(QtGui.QMainWindow):
@@ -230,9 +254,10 @@ class ScriptToolbox(QtGui.QMainWindow):
                 else self.find_item(item_or_id)
             )
             if item is not None:
+                ui = _ui(item)
                 self.statusBar().showMessage(
                     "Executed: {0}".format(
-                        item.get("label", item.get("name", "Item"))
+                        ui.get("label", item.get("name", "Item"))
                     ),
                     2500
                 )
@@ -277,7 +302,7 @@ class ScriptToolbox(QtGui.QMainWindow):
         if not self.store_value(key, value):
             return False
 
-        if item is not None and item.get("kind") == "field":
+        if item is not None and _has_capability(item, "field_widget"):
             self.refresh_field_widget(item["id"])
             return True
 
@@ -296,10 +321,11 @@ class ScriptToolbox(QtGui.QMainWindow):
 
     def field_display_values(self, key):
         item = self.find_item(key)
-        if item is None or item.get("kind") != "field":
+        if item is None or not _has_capability(item, "field_widget"):
             return []
 
-        value = item.get("value", "")
+        props = _props(item)
+        value = props.get("value", "")
         if value is None:
             return []
 
@@ -311,7 +337,7 @@ class ScriptToolbox(QtGui.QMainWindow):
             ]
 
         value = text_type(value or "")
-        if item.get("multiple", True):
+        if props.get("multiple", True):
             normalized = value.replace(";", "\n").replace(",", "\n")
             return [
                 part.strip()
@@ -337,7 +363,7 @@ class ScriptToolbox(QtGui.QMainWindow):
 
     def get_field_selection(self, key):
         item = self.find_item(key)
-        if item is None or item.get("kind") != "field":
+        if item is None or not _has_capability(item, "field_widget"):
             return []
 
         widget = self.field_widgets.get(item["id"])
@@ -350,8 +376,9 @@ class ScriptToolbox(QtGui.QMainWindow):
 
     def add_to_field(self, key, values):
         item = self.find_item(key)
-        if item is None or item.get("kind") != "field":
+        if item is None or not _has_capability(item, "field_widget"):
             return False
+        props = _props(item)
 
         if isinstance(values, (list, tuple)):
             incoming = [
@@ -369,7 +396,7 @@ class ScriptToolbox(QtGui.QMainWindow):
             if value not in result:
                 result.append(value)
 
-        if not item.get("multiple", True):
+        if not props.get("multiple", True):
             result = result[-1:]
             value = result[0] if result else ""
         else:
@@ -378,8 +405,9 @@ class ScriptToolbox(QtGui.QMainWindow):
 
     def remove_from_field(self, key, values=None):
         item = self.find_item(key)
-        if item is None or item.get("kind") != "field":
+        if item is None or not _has_capability(item, "field_widget"):
             return False
+        props = _props(item)
 
         if values is None:
             values = self.get_field_selection(key)
@@ -394,7 +422,7 @@ class ScriptToolbox(QtGui.QMainWindow):
             for value in self.field_display_values(key)
             if value not in remove_values
         ]
-        if not item.get("multiple", True):
+        if not props.get("multiple", True):
             value = result[0] if result else ""
         else:
             value = result
@@ -402,11 +430,12 @@ class ScriptToolbox(QtGui.QMainWindow):
 
     def clear_field(self, key):
         item = self.find_item(key)
-        if item is None or item.get("kind") != "field":
+        if item is None or not _has_capability(item, "field_widget"):
             return False
+        props = _props(item)
         return self.set_value(
             key,
-            [] if item.get("multiple", True) else ""
+            [] if props.get("multiple", True) else ""
         )
 
     def field_scene_objects(self, key, values=None):
@@ -438,25 +467,28 @@ class ScriptToolbox(QtGui.QMainWindow):
             return
         self._selection_signature = signature
 
-        selection_fields = [
-            item
-            for item in self.all_items()
-            if item.get("kind") == "field" and item.get("source") == "selection"
-        ]
+        selection_fields = []
+        for item in self.all_items():
+            if not _has_capability(item, "field_widget"):
+                continue
+            props = _props(item)
+            if props.get("source") == "selection":
+                selection_fields.append(item)
 
         for item in selection_fields:
             try:
+                props = item.setdefault("props", {})
                 values = HOST.current_selection(
-                    long_names=bool(item.get("long_names", False))
+                    long_names=bool(props.get("long_names", False))
                 ) or []
-                if not item.get("multiple", True):
+                if not props.get("multiple", True):
                     values = values[:1]
                     new_value = values[0] if values else ""
                 else:
                     new_value = values
 
-                old_value = item.get("value", "")
-                item["value"] = new_value
+                old_value = props.get("value", "")
+                props["value"] = new_value
                 self.refresh_field_widget(item["id"])
                 if old_value != new_value:
                     self._run_on_change(item, old_value, new_value)
@@ -476,17 +508,24 @@ class ScriptToolbox(QtGui.QMainWindow):
         self.toggle_icon_widgets[text_type(item_id)] = widget
 
     def _state_value(self, item):
-        if item.get("state_source", "internal") == "script":
+        props = _props(item)
+        if props.get("state_source", "internal") == "script":
             return evaluate_python_state(
-                item.get("state_get_script", ""),
+                props.get("state_get_script", ""),
                 toolbox=self,
                 parent=self
             )
-        return bool(item.get("value", False))
+        return bool(props.get("value", False))
 
     def refresh_state_button(self, key):
         item = self.find_item(key)
-        if item is None or item.get("kind") != "toggle_button":
+        definition = _definition(item)
+        if (
+            item is None or
+            definition is None or
+            not definition.has_capability("state_toggle") or
+            not definition.has_capability("native_button")
+        ):
             return False
 
         widget = self.state_button_widgets.get(item["id"])
@@ -497,16 +536,18 @@ class ScriptToolbox(QtGui.QMainWindow):
         if state is None:
             return None
 
-        label = item.get(
+        props = _props(item)
+        ui = _ui(item)
+        label = props.get(
             "state_on_label" if state else "state_off_label",
-            item.get("label", item.get("name", "Toggle"))
+            ui.get("label", item.get("name", "Toggle"))
         )
         color = safe_color(
-            item.get("state_on_color" if state else "state_off_color")
+            props.get("state_on_color" if state else "state_off_color")
         )
         rgb = [int(value * 255) for value in color]
 
-        widget.setText("" if item.get("icon_only", False) else text_type(label))
+        widget.setText("" if props.get("icon_only", False) else text_type(label))
         widget.setProperty("stateOn", bool(state))
         widget.setStyleSheet(
             "QPushButton#ScriptButton {background-color: rgb(%d,%d,%d);}" % (
@@ -518,10 +559,11 @@ class ScriptToolbox(QtGui.QMainWindow):
         return bool(state)
 
     def _toggle_icon_path(self, item, state):
+        props = _props(item)
         return os.path.expanduser(
             os.path.expandvars(
                 text_type(
-                    item.get(
+                    props.get(
                         "state_on_path" if state else "state_off_path",
                         ""
                     ) or ""
@@ -531,7 +573,13 @@ class ScriptToolbox(QtGui.QMainWindow):
 
     def refresh_toggle_icon(self, key):
         item = self.find_item(key)
-        if item is None or item.get("kind") != "toggle_icon":
+        definition = _definition(item)
+        if (
+            item is None or
+            definition is None or
+            not definition.has_capability("state_toggle") or
+            "state_on_path" not in definition.fields
+        ):
             return False
 
         widget = self.toggle_icon_widgets.get(item["id"])
@@ -542,8 +590,9 @@ class ScriptToolbox(QtGui.QMainWindow):
         if state is None:
             return None
 
-        width = int(item.get("width", 24))
-        height = int(item.get("height", 24))
+        props = _props(item)
+        width = int(props.get("width", 24))
+        height = int(props.get("height", 24))
         path = self._toggle_icon_path(item, state)
         widget.setFixedSize(width, height)
         widget.setProperty("stateOn", bool(state))
@@ -576,9 +625,11 @@ class ScriptToolbox(QtGui.QMainWindow):
             if isinstance(item_or_id, dict)
             else self.find_item(item_or_id)
         )
-        if item is None or item.get("kind") not in (
-            "toggle_button",
-            "toggle_icon",
+        definition = _definition(item)
+        if (
+            item is None or
+            definition is None or
+            not definition.has_capability("state_toggle")
         ):
             return None
 
@@ -586,12 +637,13 @@ class ScriptToolbox(QtGui.QMainWindow):
         if state is None:
             return None
 
+        props = _props(item)
         if state:
-            code = item.get("state_off_script", "")
-            language = item.get("state_off_language", "python")
+            code = props.get("state_off_script", "")
+            language = props.get("state_off_language", "python")
         else:
-            code = item.get("state_on_script", "")
-            language = item.get("state_on_language", "python")
+            code = props.get("state_on_script", "")
+            language = props.get("state_on_language", "python")
 
         result = execute_script_result(
             code,
@@ -609,7 +661,7 @@ class ScriptToolbox(QtGui.QMainWindow):
             notify=True
         )
 
-        if item.get("state_source", "internal") == "internal":
+        if props.get("state_source", "internal") == "internal":
             if result.success:
                 self.store_value(item.get("id"), not bool(state))
         else:
@@ -647,10 +699,12 @@ class ScriptToolbox(QtGui.QMainWindow):
 
     def run_item(self, item_id):
         item = self.find_item(item_id)
-        if item is None or item.get("kind") not in (
-            "button",
-            "toggle_button",
-            "toggle_icon",
+        definition = _definition(item)
+        if (
+            item is None or
+            definition is None or
+            not definition.has_capability("native_button") or
+            "click" not in definition.events
         ):
             return None
 

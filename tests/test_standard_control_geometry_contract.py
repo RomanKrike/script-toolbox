@@ -23,9 +23,6 @@ QDoubleSpinBox {
     padding: %(INPUT_PADDING_VERTICAL)spx %(INPUT_PADDING_HORIZONTAL)spx;
 }"""
     assert single_line_selector in stylesheet
-
-    # Multiline editors share border/focus styling, but must not inherit the
-    # single-line fixed presentation height.
     assert "QPlainTextEdit {\n    min-height: %(INPUT_MIN_HEIGHT)spx;" not in stylesheet
 
 
@@ -52,13 +49,9 @@ def test_standard_buttons_share_chrome_without_overriding_role_owned_sizes():
     )
     assert "QPushButton {\n    min-height: %(BUTTON_MIN_HEIGHT)spx;" in stylesheet
 
-    # QToolButton size remains role-owned. Technical buttons use semantic
-    # presets and runtime icons use user width/height. Trigger glyphs no longer
-    # use QToolButton at all: their Maya/Qt4 painted geometry is local to the
-    # Trigger-tab implementation.
     assert "button.setFixedSize(" in icon_button
-    assert 'width = int(item.get("width", 24))' in runtime_renderers
-    assert 'height = int(item.get("height", 24))' in runtime_renderers
+    assert 'width = int(props.get("width", 24))' in runtime_renderers
+    assert 'height = int(props.get("height", 24))' in runtime_renderers
     assert "from ..painted_icon_button import PaintedIconButton" in trigger_tabs
     assert "_TRIGGER_ADD_BUTTON_SIZE = 16" in trigger_tabs
     assert "_TRIGGER_CLOSE_BUTTON_SIZE = 18" in trigger_tabs
@@ -108,9 +101,7 @@ def test_runtime_field_reuses_list_item_metrics_but_keeps_visible_rows_local():
     assert "min-height: 20px;" not in scroll_frames
     assert "padding: 3px 4px;" not in scroll_frames
 
-    # visible_rows controls the outer widget bound and is persisted model
-    # behaviour. It deliberately remains separate from item-painting metrics.
-    assert 'item.get("visible_rows", 4)' in runtime
+    assert 'props.get("visible_rows", 4)' in runtime
     assert "row_height = max(" in runtime
     assert "self.visible_rows * row_height + 6" in runtime
     assert "LIST_ITEM_MIN_HEIGHT" not in runtime
@@ -124,8 +115,6 @@ def test_scroll_frame_pixel_contract_is_owned_by_scroll_surface_metrics():
         "scripts/script_toolbox/ui/scroll_surface_frames.py"
     )
 
-    # Stage 5 owns these Maya/Qt4 pixels explicitly without folding them into
-    # the generic button/input geometry roles.
     assert "SCROLL_SURFACE_BORDER_WIDTH = 1" in metrics
     assert "SCROLL_SURFACE_CONTENT_INSET = 1" in metrics
     assert "SCROLL_SURFACE_BORDER_RADIUS = 2" in metrics

@@ -28,7 +28,7 @@ def test_runtime_registry_registers_icon_and_numeric_renderers_from_metadata():
     assert 'renderer_path=".runtime_renderers:_render_float"' in definitions
     assert "for definition in ITEM_TYPES.all():" in source
     assert "safe_numeric_size" in source
-    assert 'item.get("show_slider", False)' in source
+    assert 'props.get("show_slider", False)' in source
     assert "QSlider" in source
     assert "component_labels" in source
 

@@ -11,6 +11,7 @@ from .fields import IntField
 from .fields import ListField
 from .fields import PathField
 from .fields import TextField
+from .item_definitions import builtin_extension_definitions
 from .item_registry import ITEM_TYPES
 from .item_registry import ItemTypeDefinition
 
@@ -145,7 +146,7 @@ def _definition(
     )
 
 
-def builtin_item_definitions():
+def _standard_item_definitions():
     mouse = ("click", "double_click")
     value_events = ("value_changed", "editing_finished", "click", "double_click")
     return (
@@ -430,29 +431,17 @@ def builtin_item_definitions():
         _definition(
             "separator", "Separator", "Display", 40,
             fields={},
-            capabilities=(),
+            capabilities=("divider",),
             default_label="Separator",
             description="Visual divider between parameter groups.",
             renderer_path=".runtime_renderers:_render_separator",
             inspector_path=".properties.separator:SeparatorPropertyEditor",
         ),
-        _definition(
-            "image", "Image", "Display", 50,
-            fields={
-                "source": PathField(default=""),
-                "fit": ChoiceField(("contain", "cover", "stretch"), default="contain"),
-                "width": IntField(default=200, minimum=8, maximum=4096),
-                "height": IntField(default=120, minimum=8, maximum=4096),
-            },
-            events=mouse,
-            capabilities=("bindable", "resizable"),
-            default_label="Image",
-            ui_defaults={"show_label": False},
-            description="Display a raster image with configurable fit mode.",
-            renderer_path=".image_item:render_image",
-            inspector_path=".image_item:ImagePropertyEditor",
-        ),
     )
+
+
+def builtin_item_definitions():
+    return _standard_item_definitions() + builtin_extension_definitions()
 
 
 def register_builtin_items():

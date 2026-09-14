@@ -19,7 +19,7 @@ FIXTURES = os.path.join(
 def _current_document():
     path = os.path.join(
         FIXTURES,
-        "current_v20_full.json"
+        "current_v21_full.json"
     )
     with open(path, "r") as handle:
         return json.load(handle)
@@ -42,20 +42,24 @@ def _linked_document():
                 "kind": "folder",
                 "id": "folder_group",
                 "name": "group",
-                "label": "Group",
+                "ui": {"label": "Group"},
+                "props": {"folder_type": "collapsible", "collapsed": False},
+                "bindings": [],
                 "items": [
                     {
                         "kind": "string",
                         "id": "field_internal_id",
                         "name": "internal_value",
-                        "label": "Internal",
-                        "value": "inside",
+                        "ui": {"label": "Internal"},
+                        "props": {"value": "inside"},
+                        "bindings": [],
                     },
                     {
                         "kind": "button",
                         "id": "button_internal_id",
                         "name": "run_internal",
-                        "label": "Run",
+                        "ui": {"label": "Run"},
+                        "props": {},
                         "bindings": [
                             make_binding(
                                 "click",
@@ -75,20 +79,24 @@ def _linked_document():
                 "kind": "folder",
                 "id": "folder_external",
                 "name": "external_group",
-                "label": "External",
+                "ui": {"label": "External"},
+                "props": {"folder_type": "collapsible", "collapsed": False},
+                "bindings": [],
                 "items": [
                     {
                         "kind": "string",
                         "id": "field_external_id",
                         "name": "external_value",
-                        "label": "External",
-                        "value": "outside",
+                        "ui": {"label": "External"},
+                        "props": {"value": "outside"},
+                        "bindings": [],
                     },
                     {
                         "kind": "button",
                         "id": "button_external_id",
                         "name": "external_reader",
-                        "label": "External Reader",
+                        "ui": {"label": "External Reader"},
+                        "props": {},
                         "bindings": [
                             make_binding(
                                 "click",
@@ -107,9 +115,9 @@ def test_controller_owns_defensive_copy_and_indexes_nested_items():
     source = _current_document()
     controller = EditorDocumentController(source)
 
-    source["sections"][0]["label"] = "Changed outside"
+    source["sections"][0]["ui"]["label"] = "Changed outside"
 
-    assert controller.document["sections"][0]["label"] != "Changed outside"
+    assert controller.document["sections"][0]["ui"]["label"] != "Changed outside"
     assert controller.find_by_id("integer_samples")["name"] == "samples"
     assert controller.find_by_id("field_selection")["kind"] == "field"
 
@@ -118,9 +126,9 @@ def test_snapshot_is_independent_from_staged_document():
     controller = EditorDocumentController(_current_document())
 
     snapshot = controller.snapshot()
-    snapshot["sections"][0]["label"] = "Snapshot only"
+    snapshot["sections"][0]["ui"]["label"] = "Snapshot only"
 
-    assert controller.document["sections"][0]["label"] != "Snapshot only"
+    assert controller.document["sections"][0]["ui"]["label"] != "Snapshot only"
 
 
 def test_adopt_preserves_item_identity_for_qt_tree_sync():
@@ -179,7 +187,7 @@ def test_clone_subtree_allocates_fresh_ids_and_unique_names_recursively():
     assert len(clone_ids) == len(set(clone_ids))
     assert len(clone_names) == len(set(clone_names))
     assert not original_names.intersection(clone_names)
-    assert clone["label"] == source["label"]
+    assert clone["ui"]["label"] == source["ui"]["label"]
     assert clone["kind"] == source["kind"]
 
 

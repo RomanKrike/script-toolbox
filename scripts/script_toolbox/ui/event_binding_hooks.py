@@ -255,7 +255,8 @@ def _semantic_value(toolbox, item):
     try:
         return toolbox.get_value(item.get("id"))
     except Exception:
-        return item.get("value")
+        props = item.get("props", {}) if isinstance(item, dict) else {}
+        return props.get("value") if isinstance(props, dict) else None
 
 
 def _is_inside_spinbox(control):

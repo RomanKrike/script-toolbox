@@ -36,6 +36,9 @@ def test_ui_package_delegates_runtime_composition_to_explicit_bootstrap():
 def test_default_registry_is_built_from_item_type_renderer_metadata():
     source = _read("scripts/script_toolbox/ui/runtime_renderers.py")
     definitions = _read("scripts/script_toolbox/model/item_builtins.py")
+    image_definition = _read(
+        "scripts/script_toolbox/model/item_definitions/image.py"
+    )
     ui_bootstrap = _read("scripts/script_toolbox/ui/item_ui_bootstrap.py")
 
     assert "for definition in ITEM_TYPES.all():" in source
@@ -45,7 +48,7 @@ def test_default_registry_is_built_from_item_type_renderer_metadata():
     assert "for definition in ITEM_TYPES.all():" in ui_bootstrap
     assert "definition.renderer_path" in ui_bootstrap
 
-    expected_paths = (
+    expected_builtin_paths = (
         ".runtime_renderers:_render_folder",
         ".row_layout:render_row",
         ".column_layout:render_column",
@@ -63,15 +66,19 @@ def test_default_registry_is_built_from_item_type_renderer_metadata():
         ".runtime_renderers:_render_float",
         ".runtime_renderers:_render_menu",
         ".runtime_renderers:_render_color",
-        ".image_item:render_image",
     )
 
-    for path in expected_paths:
+    for path in expected_builtin_paths:
         assert 'renderer_path="{0}"'.format(path) in definitions
+
+    assert 'renderer_path=".image_item:render_image"' in image_definition
 
 
 def test_specialized_current_renderers_are_definition_owned():
     definitions = _read("scripts/script_toolbox/model/item_builtins.py")
+    image_definition = _read(
+        "scripts/script_toolbox/model/item_definitions/image.py"
+    )
     ui_bootstrap = _read("scripts/script_toolbox/ui/item_ui_bootstrap.py")
 
     assert 'renderer_path=".row_layout:render_row"' in definitions
@@ -85,7 +92,7 @@ def test_specialized_current_renderers_are_definition_owned():
         'renderer_path=".toggle_icon_runtime:render_toggle_icon"'
         in definitions
     )
-    assert 'renderer_path=".image_item:render_image"' in definitions
+    assert 'renderer_path=".image_item:render_image"' in image_definition
     assert "ITEM_TYPES.bind_ui(" in ui_bootstrap
     assert '"row"' not in ui_bootstrap
     assert '"column"' not in ui_bootstrap
@@ -98,7 +105,7 @@ def test_active_runtime_dispatch_is_registry_based_without_method_patch():
 
     assert "def build_runtime_widget(" in runtime_source
     assert "get_runtime_renderer_registry" in runtime_source
-    assert "return registry.render(" in runtime_source
+    assert "return _runtime_registry().render(" in runtime_source
     assert "_registry_build_runtime_widget" not in registry_source
     assert '"build_runtime_widget",' not in registry_source
 

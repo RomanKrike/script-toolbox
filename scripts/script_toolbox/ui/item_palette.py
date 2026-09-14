@@ -36,12 +36,6 @@ def palette_groups():
     )
 
 
-def install_registry_palette(editor_class):
-    editor_class.PALETTE_GROUPS = palette_groups()
-    return editor_class
-
-
 __all__ = [
-    "install_registry_palette",
     "palette_groups",
 ]

@@ -17,22 +17,19 @@ def test_simple_section_reuses_runtime_folder_and_shared_group_box_style():
     metrics = _read("scripts/script_toolbox/style/metrics.py")
     palette = _read("scripts/script_toolbox/style/palette.py")
 
-    # Simple Section remains the existing RuntimeFolder/simple model. QGroupBox
-    # is only runtime chrome, not a new serialized item or container type.
-    assert 'self.folder_type = section.get("folder_type", "collapsible")' in runtime
+    # Simple Section remains the registered section renderer/simple model.
+    # QGroupBox is runtime chrome, not a second serialized Item format.
+    assert "section_props = _props(section)" in runtime
+    assert 'self.folder_type = section_props.get("folder_type", "collapsible")' in runtime
     assert 'elif self.folder_type == "simple":' in runtime
     assert 'self.header = QtGui.QGroupBox(text_type(label))' in runtime
     assert 'self.header.setObjectName("SimpleSectionGroupBox")' in runtime
     assert 'self.header.setProperty("nested", self.is_nested)' in runtime
 
-    # Content remains RuntimeFolderContent so nested-folder detection and all
-    # existing runtime child rendering continue to use the same architecture.
     assert 'self.content.setObjectName("RuntimeFolderContent")' in runtime
     assert 'content_parent = self.header' in runtime
     assert 'content_host = group_layout' in runtime
 
-    # The shared QGroupBox contract owns border geometry. Simple Section only
-    # overrides title surface/text so the title masks the border beneath it.
     assert 'QGroupBox {' in stylesheet
     assert 'border: 1px solid %(BORDER_GROUP)s;' in stylesheet
     assert 'QGroupBox::title {' in stylesheet
@@ -45,9 +42,6 @@ def test_simple_section_reuses_runtime_folder_and_shared_group_box_style():
     assert 'QGroupBox#SimpleSectionGroupBox[nested="true"]::title {' in stylesheet
     assert 'background-color: %(SIMPLE_SECTION_NESTED_BG)s;' in stylesheet
 
-    # Maya 2015 / Qt4 compatibility must restate those same palette-owned
-    # surfaces rather than introducing a host palette lookup or hard-coded
-    # replacement color.
     assert 'from .palette import CONTENT_BG' in runtime_overrides
     assert 'from .palette import SIMPLE_SECTION_NESTED_BG' in runtime_overrides
     assert 'background-color: {content_bg};' in runtime_overrides
@@ -56,16 +50,11 @@ def test_simple_section_reuses_runtime_folder_and_shared_group_box_style():
     assert 'simple_section_nested_bg=SIMPLE_SECTION_NESTED_BG' in runtime_overrides
     assert 'palette(window)' not in runtime_overrides
 
-    # The failed header-frame approach must not survive alongside QGroupBox,
-    # otherwise nested/top-level sections can regain a second outline.
     assert 'SimpleSectionHeader' not in runtime
     assert 'SimpleSectionHeader' not in stylesheet
     assert 'RUNTIME_SIMPLE_HEADER_' not in runtime
     assert 'RUNTIME_SIMPLE_HEADER_' not in metrics
 
-    # No new color source is introduced for this fix. Nested Simple Section
-    # titles deliberately resolve to the same content surface as top-level
-    # titles so Qt4 does not expose a contrasting rectangle behind the text.
     assert 'BORDER_GROUP = "#414141"' in palette
     assert 'TEXT_SECTION = TEXT_PRIMARY' in palette
     assert 'SIMPLE_SECTION_NESTED_BG = CONTENT_BG' in palette

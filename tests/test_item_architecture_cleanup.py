@@ -114,6 +114,8 @@ def test_registry_is_authoritative_for_builtins_and_capabilities():
     assert ITEM_TYPES.get("folder").has_capability("section")
     assert ITEM_TYPES.get("column").is_container is True
     assert ITEM_TYPES.get("column").is_layout is True
+    assert ITEM_TYPES.get("row").layout_axis == "horizontal"
+    assert ITEM_TYPES.get("column").layout_axis == "vertical"
     assert ITEM_TYPES.get("button").is_container is False
     assert is_container_kind("folder") is True
     assert is_container_kind("row") is True
@@ -320,7 +322,7 @@ def test_label_is_presentation_only_not_lookup_identity():
     assert find_item(document, "Visible Label") is None
 
 
-def test_architecture_has_no_central_kind_extension_tables():
+def test_architecture_has_no_central_kind_extension_tables_or_flat_shims():
     items_source = _source(
         "scripts", "script_toolbox", "model", "items.py"
     )
@@ -333,11 +335,20 @@ def test_architecture_has_no_central_kind_extension_tables():
     renderers_source = _source(
         "scripts", "script_toolbox", "ui", "runtime_renderers.py"
     )
+    runtime_registry_source = _source(
+        "scripts", "script_toolbox", "core", "runtime_registry.py"
+    )
     property_registry_source = _source(
         "scripts", "script_toolbox", "ui", "properties", "registry.py"
     )
     palette_source = _source(
         "scripts", "script_toolbox", "ui", "item_palette.py"
+    )
+    editor_source = _source(
+        "scripts", "script_toolbox", "ui", "interface_editor.py"
+    )
+    editor_layout_source = _source(
+        "scripts", "script_toolbox", "ui", "layout_editor_adapter.py"
     )
 
     assert "_FACTORIES" not in items_source
@@ -349,6 +360,27 @@ def test_architecture_has_no_central_kind_extension_tables():
     assert "PROPERTY_EDITORS" not in property_registry_source
     assert "ITEM_KINDS" not in items_source
     assert "ITEM_TYPES.creatable()" in palette_source
+
+    assert "ItemDataView" not in runtime_registry_source
+    assert "item_view" not in runtime_registry_source
+    assert "PALETTE_GROUPS" not in editor_source
+    assert 'data["label"]' not in editor_source
+    assert 'data["label"]' not in editor_layout_source
+    assert 'kind == "folder"' not in editor_source
+    assert 'kind == "row"' not in editor_source
+    assert 'kind == "column"' not in editor_source
+    assert 'kind == "folder"' not in editor_layout_source
+    assert 'kind == "row"' not in editor_layout_source
+    assert 'kind == "column"' not in editor_layout_source
+
+
+def test_flat_item_compatibility_modules_are_removed():
+    assert not os.path.exists(os.path.join(
+        ROOT, "scripts", "script_toolbox", "model", "item_view.py"
+    ))
+    assert not os.path.exists(os.path.join(
+        ROOT, "scripts", "script_toolbox", "ui", "item_runtime_adapter.py"
+    ))
 
 
 def test_old_text_item_factory_module_is_removed():

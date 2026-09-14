@@ -7,27 +7,32 @@ import os
 from ..compat import HOST
 from ..compat import QtCore
 from ..compat import QtGui
-from ..constants import CONFIG_VERSION
 from ..constants import EDITOR_OBJECT_NAME
 from ..core.config import config_path
 from ..core.config import export_config
 from ..core.config import import_config
 from ..model import create_item
-from ..model.items import new_id
-from ..model.items import sanitize_name
 from ..model import normalize_document
 from ..model import walk_items
+from ..model.item_builtins import register_builtin_items
+from ..model.item_registry import ITEM_TYPES
+from ..model.items import new_id
+from ..model.items import sanitize_name
 from ..pycompat import text_type
 from ..style import STYLE
 from ..style import metrics
-from ..style.palette import STRUCTURE_FOLDER_BG
 from ..style.palette import TEXT_PALETTE_GROUP
-from ..style.palette import TEXT_STRUCTURE_ROW
 from ..style.palette import WINDOW_BG
 from .editor_search import filter_existing_parameters as filter_editor_structure
 from .icon_button import ICON_BUTTON_COMPACT
 from .icon_button import create_icon_button
 from .interface_tree import ExistingInterfaceTree
+from .item_palette import palette_groups
+from .layout_editor_adapter import create_layout_from_palette
+from .layout_editor_adapter import fix_layout_tree_structure
+from .layout_editor_adapter import insert_layout_cloned_tree_item
+from .layout_editor_adapter import make_layout_tree_item
+from .layout_editor_adapter import sync_layout_working_from_tree
 from .layout_helpers import configure_layout
 from .layout_helpers import set_layout_margins
 from .properties import create_editor
@@ -37,43 +42,40 @@ from .search_field import SearchField
 ROLE_KIND = QtCore.Qt.UserRole
 ROLE_ID = QtCore.Qt.UserRole + 1
 
-# Internal editor clipboard shared across Interface Editor instances in the
-# current host session. Data is cloned again on paste so IDs always remain
-# unique in the destination document.
 _EDITOR_CLIPBOARD = None
 
 
-class InterfaceEditor(QtGui.QDialog):
+def _definition(kind):
+    register_builtin_items()
+    return ITEM_TYPES.get(text_type(kind or "").lower())
 
-    PALETTE_GROUPS = (
-        (
-            "LAYOUT",
-            (
-                ("Folder", "folder", "Container: Collapsible, Simple, Tabs or Radio."),
-                ("Row", "row", "Horizontal layout for compact controls and buttons."),
-                ("Label", "label", "Static text for headings and notes."),
-                ("Separator", "separator", "Visual divider between parameter groups."),
-            )
-        ),
-        (
-            "INPUTS",
-            (
-                ("Field", "field", "Manual value or live DCC selection."),
-                ("String", "string", "Editable text value."),
-                ("Integer", "integer", "Integer value with min, max and step."),
-                ("Float", "float", "Floating-point value with range and precision."),
-                ("Checkbox", "checkbox", "Boolean on/off value."),
-                ("Menu", "menu", "Choose one value from a list."),
-                ("Color", "color", "RGB color value."),
-            )
-        ),
-        (
-            "ACTIONS",
-            (
-                ("Button", "button", "Run Python or the active host native script language."),
-            )
-        ),
-    )
+
+def _is_section(kind):
+    definition = _definition(kind)
+    return bool(definition and definition.has_capability("section"))
+
+
+def _is_container(kind):
+    definition = _definition(kind)
+    return bool(definition and definition.is_container)
+
+
+def _default_section_kind():
+    register_builtin_items()
+    for definition in ITEM_TYPES.creatable():
+        if definition.has_capability("section"):
+            return definition.kind
+    raise RuntimeError("No creatable section Item type is registered.")
+
+
+def _item_label(data):
+    ui = data.get("ui", {}) if isinstance(data, dict) else {}
+    if not isinstance(ui, dict):
+        ui = {}
+    return text_type(ui.get("label", data.get("name", "")))
+
+
+class InterfaceEditor(QtGui.QDialog):
 
     def __init__(
         self,
@@ -175,7 +177,6 @@ class InterfaceEditor(QtGui.QDialog):
 
         self.search_fields = {}
 
-        # Create Parameters -------------------------------------------------
         left = QtGui.QWidget()
         left.setObjectName(
             "EditorPane"
@@ -216,7 +217,7 @@ class InterfaceEditor(QtGui.QDialog):
             True
         )
 
-        for group_label, entries in self.PALETTE_GROUPS:
+        for group_label, entries in palette_groups():
             group_item = QtGui.QTreeWidgetItem([
                 group_label
             ])
@@ -307,7 +308,6 @@ class InterfaceEditor(QtGui.QDialog):
             left
         )
 
-        # Existing Parameters ----------------------------------------------
         center = QtGui.QWidget()
         center.setObjectName(
             "EditorPane"
@@ -436,7 +436,6 @@ class InterfaceEditor(QtGui.QDialog):
             center
         )
 
-        # Parameter Description --------------------------------------------
         right = QtGui.QWidget()
         right.setObjectName(
             "EditorPane"
@@ -474,10 +473,6 @@ class InterfaceEditor(QtGui.QDialog):
             QtCore.Qt.ScrollBarAlwaysOff
         )
 
-        # Maya 2015 / Qt4 does not consistently honor QScrollArea viewport
-        # background selectors. Set the viewport palette explicitly so the
-        # property pane stays visually identical to the final PropertyPane
-        # surface installed by property_pane_style.
         try:
             viewport = self.property_scroll.viewport()
             viewport.setObjectName("PropertyViewport")
@@ -538,7 +533,6 @@ class InterfaceEditor(QtGui.QDialog):
             580
         ])
 
-        # Bottom -----------------------------------------------------------
         bottom = QtGui.QHBoxLayout()
         bottom.setSpacing(
             metrics.EDITOR_BOTTOM_SPACING
@@ -692,408 +686,67 @@ class InterfaceEditor(QtGui.QDialog):
             include_folders=True
         ):
             self.item_cache[
-                text_type(
-                    item["id"]
-                )
+                text_type(item["id"])
             ] = item
 
-    def make_tree_item(
-        self,
-        data
-    ):
-        kind = data.get(
-            "kind",
-            "button"
+    def make_tree_item(self, data):
+        return make_layout_tree_item(
+            self,
+            data,
+            None
         )
-
-        tree_item = QtGui.QTreeWidgetItem([
-            data.get(
-                "label",
-                data.get(
-                    "name",
-                    ""
-                )
-            ),
-            data.get(
-                "name",
-                ""
-            ),
-            kind.title()
-        ])
-
-        self.set_item_data(
-            tree_item,
-            kind,
-            data["id"]
-        )
-
-        flags = tree_item.flags()
-        flags |= QtCore.Qt.ItemIsDragEnabled
-
-        if kind in (
-            "folder",
-            "row"
-        ):
-            flags |= QtCore.Qt.ItemIsDropEnabled
-        else:
-            flags &= ~QtCore.Qt.ItemIsDropEnabled
-
-        tree_item.setFlags(
-            flags
-        )
-
-        if kind == "folder":
-            for column in range(
-                3
-            ):
-                font = tree_item.font(
-                    column
-                )
-                font.setBold(
-                    True
-                )
-                tree_item.setFont(
-                    column,
-                    font
-                )
-                tree_item.setBackground(
-                    column,
-                    QtGui.QBrush(
-                        QtGui.QColor(
-                            STRUCTURE_FOLDER_BG
-                        )
-                    )
-                )
-
-        elif kind == "row":
-            for column in range(
-                3
-            ):
-                tree_item.setForeground(
-                    column,
-                    QtGui.QBrush(
-                        QtGui.QColor(
-                            TEXT_STRUCTURE_ROW
-                        )
-                    )
-                )
-
-        if kind in (
-            "folder",
-            "row"
-        ):
-            for child in data.get(
-                "items",
-                []
-            ):
-                tree_item.addChild(
-                    self.make_tree_item(
-                        child
-                    )
-                )
-
-            tree_item.setExpanded(
-                True
-            )
-
-        return tree_item
 
     def populate_tree(self):
         self.current_item_id = None
         self.tree.clear()
         self.rebuild_cache()
 
-        for folder in self.working.get(
-            "sections",
-            []
-        ):
+        for section in self.working.get("sections", []) or []:
             self.tree.addTopLevelItem(
-                self.make_tree_item(
-                    folder
-                )
+                self.make_tree_item(section)
             )
 
         if self.tree.topLevelItemCount():
-            first = self.tree.topLevelItem(
-                0
-            )
-            first.setExpanded(
-                True
-            )
-            self.tree.setCurrentItem(
-                first
-            )
+            first = self.tree.topLevelItem(0)
+            first.setExpanded(True)
+            self.tree.setCurrentItem(first)
         else:
             self.show_empty_properties()
 
-    def nearest_folder(
-        self,
-        tree_item
-    ):
+    def nearest_section(self, tree_item):
         current = tree_item
-
         while current is not None:
-            if self.item_data(
-                current,
-                ROLE_KIND
-            ) == "folder":
+            if _is_section(self.item_data(current, ROLE_KIND)):
                 return current
-
             current = current.parent()
-
         return None
 
-    def ensure_root_folder(self):
-        if self.tree.topLevelItemCount():
-            return self.tree.topLevelItem(
-                0
-            )
+    def ensure_root_section(self):
+        for index in range(self.tree.topLevelItemCount()):
+            current = self.tree.topLevelItem(index)
+            if _is_section(self.item_data(current, ROLE_KIND)):
+                return current
 
+        kind = _default_section_kind()
         data = create_item(
-            "folder",
+            kind,
             {
                 "name": "my_tools",
-                "label": "My Tools",
+                "ui": {"label": "My Tools"},
             }
         )
-        self.item_cache[
-            data["id"]
-        ] = data
+        self.item_cache[data["id"]] = data
 
-        tree_item = self.make_tree_item(
-            data
-        )
-        self.tree.addTopLevelItem(
-            tree_item
-        )
-        tree_item.setExpanded(
-            True
-        )
-
+        tree_item = self.make_tree_item(data)
+        self.tree.addTopLevelItem(tree_item)
+        tree_item.setExpanded(True)
         return tree_item
 
     def fix_tree_structure(self):
-        # Root contains Folders only.
-        index = 0
-
-        while index < self.tree.topLevelItemCount():
-            item = self.tree.topLevelItem(
-                index
-            )
-
-            if self.item_data(
-                item,
-                ROLE_KIND
-            ) == "folder":
-                index += 1
-                continue
-
-            orphan = self.tree.takeTopLevelItem(
-                index
-            )
-            target = self.ensure_root_folder()
-
-            if target is orphan:
-                target = None
-
-            if target is None:
-                self.tree.insertTopLevelItem(
-                    index,
-                    orphan
-                )
-                index += 1
-                continue
-
-            target.addChild(
-                orphan
-            )
-            target.setExpanded(
-                True
-            )
-
-        def normalize_folder(folder_item):
-            child_index = 0
-
-            while child_index < folder_item.childCount():
-                child = folder_item.child(
-                    child_index
-                )
-                kind = self.item_data(
-                    child,
-                    ROLE_KIND
-                )
-
-                if kind == "folder":
-                    normalize_folder(
-                        child
-                    )
-                    child_index += 1
-                    continue
-
-                if kind == "row":
-                    row_index = 0
-
-                    while row_index < child.childCount():
-                        nested = child.child(
-                            row_index
-                        )
-                        nested_kind = self.item_data(
-                            nested,
-                            ROLE_KIND
-                        )
-
-                        if nested_kind in (
-                            "folder",
-                            "row"
-                        ):
-                            nested = child.takeChild(
-                                row_index
-                            )
-                            folder_item.insertChild(
-                                child_index + 1,
-                                nested
-                            )
-                            child_index += 1
-                            continue
-
-                        row_index += 1
-
-                    child_index += 1
-                    continue
-
-                while child.childCount():
-                    nested = child.takeChild(
-                        0
-                    )
-                    folder_item.insertChild(
-                        child_index + 1,
-                        nested
-                    )
-                    child_index += 1
-
-                child_index += 1
-
-        for root_index in range(
-            self.tree.topLevelItemCount()
-        ):
-            normalize_folder(
-                self.tree.topLevelItem(
-                    root_index
-                )
-            )
+        return fix_layout_tree_structure(self)
 
     def sync_working_from_tree(self):
-        if self.current_property_editor is not None:
-            try:
-                self.current_property_editor.write_to_item()
-            except Exception:
-                pass
-
-        def data_from_tree(tree_item):
-            item_id = self.item_data(
-                tree_item,
-                ROLE_ID
-            )
-            kind = self.item_data(
-                tree_item,
-                ROLE_KIND
-            )
-
-            data = self.item_cache.get(
-                item_id
-            )
-
-            if data is None:
-                data = create_item(
-                    kind,
-                    {
-                        "id": item_id,
-                        "name": text_type(
-                            tree_item.text(
-                                1
-                            )
-                        ),
-                        "label": text_type(
-                            tree_item.text(
-                                0
-                            )
-                        ),
-                    }
-                )
-
-            data["kind"] = kind
-            data["label"] = text_type(
-                tree_item.text(
-                    0
-                )
-            )
-            data["name"] = text_type(
-                tree_item.text(
-                    1
-                )
-            )
-
-            if kind in (
-                "folder",
-                "row"
-            ):
-                children = []
-
-                for child_index in range(
-                    tree_item.childCount()
-                ):
-                    child = tree_item.child(
-                        child_index
-                    )
-
-                    if (
-                        kind == "row" and
-                        self.item_data(
-                            child,
-                            ROLE_KIND
-                        ) in (
-                            "folder",
-                            "row"
-                        )
-                    ):
-                        continue
-
-                    children.append(
-                        data_from_tree(
-                            child
-                        )
-                    )
-
-                data["items"] = children
-
-            return data
-
-        sections = []
-
-        for index in range(
-            self.tree.topLevelItemCount()
-        ):
-            root_item = self.tree.topLevelItem(
-                index
-            )
-
-            if self.item_data(
-                root_item,
-                ROLE_KIND
-            ) != "folder":
-                continue
-
-            sections.append(
-                data_from_tree(
-                    root_item
-                )
-            )
-
-        self.working = {
-            "version": CONFIG_VERSION,
-            "sections": sections,
-        }
-        self.rebuild_cache()
+        return sync_layout_working_from_tree(self)
 
     def tree_changed(self):
         self.sync_working_from_tree()
@@ -1257,13 +910,13 @@ class InterfaceEditor(QtGui.QDialog):
             used_names
         )
 
-        if clone.get("kind") in ("folder", "row"):
+        if _is_container(clone.get("kind")):
             clone["items"] = [
                 self._clone_data(
                     child,
                     used_names
                 )
-                for child in clone.get("items", [])
+                for child in clone.get("items", []) or []
             ]
 
         return clone
@@ -1273,8 +926,8 @@ class InterfaceEditor(QtGui.QDialog):
             text_type(data["id"])
         ] = data
 
-        if data.get("kind") in ("folder", "row"):
-            for child in data.get("items", []):
+        if _is_container(data.get("kind")):
+            for child in data.get("items", []) or []:
                 self._cache_subtree(child)
 
     def copy_selected(self):
@@ -1298,7 +951,7 @@ class InterfaceEditor(QtGui.QDialog):
         _EDITOR_CLIPBOARD = copy.deepcopy(data)
         self.status.setText(
             "Copied: {0}".format(
-                data.get("label", data.get("name", "Item"))
+                _item_label(data) or "Item"
             )
         )
 
@@ -1307,75 +960,11 @@ class InterfaceEditor(QtGui.QDialog):
         data,
         sibling=False
     ):
-        tree_item = self.make_tree_item(data)
-        self._cache_subtree(data)
-        current = self.tree.currentItem()
-        kind = data.get("kind")
-
-        if current is None:
-            if kind == "folder":
-                self.tree.addTopLevelItem(tree_item)
-            else:
-                root = self.ensure_root_folder()
-                root.addChild(tree_item)
-                root.setExpanded(True)
-            return tree_item
-
-        current_kind = self.item_data(
-            current,
-            ROLE_KIND
+        return insert_layout_cloned_tree_item(
+            self,
+            data,
+            sibling=sibling
         )
-        parent = current.parent()
-
-        if sibling:
-            if parent is None:
-                if kind == "folder":
-                    index = self.tree.indexOfTopLevelItem(current)
-                    self.tree.insertTopLevelItem(index + 1, tree_item)
-                else:
-                    current.addChild(tree_item)
-                    current.setExpanded(True)
-            else:
-                index = parent.indexOfChild(current)
-                parent.insertChild(index + 1, tree_item)
-            return tree_item
-
-        # Paste into a compatible selected container. Otherwise paste as the
-        # next sibling, preserving Row restrictions.
-        if current_kind == "row" and kind not in ("folder", "row"):
-            current.addChild(tree_item)
-            current.setExpanded(True)
-            return tree_item
-
-        if current_kind == "folder":
-            current.addChild(tree_item)
-            current.setExpanded(True)
-            return tree_item
-
-        if parent is not None:
-            parent_kind = self.item_data(
-                parent,
-                ROLE_KIND
-            )
-            if parent_kind == "row" and kind in ("folder", "row"):
-                folder = self.nearest_folder(parent)
-                if folder is not None:
-                    folder.addChild(tree_item)
-                    folder.setExpanded(True)
-                    return tree_item
-
-            index = parent.indexOfChild(current)
-            parent.insertChild(index + 1, tree_item)
-            return tree_item
-
-        if kind == "folder":
-            self.tree.addTopLevelItem(tree_item)
-        else:
-            root = self.ensure_root_folder()
-            root.addChild(tree_item)
-            root.setExpanded(True)
-
-        return tree_item
 
     def paste_selected(self):
         source = self.clipboard_item or _EDITOR_CLIPBOARD
@@ -1539,14 +1128,10 @@ class InterfaceEditor(QtGui.QDialog):
                     child_index
                 )
                 label = text_type(
-                    child.text(
-                        0
-                    )
+                    child.text(0)
                 ).lower()
                 tooltip = text_type(
-                    child.toolTip(
-                        0
-                    )
+                    child.toolTip(0)
                 ).lower()
                 kind = self.palette_item_kind(
                     child
@@ -1589,83 +1174,11 @@ class InterfaceEditor(QtGui.QDialog):
         palette_item,
         column=0
     ):
-        kind = self.palette_item_kind(
-            palette_item
+        return create_layout_from_palette(
+            self,
+            palette_item,
+            column=column
         )
-
-        if not kind:
-            return
-
-        data = create_item(
-            kind
-        )
-        self.item_cache[
-            data["id"]
-        ] = data
-
-        tree_item = self.make_tree_item(
-            data
-        )
-
-        current = self.tree.currentItem()
-        parent = None
-
-        if current is not None:
-            current_kind = self.item_data(
-                current,
-                ROLE_KIND
-            )
-
-            if kind == "folder":
-                if current_kind == "folder":
-                    parent = current
-                else:
-                    parent = self.nearest_folder(
-                        current
-                    )
-
-            elif kind == "row":
-                if current_kind == "folder":
-                    parent = current
-                else:
-                    parent = self.nearest_folder(
-                        current
-                    )
-
-            else:
-                if current_kind in (
-                    "folder",
-                    "row"
-                ):
-                    parent = current
-                else:
-                    parent = self.nearest_folder(
-                        current
-                    )
-
-        if (
-            kind != "folder" and
-            parent is None
-        ):
-            parent = self.ensure_root_folder()
-
-        if parent is None:
-            self.tree.addTopLevelItem(
-                tree_item
-            )
-        else:
-            parent.addChild(
-                tree_item
-            )
-            parent.setExpanded(
-                True
-            )
-
-        self.tree.setCurrentItem(
-            tree_item
-        )
-        self.fix_tree_structure()
-        self.tree_changed()
 
     def move_selected(
         self,
@@ -1724,56 +1237,46 @@ class InterfaceEditor(QtGui.QDialog):
 
     def delete_selected(self):
         item = self.tree.currentItem()
-
         if item is None:
             return
 
-        kind = self.item_data(
-            item,
-            ROLE_KIND
+        definition = _definition(
+            self.item_data(item, ROLE_KIND)
         )
-
         if (
-            kind == "folder" and
+            definition is not None and
+            definition.is_container and
             item.childCount()
         ):
             answer = QtGui.QMessageBox.question(
                 self,
-                "Delete Folder",
-                "Delete this Folder and everything inside it?",
+                "Delete {0}".format(definition.title),
+                "Delete this {0} and everything inside it?".format(
+                    definition.title
+                ),
                 QtGui.QMessageBox.Yes |
                 QtGui.QMessageBox.No,
                 QtGui.QMessageBox.No
             )
-
             if answer != QtGui.QMessageBox.Yes:
                 return
 
         parent = item.parent()
-
         if parent is None:
-            index = self.tree.indexOfTopLevelItem(
-                item
-            )
-            self.tree.takeTopLevelItem(
-                index
-            )
+            index = self.tree.indexOfTopLevelItem(item)
+            self.tree.takeTopLevelItem(index)
         else:
-            parent.removeChild(
-                item
-            )
+            parent.removeChild(item)
 
         if not self.tree.topLevelItemCount():
-            self.ensure_root_folder()
+            self.ensure_root_section()
 
         self.fix_tree_structure()
         self.tree_changed()
 
         if self.tree.topLevelItemCount():
             self.tree.setCurrentItem(
-                self.tree.topLevelItem(
-                    0
-                )
+                self.tree.topLevelItem(0)
             )
 
     # ------------------------------------------------------------------
@@ -1837,13 +1340,22 @@ class InterfaceEditor(QtGui.QDialog):
             parent=self.property_host
         )
         try:
-            parent_item = current.parent()
-            editor.set_row_context(
-                parent_item is not None and
-                self.item_data(
-                    parent_item,
+            parent_tree = current.parent()
+            parent_data = None
+            parent_kind = ""
+            if parent_tree is not None:
+                parent_kind = self.item_data(
+                    parent_tree,
                     ROLE_KIND
-                ) == "row"
+                )
+                parent_id = self.item_data(
+                    parent_tree,
+                    ROLE_ID
+                )
+                parent_data = self.item_cache.get(parent_id)
+            editor.set_parent_layout_context(
+                parent_kind,
+                parent_data
             )
         except Exception:
             pass
@@ -1890,27 +1402,18 @@ class InterfaceEditor(QtGui.QDialog):
 
         tree_item.setText(
             0,
-            data.get(
-                "label",
-                data.get(
-                    "name",
-                    ""
-                )
-            )
+            _item_label(data)
         )
         tree_item.setText(
             1,
-            data.get(
-                "name",
-                ""
-            )
+            text_type(data.get("name", ""))
         )
+        definition = _definition(data.get("kind"))
         tree_item.setText(
             2,
-            data.get(
-                "kind",
-                ""
-            ).title()
+            definition.title
+            if definition is not None
+            else text_type(data.get("kind", "")).title()
         )
 
         self.status.setText(
@@ -1933,9 +1436,7 @@ class InterfaceEditor(QtGui.QDialog):
                 tree_item.childCount()
             ):
                 found = recurse(
-                    tree_item.child(
-                        index
-                    )
+                    tree_item.child(index)
                 )
 
                 if found is not None:
@@ -1947,9 +1448,7 @@ class InterfaceEditor(QtGui.QDialog):
             self.tree.topLevelItemCount()
         ):
             found = recurse(
-                self.tree.topLevelItem(
-                    index
-                )
+                self.tree.topLevelItem(index)
             )
 
             if found is not None:
@@ -1972,9 +1471,7 @@ class InterfaceEditor(QtGui.QDialog):
             if not result:
                 return ""
 
-            result = result[
-                0
-            ]
+            result = result[0]
 
         try:
             result = result.toString()
@@ -1992,9 +1489,7 @@ class InterfaceEditor(QtGui.QDialog):
             return
 
         default_path = os.path.join(
-            os.path.dirname(
-                config_path()
-            ),
+            os.path.dirname(config_path()),
             "{0}_script_toolbox_export.json".format(
                 HOST.key
             )
@@ -2007,16 +1502,12 @@ class InterfaceEditor(QtGui.QDialog):
             "JSON Files (*.json);;All Files (*.*)"
         )
 
-        path = self._dialog_path(
-            result
-        )
+        path = self._dialog_path(result)
 
         if not path:
             return
 
-        if not path.lower().endswith(
-            ".json"
-        ):
+        if not path.lower().endswith(".json"):
             path += ".json"
 
         try:
@@ -2026,18 +1517,14 @@ class InterfaceEditor(QtGui.QDialog):
             )
             self.status.setText(
                 "Exported: {0}".format(
-                    os.path.basename(
-                        path
-                    )
+                    os.path.basename(path)
                 )
             )
         except Exception as exc:
             QtGui.QMessageBox.critical(
                 self,
                 "Export Failed",
-                text_type(
-                    exc
-                )
+                text_type(exc)
             )
 
     def import_settings(self):
@@ -2055,7 +1542,7 @@ class InterfaceEditor(QtGui.QDialog):
         modes = [
             "Replace Toolbox",
             "Append to Toolbox",
-            "Insert into Selected Folder",
+            "Insert into Selected Section",
         ]
         choice = QtGui.QInputDialog.getItem(
             self,
@@ -2098,10 +1585,10 @@ class InterfaceEditor(QtGui.QDialog):
 
             else:
                 current = self.tree.currentItem()
-                target_tree = self.nearest_folder(current)
+                target_tree = self.nearest_section(current)
 
                 if target_tree is None:
-                    target_tree = self.ensure_root_folder()
+                    target_tree = self.ensure_root_section()
 
                 target_id = self.item_data(
                     target_tree,
@@ -2111,7 +1598,7 @@ class InterfaceEditor(QtGui.QDialog):
 
                 if target is None:
                     raise RuntimeError(
-                        "Select a Folder before using Insert mode."
+                        "Select a section before using Insert mode."
                     )
 
                 used_names = self._used_names()
@@ -2158,12 +1645,7 @@ class InterfaceEditor(QtGui.QDialog):
             self.working,
             include_folders=True
         ):
-            name = text_type(
-                item.get(
-                    "name",
-                    ""
-                )
-            )
+            name = text_type(item.get("name", ""))
 
             if name in names:
                 QtGui.QMessageBox.warning(
@@ -2175,11 +1657,7 @@ class InterfaceEditor(QtGui.QDialog):
                 )
                 return False
 
-            names[
-                name
-            ] = item.get(
-                "id"
-            )
+            names[name] = item.get("id")
 
         return True
 

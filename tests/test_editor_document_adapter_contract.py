@@ -23,7 +23,7 @@ def test_composition_root_routes_interface_editor_through_base_controller():
     assert "from .editor_document_adapter import build_interface_editor_class" in source
     assert "editor_class = build_interface_editor_class(" in source
     assert "controller_class=EditorDocumentController" in source
-    assert "layout_support=True" in source
+    assert "layout_support=False" in source
     assert "LayoutEditorDocumentController" not in source
 
 

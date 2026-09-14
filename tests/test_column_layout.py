@@ -123,12 +123,14 @@ def test_base_controller_topology_tracks_nested_columns_and_rows():
 def test_column_editor_and_runtime_are_registry_wired():
     bootstrap = _source("scripts", "script_toolbox", "ui", "bootstrap.py")
     ui_bootstrap = _source("scripts", "script_toolbox", "ui", "item_ui_bootstrap.py")
+    definitions = _source("scripts", "script_toolbox", "model", "item_builtins.py")
     column_renderer = _source("scripts", "script_toolbox", "ui", "column_layout.py")
     model_layouts = _source("scripts", "script_toolbox", "model", "layouts.py")
     model_items = _source("scripts", "script_toolbox", "model", "items.py")
     assert "ensure_builtin_item_ui_bindings" in bootstrap
-    assert '("column", ColumnPropertyEditor)' in ui_bootstrap
-    assert '("column", render_column)' in ui_bootstrap
+    assert 'inspector_path=".properties.column:ColumnPropertyEditor"' in definitions
+    assert 'renderer_path=".column_layout:render_column"' in definitions
+    assert "for definition in ITEM_TYPES.all():" in ui_bootstrap
     assert "QVBoxLayout" in column_renderer
     assert '"horizontal_alignment"' in column_renderer
     assert "CONTAINER_KINDS" not in model_layouts

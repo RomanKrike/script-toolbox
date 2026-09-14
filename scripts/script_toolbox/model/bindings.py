@@ -5,6 +5,8 @@ import uuid
 
 from ..constants import SUPPORTED_LANGUAGES
 from ..pycompat import text_type
+from .item_builtins import register_builtin_items
+from .item_registry import ITEM_TYPES
 
 
 MOUSE_EVENTS = (
@@ -34,68 +36,21 @@ EVENT_LABELS = {
     "closed": "Closed",
 }
 
-EVENT_CAPABILITIES = {
-    "button": ("click", "double_click"),
-    "toggle_button": ("click", "double_click"),
-    "icon": ("click", "double_click"),
-    "toggle_icon": ("click", "double_click"),
-    "string": (
-        "value_changed",
-        "editing_finished",
-        "click",
-        "double_click",
-    ),
-    "integer": (
-        "value_changed",
-        "editing_finished",
-        "click",
-        "double_click",
-    ),
-    "float": (
-        "value_changed",
-        "editing_finished",
-        "click",
-        "double_click",
-    ),
-    "checkbox": ("value_changed", "click", "double_click"),
-    "menu": ("value_changed", "click", "double_click"),
-    "color": ("value_changed", "click", "double_click"),
-    "field": (
-        "value_changed",
-        "selection_changed",
-        "click",
-        "double_click",
-    ),
-    "label": ("click", "double_click"),
-    "folder": (),
-    "row": (),
-    "column": (),
-    "separator": (),
-}
-
-INTERNAL_EVENT_CAPABILITIES = {
-    "folder": ("opened", "closed"),
-}
-
-STATE_TOGGLE_KINDS = (
-    "toggle_button",
-    "toggle_icon",
-)
-
 
 def new_binding_id():
     return uuid.uuid4().hex
 
 
 def binding_events(kind, include_internal=False):
-    kind = text_type(kind or "").lower()
-    result = list(EVENT_CAPABILITIES.get(kind, ()))
-
+    register_builtin_items()
+    definition = ITEM_TYPES.get(kind)
+    if definition is None:
+        return ()
+    result = list(definition.events)
     if include_internal:
-        for event in INTERNAL_EVENT_CAPABILITIES.get(kind, ()):
+        for event in definition.internal_events:
             if event not in result:
                 result.append(event)
-
     return tuple(result)
 
 
@@ -183,14 +138,21 @@ def normalize_binding(kind, value):
     if not isinstance(value, dict):
         return None
 
-    kind = text_type(kind or "").lower()
+    register_builtin_items()
+    definition = ITEM_TYPES.get(kind)
+    if definition is None:
+        return None
+
     event = text_type(value.get("event") or "").lower()
-    allowed = binding_events(kind, include_internal=True)
+    allowed = binding_events(definition.kind, include_internal=True)
     if event not in allowed:
         return None
 
     handler = text_type(value.get("handler", "script")).lower()
-    if handler == "state_toggle" and kind not in STATE_TOGGLE_KINDS:
+    if (
+        handler == "state_toggle" and
+        not definition.has_capability("state_toggle")
+    ):
         handler = "script"
 
     return make_binding(
@@ -206,49 +168,33 @@ def normalize_binding(kind, value):
     )
 
 
-def _default_binding(kind):
-    if kind == "button":
-        return make_binding(
-            "click",
-            handler="script"
-        )
-
-    if kind in STATE_TOGGLE_KINDS:
-        return make_binding(
-            "click",
-            handler="state_toggle"
-        )
-
-    return None
-
-
 def normalize_bindings(kind, data=None):
-    kind = text_type(kind or "").lower()
+    register_builtin_items()
+    definition = ITEM_TYPES.get(kind)
+    if definition is None:
+        return []
+
     data = data or {}
     raw = data.get("bindings")
     result = []
 
     if isinstance(raw, list):
         for entry in raw:
-            normalized = normalize_binding(kind, entry)
+            normalized = normalize_binding(definition.kind, entry)
             if normalized is not None:
                 result.append(normalized)
 
-    if kind == "button":
-        if not any(
-            entry.get("handler") == "script" and
-            entry.get("event") == "click"
+    for default_spec in definition.default_bindings():
+        default_binding = normalize_binding(definition.kind, default_spec)
+        if default_binding is None:
+            continue
+        if any(
+            entry.get("event") == default_binding.get("event") and
+            entry.get("handler") == default_binding.get("handler")
             for entry in result
         ):
-            result.insert(0, _default_binding(kind))
-
-    elif kind in STATE_TOGGLE_KINDS:
-        if not any(
-            entry.get("handler") == "state_toggle" and
-            entry.get("event") == "click"
-            for entry in result
-        ):
-            result.insert(0, _default_binding(kind))
+            continue
+        result.insert(0, default_binding)
 
     return result
 
@@ -358,13 +304,10 @@ def bindings_for_editor(item):
 
 
 __all__ = [
-    "EVENT_CAPABILITIES",
     "EVENT_LABELS",
-    "INTERNAL_EVENT_CAPABILITIES",
     "MODIFIERS",
     "MOUSE_BUTTONS",
     "MOUSE_EVENTS",
-    "STATE_TOGGLE_KINDS",
     "binding_display_name",
     "binding_events",
     "binding_matches",

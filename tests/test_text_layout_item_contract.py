@@ -12,8 +12,9 @@ def test_text_item_normalizes_static_multiline_content():
     item = create_item(
         "text",
         {
-            "text": "First line\nSecond line",
-            "show_label": True,
+            "props": {
+                "text": "First line\nSecond line",
+            },
             "bindings": [
                 {
                     "event": "click",
@@ -24,8 +25,8 @@ def test_text_item_normalizes_static_multiline_content():
     )
 
     assert item["kind"] == "text"
-    assert item["text"] == "First line\nSecond line"
-    assert item["show_label"] is False
+    assert item["props"]["text"] == "First line\nSecond line"
+    assert item["ui"]["show_label"] is False
     assert item["bindings"] == []
 
 
@@ -33,11 +34,11 @@ def test_text_item_preserves_intentional_empty_content():
     item = create_item(
         "text",
         {
-            "text": "",
+            "props": {"text": ""},
         }
     )
 
-    assert item["text"] == ""
+    assert item["props"]["text"] == ""
 
 
 def test_text_runtime_contract_uses_palette_and_word_wrap():
@@ -70,14 +71,21 @@ def test_text_property_editor_uses_shared_multiline_metric():
 
 
 def test_text_item_is_registered_in_editor_palette_and_runtime():
-    source = (
+    definitions = (
+        ROOT /
+        "scripts" /
+        "script_toolbox" /
+        "model" /
+        "item_builtins.py"
+    ).read_text(encoding="utf-8")
+    ui_bindings = (
         ROOT /
         "scripts" /
         "script_toolbox" /
         "ui" /
-        "bootstrap.py"
+        "item_ui_bootstrap.py"
     ).read_text(encoding="utf-8")
 
-    assert '"Text",' in source
-    assert '"text",' in source
-    assert 'registry.register("text", render_text, replace=True)' in source
+    assert '"text", "Text", "Display", 30' in definitions
+    assert '("text", TextPropertyEditor)' in ui_bindings
+    assert '("text", render_text)' in ui_bindings

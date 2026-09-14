@@ -70,6 +70,20 @@ def test_generic_layout_metadata_has_no_magic_row_column_schema_inference():
     assert "spec.cross_alignment_field" in adapter_source
 
 
+def test_sectionspec_uses_field_schema_as_single_mode_source():
+    registry_source = _source(
+        "scripts", "script_toolbox", "model", "item_registry.py"
+    )
+    builtins_source = _source(
+        "scripts", "script_toolbox", "model", "item_builtins.py"
+    )
+
+    assert "self.modes" not in registry_source
+    assert "spec.modes" not in registry_source
+    assert 'SectionSpec(mode_field="folder_type")' in builtins_source
+    assert "modes=(\"collapsible\"" not in builtins_source
+
+
 def test_clean_break_has_no_migration_surface_or_v20_fixtures():
     schema_source = _source(
         "scripts", "script_toolbox", "core", "config_schema.py"
@@ -127,11 +141,22 @@ def test_current_v21_fixtures_use_canonical_item_envelope():
                 assert isinstance(item["items"], list)
 
 
-def test_item_inspector_routes_props_through_schema_and_has_no_callbacks():
+def test_item_inspector_props_write_is_transactional_and_has_no_callbacks():
     base_source = _source(
         "scripts", "script_toolbox", "ui", "properties", "base.py"
     )
-    assert "normalize_item_props(self.item)" in base_source
+    candidate_copy = "candidate_props = copy.deepcopy(current_props)"
+    candidate_write = "self.write_specific(candidate_props)"
+    normalization = "normalize_item_props_candidate("
+    commit = 'self.item["props"] = normalized_props'
+
+    assert candidate_copy in base_source
+    assert candidate_write in base_source
+    assert normalization in base_source
+    assert commit in base_source
+    assert base_source.index(candidate_copy) < base_source.index(candidate_write)
+    assert base_source.index(candidate_write) < base_source.index(normalization)
+    assert base_source.index(normalization) < base_source.index(commit)
 
     for parts in (
         ("scripts", "script_toolbox", "ui", "properties", "basic.py"),
@@ -141,6 +166,20 @@ def test_item_inspector_routes_props_through_schema_and_has_no_callbacks():
         source = _source(*parts)
         assert '["callbacks"]' not in source
         assert ".get(\"callbacks\"" not in source
+
+
+def test_selection_runtime_write_normalizes_before_direct_commit():
+    source = _source(
+        "scripts", "script_toolbox", "ui", "main_window.py"
+    )
+
+    normalize_line = "new_value = normalize_document_value(item, new_value)"
+    commit_line = 'props["value"] = new_value'
+    normalize_index = source.index(normalize_line)
+    commit_index = source.index(commit_line, normalize_index)
+
+    assert normalize_index < commit_index
+    assert "self.set_value(item[\"id\"], new_value)" not in source
 
 
 def test_reference_rewrite_uses_only_props_and_bindings_item_scripts():

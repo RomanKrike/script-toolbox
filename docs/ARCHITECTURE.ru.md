@@ -51,11 +51,11 @@ Schema **21** — единственный поддерживаемый конт
 ```text
 JSON read
   -> validate schema version 21
-  -> normalize current Item envelopes и typed props
+  -> normalize + validate current Item envelopes и typed props
   -> runtime document
 ```
 
-Непустой документ без `version`, старая schema и более новая schema отклоняются. Config layer не мигрирует и не down-convert исторические payloads. Migration `20 -> 21` намеренно отсутствует. Пустой mapping используется только для создания нового current-schema document.
+Version validation и Item validation — отдельные слои. Непустой document без `version`, старая schema и более новая schema отклоняются до Item normalization. Current-schema Items затем проходят через model schema. Malformed typed props не заменяются silent default. Migration `20 -> 21` намеренно отсутствует. Эти финальные исправления не меняют persisted envelope, поэтому `CONFIG_VERSION` остаётся 21.
 
 ## Универсальный Item
 
@@ -140,7 +140,7 @@ raw props
   -> canonical props
 ```
 
-`ItemTypeDefinition.validate_props()` использует те же правила допустимого coercion для diagnostic validation. Canonical construction, `normalize_document()`, Inspector writes через `normalize_item_props()`, config load и runtime value writes используют `ItemTypeDefinition.normalize_props()`, поэтому validation теперь является частью реального data path, а не отдельным optional helper.
+`ItemTypeDefinition.validate_props()` использует те же правила допустимого coercion для diagnostic validation. Canonical construction, `normalize_document()`, config load, Inspector writes и runtime value writes используют `ItemTypeDefinition.normalize_props()`, поэтому validation является частью реального data path.
 
 Граница coercion определена явно:
 
@@ -150,9 +150,9 @@ raw props
 - `BoolField`: принимает booleans, `1`/`0` и explicit case-insensitive strings `true`/`false`, `yes`/`no`, `1`/`0`; произвольная непустая строка invalid. В частности, `BoolField.normalize("false")` возвращает `False`, а не Python-семантику `bool("false") == True`.
 - numeric/color bounds применяют clamp только после успешного parsing; parsing failure не является случаем bounds и приводит к validation error.
 
-`FieldValidationError` описывает parse/validation failure конкретного Field. `ItemValidationError` — Item-level error contract с `kind`, optional `id`/`name`, `field`, ошибочным `value` и `reason`. Config recovery показывает эту structured ошибку для malformed current-schema data вместо silent repair.
+`FieldValidationError` описывает parse/validation failure конкретного Field. `ItemValidationError` — Item-level error contract с `kind`, optional `id`/`name`, `field`, ошибочным `value` и `reason`. Runtime value normalization передаёт текущие `id` и `name` в definition, поэтому runtime errors сохраняют тот же identity context, что config/editor validation.
 
-Complex cross-field invariants остаются на уровне definition через `normalize_props`; Inspector не становится вторым validator. Specialized editors могут записать raw UI values в `props`, после чего `PropertyEditorBase.write_to_item()` вызывает `normalize_item_props()` до emission changed state.
+Complex cross-field invariants остаются на уровне definition через `normalize_props`; Inspector не становится вторым validator. `PropertyEditorBase.write_to_item()` делает deep copy текущих valid props, type-specific Inspector пишет только в candidate, затем candidate проходит `normalize_item_props_candidate()`. `self.item["props"]` заменяется только после успешной normalization/validation. При ошибке candidate отбрасывается, а исходные valid props остаются без изменений. Universal `name`/`ui` edits намеренно не включены в эту минимальную транзакцию, чтобы не делать большой Inspector redesign.
 
 ## Layout semantics
 
@@ -184,16 +184,24 @@ Synthetic horizontal `Flow Layout` может использовать, напр
 
 ## Section semantics
 
-Section определяется capability `section`; её type-specific mode field задаётся отдельно через `SectionSpec`:
+Section определяется capability `section`; `SectionSpec` задаёт только имя schema field, которое несёт section mode:
 
 ```python
-SectionSpec(
-    mode_field="display_mode",
-    modes=("cards", "stack"),
-)
+SectionSpec(mode_field="display_mode")
 ```
 
-Capability `section` **не** подразумевает property с именем `folder_type`. Generic runtime получает mode через `definition.section_mode(props)`, который использует `section_spec.mode_field` и declared Field. Folder сохраняет существующий persisted `folder_type` через `SectionSpec(mode_field="folder_type", ...)`, но generic runtime не знает этот literal.
+Допустимые mode values принадлежат Field schema и не дублируются в `SectionSpec`:
+
+```python
+fields={
+    "display_mode": ChoiceField(
+        ("cards", "stack"),
+        default="cards"
+    )
+}
+```
+
+Capability `section` **не** подразумевает property с именем `folder_type`. Generic runtime получает mode через `definition.section_mode(props)`, который использует `section_spec.mode_field` и делегирует normalization/validation declared Field. `SectionSpec` больше не хранит второй `modes` tuple. Folder сохраняет persisted `folder_type` через `SectionSpec(mode_field="folder_type")`, а `ChoiceField` остаётся единственным источником допустимых `collapsible` / `simple` / `tabs` / `radio`.
 
 Future Card Section с `props.display_mode`, Accordion Section, Tool Group или Asset Group могут участвовать в generic section routing без изменения `ui/runtime.py` и без concrete-kind branch. Type-specific rendering behavior остаётся в renderer конкретного Item type.
 
@@ -247,17 +255,20 @@ flow = ItemTypeDefinition(
 Пример section type:
 
 ```python
+from script_toolbox.model.fields import ChoiceField
 from script_toolbox.model.item_registry import ItemTypeDefinition, SectionSpec
 
 card = ItemTypeDefinition(
     kind="card_section",
     title="Card Section",
-    fields={...},
+    fields={
+        "display_mode": ChoiceField(
+            ("cards", "stack"),
+            default="cards"
+        )
+    },
     capabilities=("container", "section"),
-    section=SectionSpec(
-        mode_field="display_mode",
-        modes=("cards", "stack"),
-    ),
+    section=SectionSpec(mode_field="display_mode"),
     renderer_path=".card_section:render_card_section",
     inspector_path=".card_section:CardSectionPropertyEditor",
 )
@@ -295,6 +306,8 @@ Toggle Button и Toggle Icon участвуют в generic value API тольк�
 
 Numeric scalar/vector construction и runtime writes используют одни и те же definition normalizers, поэтому size, min/max clamping и component count не расходятся. Invalid numeric content отклоняется вместо silent замены на unrelated fallback. Field сохраняет runtime semantics: scalar -> text, list/tuple -> list of text, single-value field берёт первый элемент списка.
 
+Selection-backed Field refresh намеренно остаётся transient: он не вызывает `set_value()`, automatic save или rebuild. Сначала новый selection value проходит через `core.values.normalize_value()` и ту же Item schema, затем canonical value записывается в `props.value`, обновляется widget и `value_changed` dispatch-ится только если canonical value действительно изменился.
+
 ## Editor и palette
 
 `EditorDocumentController` владеет staged document, identity cache, clone/reference operations и topology и не зависит от Qt.
@@ -326,8 +339,6 @@ Startup-only UI polish, installer которого имеет более шир�
 Runtime renderer получает raw universal Item envelope и явно читает `ui` / `props`. Runtime event filters подключают только events, объявленные definition, и dispatch-ят их через `bindings`. Runtime value synchronization capability-driven: обычные `has_value` Item регистрируют `RuntimeValueBinding`; специальный Field refresh определяется capability `field_widget`, а не concrete kind branch.
 
 Explicit runtime renderer unregister сохраняется: synchronization не resurrect-ит disabled renderer только потому, что definition всё ещё содержит declarative path. Последующая explicit registration снова включает renderer и применяет тот же generic decoration pipeline.
-
-Section mode validation следует definition metadata через `SectionSpec` и declared Field; generic runtime не содержит второго validation list и не знает Folder-specific field name.
 
 ## Пути пользовательской конфигурации
 
@@ -406,14 +417,17 @@ scripts/script_toolbox/
 - Никаких circular imports.
 - Никакого DCC UI/API-кода в `model`.
 - Никакого JSON file I/O в `ui`.
-- Поддерживается только current config schema.
+- Поддерживается только current config schema 21.
 - Persisted/runtime Item использует только schema 21 envelope; flat compatibility view не добавляется.
 - Unknown item kind нельзя silently convert в другой kind и нельзя сохранять через placeholder Item.
 - `kind` — единственный type discriminator.
 - `ui.label` нельзя использовать как identity.
 - Event behavior сохраняется только в `bindings`.
 - Новый Item type регистрируется через `ItemTypeDefinition`; core, palette, events, runtime и Inspector routing выводятся из metadata без central kind tables.
-- `LayoutSpec` и `SectionSpec` являются semantic metadata для generic layout/section consumers; common code не выводит semantics из concrete field names.
+- `LayoutSpec` содержит layout semantics; generic code не выводит их из concrete field names.
+- `SectionSpec` указывает только semantic mode field; допустимые mode values принадлежат Field schema и не дублируются.
+- Inspector type-specific props пишутся в candidate и коммитятся только после schema validation.
+- Generic runtime value writes проходят Item schema normalization до mutation `props.value`.
 - External Item types, которые могут присутствовать в config, регистрируются до config load/normalization.
 - Structural recursion и editor containment используют registry capabilities.
 - Section traversal называется `include_sections`; folder-specific compatibility naming не поддерживается.

@@ -174,8 +174,8 @@ def _normalize_ui(definition, raw_ui=None):
     return normalized
 
 
-def normalize_item_props(item):
-    """Normalize and validate one Item's props in place through its definition."""
+def normalize_item_props_candidate(item, candidate_props):
+    """Normalize candidate props without mutating the Item being edited."""
     register_builtin_items()
     if not isinstance(item, dict):
         raise ItemValidationError(
@@ -184,10 +184,18 @@ def normalize_item_props(item):
             reason="Expected Item mapping"
         )
     definition = ITEM_TYPES.get(item.get("kind"), required=True)
-    props = definition.normalize_props(
-        item.get("props"),
+    return definition.normalize_props(
+        candidate_props,
         item_id=item.get("id"),
         item_name=item.get("name")
+    )
+
+
+def normalize_item_props(item):
+    """Normalize and validate one Item's props in place through its definition."""
+    props = normalize_item_props_candidate(
+        item,
+        item.get("props") if isinstance(item, dict) else None
     )
     item["props"] = props
     return props
@@ -411,6 +419,7 @@ __all__ = [
     "new_id",
     "normalize_document",
     "normalize_item_props",
+    "normalize_item_props_candidate",
     "normalize_numeric_value",
     "safe_color",
     "safe_component_labels",

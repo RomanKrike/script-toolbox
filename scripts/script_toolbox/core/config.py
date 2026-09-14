@@ -11,7 +11,7 @@ import warnings
 from ..pycompat import text_type
 from ..model import normalize_document
 from .config_schema import ConfigSchemaError
-from .config_schema import migrate_document_schema
+from .config_schema import validate_document_schema
 from .logging_utils import get_logger
 from .user_paths import config_path
 
@@ -64,7 +64,7 @@ def backup_path(
 
 def _prepare_document(document):
     return normalize_document(
-        migrate_document_schema(
+        validate_document_schema(
             document
         )
     )

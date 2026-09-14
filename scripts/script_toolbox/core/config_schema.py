@@ -88,14 +88,6 @@ def validate_document_schema(document, expected_version=CONFIG_VERSION):
     return copy.deepcopy(document)
 
 
-def migrate_document_schema(document, expected_version=CONFIG_VERSION):
-    """Validate the current schema; historical migrations are unsupported."""
-    return validate_document_schema(
-        document,
-        expected_version=expected_version
-    )
-
-
 __all__ = [
     "ConfigSchemaError",
     "FutureConfigVersionError",
@@ -104,6 +96,5 @@ __all__ = [
     "UnsupportedConfigVersionError",
     "UnsupportedOldConfigVersionError",
     "detect_config_version",
-    "migrate_document_schema",
     "validate_document_schema",
 ]

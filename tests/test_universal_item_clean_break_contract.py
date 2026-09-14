@@ -39,16 +39,25 @@ def test_runtime_section_routing_has_no_folder_kind_switch():
     assert "build_runtime_widget" in source
 
 
-def test_clean_break_has_no_migration_registry_or_v20_fixtures():
-    source = _source(
+def test_clean_break_has_no_migration_surface_or_v20_fixtures():
+    schema_source = _source(
         "scripts", "script_toolbox", "core", "config_schema.py"
     )
+    config_source = _source(
+        "scripts", "script_toolbox", "core", "config.py"
+    )
 
-    assert "MIGRATIONS" not in source
-    assert "MissingMigrationStepError" not in source
-    assert "InvalidMigrationResultError" not in source
-    assert "MigrationValidationError" not in source
+    for forbidden in (
+        "MIGRATIONS",
+        "migrate_document_schema",
+        "MissingMigrationStepError",
+        "InvalidMigrationResultError",
+        "MigrationValidationError",
+    ):
+        assert forbidden not in schema_source
+        assert forbidden not in config_source
 
+    assert "validate_document_schema" in config_source
     assert not os.path.exists(_path(
         "tests", "test_config_migrations.py"
     ))
@@ -99,11 +108,7 @@ def test_item_inspector_does_not_persist_legacy_callbacks():
 
 
 def test_current_schema_is_v21_only_and_documented_as_clean_break():
-    source = _source(
-        "scripts", "script_toolbox", "core", "config_schema.py"
-    )
     docs = _source("docs", "ARCHITECTURE.md")
 
-    assert "historical migrations are unsupported" in source
     assert "Schema **21** is the single supported configuration contract" in docs
     assert "there is intentionally no schema 20 -> 21 migration" in docs

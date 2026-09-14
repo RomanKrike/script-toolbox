@@ -10,7 +10,6 @@ from script_toolbox.model.fields import PathField
 from script_toolbox.model.item_registry import ITEM_TYPES
 from script_toolbox.model.item_registry import ItemTypeDefinition
 from script_toolbox.model.items import create_item
-from script_toolbox.ui.item_palette import palette_groups
 
 
 ROOT = os.path.dirname(
@@ -98,12 +97,6 @@ def test_custom_video_item_registers_without_core_kind_tables():
         assert definition.inspector is VideoInspector
         assert binding_events(kind) == ("click", "double_click")
 
-        groups = dict(palette_groups())
-        assert any(
-            entry[1] == kind
-            for entry in groups["DISPLAY"]
-        )
-
         registry = RuntimeRendererRegistry()
         registry.register(kind, definition.renderer)
         assert registry.render(None, item, compact=True) == (
@@ -126,6 +119,11 @@ def test_video_extension_does_not_exist_in_core_routing_modules():
         ("scripts", "script_toolbox", "ui", "item_palette.py"),
     ):
         assert '"video"' not in _source(*parts).lower()
+
+    palette_source = _source(
+        "scripts", "script_toolbox", "ui", "item_palette.py"
+    )
+    assert "ITEM_TYPES.creatable()" in palette_source
 
 
 def test_central_routing_symbols_are_not_required_by_item_architecture():

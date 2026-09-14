@@ -8,11 +8,25 @@ from ..pycompat import text_type
 
 
 class Field(object):
-    def __init__(self, default=None):
+    def __init__(self, default=None, validator=None):
         self.default = default
+        self.validator = validator
 
     def default_value(self):
         return copy.deepcopy(self.default)
+
+    def _validate_custom(self, value):
+        if self.validator is None:
+            return True
+        try:
+            return bool(self.validator(value))
+        except Exception:
+            return False
+
+    def validate(self, value):
+        if value is None:
+            value = self.default_value()
+        return self._validate_custom(value)
 
     def normalize(self, value):
         if value is None:
@@ -25,6 +39,15 @@ class AnyField(Field):
 
 
 class TextField(Field):
+    def validate(self, value):
+        if value is None:
+            value = self.default_value()
+        try:
+            text_type(value or "")
+        except Exception:
+            return False
+        return self._validate_custom(value)
+
     def normalize(self, value):
         if value is None:
             value = self.default_value()
@@ -32,6 +55,11 @@ class TextField(Field):
 
 
 class BoolField(Field):
+    def validate(self, value):
+        if value is None:
+            value = self.default_value()
+        return isinstance(value, bool) and self._validate_custom(value)
+
     def normalize(self, value):
         if value is None:
             value = self.default_value()
@@ -39,10 +67,29 @@ class BoolField(Field):
 
 
 class IntField(Field):
-    def __init__(self, default=0, minimum=None, maximum=None):
-        Field.__init__(self, default=default)
+    def __init__(
+        self,
+        default=0,
+        minimum=None,
+        maximum=None,
+        validator=None
+    ):
+        Field.__init__(self, default=default, validator=validator)
         self.minimum = minimum
         self.maximum = maximum
+
+    def validate(self, value):
+        if value is None:
+            value = self.default_value()
+        try:
+            candidate = int(value)
+        except Exception:
+            return False
+        if self.minimum is not None and candidate < int(self.minimum):
+            return False
+        if self.maximum is not None and candidate > int(self.maximum):
+            return False
+        return self._validate_custom(value)
 
     def normalize(self, value):
         if value is None:
@@ -59,10 +106,29 @@ class IntField(Field):
 
 
 class FloatField(Field):
-    def __init__(self, default=0.0, minimum=None, maximum=None):
-        Field.__init__(self, default=default)
+    def __init__(
+        self,
+        default=0.0,
+        minimum=None,
+        maximum=None,
+        validator=None
+    ):
+        Field.__init__(self, default=default, validator=validator)
         self.minimum = minimum
         self.maximum = maximum
+
+    def validate(self, value):
+        if value is None:
+            value = self.default_value()
+        try:
+            candidate = float(value)
+        except Exception:
+            return False
+        if self.minimum is not None and candidate < float(self.minimum):
+            return False
+        if self.maximum is not None and candidate > float(self.maximum):
+            return False
+        return self._validate_custom(value)
 
     def normalize(self, value):
         if value is None:
@@ -79,31 +145,64 @@ class FloatField(Field):
 
 
 class ChoiceField(Field):
-    def __init__(self, choices, default=None, case_sensitive=False):
+    def __init__(
+        self,
+        choices,
+        default=None,
+        case_sensitive=False,
+        validator=None
+    ):
         self.choices = tuple(choices or ())
         self.case_sensitive = bool(case_sensitive)
         if default is None and self.choices:
             default = self.choices[0]
-        Field.__init__(self, default=default)
+        Field.__init__(self, default=default, validator=validator)
 
-    def normalize(self, value):
-        if value is None:
-            value = self.default_value()
+    def _matching_choice(self, value):
         if self.case_sensitive:
-            return value if value in self.choices else self.default_value()
+            return value if value in self.choices else None
         candidate = text_type(value or "").lower()
         for choice in self.choices:
             if text_type(choice).lower() == candidate:
                 return choice
-        return self.default_value()
+        return None
+
+    def validate(self, value):
+        if value is None:
+            value = self.default_value()
+        return (
+            self._matching_choice(value) is not None and
+            self._validate_custom(value)
+        )
+
+    def normalize(self, value):
+        if value is None:
+            value = self.default_value()
+        match = self._matching_choice(value)
+        return match if match is not None else self.default_value()
 
 
 class ColorField(Field):
-    def __init__(self, default=None):
+    def __init__(self, default=None, validator=None):
         Field.__init__(
             self,
-            default=list(default or [0.25, 0.25, 0.25])
+            default=list(default or [0.25, 0.25, 0.25]),
+            validator=validator
         )
+
+    def validate(self, value):
+        if value is None:
+            value = self.default_value()
+        if not isinstance(value, (list, tuple)) or len(value) != 3:
+            return False
+        for entry in value:
+            try:
+                entry = float(entry)
+            except Exception:
+                return False
+            if entry < 0.0 or entry > 1.0:
+                return False
+        return self._validate_custom(value)
 
     def normalize(self, value):
         if not isinstance(value, (list, tuple)) or len(value) != 3:
@@ -119,8 +218,8 @@ class ColorField(Field):
 
 
 class PathField(TextField):
-    def __init__(self, default="", expand=False):
-        TextField.__init__(self, default=default)
+    def __init__(self, default="", expand=False, validator=None):
+        TextField.__init__(self, default=default, validator=validator)
         self.expand = bool(expand)
 
     def normalize(self, value):
@@ -131,11 +230,37 @@ class PathField(TextField):
 
 
 class ListField(Field):
-    def __init__(self, default=None, item_field=None, minimum=None, maximum=None):
-        Field.__init__(self, default=list(default or []))
+    def __init__(
+        self,
+        default=None,
+        item_field=None,
+        minimum=None,
+        maximum=None,
+        validator=None
+    ):
+        Field.__init__(
+            self,
+            default=list(default or []),
+            validator=validator
+        )
         self.item_field = item_field
         self.minimum = minimum
         self.maximum = maximum
+
+    def validate(self, value):
+        if value is None:
+            value = self.default_value()
+        if not isinstance(value, (list, tuple)):
+            return False
+        if self.minimum is not None and len(value) < int(self.minimum):
+            return False
+        if self.maximum is not None and len(value) > int(self.maximum):
+            return False
+        if self.item_field is not None:
+            for entry in value:
+                if not self.item_field.validate(entry):
+                    return False
+        return self._validate_custom(value)
 
     def normalize(self, value):
         if value is None:

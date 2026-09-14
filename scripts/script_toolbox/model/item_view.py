@@ -88,6 +88,25 @@ class ItemDataView(object):
         target, resolved = self._target(key, create=True)
         return target.setdefault(resolved, default)
 
+    def keys(self):
+        result = []
+        for key in self.item.keys():
+            if key not in ("ui", "props") and key not in result:
+                result.append(key)
+        for key in self.item.get("ui", {}).keys():
+            if key not in result:
+                result.append(key)
+        for key in self.item.get("props", {}).keys():
+            if key not in result:
+                result.append(key)
+        return result
+
+    def items(self):
+        return [(key, self.get(key)) for key in self.keys()]
+
+    def __iter__(self):
+        return iter(self.keys())
+
     def raw(self):
         return self.item
 

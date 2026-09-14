@@ -5,7 +5,7 @@ Script Toolbox — модульный multi-DCC toolbox для Maya, Nuke и Hou
 ## Целевая совместимость
 
 ### Maya
-- Maya 2015–2016 — Python 2.7-era hosts, PySide / Qt 4
+- Maya 2015–2016 — Python 2.7, PySide / Qt 4
 - Maya 2017–2024 — PySide2 / Qt 5
 - Maya 2025+ — PySide6 / Qt 6
 - Python и MEL для event scripts
@@ -16,15 +16,15 @@ Script Toolbox — модульный multi-DCC toolbox для Maya, Nuke и Hou
 - Python для event scripts
 
 ### Houdini
-- Houdini 19–20.x в стандартных Qt 5-сборках — PySide2 / Qt 5
-- опциональные Qt 6-сборки Houdini 20.5 — PySide6 / Qt 6, когда этот binding выбран хостом
-- основные сборки Houdini 21 — PySide6 / Qt 6; отдельные Qt 5.15.2-сборки также поддерживаются через PySide2
-- Houdini 22+ — PySide6 / Qt 6; Qt 5-сборки прекращены начиная с Houdini 22
+- Houdini 19–20.x — PySide2 / Qt 5
+- Houdini 20.5 Qt 6 builds — PySide6 / Qt 6
+- Houdini 21 — PySide6 / Qt 6, отдельные Qt 5.15.2 builds через PySide2
+- Houdini 22+ — PySide6 / Qt 6
 - Python и HScript для event scripts
 
-Общий UI не форкается по поколениям DCC. `qt_compat.py` во время запуска выбирает PySide / PySide2 / PySide6, предпочитает binding, уже загруженный или выбранный самим хостом, зеркалирует Qt5/Qt6 `QtWidgets` в legacy-поверхность `QtGui` и предоставляет небольшой набор legacy API, необходимый существующему Editor под Qt 6. Это правило host preference также покрывает отдельные Qt 5-сборки Houdini 21.
+Общий UI не форкается по поколениям DCC. `qt_compat.py` выбирает PySide / PySide2 / PySide6 во время запуска, предпочитает binding, уже выбранный хостом, и предоставляет совместимую legacy-поверхность `QtGui`.
 
-Исторические схемы конфигурации Script Toolbox намеренно **не** являются целью совместимости, пока плагин активно развивается.
+Исторические схемы конфигурации намеренно не поддерживаются, пока плагин активно развивается.
 
 ## Направление зависимостей
 
@@ -40,182 +40,195 @@ ui/main_window -> ui/runtime -> core/values -> model
       -> core/event_bindings -> core/executor
       -> compat -> hosts
                  -> qt_compat
-
-core/http_transport -> только Python stdlib
-core/executor -> hosts
-model -> pycompat (pure Python)
-hosts/base -> только Python stdlib
-hosts/maya_host -> maya.cmds / maya.mel
-hosts/nuke_host -> nuke / nukescripts
-hosts/houdini_host -> hou
-qt_compat -> Python stdlib + выбранное поколение PySide
 ```
 
-Слой model должен импортироваться без Maya и Qt. Host-specific imports находятся за `hosts/`, `compat.py` и модулями интеграции конкретных DCC. Выбор Qt binding и bridging API между Qt4/Qt5/Qt6 принадлежат `qt_compat.py`; UI-модули не должны самостоятельно выбирать поколение PySide. `core/http_transport.py` не зависит от Qt/DCC и не должен импортировать UI.
+`model` должен импортироваться без Maya и Qt. Host-specific API находится в `hosts/` и integration modules. Выбор Qt binding принадлежит `qt_compat.py`.
+
+## Текущая схема конфигурации
+
+Schema **21** — единственный поддерживаемый контракт.
+
+```text
+JSON read
+  -> validate schema version 21
+  -> normalize Item envelope и typed props
+  -> runtime document
+```
+
+Непустой документ без `version`, старая schema и более новая schema отклоняются. Config layer не мигрирует и не down-convert исторические payloads. В частности, migration `20 -> 21` намеренно отсутствует.
+
+## Универсальный Item
+
+Каждый persisted Item использует один envelope:
+
+```json
+{
+  "kind": "integer",
+  "id": "integer_samples",
+  "name": "samples",
+  "ui": {
+    "label": "Samples",
+    "show_label": true,
+    "tooltip": "",
+    "width_mode": "auto",
+    "width": 120,
+    "stretch": 1,
+    "alignment": "left",
+    "height_mode": "auto",
+    "height": 28,
+    "vertical_stretch": 1
+  },
+  "props": {
+    "value": 8,
+    "min": 1,
+    "max": 64,
+    "step": 1
+  },
+  "bindings": []
+}
+```
+
+Container добавляет только `items`. Presentation/layout state хранится в `ui`, type-specific данные — в `props`, event behavior — в `bindings`. Type-specific root keys не являются вторым форматом persistence.
+
+`model/item_view.py` предоставляет `ItemDataView` — неперсистентный adapter для runtime и Inspector. Он маршрутизирует presentation keys в `ui`, а type-specific keys в `props`, не меняя serialized schema 21.
+
+Identity contract:
+
+- `id` — стабильный внутренний идентификатор;
+- `name` — символический идентификатор для scripts/API;
+- `ui.label` — только presentation text и не участвует в lookup.
+
+Unknown `kind` отклоняется, а не преобразуется в другой тип.
+
+## ItemTypeRegistry
+
+`model/item_registry.py` — единая точка расширения. Новый тип описывается `ItemTypeDefinition`, а core-подсистемы читают metadata definition вместо параллельных списков `kind`.
+
+Definition хранит:
+
+- `kind`, `title`, `category`, `description`, `order`, `creatable`;
+- typed `fields` для нормализации `props`;
+- `events` и `internal_events`;
+- semantic `capabilities` (`container`, `layout`, `has_value`, `state_toggle`, `resizable`, `field_widget` и т. д.);
+- defaults и normalization hooks;
+- `renderer_path` и `inspector_path` для lazy Qt-side resolution.
+
+Built-in definitions находятся в `model/item_builtins.py`. Core routing больше не использует `_FACTORIES`, `EVENT_CAPABILITIES`, `LAYOUT_KINDS`, `CONTAINER_KINDS`, `STATE_TOGGLE_KINDS` или central property-editor map.
+
+`ui/item_ui_bootstrap.py` generic: он проходит по `ITEM_TYPES`, разрешает UI paths и записывает renderer/inspector обратно в definition. `ui/runtime_renderers.py`, `ui/properties/registry.py`, bindings, values и palette используют ту же metadata.
+
+### Добавление нового типа
+
+Новый тип не должен требовать правки центральных dispatch tables. Например:
+
+```python
+from script_toolbox.model.fields import BoolField, PathField
+from script_toolbox.model.item_registry import ItemTypeDefinition, register_item_type
+
+register_item_type(ItemTypeDefinition(
+    kind="video",
+    title="Video",
+    category="Display",
+    fields={
+        "source": PathField(default=""),
+        "autoplay": BoolField(default=False),
+    },
+    events=("click", "double_click"),
+    capabilities=("bindable", "resizable"),
+    renderer_path=".video_item:render_video",
+    inspector_path=".video_item:VideoPropertyEditor",
+))
+```
+
+После регистрации model construction понимает `video`, Add Item palette получает entry из registry metadata, runtime и Inspector разрешаются из definition. Built-in `image` — production proof этого контракта. `tests/test_universal_item_extensibility.py` дополнительно проверяет тот же путь временным `video` Item.
+
+## Container, bindings и values
+
+Container semantics принадлежат definitions. Traversal, indexing, cloning, topology и reference rewriting используют capabilities и канонический `walk_items()`, а не tuple со списком container kinds.
+
+`bindings` — единственный persisted/runtime event mechanism. Callback dictionaries и прямые script fields не являются вторым event API. Обычный `button` остаётся action-only; stateful behavior принадлежит `toggle_button` и `toggle_icon` через handler `state_toggle`.
+
+Toggle Button и Toggle Icon участвуют в generic value API только при `state_source == "internal"`. Script-driven toggle не получает искусственный `props.value` через `store_value()`.
+
+Numeric scalar/vector values нормализуются definition hooks. Field сохраняет прежнюю runtime semantics: scalar -> text, list/tuple -> list of text, single-value field берёт первый элемент списка.
+
+## Editor и palette
+
+`EditorDocumentController` владеет staged document, identity cache, clone/reference operations и topology и не зависит от Qt.
+
+Активный Interface Editor собирается через `ui/editor_document_adapter.py`. Add Item palette строится из `ITEM_TYPES.creatable()` в `ui/item_palette.py`; authoritative catalog находится в type metadata.
+
+## UI composition
+
+`ui/bootstrap.py` — composition root UI/runtime. `ui/__init__.py` остаётся маленьким public export surface:
+
+```python
+_RUNTIME = initialize_ui()
+```
+
+`initialize_ui()` идемпотентен в рамках одного module graph. При hot reload активный runtime registry переиспользуется, если runtime module не изменился; при reload `ui.runtime` создаётся новый registry.
+
+UI binding конкретного типа принадлежит `ItemTypeDefinition`, а не bootstrap table. `ui/item_ui_bootstrap.py` разрешает `renderer_path` / `inspector_path` generic loop-ом.
+
+## Runtime rendering
+
+`RuntimeFolder.build_runtime_widget()` dispatch-ит через runtime renderer registry. Default registry строится из `definition.renderer` после generic UI binding resolution.
+
+Runtime event filters подключают только events, объявленные definition, и dispatch-ят их через `bindings`.
+
+Runtime value synchronization capability-driven. Обычные `has_value` Item регистрируют `RuntimeValueBinding`; специальный Field refresh определяется capability `field_widget`, а не `kind == "field"`.
 
 ## Пути пользовательской конфигурации
 
-`core/user_paths.py` — единственный владелец логики определения runtime-путей config/settings. Stable и Development используют одну и ту же host-specific пользовательскую папку и одинаковые канонические файлы. Отдельного test/dev runtime config path и environment-variable override для config/settings нет.
+`core/user_paths.py` — единственный владелец runtime config/settings path resolution. Stable и Development используют одинаковые canonical user files.
 
-Для Maya канонические файлы:
+Для Maya:
 
 ```text
 <cmds.internalVar(userPrefDir=True)>/maya_script_toolbox.json
 <cmds.internalVar(userPrefDir=True)>/script_toolbox_settings.json
 ```
 
-Код, которому нужны временные пути для тестов или import/export, передаёт явный `path=` в соответствующий API config/preferences; выбор runtime path остаётся централизованным.
-
-## Текущая схема конфигурации
-
-Schema **20** — единственный поддерживаемый контракт конфигурации.
-
-```text
-JSON read
-  -> validate schema version 20
-  -> normalize current-schema values/defaults
-  -> runtime document
-```
-
-Непустой документ без version, старая schema и более новая schema отклоняются. Config-слой не определяет, не мигрирует и не down-convert исторические payloads. Пустой mapping используется внутри только для создания нового документа актуальной схемы.
-
-Breaking schema changes во время разработки могут повышать `CONFIG_VERSION`, но репозиторий хранит только текущий schema contract и current-schema tests, пока обратная совместимость не будет явно возвращена как product requirement.
-
-## Контракты item model
-
-Семантика контейнеров принадлежит model-слою. `folder`, `row` и `column` — канонические container kinds; document traversal, indexing, reference rewriting, cloning, topology и cache logic используют общий container predicate и канонический `walk_items()`.
-
-Создание элементов принадлежит model factory registry. `button`, `toggle_button`, `icon`, `toggle_icon`, value controls, `row`, `column` и `folder` — native item kinds. Неизвестные kinds отклоняются вместо молчаливого преобразования в другой тип.
-
-Идентичность имеет один явный контракт:
-
-- `id` — канонический стабильный внутренний идентификатор и предпочтителен для долговечных ссылок;
-- `name` — поддерживаемый символический идентификатор для скриптов и человекочитаемого API;
-- `label` — только presentation text и никогда не участвует в lookup.
-
-`bindings` — единственный persisted/runtime event mechanism. Callback dictionaries и прямые script fields не читаются и не переводятся. Обычный `button` — только action. Stateful-поведение принадлежит `toggle_button` и `toggle_icon` через native handler `state_toggle`.
-
-Для alignment у Icon и Toggle Icon единственный schema key — `content_alignment`. `alignment` не является alias.
-
-Создание numeric scalar/vector и runtime writes используют один normalizer, поэтому size, min/max clamping, component count и fallback behavior не могут расходиться.
-
-## Архитектура Editor
-
-`EditorDocumentController` владеет staged document, identity cache, clone/reference operations и topology. Он не зависит от Qt.
-
-Активный Interface Editor объединяет controller ownership, command history, helpers дерева Row/Column, search presentation, sharing и сохранение view-state через `ui/editor_document_adapter.py`.
-
-`ui/layout_editor_adapter.py` содержит только helper functions; он не публикует второй editor wrapper class или отдельный layout document controller. Небольшой marker на активном document adapter нужен только для предотвращения двойного wrapping во время development hot reload.
-
-## Lifecycle UI composition
-
-`ui/bootstrap.py` — composition root для UI/runtime. Он владеет упорядоченным построением финальных классов `InterfaceEditor` и `ScriptToolbox`, настройкой runtime renderer registry и установкой оставшихся compatibility hooks.
-
-`ui/__init__.py` теперь максимально декларативен. Для обратной совместимости импорт `script_toolbox.ui` по-прежнему автоматически инициализирует полный UI, но package import содержит один явно видимый composition call:
-
-```python
-_RUNTIME = initialize_ui()
-```
-
-Полученный `UIComposition` хранит финальные public classes и активный runtime renderer registry. Поэтому существующие public imports `from script_toolbox.ui import ScriptToolbox` и `from script_toolbox.ui import InterfaceEditor` сохраняют прежний контракт.
-
-`initialize_ui()` идемпотентен в пределах одного загруженного module graph: успешно созданная composition кэшируется и возвращается при повторных вызовах. Ошибка composition не кэшируется, поэтому последующий вызов может восстановиться. В hook-модулях остаются только markers, которые действительно нужны для предотвращения повторного wrapping, event filters или замены методов.
-
-Для development hot reload bootstrap повторно использует активный renderer registry, если объект модуля runtime не изменился. Это сохраняет third-party renderer registrations и registry-owned install markers при reload только composition-модуля. Если перезагружен сам `ui.runtime`, bootstrap создаёт новый default registry для новых runtime classes. Built-in renderers регистрируются с явной заменой, поэтому повторная composition не накапливает дубликаты.
-
-Оставшаяся подмена telemetry-aware share installer внутри `editor_document_adapter` — намеренно локализованный transitional compatibility monkeypatch. Теперь он находится только в composition root, а не размазан по package import logic. Удаление этой adapter-global зависимости отложено до отдельного безопасного изменения, чтобы не сломать direct builder imports.
-
-## Runtime rendering
-
-`RuntimeFolder.build_runtime_widget()` обращается непосредственно к runtime renderer registry. Lifecycle registry теперь принадлежит UI bootstrap. Base renderers инициализируются один раз для активного runtime module, а специализированные актуальные kinds явно регистрируются composition root.
-
-Runtime event filters подключают поддерживаемые mouse/editing/selection events к отрендеренным widgets и dispatch через `bindings`. Renderer-specific modules не патчат event semantics главного окна.
-
-Stateful execution и refresh принадлежат главному runtime API. Renderers Toggle Button и Toggle Icon только создают и регистрируют widgets.
-
 ## Сетевой transport
 
-`core/http_transport.py` — единый низкоуровневый HTTP transport для updater и sharing. Callers передают URL, payload, headers и timeout и получают bytes/file output либо `TransportError`; им не нужно знать о `urllib`, subprocess, TLS setup или построении PowerShell command.
+`core/http_transport.py` — единый low-level HTTP transport для updater и sharing. Он остаётся Qt/DCC-independent. Legacy Windows/Python 2 может использовать PowerShell/.NET fallback с TLS 1.2; callers получают единый `TransportError`-контракт.
 
-Transport policy:
+## Compatibility policy
 
-- non-Windows: только Python `urllib`;
-- modern Windows/Python: сначала `urllib`, затем PowerShell/.NET fallback при transport failure;
-- legacy Windows/Python 2: сначала PowerShell/.NET, потому что HTTPS stack старого host Python может не поддерживать современное TLS/certificate/SNI поведение, затем `urllib` fallback при ошибке PowerShell;
-- если на modern Windows реально понадобился успешный PowerShell fallback, текущий процесс предпочитает PowerShell для следующих shared transport calls.
+Compatibility shims допускаются только для реально внешних/importable API и не должны становиться независимыми реализациями. Новый production flow использует канонические registry/core APIs.
 
-PowerShell transport использует .NET `HttpWebRequest`, TLS 1.2, hidden-process startup flags и явные request/read-write timeouts. Authorization передаётся дочернему процессу через временную environment variable и не встраивается в command line. Request body и response download используют временные/binary files там, где это необходимо, поэтому updater и sharing больше не содержат собственных PowerShell HTTP implementations.
-
-`core.updater` преобразует transport failures в `UpdateError`; `share.provider` — в `ShareProviderError`.
-
-## Политика compatibility
-
-Compatibility symbols классифицируются по фактическому использованию: внутренний dead code можно удалять только после repository-wide usage check; потенциально внешние imports сохраняются как маленькие forwarding/no-op shims до намеренного breaking change.
-
-Текущие compatibility layers:
-
-- `qt_compat.py`, который владеет выбором поколения PySide, legacy QtGui widget surface и subset Qt 6 compatibility API, используемым Editor;
-- private transport helpers updater, например `_download_with_powershell`, теперь делегируют в `core.http_transport`;
-- private Windows/PowerShell helpers share provider также делегируют в `core.http_transport`;
-- `ui/icon_ui_hooks.py` сохранён как документированный набор no-op shims для старых direct imports;
-- часть base-методов `InterfaceEditor`, переопределяемых production adapter chain, пока сохраняется из-за возможных direct module imports;
-- `install_runtime_folder_chrome` остаётся forwarding compatibility alias.
-
-Эти compatibility layers не должны снова превращаться в независимые реализации. Новый production flow должен использовать канонические API напрямую.
-
-## Текущая структура пакета
+## Основные модули
 
 ```text
 scripts/script_toolbox/
-  __init__.py
-  bootstrap.py
-  compat.py
-  qt_compat.py
-  pycompat.py
-  constants.py
-  nuke_integration.py
-  houdini_integration.py
-
-  hosts/
-    base.py
-    maya_host.py
-    nuke_host.py
-    houdini_host.py
-
   core/
     config.py
     config_schema.py
-    user_paths.py
-    editor_commands.py
     editor_document.py
     event_bindings.py
     executor.py
-    http_transport.py
-    references.py
     runtime_registry.py
     values.py
-    updater.py
 
   model/
-    __init__.py
     bindings.py
+    fields.py
     index.py
+    item_builtins.py
+    item_registry.py
+    item_view.py
     items.py
     layouts.py
 
-  style/
-    ...
-
   ui/
-    __init__.py
     bootstrap.py
-    main_window.py
-    debounced_main_window.py
+    item_palette.py
+    item_ui_bootstrap.py
+    image_item.py
     runtime.py
     runtime_renderers.py
-    editor_document_adapter.py
-    layout_editor_adapter.py
-    ...
+    runtime_value_sync.py
+    main_window.py
 
     properties/
       base.py
@@ -229,24 +242,22 @@ scripts/script_toolbox/
       toggle_button.py
       icon.py
       toggle_icon.py
+      text.py
+      separator.py
 ```
 
 ## Правила
 
 - Никаких circular imports.
 - Никакого DCC UI/API-кода в `model`.
-- Host-specific API access находится в `hosts/` или host integration modules.
 - Никакого JSON file I/O в `ui`.
-- Runtime config/settings paths принадлежат только `core/user_paths.py`.
-- Stable и Development используют одни канонические пользовательские config files.
-- Пока проект находится в разработке, поддерживается только текущая config schema.
-- Неизвестный item kind нельзя молча преобразовывать в другой kind.
-- `label` нельзя использовать как identity элемента.
+- Поддерживается только current config schema.
+- Persisted Item использует только schema 21 envelope; type-specific root keys не добавляются как compatibility layer.
+- Unknown item kind нельзя silently convert в другой kind.
+- `ui.label` нельзя использовать как identity.
 - Event behavior сохраняется только в `bindings`.
-- Icon alignment сохраняется только как `content_alignment`.
-- Новые item types регистрируются через model, renderer и property-editor registries.
-- Structural recursion использует общий container predicate.
-- Shared network compatibility принадлежит `core/http_transport.py`; updater/share не должны дублировать PowerShell transport logic.
-- Выбор Qt binding и Qt4/Qt5/Qt6 compatibility принадлежат `qt_compat.py`; host/UI modules не должны создавать параллельную binding logic.
-- Порядок UI/runtime composition принадлежит `ui/bootstrap.py`; `ui/__init__.py` должен оставаться небольшим public export surface.
-- Исходный код остаётся совместимым с Python 2.7 до намеренного прекращения поддержки legacy-поколений Maya 2015 / Nuke 12.
+- Новый Item type регистрируется через `ItemTypeDefinition`; core, palette, events, runtime и Inspector routing выводятся из metadata без central kind tables.
+- Structural recursion использует container capabilities.
+- Qt compatibility принадлежит `qt_compat.py`.
+- UI/runtime composition ordering принадлежит `ui/bootstrap.py`.
+- Source остаётся Python 2.7 compatible, пока поддержка Maya 2015 / Nuke 12 не будет намеренно прекращена.

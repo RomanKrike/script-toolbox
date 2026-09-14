@@ -215,7 +215,7 @@ class ScriptToolbox(QtGui.QMainWindow):
         save_config(self.config)
 
     def all_items(self):
-        return walk_items(self.config, include_folders=False)
+        return walk_items(self.config)
 
     def find_item(self, key):
         return find_item(self.config, key)

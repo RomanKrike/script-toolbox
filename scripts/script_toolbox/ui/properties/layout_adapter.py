@@ -18,13 +18,14 @@ _VERTICAL_HEIGHT_REASON = (
 
 
 class LayoutPropertyAdapter(object):
-    """Bind universal Inspector layout controls directly to Item ``ui`` data."""
+    """Bind universal Inspector layout controls through LayoutSpec metadata."""
 
     def __init__(self, editor):
         self.editor = editor
         self.parent_kind = ""
         self.parent_item = {}
         self.parent_definition = None
+        self.parent_layout = None
         self.parent_axis = None
 
     def set_parent_context(self, parent_kind, parent_item=None):
@@ -32,17 +33,28 @@ class LayoutPropertyAdapter(object):
         self.parent_kind = text_type(parent_kind or "").lower()
         self.parent_item = parent_item or {}
         self.parent_definition = ITEM_TYPES.get(self.parent_kind)
-        self.parent_axis = (
-            self.parent_definition.layout_axis
+        self.parent_layout = (
+            self.parent_definition.layout_spec
             if self.parent_definition is not None
+            else None
+        )
+        self.parent_axis = (
+            self.parent_layout.axis
+            if self.parent_layout is not None
             else None
         )
         self.editor.row_context = self.parent_axis == "horizontal"
         self.editor.column_context = self.parent_axis == "vertical"
         parent_props = self.parent_item.get("props", {}) or {}
+        equal_size_field = (
+            self.parent_layout.equal_size_field
+            if self.parent_layout is not None
+            else None
+        )
         self.editor.row_equal_widths = bool(
             self.editor.row_context and
-            parent_props.get("equal_widths", False)
+            equal_size_field and
+            parent_props.get(equal_size_field, False)
         )
         self.refresh()
 
@@ -121,8 +133,15 @@ class LayoutPropertyAdapter(object):
         value = self.parent_item.get("props", {})
         return value if isinstance(value, dict) else {}
 
+    def _layout_prop(self, field_name, default=None):
+        if not field_name:
+            return default
+        return self._parent_props().get(field_name, default)
+
     def _horizontal_parent_value(self):
-        props = self._parent_props()
+        spec = self.parent_layout
+        if spec is None:
+            return 0
         if self.parent_axis == "vertical":
             return {
                 "stretch": 0,
@@ -130,7 +149,7 @@ class LayoutPropertyAdapter(object):
                 "center": 2,
                 "right": 3,
             }.get(
-                props.get("horizontal_alignment", "stretch"),
+                self._layout_prop(spec.cross_alignment_field, "stretch"),
                 0
             )
         if self.parent_axis == "horizontal":
@@ -140,20 +159,22 @@ class LayoutPropertyAdapter(object):
                 "right": 3,
                 "space_between": 0,
             }.get(
-                props.get("horizontal_distribution", "left"),
+                self._layout_prop(spec.distribution_field, "left"),
                 1
             )
         return 0
 
     def _vertical_parent_value(self):
-        props = self._parent_props()
+        spec = self.parent_layout
+        if spec is None:
+            return 0
         if self.parent_axis == "horizontal":
             return {
                 "top": 1,
                 "center": 2,
                 "bottom": 3,
             }.get(
-                props.get("vertical_alignment", "center"),
+                self._layout_prop(spec.cross_alignment_field, "center"),
                 2
             )
         if self.parent_axis == "vertical":
@@ -163,7 +184,7 @@ class LayoutPropertyAdapter(object):
                 "bottom": 3,
                 "space_between": 0,
             }.get(
-                props.get("vertical_distribution", "top"),
+                self._layout_prop(spec.distribution_field, "top"),
                 1
             )
         return 0

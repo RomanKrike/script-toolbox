@@ -54,7 +54,7 @@ class EditorDocumentController(object):
 
         for item in walk_items(
             self._document,
-            include_folders=True
+            include_sections=True
         ):
             item_id = text_type(item.get("id", ""))
 
@@ -87,7 +87,7 @@ class EditorDocumentController(object):
             text_type(item.get("name", ""))
             for item in walk_items(
                 self._document,
-                include_folders=True
+                include_sections=True
             )
         )
 
@@ -212,16 +212,16 @@ class EditorDocumentController(object):
         )["changed_ids"]
 
     def duplicate_name(self):
-        names = set()
+        names = {}
 
         for item in walk_items(
             self._document,
-            include_folders=True
+            include_sections=True
         ):
             name = text_type(item.get("name", ""))
             if name in names:
                 return name
-            names.add(name)
+            names[name] = item
 
         return None
 

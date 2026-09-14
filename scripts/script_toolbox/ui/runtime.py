@@ -36,19 +36,11 @@ def _definition(item):
 
 
 def _section_group_mode(item):
-    """Return section grouping mode from registered schema metadata."""
+    """Return section grouping mode through the registered SectionSpec."""
     definition = _definition(item)
-    if (
-        definition is None or
-        not definition.has_capability("section") or
-        "folder_type" not in definition.fields
-    ):
+    if definition is None or not definition.is_section:
         return None
-
-    mode = _props(item).get("folder_type", "collapsible")
-    if mode not in ("collapsible", "simple", "tabs", "radio"):
-        return "collapsible"
-    return mode
+    return definition.section_mode(_props(item))
 
 
 def _runtime_registry():
@@ -225,9 +217,8 @@ class RuntimeFolder(QtGui.QFrame):
         self.toolbox = toolbox
         self.section = section
         self.embedded = bool(embedded)
-        section_props = _props(section)
         section_ui = _ui(section)
-        self.folder_type = section_props.get("folder_type", "collapsible")
+        self.folder_type = _section_group_mode(section) or "collapsible"
         self.is_nested = False
 
         try:

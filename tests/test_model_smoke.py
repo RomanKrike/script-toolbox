@@ -70,7 +70,7 @@ def test_name_and_label_are_independent():
     assert item["ui"]["show_label"] is False
 
 
-def test_walk_items_recurses_folder_row_and_column():
+def test_walk_items_recurses_capability_containers_and_can_include_sections():
     document = normalize_document({
         "version": 21,
         "sections": [
@@ -98,5 +98,19 @@ def test_walk_items_recurses_folder_row_and_column():
             }
         ]
     })
+
     names = [item["name"] for item in walk_items(document)]
     assert names == ["controls", "left_column", "amount", "enabled"]
+
+    all_names = [
+        item["name"]
+        for item in walk_items(document, include_sections=True)
+    ]
+    assert all_names == [
+        "root",
+        "nested",
+        "controls",
+        "left_column",
+        "amount",
+        "enabled",
+    ]

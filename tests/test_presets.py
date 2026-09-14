@@ -26,7 +26,7 @@ def _items(root):
     return list(
         walk_items(
             document,
-            include_folders=True
+            include_sections=True
         )
     )
 

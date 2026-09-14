@@ -59,7 +59,7 @@ def _linear_find_item(document, key):
     items = list(
         walk_items(
             document,
-            include_folders=False
+            include_sections=False
         )
     )
 
@@ -125,7 +125,11 @@ def normalize_value(item, value):
 
     raw_props = dict(item.get("props", {}) or {})
     raw_props["value"] = value
-    normalized = definition.normalize_props(raw_props)
+    normalized = definition.normalize_props(
+        raw_props,
+        item_id=item.get("id"),
+        item_name=item.get("name")
+    )
     return copy.deepcopy(normalized.get("value", value))
 
 

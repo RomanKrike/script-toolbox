@@ -10,7 +10,7 @@ from ..pycompat import text_type
 
 _TOOLBOX_INSTALL_MARKER = "_script_toolbox_runtime_value_sync_installed"
 _REBUILD_INSTALL_MARKER = "_script_toolbox_runtime_value_rebuild_installed"
-_RENDERER_INSTALL_MARKER = "_script_toolbox_runtime_value_renderers_installed"
+_VALUE_RENDERER_MARKER = "_script_toolbox_runtime_value_renderer"
 
 
 def _controls(root, control_class):
@@ -268,6 +268,13 @@ def _install_rebuild_wrapper(toolbox_class):
     setattr(toolbox_class, _REBUILD_INSTALL_MARKER, True)
 
 
+def _copy_renderer_markers(target, source):
+    try:
+        target.__dict__.update(getattr(source, "__dict__", {}))
+    except Exception:
+        pass
+
+
 def _value_renderer_wrapper(renderer):
     def render_with_value_registration(owner, item, compact=False):
         root = renderer(owner, item, compact=compact)
@@ -277,13 +284,14 @@ def _value_renderer_wrapper(renderer):
                 RuntimeValueBinding(root, owner)
             )
         return root
+
+    _copy_renderer_markers(render_with_value_registration, renderer)
+    setattr(render_with_value_registration, _VALUE_RENDERER_MARKER, True)
     return render_with_value_registration
 
 
-def _install_renderer_wrappers(registry):
-    if getattr(registry, _RENDERER_INSTALL_MARKER, False):
-        return
-
+def synchronize_runtime_value_renderers(registry):
+    """Decorate newly registered has-value renderers exactly once."""
     register_builtin_items()
     for definition in ITEM_TYPES.all():
         if not definition.has_capability("has_value"):
@@ -291,13 +299,14 @@ def _install_renderer_wrappers(registry):
         renderer = registry.renderer_for(definition.kind)
         if renderer is None:
             continue
+        if getattr(renderer, _VALUE_RENDERER_MARKER, False):
+            continue
         registry.register(
             definition.kind,
             _value_renderer_wrapper(renderer),
             replace=True
         )
-
-    setattr(registry, _RENDERER_INSTALL_MARKER, True)
+    return registry
 
 
 def install_runtime_value_sync(
@@ -308,7 +317,7 @@ def install_runtime_value_sync(
     """Install runtime value registration and post-store synchronization."""
     _install_toolbox_methods(base_toolbox_class)
     _install_rebuild_wrapper(base_toolbox_class)
-    _install_renderer_wrappers(registry)
+    synchronize_runtime_value_renderers(registry)
 
     classes = [base_toolbox_class]
     for toolbox_class in store_toolbox_classes or ():
@@ -325,4 +334,5 @@ def install_runtime_value_sync(
 __all__ = [
     "RuntimeValueBinding",
     "install_runtime_value_sync",
+    "synchronize_runtime_value_renderers",
 ]

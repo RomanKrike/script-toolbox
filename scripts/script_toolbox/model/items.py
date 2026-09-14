@@ -8,10 +8,12 @@ from ..constants import CONFIG_VERSION
 from ..pycompat import text_type
 from .fields import BoolField
 from .fields import ChoiceField
+from .fields import FieldValidationError
 from .fields import IntField
 from .fields import TextField
 from .item_builtins import register_builtin_items
 from .item_registry import ITEM_TYPES
+from .item_registry import ItemValidationError
 
 
 DEFAULT_COMPONENT_LABELS = ("X", "Y", "Z", "W")
@@ -146,6 +148,14 @@ def default_name(kind, item_id):
     )
 
 
+def _normalize_ui_field(field, value, fallback):
+    """Keep presentation defaults lenient while props remain strict schema data."""
+    try:
+        return field.normalize(value)
+    except FieldValidationError:
+        return field.normalize(fallback)
+
+
 def _normalize_ui(definition, raw_ui=None):
     raw_ui = raw_ui if isinstance(raw_ui, dict) else {}
     defaults = dict(definition.ui_defaults or {})
@@ -158,9 +168,37 @@ def _normalize_ui(definition, raw_ui=None):
                 value if value is not None else fallback
             )
             continue
-        value = raw_ui.get(name, defaults.get(name))
-        normalized[name] = field.normalize(value)
+        fallback = defaults.get(name, field.default_value())
+        value = raw_ui.get(name, fallback)
+        normalized[name] = _normalize_ui_field(field, value, fallback)
     return normalized
+
+
+def normalize_item_props_candidate(item, candidate_props):
+    """Normalize candidate props without mutating the Item being edited."""
+    register_builtin_items()
+    if not isinstance(item, dict):
+        raise ItemValidationError(
+            kind="",
+            value=item,
+            reason="Expected Item mapping"
+        )
+    definition = ITEM_TYPES.get(item.get("kind"), required=True)
+    return definition.normalize_props(
+        candidate_props,
+        item_id=item.get("id"),
+        item_name=item.get("name")
+    )
+
+
+def normalize_item_props(item):
+    """Normalize and validate one Item's props in place through its definition."""
+    props = normalize_item_props_candidate(
+        item,
+        item.get("props") if isinstance(item, dict) else None
+    )
+    item["props"] = props
+    return props
 
 
 def base_item(kind, data=None, default_label=None):
@@ -177,16 +215,17 @@ def base_item(kind, data=None, default_label=None):
     if default_label is not None and "label" not in raw_ui:
         raw_ui["label"] = text_type(default_label)
     ui = _normalize_ui(definition, raw_ui)
-    props = definition.normalize_props(data.get("props"))
-    raw_props = (
-        data.get("props")
-        if isinstance(data.get("props"), dict)
-        else {}
+    raw_props = data.get("props")
+    props = definition.normalize_props(
+        raw_props,
+        item_id=item_id,
+        item_name=name
     )
+    raw_props_mapping = raw_props if isinstance(raw_props, dict) else {}
     if definition.has_capability("state_toggle"):
-        if "state_on_label" not in raw_props:
+        if "state_on_label" not in raw_props_mapping:
             props["state_on_label"] = ui["label"]
-        if "state_off_label" not in raw_props:
+        if "state_off_label" not in raw_props_mapping:
             props["state_off_label"] = ui["label"]
 
     return {
@@ -197,6 +236,17 @@ def base_item(kind, data=None, default_label=None):
         "props": props,
         "bindings": [],
     }
+
+
+def _child_validation_error(parent, value, reason):
+    return ItemValidationError(
+        kind=parent.get("kind", "") if isinstance(parent, dict) else "",
+        field="items",
+        value=value,
+        reason=reason,
+        item_id=parent.get("id") if isinstance(parent, dict) else None,
+        item_name=parent.get("name") if isinstance(parent, dict) else None
+    )
 
 
 def create_item(kind, data=None):
@@ -216,24 +266,40 @@ def create_item(kind, data=None):
     )
 
     if definition.is_container:
+        raw_children = data.get("items", [])
+        if raw_children is None:
+            raw_children = []
+        if not isinstance(raw_children, list):
+            raise _child_validation_error(
+                item,
+                raw_children,
+                "Expected items list"
+            )
         children = []
-        for raw in data.get("items", []) or []:
+        for raw in raw_children:
             if not isinstance(raw, dict):
-                continue
+                raise _child_validation_error(
+                    item,
+                    raw,
+                    "Expected child Item mapping"
+                )
             child_kind = text_type(raw.get("kind") or "").lower()
             if not child_kind:
-                continue
+                raise _child_validation_error(
+                    item,
+                    raw,
+                    "Child Item kind is required"
+                )
             child_definition = ITEM_TYPES.get(child_kind)
             if child_definition is None:
-                raise ValueError(
-                    "Unsupported Script Toolbox item kind: {0!r}".format(
-                        child_kind
-                    )
+                raise ItemValidationError(
+                    kind=child_kind,
+                    value=raw,
+                    reason="Unsupported Script Toolbox Item kind",
+                    item_id=raw.get("id"),
+                    item_name=raw.get("name")
                 )
-            if (
-                definition.is_layout
-                and child_definition.has_capability("section")
-            ):
+            if definition.is_layout and child_definition.is_section:
                 continue
             children.append(create_item(child_kind, raw))
         item["items"] = children
@@ -262,23 +328,59 @@ def normalize_document(data):
     if not isinstance(data, dict):
         return default_document()
     raw_sections = data.get("sections")
-    if not isinstance(raw_sections, list):
+    if raw_sections is None:
         raw_sections = []
+    if not isinstance(raw_sections, list):
+        raise ItemValidationError(
+            kind="",
+            field="sections",
+            value=raw_sections,
+            reason="Expected sections list"
+        )
     sections = []
     for raw in raw_sections:
         if not isinstance(raw, dict):
-            continue
+            raise ItemValidationError(
+                kind="",
+                field="sections",
+                value=raw,
+                reason="Expected section Item mapping"
+            )
         kind = text_type(raw.get("kind") or "").lower()
+        if not kind:
+            raise ItemValidationError(
+                kind="",
+                field="kind",
+                value=raw.get("kind"),
+                reason="Section Item kind is required",
+                item_id=raw.get("id"),
+                item_name=raw.get("name")
+            )
         definition = ITEM_TYPES.get(kind)
-        if definition is None or not definition.has_capability("section"):
-            continue
+        if definition is None:
+            raise ItemValidationError(
+                kind=kind,
+                value=raw,
+                reason="Unsupported Script Toolbox Item kind",
+                item_id=raw.get("id"),
+                item_name=raw.get("name")
+            )
+        if not definition.is_section:
+            raise ItemValidationError(
+                kind=kind,
+                value=raw,
+                reason="Top-level Item must declare section capability",
+                item_id=raw.get("id"),
+                item_name=raw.get("name")
+            )
         sections.append(create_item(kind, raw))
     if not sections:
         sections = default_document()["sections"]
     return {"version": CONFIG_VERSION, "sections": sections}
 
 
-def walk_items(document, include_folders=False):
+def walk_items(document, include_sections=False):
+    """Yield document Items recursively, optionally including section Items."""
     register_builtin_items()
 
     def walk(children):
@@ -287,7 +389,7 @@ def walk_items(document, include_folders=False):
             definition = ITEM_TYPES.get(kind)
             if definition is None:
                 continue
-            if include_folders or not definition.has_capability("section"):
+            if include_sections or not definition.is_section:
                 yield item
             if definition.is_container:
                 for child in walk(item.get("items", []) or []):
@@ -297,7 +399,7 @@ def walk_items(document, include_folders=False):
         definition = ITEM_TYPES.get(section.get("kind"))
         if definition is None:
             continue
-        if include_folders:
+        if include_sections:
             yield section
         if definition.is_container:
             for item in walk(section.get("items", []) or []):
@@ -316,6 +418,8 @@ __all__ = [
     "default_name",
     "new_id",
     "normalize_document",
+    "normalize_item_props",
+    "normalize_item_props_candidate",
     "normalize_numeric_value",
     "safe_color",
     "safe_component_labels",

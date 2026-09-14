@@ -171,13 +171,7 @@ def _ast_text_value(node, names=None):
 
 
 def _unresolved_python_references(source, replacements):
-    """Return conservative unresolved Script Toolbox references.
-
-    Detection is deliberately narrower than a Python refactoring engine. It
-    recognizes direct toolbox aliases and simple string values/concatenations
-    only when they are used as the first argument of a managed API method.
-    Comments and unrelated string literals never participate in the result.
-    """
+    """Return conservative unresolved Script Toolbox references."""
     normalized = _normalized_replacements(replacements)
     if not source or not normalized:
         return []
@@ -275,9 +269,6 @@ def _unresolved_python_references(source, replacements):
                     isinstance(argument, string_node)
                 )
 
-            # A direct toolbox literal is the supported rewrite shape. If it
-            # still exists here, the tokenizer could not rewrite it safely, so
-            # report it as unresolved rather than silently pretending success.
             kind = "literal"
             if receiver_name != "toolbox":
                 kind = "alias"
@@ -402,48 +393,31 @@ def rewrite_python_references_result(source, replacements):
 
 
 def rewrite_python_references(source, replacements):
-    """Backward-compatible source-only reference rewrite helper."""
+    """Return source with supported references rewritten."""
     return rewrite_python_references_result(
         source,
         replacements
     )["source"]
 
 
-def python_script_keys(item):
-    """Return flat item payload keys whose contents are Python scripts."""
-    kind = text_type(item.get("kind", ""))
-    result = []
+def python_prop_script_keys(item):
+    """Return schema-21 props keys whose values are Python scripts."""
+    props = item.get("props", {}) if isinstance(item, dict) else {}
+    if not isinstance(props, dict):
+        return []
 
-    for key in item.keys():
+    result = []
+    for key in props.keys():
         key_text = text_type(key)
         if not key_text.endswith("_script"):
             continue
 
-        if key_text == "state_get_script":
-            result.append(key)
-            continue
-
-        if key_text == "state_on_script":
-            if text_type(
-                item.get("state_on_language", "python")
-            ).lower() == "python":
-                result.append(key)
-            continue
-
-        if key_text == "state_off_script":
-            if text_type(
-                item.get("state_off_language", "python")
-            ).lower() == "python":
-                result.append(key)
-            continue
-
-        # Compatibility for direct legacy payloads before normalization.
+        language_key = key_text[:-7] + "_language"
         language = text_type(
-            item.get("language", "python")
+            props.get(language_key, "python") or "python"
         ).lower()
-        if kind != "button" or language == "python":
+        if language == "python":
             result.append(key)
-
     return result
 
 
@@ -478,23 +452,26 @@ def _append_unresolved(target, references, location):
 
 
 def rewrite_item_references_result(item, replacements):
-    """Rewrite one item and retain locations of unresolved references."""
+    """Rewrite schema-21 Item script references and report unresolved uses."""
     changed = False
     unresolved = []
+    props = item.get("props", {}) if isinstance(item, dict) else {}
+    if not isinstance(props, dict):
+        props = {}
 
-    for key in python_script_keys(item):
-        source = text_type(item.get(key) or "")
+    for key in python_prop_script_keys(item):
+        source = text_type(props.get(key) or "")
         result = rewrite_python_references_result(
             source,
             replacements
         )
         if result["changed"]:
-            item[key] = result["source"]
+            props[key] = result["source"]
             changed = True
         _append_unresolved(
             unresolved,
             result["unresolved"],
-            {"script_key": text_type(key)}
+            {"prop_script_key": text_type(key)}
         )
 
     bindings = item.get("bindings")
@@ -520,24 +497,6 @@ def rewrite_item_references_result(item, replacements):
                 }
             )
 
-    # Compatibility for schema-17 objects passed directly to editor helpers.
-    callbacks = item.get("callbacks")
-    if isinstance(callbacks, dict):
-        for event, source in list(callbacks.items()):
-            source = text_type(source or "")
-            result = rewrite_python_references_result(
-                source,
-                replacements
-            )
-            if result["changed"]:
-                callbacks[event] = result["source"]
-                changed = True
-            _append_unresolved(
-                unresolved,
-                result["unresolved"],
-                {"callback_event": text_type(event)}
-            )
-
     return {
         "changed": changed,
         "unresolved": unresolved,
@@ -545,7 +504,7 @@ def rewrite_item_references_result(item, replacements):
 
 
 def rewrite_item_references(item, replacements):
-    """Backward-compatible boolean item rewrite helper."""
+    """Return whether rewriting changed one Item."""
     return rewrite_item_references_result(
         item,
         replacements
@@ -564,6 +523,13 @@ def _walk_subtree(item):
                 yield nested
 
 
+def _item_label(item):
+    ui = item.get("ui", {}) if isinstance(item, dict) else {}
+    if not isinstance(ui, dict):
+        ui = {}
+    return text_type(ui.get("label", ""))
+
+
 def rewrite_subtree_references_result(item, replacements):
     changed_ids = set()
     unresolved_items = []
@@ -580,7 +546,7 @@ def rewrite_subtree_references_result(item, replacements):
             unresolved_items.append({
                 "id": item_id,
                 "name": text_type(candidate.get("name", "")),
-                "label": text_type(candidate.get("label", "")),
+                "label": _item_label(candidate),
                 "references": result["unresolved"],
             })
 
@@ -591,7 +557,7 @@ def rewrite_subtree_references_result(item, replacements):
 
 
 def rewrite_subtree_references(item, replacements):
-    """Backward-compatible changed-ID subtree rewrite helper."""
+    """Return IDs of changed Items in one subtree."""
     return rewrite_subtree_references_result(
         item,
         replacements
@@ -617,7 +583,7 @@ def rewrite_document_references_result(document, replacements):
 
 
 def rewrite_document_references(document, replacements):
-    """Backward-compatible changed-ID document rewrite helper."""
+    """Return IDs of changed Items in a document."""
     return rewrite_document_references_result(
         document,
         replacements
@@ -627,7 +593,7 @@ def rewrite_document_references(document, replacements):
 __all__ = [
     "REFERENCE_METHODS",
     "binding_script_indexes",
-    "python_script_keys",
+    "python_prop_script_keys",
     "rewrite_document_references",
     "rewrite_document_references_result",
     "rewrite_item_references",

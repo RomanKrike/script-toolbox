@@ -14,9 +14,12 @@ from .fields import TextField
 from .item_definitions import builtin_extension_definitions
 from .item_registry import ITEM_TYPES
 from .item_registry import ItemTypeDefinition
+from .item_registry import LayoutSpec
+from .item_registry import SectionSpec
 
 
 _COMPONENT_LABELS = ("X", "Y", "Z", "W")
+_BUILTIN_DEFINITIONS = None
 
 
 def _default_click_script():
@@ -44,6 +47,33 @@ def _normalize_menu(props, raw):
     return props
 
 
+def _numeric_value_is_valid(value, is_float=False):
+    values = list(value) if isinstance(value, (list, tuple)) else [value]
+    for entry in values:
+        if isinstance(entry, bool):
+            return False
+        try:
+            float(entry) if is_float else int(entry)
+        except Exception:
+            return False
+        if not is_float:
+            try:
+                numeric = float(entry)
+                if numeric != int(numeric):
+                    return False
+            except Exception:
+                return False
+    return True
+
+
+def _integer_value_is_valid(value):
+    return _numeric_value_is_valid(value, is_float=False)
+
+
+def _float_value_is_valid(value):
+    return _numeric_value_is_valid(value, is_float=True)
+
+
 def _normalize_numeric(props, raw, is_float=False):
     minimum = props.get("min")
     maximum = props.get("max")
@@ -68,10 +98,7 @@ def _normalize_numeric(props, raw, is_float=False):
     result = []
     for index in range(size):
         current = incoming[index] if index < len(incoming) else 0
-        try:
-            current = float(current) if is_float else int(current)
-        except Exception:
-            current = 0.0 if is_float else 0
+        current = float(current) if is_float else int(current)
         current = max(minimum, min(maximum, current))
         result.append(current)
     props["value"] = result[0] if size == 1 else result
@@ -124,7 +151,9 @@ def _definition(
     default_bindings=None,
     description="",
     renderer_path=None,
-    inspector_path=None
+    inspector_path=None,
+    layout=None,
+    section=None
 ):
     return ItemTypeDefinition(
         kind=kind,
@@ -143,6 +172,8 @@ def _definition(
         default_bindings=default_bindings,
         renderer_path=renderer_path,
         inspector_path=inspector_path,
+        layout=layout,
+        section=section,
     )
 
 
@@ -161,6 +192,7 @@ def _standard_item_definitions():
             },
             internal_events=("opened", "closed"),
             capabilities=("container", "section"),
+            section=SectionSpec(mode_field="folder_type"),
             default_label="Folder",
             description="Container: Collapsible, Simple, Tabs or Radio.",
             renderer_path=".runtime_renderers:_render_folder",
@@ -180,6 +212,12 @@ def _standard_item_definitions():
                 ),
             },
             capabilities=("container", "layout"),
+            layout=LayoutSpec(
+                axis="horizontal",
+                distribution_field="horizontal_distribution",
+                cross_alignment_field="vertical_alignment",
+                equal_size_field="equal_widths"
+            ),
             default_label="Row",
             description="Horizontal layout for compact controls and buttons.",
             renderer_path=".row_layout:render_row",
@@ -199,6 +237,11 @@ def _standard_item_definitions():
                 ),
             },
             capabilities=("container", "layout"),
+            layout=LayoutSpec(
+                axis="vertical",
+                distribution_field="vertical_distribution",
+                cross_alignment_field="horizontal_alignment"
+            ),
             default_label="Column",
             ui_defaults={"width_mode": "stretch"},
             description="Vertical layout for stacking controls, Rows and Columns.",
@@ -309,7 +352,7 @@ def _standard_item_definitions():
         _definition(
             "integer", "Integer", "Controls", 50,
             fields={
-                "value": AnyField(default=0),
+                "value": AnyField(default=0, validator=_integer_value_is_valid),
                 "min": IntField(default=-1000000),
                 "max": IntField(default=1000000),
                 "step": IntField(default=1, minimum=1),
@@ -328,7 +371,7 @@ def _standard_item_definitions():
         _definition(
             "float", "Float", "Controls", 60,
             fields={
-                "value": AnyField(default=0.0),
+                "value": AnyField(default=0.0, validator=_float_value_is_valid),
                 "min": FloatField(default=-1000000.0),
                 "max": FloatField(default=1000000.0),
                 "step": FloatField(default=0.1, minimum=0.000001),
@@ -441,7 +484,13 @@ def _standard_item_definitions():
 
 
 def builtin_item_definitions():
-    return _standard_item_definitions() + builtin_extension_definitions()
+    global _BUILTIN_DEFINITIONS
+    if _BUILTIN_DEFINITIONS is None:
+        _BUILTIN_DEFINITIONS = (
+            _standard_item_definitions() +
+            builtin_extension_definitions()
+        )
+    return _BUILTIN_DEFINITIONS
 
 
 def register_builtin_items():

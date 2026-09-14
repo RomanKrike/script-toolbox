@@ -17,6 +17,7 @@ from ..style.palette import TEXT_SUBTLE
 
 _ACTIVE_REGISTRY = None
 _RUNTIME_MODULE = None
+_DISABLED_RENDERERS = set()
 
 
 def _expanded_path(value):
@@ -440,11 +441,53 @@ def build_default_runtime_renderer_registry():
 
     registry = RuntimeRendererRegistry()
     for definition in ITEM_TYPES.all():
-        if definition.renderer is not None:
+        if (
+            definition.renderer is not None and
+            definition.kind not in _DISABLED_RENDERERS
+        ):
             registry.register(
                 definition.kind,
                 definition.renderer
             )
+    return registry
+
+
+def _decorate_runtime_renderer_registry(registry):
+    from .event_binding_hooks import install_event_binding_hooks
+    from .runtime_value_sync import synchronize_runtime_value_renderers
+
+    install_event_binding_hooks(registry)
+    synchronize_runtime_value_renderers(registry)
+    return registry
+
+
+def synchronize_runtime_renderer_registry(registry=None):
+    """Attach renderers for Item definitions registered after UI bootstrap."""
+    if registry is None:
+        registry = _ACTIVE_REGISTRY
+    if registry is None:
+        return None
+
+    register_builtin_items()
+    from .item_ui_bootstrap import ensure_builtin_item_ui_bindings
+    ensure_builtin_item_ui_bindings()
+
+    added = False
+    for definition in ITEM_TYPES.all():
+        if (
+            definition.kind in _DISABLED_RENDERERS or
+            definition.renderer is None or
+            registry.has(definition.kind)
+        ):
+            continue
+        registry.register(
+            definition.kind,
+            definition.renderer
+        )
+        added = True
+
+    if added:
+        _decorate_runtime_renderer_registry(registry)
     return registry
 
 
@@ -453,30 +496,35 @@ def initialize_runtime_renderer_registry(runtime_module):
     global _RUNTIME_MODULE
 
     _RUNTIME_MODULE = runtime_module
+    _DISABLED_RENDERERS.clear()
     _ACTIVE_REGISTRY = build_default_runtime_renderer_registry()
     return _ACTIVE_REGISTRY
 
 
 def get_runtime_renderer_registry():
-    return _ACTIVE_REGISTRY
+    return synchronize_runtime_renderer_registry(_ACTIVE_REGISTRY)
 
 
 def register_runtime_renderer(kind, renderer, replace=False):
     register_builtin_items()
     definition = ITEM_TYPES.get(kind, required=True)
-    if definition.renderer is not None and not replace:
+    was_disabled = definition.kind in _DISABLED_RENDERERS
+    if definition.renderer is not None and not replace and not was_disabled:
         raise ValueError(
             "Renderer for kind '{0}' is already registered.".format(
                 definition.kind
             )
         )
+
+    _DISABLED_RENDERERS.discard(definition.kind)
     ITEM_TYPES.bind_ui(definition.kind, renderer=renderer)
     if _ACTIVE_REGISTRY is not None:
         _ACTIVE_REGISTRY.register(
             definition.kind,
             renderer,
-            replace=replace
+            replace=(replace or _ACTIVE_REGISTRY.has(definition.kind))
         )
+        _decorate_runtime_renderer_registry(_ACTIVE_REGISTRY)
     return renderer
 
 
@@ -485,8 +533,9 @@ def unregister_runtime_renderer(kind):
     definition = ITEM_TYPES.get(kind)
     if definition is None:
         return None
+
     previous = definition.renderer
-    ITEM_TYPES.bind_ui(definition.kind, renderer=None)
+    _DISABLED_RENDERERS.add(definition.kind)
     if _ACTIVE_REGISTRY is not None:
         _ACTIVE_REGISTRY.unregister(definition.kind)
     return previous
@@ -497,5 +546,6 @@ __all__ = [
     "get_runtime_renderer_registry",
     "initialize_runtime_renderer_registry",
     "register_runtime_renderer",
+    "synchronize_runtime_renderer_registry",
     "unregister_runtime_renderer",
 ]

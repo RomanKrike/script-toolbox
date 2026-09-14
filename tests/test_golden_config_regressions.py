@@ -72,7 +72,7 @@ def test_current_golden_config_has_unique_stable_ids():
     )
     ids = [
         item["id"]
-        for item in walk_items(document, include_folders=True)
+        for item in walk_items(document, include_sections=True)
     ]
 
     assert len(ids) == len(set(ids))

@@ -26,10 +26,3 @@ SUPPORTED_LANGUAGES = (
     "python",
     "mel",
 )
-
-FOLDER_TYPES = (
-    "collapsible",
-    "simple",
-    "tabs",
-    "radio",
-)

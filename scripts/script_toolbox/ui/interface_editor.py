@@ -683,7 +683,7 @@ class InterfaceEditor(QtGui.QDialog):
 
         for item in walk_items(
             self.working,
-            include_folders=True
+            include_sections=True
         ):
             self.item_cache[
                 text_type(item["id"])
@@ -863,7 +863,7 @@ class InterfaceEditor(QtGui.QDialog):
             text_type(item.get("name", ""))
             for item in walk_items(
                 self.working,
-                include_folders=True
+                include_sections=True
             )
         )
 
@@ -1643,7 +1643,7 @@ class InterfaceEditor(QtGui.QDialog):
 
         for item in walk_items(
             self.working,
-            include_folders=True
+            include_sections=True
         ):
             name = text_type(item.get("name", ""))
 

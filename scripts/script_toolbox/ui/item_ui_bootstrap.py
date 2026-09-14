@@ -7,9 +7,6 @@ from ..model.item_builtins import register_builtin_items
 from ..model.item_registry import ITEM_TYPES
 
 
-_BOOTSTRAPPED = False
-
-
 def _resolve_ui_target(path):
     if not path:
         return None
@@ -23,32 +20,34 @@ def _resolve_ui_target(path):
 
 
 def ensure_builtin_item_ui_bindings():
-    """Resolve declarative Qt-side bindings stored on Item definitions."""
-    global _BOOTSTRAPPED
-    if _BOOTSTRAPPED:
-        return ITEM_TYPES
+    """Resolve Qt-side bindings for every currently registered Item type.
 
+    The pass is intentionally re-entrant. Built-ins are registered before UI
+    composition, while future/external Item definitions may be registered
+    later. Already-bound callables are retained; only unresolved declarative
+    paths are imported on subsequent passes.
+    """
     register_builtin_items()
 
     for definition in ITEM_TYPES.all():
-        renderer = (
-            _resolve_ui_target(definition.renderer_path)
-            if definition.renderer_path
-            else definition.renderer
-        )
-        inspector = (
-            _resolve_ui_target(definition.inspector_path)
-            if definition.inspector_path
-            else definition.inspector
-        )
-        if renderer is not None or inspector is not None:
+        renderer = definition.renderer
+        inspector = definition.inspector
+
+        if renderer is None and definition.renderer_path:
+            renderer = _resolve_ui_target(definition.renderer_path)
+        if inspector is None and definition.inspector_path:
+            inspector = _resolve_ui_target(definition.inspector_path)
+
+        if (
+            renderer is not definition.renderer or
+            inspector is not definition.inspector
+        ):
             ITEM_TYPES.bind_ui(
                 definition.kind,
                 renderer=renderer,
                 inspector=inspector
             )
 
-    _BOOTSTRAPPED = True
     return ITEM_TYPES
 
 

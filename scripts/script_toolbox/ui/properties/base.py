@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+import copy
+
 from ...compat import QtCore
 from ...compat import QtGui
 from ...core.preferences import INSPECTOR_SECTIONS_KEY
 from ...core.preferences import load_preferences
 from ...core.preferences import set_inspector_section_collapsed
+from ...model.items import normalize_item_props_candidate
 from ...model.items import sanitize_name
 from ...pycompat import text_type
 from ...style.metrics import PROPERTY_EDITOR_SPACING
@@ -287,7 +290,19 @@ class PropertyEditorBase(QtGui.QWidget):
         if enabled:
             parent_item = dict(self.parent_layout_item or {})
             parent_props = dict(parent_item.get("props", {}) or {})
-            parent_props["equal_widths"] = bool(equal_widths)
+            parent_definition = self.layout_adapter.parent_definition
+            layout_spec = (
+                parent_definition.layout_spec
+                if parent_definition is not None
+                else None
+            )
+            equal_size_field = (
+                layout_spec.equal_size_field
+                if layout_spec is not None
+                else None
+            )
+            if equal_size_field:
+                parent_props[equal_size_field] = bool(equal_widths)
             parent_item["props"] = parent_props
             self.set_parent_layout_context(
                 self.parent_layout_kind,
@@ -392,7 +407,8 @@ class PropertyEditorBase(QtGui.QWidget):
 
         kind = self.item.get("kind", "item")
         ui = self.item.setdefault("ui", {})
-        props = self.item.setdefault("props", {})
+        current_props = self.item.get("props", {}) or {}
+        candidate_props = copy.deepcopy(current_props)
 
         if is_property_available(self.name_edit):
             self.item["name"] = sanitize_name(
@@ -419,7 +435,12 @@ class PropertyEditorBase(QtGui.QWidget):
             )
 
         self.layout_adapter.write(ui)
-        self.write_specific(props)
+        self.write_specific(candidate_props)
+        normalized_props = normalize_item_props_candidate(
+            self.item,
+            candidate_props
+        )
+        self.item["props"] = normalized_props
         self.binding_panel.write_to_item(self.item)
 
     def _control_changed(self, *args):

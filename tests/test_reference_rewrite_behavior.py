@@ -13,7 +13,9 @@ def _document(items=None):
             "kind": "folder",
             "id": "root",
             "name": "root",
-            "label": "Root",
+            "ui": {"label": "Root"},
+            "props": {"folder_type": "collapsible"},
+            "bindings": [],
             "items": list(items or []),
         }],
     }
@@ -24,10 +26,20 @@ def _button(item_id, name, script):
         "kind": "button",
         "id": item_id,
         "name": name,
-        "label": name.title(),
-        "language": "python",
-        "click_script": script,
+        "ui": {"label": name.title()},
+        "props": {},
+        "bindings": [{
+            "id": item_id + "_click",
+            "event": "click",
+            "handler": "script",
+            "language": "python",
+            "script": script,
+        }],
     }
+
+
+def _button_script(item):
+    return item["bindings"][0]["script"]
 
 
 def test_reference_rewrite_reports_alias_dynamic_and_computed_risks_only():
@@ -73,14 +85,17 @@ def test_duplicate_subtree_remaps_internal_links_and_reports_alias():
         "kind": "folder",
         "id": "group",
         "name": "group",
-        "label": "Group",
+        "ui": {"label": "Group"},
+        "props": {"folder_type": "collapsible"},
+        "bindings": [],
         "items": [
             {
                 "kind": "string",
                 "id": "source_id",
                 "name": "source_value",
-                "label": "Source",
-                "value": "x",
+                "ui": {"label": "Source"},
+                "props": {"value": "x"},
+                "bindings": [],
             },
             _button(
                 "reader_id",
@@ -101,7 +116,7 @@ def test_duplicate_subtree_remaps_internal_links_and_reports_alias():
     )
 
     cloned_source = clone["items"][0]
-    script = clone["items"][1]["click_script"]
+    script = _button_script(clone["items"][1])
     assert "toolbox.get_value('{0}')".format(cloned_source["name"]) in script
     assert "toolbox.get_value('{0}')".format(cloned_source["id"]) in script
     assert "tb.get_value('source_value')" in script
@@ -113,8 +128,9 @@ def test_rename_rewrites_supported_reference_and_reports_unresolved_alias():
         "kind": "string",
         "id": "target",
         "name": "old",
-        "label": "Target",
-        "value": "",
+        "ui": {"label": "Target"},
+        "props": {"value": ""},
+        "bindings": [],
     }
     reader = _button(
         "reader",
@@ -128,6 +144,6 @@ def test_rename_rewrites_supported_reference_and_reports_unresolved_alias():
 
     assert result["changed_ids"] == set(["reader"])
     assert len(result["unresolved_items"]) == 1
-    script = controller.find_by_id("reader")["click_script"]
+    script = _button_script(controller.find_by_id("reader"))
     assert "toolbox.get_value('new')" in script
     assert "tb.get_value('old')" in script

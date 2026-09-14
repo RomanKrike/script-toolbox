@@ -24,7 +24,7 @@ def _document():
 def _structure_snapshot(document):
     return [
         (item["id"], item["name"], item["kind"])
-        for item in walk_items(document, include_folders=True)
+        for item in walk_items(document, include_sections=True)
     ]
 
 

@@ -28,7 +28,7 @@ def _raw_items(document):
         stack[0:0] = list(item.get("items", []) or [])
 
 
-def test_runtime_section_routing_has_no_folder_kind_switch():
+def test_runtime_section_routing_uses_sectionspec_not_folder_schema_name():
     source = _source(
         "scripts", "script_toolbox", "ui", "runtime.py"
     )
@@ -37,6 +37,51 @@ def test_runtime_section_routing_has_no_folder_kind_switch():
     assert 'get("kind") != "folder"' not in source
     assert "ITEM_TYPES.get" in source
     assert "build_runtime_widget" in source
+    assert "definition.section_mode(" in source
+    assert 'definition.fields.get("folder_type")' not in source
+    assert '_props(item).get("folder_type")' not in source
+
+
+def test_generic_layout_metadata_has_no_magic_row_column_schema_inference():
+    registry_source = _source(
+        "scripts", "script_toolbox", "model", "item_registry.py"
+    )
+    adapter_source = _source(
+        "scripts", "script_toolbox", "ui", "properties", "layout_adapter.py"
+    )
+
+    assert "class LayoutSpec" in registry_source
+    assert "return spec.axis" in registry_source
+    assert '"horizontal_distribution" in self.fields' not in registry_source
+    assert '"vertical_distribution" in self.fields' not in registry_source
+
+    # Method/control names may still contain words like horizontal_alignment;
+    # the forbidden contract is hard-coded persisted prop lookup in generic UI.
+    for persisted_name in (
+        "horizontal_distribution",
+        "vertical_distribution",
+        "horizontal_alignment",
+        "vertical_alignment",
+        "equal_widths",
+    ):
+        assert '"{0}"'.format(persisted_name) not in adapter_source
+    assert "parent_definition.layout_spec" in adapter_source
+    assert "spec.distribution_field" in adapter_source
+    assert "spec.cross_alignment_field" in adapter_source
+
+
+def test_sectionspec_uses_field_schema_as_single_mode_source():
+    registry_source = _source(
+        "scripts", "script_toolbox", "model", "item_registry.py"
+    )
+    builtins_source = _source(
+        "scripts", "script_toolbox", "model", "item_builtins.py"
+    )
+
+    assert "self.modes" not in registry_source
+    assert "spec.modes" not in registry_source
+    assert 'SectionSpec(mode_field="folder_type")' in builtins_source
+    assert "modes=(\"collapsible\"" not in builtins_source
 
 
 def test_clean_break_has_no_migration_surface_or_v20_fixtures():
@@ -96,7 +141,23 @@ def test_current_v21_fixtures_use_canonical_item_envelope():
                 assert isinstance(item["items"], list)
 
 
-def test_item_inspector_does_not_persist_legacy_callbacks():
+def test_item_inspector_props_write_is_transactional_and_has_no_callbacks():
+    base_source = _source(
+        "scripts", "script_toolbox", "ui", "properties", "base.py"
+    )
+    candidate_copy = "candidate_props = copy.deepcopy(current_props)"
+    candidate_write = "self.write_specific(candidate_props)"
+    normalization = "normalize_item_props_candidate("
+    commit = 'self.item["props"] = normalized_props'
+
+    assert candidate_copy in base_source
+    assert candidate_write in base_source
+    assert normalization in base_source
+    assert commit in base_source
+    assert base_source.index(candidate_copy) < base_source.index(candidate_write)
+    assert base_source.index(candidate_write) < base_source.index(normalization)
+    assert base_source.index(normalization) < base_source.index(commit)
+
     for parts in (
         ("scripts", "script_toolbox", "ui", "properties", "basic.py"),
         ("scripts", "script_toolbox", "ui", "properties", "separator.py"),
@@ -107,8 +168,64 @@ def test_item_inspector_does_not_persist_legacy_callbacks():
         assert ".get(\"callbacks\"" not in source
 
 
+def test_selection_runtime_write_normalizes_before_direct_commit():
+    source = _source(
+        "scripts", "script_toolbox", "ui", "main_window.py"
+    )
+
+    normalize_line = "new_value = normalize_document_value(item, new_value)"
+    commit_line = 'props["value"] = new_value'
+    normalize_index = source.index(normalize_line)
+    commit_index = source.index(commit_line, normalize_index)
+
+    assert normalize_index < commit_index
+    assert "self.set_value(item[\"id\"], new_value)" not in source
+
+
+def test_reference_rewrite_uses_only_props_and_bindings_item_scripts():
+    source = _source(
+        "scripts", "script_toolbox", "core", "references.py"
+    )
+
+    assert "python_prop_script_keys" in source
+    assert 'item.get("props"' in source
+    assert 'item.get("callbacks")' not in source
+    assert "schema-17" not in source.lower()
+    assert "click_script" not in source
+    assert "on_change_script" not in source
+
+
+def test_item_source_has_no_legacy_folder_traversal_or_type_constant():
+    legacy_traversal = "include_" + "folders"
+    legacy_constant = "FOLDER_" + "TYPES"
+    offenders = []
+
+    scripts_root = _path("scripts")
+    for directory, subdirectories, filenames in os.walk(scripts_root):
+        subdirectories[:] = [
+            name
+            for name in subdirectories
+            if name != "__pycache__"
+        ]
+        for filename in filenames:
+            if not filename.endswith(".py"):
+                continue
+            path = os.path.join(directory, filename)
+            with open(path, "r") as handle:
+                source = handle.read()
+            if legacy_traversal in source or legacy_constant in source:
+                offenders.append(os.path.relpath(path, ROOT))
+
+    assert offenders == []
+
+
 def test_current_schema_is_v21_only_and_documented_as_clean_break():
     docs = _source("docs", "ARCHITECTURE.md")
+    docs_ru = _source("docs", "ARCHITECTURE.ru.md")
 
     assert "Schema **21** is the single supported configuration contract" in docs
     assert "there is intentionally no schema 20 -> 21 migration" in docs
+    assert "ItemDataView" not in docs
+    assert "ItemDataView" not in docs_ru
+    assert "item_view.py" not in docs
+    assert "item_view.py" not in docs_ru

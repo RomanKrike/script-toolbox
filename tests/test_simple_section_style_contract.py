@@ -17,10 +17,11 @@ def test_simple_section_reuses_runtime_folder_and_shared_group_box_style():
     metrics = _read("scripts/script_toolbox/style/metrics.py")
     palette = _read("scripts/script_toolbox/style/palette.py")
 
-    # Simple Section remains the registered section renderer/simple model.
-    # QGroupBox is runtime chrome, not a second serialized Item format.
-    assert "section_props = _props(section)" in runtime
-    assert 'self.folder_type = section_props.get("folder_type", "collapsible")' in runtime
+    # Simple Section remains Folder renderer chrome, but its persisted mode
+    # field name is resolved generically through SectionSpec metadata.
+    assert "definition.section_mode(_props(item))" in runtime
+    assert "self.folder_type = _section_group_mode(section)" in runtime
+    assert 'definition.fields.get("folder_type")' not in runtime
     assert 'elif self.folder_type == "simple":' in runtime
     assert 'self.header = QtGui.QGroupBox(text_type(label))' in runtime
     assert 'self.header.setObjectName("SimpleSectionGroupBox")' in runtime

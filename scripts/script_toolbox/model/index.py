@@ -15,10 +15,10 @@ class DocumentIndex(object):
     def __init__(
         self,
         document=None,
-        include_folders=False
+        include_sections=False
     ):
-        self.include_folders = bool(
-            include_folders
+        self.include_sections = bool(
+            include_sections
         )
         self.document = None
         self.items = []
@@ -38,7 +38,7 @@ class DocumentIndex(object):
 
         for item in walk_items(
             document,
-            include_folders=self.include_folders
+            include_sections=self.include_sections
         ):
             self.items.append(item)
             self._store_first(

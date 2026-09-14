@@ -75,6 +75,17 @@ class ItemTypeDefinition(object):
     def is_bindable(self):
         return bool(self.events)
 
+    @property
+    def layout_axis(self):
+        """Return semantic layout axis without coupling callers to kind names."""
+        if not self.is_layout:
+            return None
+        if "horizontal_distribution" in self.fields:
+            return "horizontal"
+        if "vertical_distribution" in self.fields:
+            return "vertical"
+        return None
+
     def normalize_props(self, raw_props=None):
         raw_props = raw_props if isinstance(raw_props, dict) else {}
         normalized = {}

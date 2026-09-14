@@ -36,19 +36,21 @@ def _definition(item):
 
 
 def _section_group_mode(item):
-    """Return section grouping mode from registered schema metadata."""
+    """Return section grouping mode normalized by registered field metadata."""
     definition = _definition(item)
     if (
         definition is None or
-        not definition.has_capability("section") or
-        "folder_type" not in definition.fields
+        not definition.has_capability("section")
     ):
         return None
 
-    mode = _props(item).get("folder_type", "collapsible")
-    if mode not in ("collapsible", "simple", "tabs", "radio"):
-        return "collapsible"
-    return mode
+    mode_field = definition.fields.get("folder_type")
+    if mode_field is None:
+        return None
+
+    return mode_field.normalize(
+        _props(item).get("folder_type")
+    )
 
 
 def _runtime_registry():

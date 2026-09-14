@@ -278,7 +278,8 @@ def normalize_document(data):
     return {"version": CONFIG_VERSION, "sections": sections}
 
 
-def walk_items(document, include_folders=False):
+def walk_items(document, include_sections=False):
+    """Yield document Items recursively, optionally including section Items."""
     register_builtin_items()
 
     def walk(children):
@@ -287,7 +288,7 @@ def walk_items(document, include_folders=False):
             definition = ITEM_TYPES.get(kind)
             if definition is None:
                 continue
-            if include_folders or not definition.has_capability("section"):
+            if include_sections or not definition.has_capability("section"):
                 yield item
             if definition.is_container:
                 for child in walk(item.get("items", []) or []):
@@ -297,7 +298,7 @@ def walk_items(document, include_folders=False):
         definition = ITEM_TYPES.get(section.get("kind"))
         if definition is None:
             continue
-        if include_folders:
+        if include_sections:
             yield section
         if definition.is_container:
             for item in walk(section.get("items", []) or []):

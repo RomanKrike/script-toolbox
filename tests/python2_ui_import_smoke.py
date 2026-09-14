@@ -15,8 +15,6 @@ SCRIPTS = os.path.join(ROOT, "scripts")
 if SCRIPTS not in sys.path:
     sys.path.insert(0, SCRIPTS)
 
-import script_toolbox
-
 
 class _DummyMeta(type):
     def __getattr__(cls, name):

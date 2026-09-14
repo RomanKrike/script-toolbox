@@ -1,18 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-from ..pycompat import text_type
+from .item_builtins import register_builtin_items
+from .item_registry import ITEM_TYPES
 
-
-LAYOUT_KINDS = (
-    "row",
-    "column",
-)
-CONTAINER_KINDS = (
-    "folder",
-    "row",
-    "column",
-)
 
 ROW_DISTRIBUTIONS = (
     "left",
@@ -34,18 +25,20 @@ COLUMN_HEIGHT_MODES = (
 
 
 def is_layout_kind(kind):
-    return text_type(kind or "").lower() in LAYOUT_KINDS
+    register_builtin_items()
+    definition = ITEM_TYPES.get(kind)
+    return bool(definition and definition.is_layout)
 
 
 def is_container_kind(kind):
-    return text_type(kind or "").lower() in CONTAINER_KINDS
+    register_builtin_items()
+    definition = ITEM_TYPES.get(kind)
+    return bool(definition and definition.is_container)
 
 
 __all__ = [
     "COLUMN_DISTRIBUTIONS",
     "COLUMN_HEIGHT_MODES",
-    "CONTAINER_KINDS",
-    "LAYOUT_KINDS",
     "ROW_DISTRIBUTIONS",
     "is_container_kind",
     "is_layout_kind",

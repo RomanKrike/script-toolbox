@@ -38,12 +38,20 @@ _UI_ALIASES = {
 }
 
 
+def _raw_value(value):
+    if isinstance(value, ItemDataView):
+        return value.raw()
+    return value
+
+
 class ItemDataView(object):
     """Mutable view over the universal Item envelope.
 
     Root identity/tree fields stay at the root, presentation fields resolve to
     ``ui`` and all type-specific fields resolve to ``props``. This keeps Qt and
     runtime code concise without reintroducing type-specific root JSON keys.
+    Container children are exposed as views as well, while the persisted
+    ``items`` list always remains a list of raw envelope dictionaries.
     """
 
     def __init__(self, item):
@@ -64,16 +72,26 @@ class ItemDataView(object):
             self.item.setdefault("props", {})
         return self.item.get("props", {}), key
 
-    def get(self, key, default=None):
+    def _read(self, key, default=None, required=False):
         target, resolved = self._target(key)
-        return target.get(resolved, default)
+        if required:
+            value = target[resolved]
+        else:
+            value = target.get(resolved, default)
+        if resolved == "items" and isinstance(value, list):
+            return [item_view(entry) for entry in value if isinstance(entry, dict)]
+        return value
+
+    def get(self, key, default=None):
+        return self._read(key, default=default, required=False)
 
     def __getitem__(self, key):
-        target, resolved = self._target(key)
-        return target[resolved]
+        return self._read(key, required=True)
 
     def __setitem__(self, key, value):
         target, resolved = self._target(key, create=True)
+        if resolved == "items" and isinstance(value, (list, tuple)):
+            value = [_raw_value(entry) for entry in value]
         target[resolved] = value
 
     def __contains__(self, key):
@@ -82,11 +100,19 @@ class ItemDataView(object):
 
     def pop(self, key, default=None):
         target, resolved = self._target(key, create=True)
-        return target.pop(resolved, default)
+        value = target.pop(resolved, default)
+        if resolved == "items" and isinstance(value, list):
+            return [item_view(entry) for entry in value if isinstance(entry, dict)]
+        return value
 
     def setdefault(self, key, default=None):
         target, resolved = self._target(key, create=True)
-        return target.setdefault(resolved, default)
+        if resolved == "items" and isinstance(default, (list, tuple)):
+            default = [_raw_value(entry) for entry in default]
+        value = target.setdefault(resolved, default)
+        if resolved == "items" and isinstance(value, list):
+            return [item_view(entry) for entry in value if isinstance(entry, dict)]
+        return value
 
     def keys(self):
         result = []

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import copy
 import json
 
 import pytest
@@ -8,11 +9,13 @@ from script_toolbox.constants import CONFIG_VERSION
 from script_toolbox.core.config import ConfigRecoveryRequired
 from script_toolbox.core.config import load_config
 from script_toolbox.core.values import get_value
+from script_toolbox.core.values import normalize_value
 from script_toolbox.core.values import store_value
 from script_toolbox.model import ItemValidationError
 from script_toolbox.model import create_item
 from script_toolbox.model import normalize_document
 from script_toolbox.model import normalize_item_props
+from script_toolbox.model.items import normalize_item_props_candidate
 
 
 def _image_data(width="64"):
@@ -62,6 +65,21 @@ def test_normalize_item_props_is_the_single_editor_style_canonicalizer():
     item["props"]["width"] = "broken"
     with pytest.raises(ItemValidationError):
         normalize_item_props(item)
+
+
+def test_inspector_candidate_validation_leaves_original_props_unchanged():
+    item = create_item("image", _image_data(width=64))
+    original = copy.deepcopy(item["props"])
+    candidate = copy.deepcopy(original)
+    candidate["width"] = "broken"
+
+    with pytest.raises(ItemValidationError) as caught:
+        normalize_item_props_candidate(item, candidate)
+
+    assert caught.value.kind == "image"
+    assert caught.value.field == "width"
+    assert caught.value.value == "broken"
+    assert item["props"] == original
 
 
 def test_normalize_document_rejects_malformed_current_schema_item():
@@ -144,9 +162,36 @@ def test_runtime_value_write_uses_same_schema_and_is_transactional_on_error():
     store_value(document, "enabled", "yes")
     assert get_value(document, "enabled") is True
 
-    with pytest.raises(ItemValidationError):
+    with pytest.raises(ItemValidationError) as caught:
         store_value(document, "enabled", "not-a-bool")
+
+    error = caught.value
+    assert error.kind == "checkbox"
+    assert error.field == "value"
+    assert error.item_id == "enabled-id"
+    assert error.item_name == "enabled"
+    assert error.value == "not-a-bool"
     assert get_value(document, "enabled") is True
+
+
+def test_selection_style_field_value_uses_generic_schema_normalization():
+    item = create_item(
+        "field",
+        {
+            "id": "selection-id",
+            "name": "selection",
+            "props": {
+                "source": "selection",
+                "multiple": True,
+                "value": [],
+            },
+        },
+    )
+
+    normalized = normalize_value(item, ("/obj/geo1", 42))
+
+    assert normalized == ["/obj/geo1", "42"]
+    assert item["props"]["value"] == []
 
 
 def test_unknown_persisted_kind_remains_invalid_without_placeholder_layer():

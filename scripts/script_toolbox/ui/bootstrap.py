@@ -14,7 +14,6 @@ from .editor_polish_hooks import install_icon_only_button_centering
 from .editor_polish_hooks import install_runtime_icon_feedback
 from .editor_selection_state import install_editor_selection_state
 from .event_binding_hooks import install_event_binding_hooks
-from .item_palette import install_registry_palette
 from .item_ui_bootstrap import ensure_builtin_item_ui_bindings
 from .main_window import ScriptToolbox as _BaseScriptToolbox
 from .preset_hooks import build_preset_interface_editor_class
@@ -54,7 +53,6 @@ class UIComposition(object):
 def _compose_interface_editor():
     ensure_builtin_item_ui_bindings()
     base_editor = _interface_editor_module.InterfaceEditor
-    install_registry_palette(base_editor)
     install_editor_selection_state(base_editor)
 
     _editor_document_adapter_module.install_share_controller = (
@@ -64,7 +62,7 @@ def _compose_interface_editor():
     editor_class = build_interface_editor_class(
         base_editor,
         controller_class=EditorDocumentController,
-        layout_support=True
+        layout_support=False
     )
     editor_class = build_reference_warning_editor_class(editor_class)
     editor_class = build_preset_interface_editor_class(editor_class)

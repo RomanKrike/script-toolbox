@@ -5,7 +5,6 @@ from ..core.executor import execute_script_result
 from ..core.state_toggle import state_toggle_action
 from ..model.item_builtins import register_builtin_items
 from ..model.item_registry import ITEM_TYPES
-from ..model.item_view import ItemDataView
 
 
 _HOOK_MARKER = "_script_toolbox_state_toggle_behavior"
@@ -19,7 +18,7 @@ def install_state_toggle_behavior(toolbox_class):
     def run_state_binding(self, item_or_id, binding=None, event=None):
         item = (
             item_or_id
-            if isinstance(item_or_id, (dict, ItemDataView))
+            if isinstance(item_or_id, dict)
             else self.find_item(item_or_id)
         )
         if item is None:

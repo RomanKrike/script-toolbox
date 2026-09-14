@@ -194,7 +194,7 @@ def test_walk_and_document_index_cover_nested_row_column_combinations():
     document = _nested_document()
     ids = [
         item["id"]
-        for item in walk_items(document, include_folders=True)
+        for item in walk_items(document, include_sections=True)
     ]
 
     assert ids == [

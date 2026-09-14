@@ -192,10 +192,7 @@ def _standard_item_definitions():
             },
             internal_events=("opened", "closed"),
             capabilities=("container", "section"),
-            section=SectionSpec(
-                mode_field="folder_type",
-                modes=("collapsible", "simple", "tabs", "radio")
-            ),
+            section=SectionSpec(mode_field="folder_type"),
             default_label="Folder",
             description="Container: Collapsible, Simple, Tabs or Radio.",
             renderer_path=".runtime_renderers:_render_folder",

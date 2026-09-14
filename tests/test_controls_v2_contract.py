@@ -15,17 +15,18 @@ def _source(*parts):
     return open(path, "r").read()
 
 
-def test_runtime_registry_builds_from_item_type_definitions():
+def test_runtime_registry_registers_icon_and_numeric_renderers_from_metadata():
     source = _source(
         "scripts", "script_toolbox", "ui", "runtime_renderers.py"
     )
-    ui_bindings = _source(
-        "scripts", "script_toolbox", "ui", "item_ui_bootstrap.py"
+    definitions = _source(
+        "scripts", "script_toolbox", "model", "item_builtins.py"
     )
 
+    assert 'renderer_path=".runtime_renderers:_render_icon"' in definitions
+    assert 'renderer_path=".runtime_renderers:_render_integer"' in definitions
+    assert 'renderer_path=".runtime_renderers:_render_float"' in definitions
     assert "for definition in ITEM_TYPES.all():" in source
-    assert "definition.renderer" in source
-    assert '("icon", _renderers._render_icon)' in ui_bindings
     assert "safe_numeric_size" in source
     assert 'item.get("show_slider", False)' in source
     assert "QSlider" in source
@@ -99,20 +100,24 @@ def test_event_binding_runtime_installs_mouse_filter_and_double_click_delay():
 
 
 def test_icon_property_editor_and_palette_are_registry_driven():
-    ui_bindings = _source(
-        "scripts", "script_toolbox", "ui", "item_ui_bootstrap.py"
-    )
     definitions = _source(
         "scripts", "script_toolbox", "model", "item_builtins.py"
+    )
+    ui_bootstrap = _source(
+        "scripts", "script_toolbox", "ui", "item_ui_bootstrap.py"
     )
     palette = _source(
         "scripts", "script_toolbox", "ui", "item_palette.py"
     )
 
-    assert '("icon", IconPropertyEditor)' in ui_bindings
-    assert '("toggle_icon", ToggleIconPropertyEditor)' in ui_bindings
+    assert 'inspector_path=".properties.icon:IconPropertyEditor"' in definitions
+    assert (
+        'inspector_path=".properties.toggle_icon:ToggleIconPropertyEditor"'
+        in definitions
+    )
     assert '"icon", "Icon", "Display", 10' in definitions
     assert '"toggle_icon", "Toggle Icon", "Controls", 30' in definitions
+    assert "for definition in ITEM_TYPES.all():" in ui_bootstrap
     assert "ITEM_TYPES.creatable()" in palette
 
 

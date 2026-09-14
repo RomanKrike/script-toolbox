@@ -13,7 +13,7 @@ from script_toolbox.model import walk_items
 FIXTURE = (
     Path(__file__).resolve().parent /
     "fixtures" /
-    "current_v20_full.json"
+    "current_v21_full.json"
 )
 
 

@@ -5,7 +5,6 @@ import os
 from script_toolbox.model.fields import ColorField
 from script_toolbox.model.item_builtins import register_builtin_items
 from script_toolbox.model.item_registry import ITEM_TYPES
-from script_toolbox.model.item_view import item_view
 
 
 ROOT = os.path.dirname(
@@ -140,7 +139,6 @@ def _runtime_value_sync_namespace():
         "from ..model.fields import ColorField\n",
         "from ..model.item_builtins import register_builtin_items\n",
         "from ..model.item_registry import ITEM_TYPES\n",
-        "from ..model.item_view import item_view\n",
         "from ..pycompat import text_type\n",
     ):
         source = source.replace(import_line, "")
@@ -150,7 +148,6 @@ def _runtime_value_sync_namespace():
         "ColorField": ColorField,
         "ITEM_TYPES": ITEM_TYPES,
         "register_builtin_items": register_builtin_items,
-        "item_view": item_view,
         "text_type": str,
         "__name__": "runtime_value_sync_test",
     }

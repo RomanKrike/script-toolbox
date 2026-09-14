@@ -25,7 +25,9 @@ class ItemTypeDefinition(object):
         normalize_props=None,
         default_bindings=None,
         renderer=None,
-        inspector=None
+        inspector=None,
+        renderer_path=None,
+        inspector_path=None
     ):
         self.kind = text_type(kind or "").strip().lower()
         if not self.kind:
@@ -47,6 +49,16 @@ class ItemTypeDefinition(object):
         self.default_bindings_hook = default_bindings
         self.renderer = renderer
         self.inspector = inspector
+        self.renderer_path = (
+            text_type(renderer_path).strip()
+            if renderer_path
+            else None
+        )
+        self.inspector_path = (
+            text_type(inspector_path).strip()
+            if inspector_path
+            else None
+        )
 
     def has_capability(self, name):
         return text_type(name or "") in self.capabilities

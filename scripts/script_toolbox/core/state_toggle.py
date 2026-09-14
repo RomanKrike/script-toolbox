@@ -6,19 +6,21 @@ from ..pycompat import text_type
 
 def state_toggle_action(item, current_state):
     """Describe the script and stored-value transition for one toggle click."""
+    props = item.get("props", {}) if isinstance(item, dict) else {}
+    props = props if isinstance(props, dict) else {}
     state = bool(current_state)
     if state:
-        script = text_type(item.get("state_off_script", "") or "")
+        script = text_type(props.get("state_off_script", "") or "")
         language = text_type(
-            item.get("state_off_language", "python") or "python"
+            props.get("state_off_language", "python") or "python"
         )
     else:
-        script = text_type(item.get("state_on_script", "") or "")
+        script = text_type(props.get("state_on_script", "") or "")
         language = text_type(
-            item.get("state_on_language", "python") or "python"
+            props.get("state_on_language", "python") or "python"
         )
 
-    internal = item.get("state_source", "internal") == "internal"
+    internal = props.get("state_source", "internal") == "internal"
     return {
         "current_state": state,
         "next_state": not state,

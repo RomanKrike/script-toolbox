@@ -15,7 +15,6 @@ from .editor_polish_hooks import install_runtime_icon_feedback
 from .editor_selection_state import install_editor_selection_state
 from .event_binding_hooks import install_event_binding_hooks
 from .item_palette import install_registry_palette
-from .item_runtime_adapter import build_item_aware_toolbox_class
 from .item_ui_bootstrap import ensure_builtin_item_ui_bindings
 from .main_window import ScriptToolbox as _BaseScriptToolbox
 from .preset_hooks import build_preset_interface_editor_class
@@ -58,8 +57,6 @@ def _compose_interface_editor():
     install_registry_palette(base_editor)
     install_editor_selection_state(base_editor)
 
-    # The controller adapter still resolves its share installer through a
-    # module global. Keep that mutation in the explicit composition root.
     _editor_document_adapter_module.install_share_controller = (
         install_telemetry_share_controller
     )
@@ -87,8 +84,6 @@ def _runtime_registry():
         None
     )
 
-    # Reuse the active registry when only bootstrap is reloaded. A genuinely
-    # reloaded runtime module gets a fresh registry rebuilt from ItemType data.
     if registry is None or current_runtime is not _runtime_module:
         registry = initialize_runtime_renderer_registry(_runtime_module)
 
@@ -111,16 +106,15 @@ def _compose_runtime_registry():
 
 
 def _compose_toolbox(runtime_registry):
-    item_aware_base = build_item_aware_toolbox_class(_BaseScriptToolbox)
-    install_state_toggle_behavior(item_aware_base)
+    install_state_toggle_behavior(_BaseScriptToolbox)
     toolbox_class = build_update_channel_toolbox_class(
-        item_aware_base
+        _BaseScriptToolbox
     )
 
     install_script_editor_scroll_frames(ScriptEditorWidget)
     install_runtime_value_sync(
         runtime_registry,
-        item_aware_base,
+        _BaseScriptToolbox,
         store_toolbox_classes=(
             _debounced_main_window_module._DebouncedScriptToolbox,
         )

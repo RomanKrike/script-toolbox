@@ -3,7 +3,6 @@
 from ...model.item_builtins import register_builtin_items
 from ...model.item_registry import ITEM_TYPES
 from ...model.item_registry import bind_item_ui
-from ...model.item_view import ItemDataView
 from ...model.item_view import item_view
 from .base import EmptyPropertyEditor
 

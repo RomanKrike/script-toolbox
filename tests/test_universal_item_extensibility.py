@@ -267,6 +267,17 @@ def test_video_registers_after_ui_bootstrap_without_core_changes(monkeypatch):
             for entry in entries
         ]
         assert kind in palette_kinds
+
+        # Explicit runtime unregister must not be undone by the generic
+        # late-registration synchronization pass.
+        assert runtime_renderers.unregister_runtime_renderer(kind) is render_video
+        assert not registry.has(kind)
+        assert runtime_renderers.get_runtime_renderer_registry() is registry
+        assert not registry.has(kind)
+
+        # A subsequent explicit registration re-enables the renderer.
+        runtime_renderers.register_runtime_renderer(kind, render_video)
+        assert registry.has(kind)
     finally:
         if "runtime_renderers" in locals():
             registry = runtime_renderers._ACTIVE_REGISTRY

@@ -67,7 +67,7 @@ def test_button_without_visible_label_uses_exact_centered_icon_renderer():
         "install_icon_only_button_centering(registry)"
     )
     install_bindings = bootstrap_source.rindex(
-        "install_event_binding_hooks(registry)"
+        "_decorate_runtime_renderer_registry(registry)"
     )
     assert install_center < install_bindings
 

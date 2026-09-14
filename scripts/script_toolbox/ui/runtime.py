@@ -3,6 +3,8 @@ from __future__ import print_function
 
 from ..compat import QtCore
 from ..compat import QtGui
+from ..model.item_builtins import register_builtin_items
+from ..model.item_registry import ITEM_TYPES
 from ..model.items import safe_color
 from ..pycompat import text_type
 from ..style.metrics import RUNTIME_FOLDER_CONTENT_MARGINS
@@ -24,6 +26,38 @@ def _ui(item):
 def _props(item):
     value = item.get("props", {}) if isinstance(item, dict) else {}
     return value if isinstance(value, dict) else {}
+
+
+def _definition(item):
+    register_builtin_items()
+    if not isinstance(item, dict):
+        return None
+    return ITEM_TYPES.get(item.get("kind"))
+
+
+def _section_group_mode(item):
+    """Return section grouping mode from registered schema metadata."""
+    definition = _definition(item)
+    if (
+        definition is None or
+        not definition.has_capability("section") or
+        "folder_type" not in definition.fields
+    ):
+        return None
+
+    mode = _props(item).get("folder_type", "collapsible")
+    if mode not in ("collapsible", "simple", "tabs", "radio"):
+        return "collapsible"
+    return mode
+
+
+def _runtime_registry():
+    from .runtime_renderers import get_runtime_renderer_registry
+
+    registry = get_runtime_renderer_registry()
+    if registry is None:
+        raise RuntimeError("Runtime renderer registry is not initialized.")
+    return registry
 
 
 class DisplayField(QtGui.QLineEdit):
@@ -176,7 +210,7 @@ class DisplayFieldList(QtGui.QListWidget):
 
 
 class RuntimeFolder(QtGui.QFrame):
-    """Runtime renderer for one Folder and its nested items."""
+    """Runtime renderer for a section container and its nested Items."""
 
     def __init__(
         self,
@@ -272,47 +306,30 @@ class RuntimeFolder(QtGui.QFrame):
         index = 0
         while index < len(items):
             item = items[index]
+            group_mode = _section_group_mode(item)
 
-            if item.get("kind") == "folder":
-                folder_type = _props(item).get(
-                    "folder_type",
-                    "collapsible"
-                )
-                if folder_type in ("tabs", "radio"):
-                    group = [item]
+            if group_mode in ("tabs", "radio"):
+                group = [item]
+                index += 1
+                while index < len(items):
+                    candidate = items[index]
+                    if _section_group_mode(candidate) != group_mode:
+                        break
+                    group.append(candidate)
                     index += 1
-                    while index < len(items):
-                        candidate = items[index]
-                        if (
-                            candidate.get("kind") != "folder" or
-                            _props(candidate).get(
-                                "folder_type",
-                                "collapsible"
-                            ) != folder_type
-                        ):
-                            break
-                        group.append(candidate)
-                        index += 1
 
-                    if folder_type == "tabs":
-                        widget = RuntimeFolderTabs(
-                            self.toolbox,
-                            group,
-                            self.content
-                        )
-                    else:
-                        widget = RuntimeFolderRadio(
-                            self.toolbox,
-                            group,
-                            self.content
-                        )
-                else:
-                    widget = RuntimeFolder(
+                if group_mode == "tabs":
+                    widget = RuntimeFolderTabs(
                         self.toolbox,
-                        item,
+                        group,
                         self.content
                     )
-                    index += 1
+                else:
+                    widget = RuntimeFolderRadio(
+                        self.toolbox,
+                        group,
+                        self.content
+                    )
             else:
                 widget = self.build_runtime_widget(
                     item,
@@ -487,12 +504,7 @@ class RuntimeFolder(QtGui.QFrame):
         item,
         compact=False
     ):
-        from .runtime_renderers import get_runtime_renderer_registry
-
-        registry = get_runtime_renderer_registry()
-        if registry is None:
-            raise RuntimeError("Runtime renderer registry is not initialized.")
-        return registry.render(
+        return _runtime_registry().render(
             self,
             item,
             compact=compact
@@ -618,37 +630,54 @@ class RuntimeFolderRadio(QtGui.QFrame):
             self.stack.setCurrentIndex(index)
 
 
+class _RuntimeRootOwner(object):
+    def __init__(self, toolbox, content):
+        self.toolbox = toolbox
+        self.content = content
+
+
+def _render_top_level_section(toolbox, section, parent):
+    owner = _RuntimeRootOwner(toolbox, parent)
+    return _runtime_registry().render(
+        owner,
+        section,
+        compact=False
+    )
+
+
 def build_folder_widgets(toolbox, folders, parent=None):
-    """Build top-level runtime folder widgets with tab/radio grouping."""
+    """Build top-level section widgets using registry metadata and renderers."""
     widgets = []
     index = 0
 
     while index < len(folders):
-        folder = folders[index]
-        folder_type = _props(folder).get("folder_type", "collapsible")
+        section = folders[index]
+        group_mode = _section_group_mode(section)
 
-        if folder_type in ("tabs", "radio"):
-            group = [folder]
+        if group_mode in ("tabs", "radio"):
+            group = [section]
             index += 1
             while index < len(folders):
                 candidate = folders[index]
-                if _props(candidate).get(
-                    "folder_type",
-                    "collapsible"
-                ) != folder_type:
+                if _section_group_mode(candidate) != group_mode:
                     break
                 group.append(candidate)
                 index += 1
 
-            if folder_type == "tabs":
+            if group_mode == "tabs":
                 widget = RuntimeFolderTabs(toolbox, group, parent)
             else:
                 widget = RuntimeFolderRadio(toolbox, group, parent)
         else:
-            widget = RuntimeFolder(toolbox, folder, parent)
+            widget = _render_top_level_section(
+                toolbox,
+                section,
+                parent
+            )
             index += 1
 
-        widgets.append(widget)
+        if widget is not None:
+            widgets.append(widget)
 
     return widgets
 

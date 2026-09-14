@@ -6,33 +6,36 @@ from script_toolbox.model.bindings import matching_bindings
 from script_toolbox.model.items import create_item
 
 
-def test_config_schema_is_20():
-    assert CONFIG_VERSION == 20
+def test_config_schema_is_21():
+    assert CONFIG_VERSION == 21
 
 
 def test_toggle_button_normalizes_state_fields_and_default_trigger():
     item = create_item(
         "toggle_button",
         {
-            "label": "Visibility",
-            "state_source": "script",
-            "state_get_script": "state = True",
-            "state_on_script": "result = 'on'",
-            "state_off_script": "result = 'off'",
+            "ui": {"label": "Visibility"},
+            "props": {
+                "state_source": "script",
+                "state_get_script": "state = True",
+                "state_on_script": "result = 'on'",
+                "state_off_script": "result = 'off'",
+            },
         }
     )
 
+    props = item["props"]
     assert item["kind"] == "toggle_button"
-    assert item["state_source"] == "script"
-    assert "value" not in item
-    assert item["state_get_script"] == "state = True"
-    assert item["state_on_script"] == "result = 'on'"
-    assert item["state_off_script"] == "result = 'off'"
-    assert item["state_get_language"] == "python"
-    assert item["state_on_language"] == "python"
-    assert item["state_off_language"] == "python"
-    assert item["state_on_label"] == "Visibility"
-    assert item["state_off_label"] == "Visibility"
+    assert props["state_source"] == "script"
+    assert "value" not in props
+    assert props["state_get_script"] == "state = True"
+    assert props["state_on_script"] == "result = 'on'"
+    assert props["state_off_script"] == "result = 'off'"
+    assert props["state_get_language"] == "python"
+    assert props["state_on_language"] == "python"
+    assert props["state_off_language"] == "python"
+    assert props["state_on_label"] == "Visibility"
+    assert props["state_off_label"] == "Visibility"
 
     triggers = matching_bindings(
         item,
@@ -48,75 +51,90 @@ def test_field_multiple_defaults_to_list_display():
     item = create_item(
         "field",
         {
-            "multiple": True,
+            "props": {"multiple": True},
         }
     )
 
-    assert item["multiple"] is True
-    assert item["display_mode"] == "list"
-    assert item["visible_rows"] == 4
+    props = item["props"]
+    assert props["multiple"] is True
+    assert props["display_mode"] == "list"
+    assert props["visible_rows"] == 4
 
 
 def test_single_field_forces_single_line_and_single_value():
     item = create_item(
         "field",
         {
-            "multiple": False,
-            "display_mode": "list",
-            "value": ["first", "second"],
+            "props": {
+                "multiple": False,
+                "display_mode": "list",
+                "value": ["first", "second"],
+            },
         }
     )
 
-    assert item["multiple"] is False
-    assert item["display_mode"] == "single"
-    assert item["value"] == "first"
+    props = item["props"]
+    assert props["multiple"] is False
+    assert props["display_mode"] == "single"
+    assert props["value"] == "first"
 
 
 def test_row_and_child_layout_settings_are_normalized():
     row = create_item(
         "row",
         {
-            "spacing": 7,
-            "equal_widths": True,
-            "vertical_alignment": "bottom",
+            "props": {
+                "spacing": 7,
+                "equal_widths": True,
+                "vertical_alignment": "bottom",
+            },
             "items": [
                 {
                     "kind": "button",
                     "name": "stretch_button",
-                    "row_width_mode": "stretch",
-                    "row_stretch": 3,
-                    "row_alignment": "right",
+                    "ui": {
+                        "width_mode": "stretch",
+                        "stretch": 3,
+                        "alignment": "right",
+                    },
                 },
                 {
                     "kind": "button",
                     "name": "fixed_button",
-                    "row_width_mode": "fixed",
-                    "row_width": 160,
+                    "ui": {
+                        "width_mode": "fixed",
+                        "width": 160,
+                    },
                 },
             ],
         }
     )
 
-    assert row["spacing"] == 7
-    assert row["equal_widths"] is True
-    assert row["vertical_alignment"] == "bottom"
-    assert row["items"][0]["row_width_mode"] == "stretch"
-    assert row["items"][0]["row_stretch"] == 3
-    assert row["items"][0]["row_alignment"] == "right"
-    assert row["items"][1]["row_width_mode"] == "fixed"
-    assert row["items"][1]["row_width"] == 160
+    props = row["props"]
+    first_ui = row["items"][0]["ui"]
+    second_ui = row["items"][1]["ui"]
+    assert props["spacing"] == 7
+    assert props["equal_widths"] is True
+    assert props["vertical_alignment"] == "bottom"
+    assert first_ui["width_mode"] == "stretch"
+    assert first_ui["stretch"] == 3
+    assert first_ui["alignment"] == "right"
+    assert second_ui["width_mode"] == "fixed"
+    assert second_ui["width"] == 160
 
 
 def test_value_controls_ignore_removed_direct_script_fields():
     item = create_item(
         "integer",
         {
-            "on_change_script": "result = value + 1",
+            "props": {
+                "on_change_script": "result = value + 1",
+            },
         }
     )
 
     assert item["bindings"] == []
-    assert "on_change_script" not in item
+    assert "on_change_script" not in item["props"]
     assert "callbacks" not in item
 
 

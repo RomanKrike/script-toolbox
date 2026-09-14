@@ -5,12 +5,21 @@ from ..compat import QtCore
 from ..compat import QtGui
 from ..model.item_builtins import register_builtin_items
 from ..model.item_registry import ITEM_TYPES
-from ..model.item_view import item_view
 from ..model.layout_geometry import distribution_spacer_positions
 
 
-def _vertical_flag(item):
-    vertical = item.get(
+def _props(item):
+    value = item.get("props", {}) if isinstance(item, dict) else {}
+    return value if isinstance(value, dict) else {}
+
+
+def _ui(item):
+    value = item.get("ui", {}) if isinstance(item, dict) else {}
+    return value if isinstance(value, dict) else {}
+
+
+def _vertical_flag(props):
+    vertical = props.get(
         "vertical_alignment",
         "center"
     )
@@ -32,6 +41,12 @@ def _layout_child_fills_height(child):
     register_builtin_items()
     definition = ITEM_TYPES.get(child.get("kind"))
     return bool(definition and definition.is_layout)
+
+
+def _is_divider(child):
+    register_builtin_items()
+    definition = ITEM_TYPES.get(child.get("kind"))
+    return bool(definition and definition.has_capability("divider"))
 
 
 def _add_child_widget(
@@ -56,7 +71,8 @@ def _add_child_widget(
 
 
 def render_row(owner, item, compact=False):
-    """Render a Row with parent-level horizontal distribution."""
+    """Render a horizontal layout container from envelope data."""
+    props = _props(item)
     row_widget = QtGui.QWidget()
     row_widget.setObjectName("RuntimeRow")
 
@@ -66,7 +82,7 @@ def render_row(owner, item, compact=False):
         )
     except Exception:
         row_widget.setToolTip(
-            item.get("tooltip", "")
+            _ui(item).get("tooltip", "")
         )
 
     layout = QtGui.QHBoxLayout(
@@ -79,14 +95,14 @@ def render_row(owner, item, compact=False):
         0
     )
     layout.setSpacing(
-        int(item.get("spacing", 4))
+        int(props.get("spacing", 4))
     )
 
-    vertical_flag = _vertical_flag(item)
+    vertical_flag = _vertical_flag(props)
     equal_widths = bool(
-        item.get("equal_widths", False)
+        props.get("equal_widths", False)
     )
-    distribution = item.get(
+    distribution = props.get(
         "horizontal_distribution",
         "left"
     )
@@ -101,22 +117,22 @@ def render_row(owner, item, compact=False):
     children = []
     has_stretch = False
 
-    for raw_child in item.get("items", []) or []:
-        child = item_view(raw_child)
+    for child in item.get("items", []) or []:
         child_widget = owner.build_runtime_widget(
-            raw_child,
+            child,
             compact=True
         )
         if child_widget is None:
             continue
 
-        width_mode = child.get(
-            "row_width_mode",
+        child_ui = _ui(child)
+        width_mode = child_ui.get(
+            "width_mode",
             "auto"
         )
         equal_child = (
             equal_widths and
-            child.get("kind") != "separator"
+            not _is_divider(child)
         )
         if equal_child or width_mode == "stretch":
             has_stretch = True
@@ -147,6 +163,7 @@ def render_row(owner, item, compact=False):
 
     for index, entry in enumerate(children):
         child, child_widget, width_mode, equal_child = entry
+        child_ui = _ui(child)
         fill_height = _layout_child_fills_height(
             child
         )
@@ -176,7 +193,7 @@ def render_row(owner, item, compact=False):
                     vertical_policy
                 )
             child_widget.setFixedWidth(
-                int(child.get("row_width", 120))
+                int(child_ui.get("width", 120))
             )
             _add_child_widget(
                 layout,
@@ -195,7 +212,7 @@ def render_row(owner, item, compact=False):
                 child_widget,
                 max(
                     1,
-                    int(child.get("row_stretch", 1))
+                    int(child_ui.get("stretch", 1))
                 ),
                 vertical_flag,
                 fill_height

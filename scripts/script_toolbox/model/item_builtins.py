@@ -100,10 +100,22 @@ def _normalize_field(props, raw):
     return props
 
 
-def _definition(kind, title, category, order, fields=None, events=None,
-                internal_events=None, capabilities=None, creatable=True,
-                default_label=None, normalize_props=None,
-                default_bindings=None, description=""):
+def _definition(
+    kind,
+    title,
+    category,
+    order,
+    fields=None,
+    events=None,
+    internal_events=None,
+    capabilities=None,
+    creatable=True,
+    default_label=None,
+    ui_defaults=None,
+    normalize_props=None,
+    default_bindings=None,
+    description=""
+):
     return ItemTypeDefinition(
         kind=kind,
         title=title,
@@ -116,6 +128,7 @@ def _definition(kind, title, category, order, fields=None, events=None,
         capabilities=capabilities,
         creatable=creatable,
         default_label=default_label,
+        ui_defaults=ui_defaults,
         normalize_props=normalize_props,
         default_bindings=default_bindings,
     )
@@ -135,8 +148,9 @@ def builtin_item_definitions():
                 "collapsed": BoolField(default=False),
             },
             internal_events=("opened", "closed"),
-            capabilities=("container",),
+            capabilities=("container", "section"),
             default_label="Folder",
+            description="Container: Collapsible, Simple, Tabs or Radio.",
         ),
         _definition(
             "row", "Row", "Layout", 20,
@@ -153,6 +167,7 @@ def builtin_item_definitions():
             },
             capabilities=("container", "layout"),
             default_label="Row",
+            description="Horizontal layout for compact controls and buttons.",
         ),
         _definition(
             "column", "Column", "Layout", 30,
@@ -169,6 +184,8 @@ def builtin_item_definitions():
             },
             capabilities=("container", "layout"),
             default_label="Column",
+            ui_defaults={"width_mode": "stretch"},
+            description="Vertical layout for stacking controls, Rows and Columns.",
         ),
         _definition(
             "button", "Button", "Controls", 10,
@@ -179,9 +196,10 @@ def builtin_item_definitions():
                 "icon_only": BoolField(default=False),
             },
             events=mouse,
-            capabilities=("bindable",),
+            capabilities=("bindable", "native_button"),
             default_label="New Button",
             default_bindings=_default_click_script,
+            description="Run Python or the active host native script language.",
         ),
         _definition(
             "toggle_button", "Toggle Button", "Controls", 20,
@@ -203,10 +221,11 @@ def builtin_item_definitions():
                 "value": BoolField(default=False),
             },
             events=mouse,
-            capabilities=("bindable", "has_value", "state_toggle"),
+            capabilities=("bindable", "has_value", "state_toggle", "native_button"),
             default_label="New Toggle Button",
             normalize_props=_normalize_toggle,
             default_bindings=_default_click_toggle,
+            description="Stateful ON/OFF action with internal or scripted state.",
         ),
         _definition(
             "icon", "Icon", "Display", 10,
@@ -221,6 +240,8 @@ def builtin_item_definitions():
             events=mouse,
             capabilities=("bindable", "resizable"),
             default_label="Icon",
+            ui_defaults={"show_label": False},
+            description="Standalone icon with optional event bindings.",
         ),
         _definition(
             "toggle_icon", "Toggle Icon", "Controls", 30,
@@ -244,8 +265,10 @@ def builtin_item_definitions():
             events=mouse,
             capabilities=("bindable", "has_value", "state_toggle", "resizable"),
             default_label="Toggle Icon",
+            ui_defaults={"show_label": False},
             normalize_props=_normalize_toggle,
             default_bindings=_default_click_toggle,
+            description="Stateful ON/OFF icon with independent images and actions.",
         ),
         _definition(
             "string", "String", "Controls", 40,
@@ -253,6 +276,7 @@ def builtin_item_definitions():
             events=value_events,
             capabilities=("bindable", "has_value", "supports_compact"),
             default_label="String",
+            description="Editable text value.",
         ),
         _definition(
             "integer", "Integer", "Controls", 50,
@@ -269,6 +293,7 @@ def builtin_item_definitions():
             capabilities=("bindable", "has_value", "supports_compact"),
             default_label="Integer",
             normalize_props=_normalize_integer,
+            description="Integer value with min, max and step.",
         ),
         _definition(
             "float", "Float", "Controls", 60,
@@ -286,6 +311,7 @@ def builtin_item_definitions():
             capabilities=("bindable", "has_value", "supports_compact"),
             default_label="Float",
             normalize_props=_normalize_float,
+            description="Floating-point value with range and precision.",
         ),
         _definition(
             "checkbox", "Checkbox", "Controls", 70,
@@ -296,6 +322,7 @@ def builtin_item_definitions():
             events=("value_changed", "click", "double_click"),
             capabilities=("bindable", "has_value", "supports_compact"),
             default_label="Checkbox",
+            description="Boolean on/off value.",
         ),
         _definition(
             "menu", "Menu", "Controls", 80,
@@ -307,6 +334,7 @@ def builtin_item_definitions():
             capabilities=("bindable", "has_value", "supports_compact"),
             default_label="Menu",
             normalize_props=_normalize_menu,
+            description="Choose one value from a list.",
         ),
         _definition(
             "color", "Color", "Controls", 90,
@@ -314,6 +342,7 @@ def builtin_item_definitions():
             events=("value_changed", "click", "double_click"),
             capabilities=("bindable", "has_value", "supports_compact"),
             default_label="Color",
+            description="RGB color value.",
         ),
         _definition(
             "field", "Field", "Controls", 100,
@@ -332,6 +361,7 @@ def builtin_item_definitions():
             capabilities=("bindable", "has_value", "supports_compact"),
             default_label="Field",
             normalize_props=_normalize_field,
+            description="Manual value or live DCC selection.",
         ),
         _definition(
             "label", "Label", "Display", 20,
@@ -339,18 +369,22 @@ def builtin_item_definitions():
             events=mouse,
             capabilities=("bindable",),
             default_label="Label",
+            description="Static text for headings and notes.",
         ),
         _definition(
             "text", "Text", "Display", 30,
             fields={"text": TextField(default="Text")},
             capabilities=(),
             default_label="Text",
+            ui_defaults={"show_label": False},
+            description="Multiline static explanatory text with word wrapping.",
         ),
         _definition(
             "separator", "Separator", "Display", 40,
             fields={},
             capabilities=(),
             default_label="Separator",
+            description="Visual divider between parameter groups.",
         ),
         _definition(
             "image", "Image", "Display", 50,
@@ -363,7 +397,8 @@ def builtin_item_definitions():
             events=mouse,
             capabilities=("bindable", "resizable"),
             default_label="Image",
-            description="Display an image from a local file path.",
+            ui_defaults={"show_label": False},
+            description="Display a local image with contain, cover or stretch fit.",
         ),
     )
 

@@ -10,7 +10,7 @@ from script_toolbox.model import walk_items
 FIXTURE = (
     Path(__file__).resolve().parent /
     "fixtures" /
-    "current_v20_full.json"
+    "current_v21_full.json"
 )
 
 
@@ -111,8 +111,8 @@ def test_editor_model_layout_metadata_survives_normalization():
     row = next(item for item in main["items"] if item["name"] == "actions")
     advanced = next(item for item in main["items"] if item["name"] == "advanced")
 
-    assert main["folder_type"] == "collapsible"
-    assert advanced["folder_type"] == "tabs"
-    assert row["spacing"] == 6
-    assert row["equal_widths"] is True
-    assert row["vertical_alignment"] == "center"
+    assert main["props"]["folder_type"] == "collapsible"
+    assert advanced["props"]["folder_type"] == "tabs"
+    assert row["props"]["spacing"] == 6
+    assert row["props"]["equal_widths"] is True
+    assert row["props"]["vertical_alignment"] == "center"

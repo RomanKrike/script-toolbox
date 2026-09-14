@@ -9,11 +9,12 @@ from ..pycompat import text_type
 
 
 def render_toggle_button(owner, item, compact=False):
+    props = item.get("props", {}) or {}
     button = owner._button_widget(item)
     icon_path = os.path.expanduser(
-        os.path.expandvars(text_type(item.get("icon_path") or ""))
+        os.path.expandvars(text_type(props.get("icon_path") or ""))
     )
-    icon_size = int(item.get("icon_size", 18))
+    icon_size = int(props.get("icon_size", 18))
 
     if icon_path:
         button.setIcon(QtGui.QIcon(icon_path))

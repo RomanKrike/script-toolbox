@@ -99,6 +99,10 @@ def _value_definition(item):
     definition = ITEM_TYPES.get(item.get("kind"))
     if definition is None or not definition.has_capability("has_value"):
         return None
+    if definition.has_capability("state_toggle"):
+        props = item.get("props", {}) or {}
+        if props.get("state_source", "internal") != "internal":
+            return None
     return definition
 
 

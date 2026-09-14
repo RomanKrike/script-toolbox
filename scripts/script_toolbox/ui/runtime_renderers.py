@@ -25,6 +25,16 @@ def _expanded_path(value):
     )
 
 
+def _props(item):
+    value = item.get("props", {}) if isinstance(item, dict) else {}
+    return value if isinstance(value, dict) else {}
+
+
+def _ui(item):
+    value = item.get("ui", {}) if isinstance(item, dict) else {}
+    return value if isinstance(value, dict) else {}
+
+
 def _has_mouse_binding(item):
     for binding in item.get("bindings", []) or []:
         if not isinstance(binding, dict):
@@ -47,29 +57,28 @@ def _render_folder(owner, item, compact=False):
     )
 
 
-def _render_row(owner, item, compact=False):
-    return owner._row_widget(item)
-
-
 def _render_button(owner, item, compact=False):
+    props = _props(item)
     button = owner._button_widget(item)
-    icon_path = _expanded_path(item.get("icon_path"))
-    icon_size = int(item.get("icon_size", 18))
+    icon_path = _expanded_path(props.get("icon_path"))
+    icon_size = int(props.get("icon_size", 18))
 
     if icon_path:
         button.setIcon(QtGui.QIcon(icon_path))
         button.setIconSize(QtCore.QSize(icon_size, icon_size))
 
-    if item.get("icon_only", False):
+    if props.get("icon_only", False):
         button.setText("")
 
     return button
 
 
 def _render_icon(owner, item, compact=False):
-    width = int(item.get("width", 24))
-    height = int(item.get("height", 24))
-    path = _expanded_path(item.get("path"))
+    props = _props(item)
+    ui = _ui(item)
+    width = int(props.get("width", 24))
+    height = int(props.get("height", 24))
+    path = _expanded_path(props.get("path"))
     clickable = _has_mouse_binding(item)
 
     if clickable:
@@ -98,13 +107,13 @@ def _render_icon(owner, item, compact=False):
         else:
             icon_widget.setText("?")
 
-    icon_widget.setToolTip(item.get("tooltip", ""))
+    icon_widget.setToolTip(ui.get("tooltip", ""))
 
     container = QtGui.QWidget()
     layout = QtGui.QHBoxLayout(container)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(0)
-    alignment = item.get("content_alignment", "left")
+    alignment = props.get("content_alignment", "left")
 
     if alignment in ("center", "right"):
         layout.addStretch(1)
@@ -126,13 +135,14 @@ def _render_field(owner, item, compact=False):
     if _RUNTIME_MODULE is None:
         return None
 
+    props = _props(item)
     container, layout = owner._parameter_container(
         item,
         compact=compact
     )
     list_mode = (
-        item.get("display_mode") == "list" and
-        bool(item.get("multiple", True))
+        props.get("display_mode") == "list" and
+        bool(props.get("multiple", True))
     )
     control_class = (
         _RUNTIME_MODULE.DisplayFieldList
@@ -176,12 +186,13 @@ def _render_separator(owner, item, compact=False):
 
 
 def _render_string(owner, item, compact=False):
+    props = _props(item)
     container, layout = owner._parameter_container(
         item,
         compact=compact
     )
     control = QtGui.QLineEdit(
-        text_type(item.get("value", ""))
+        text_type(props.get("value", ""))
     )
 
     if compact:
@@ -198,8 +209,8 @@ def _render_string(owner, item, compact=False):
     return container
 
 
-def _numeric_values(item, size):
-    value = item.get("value", 0)
+def _numeric_values(props, size):
+    value = props.get("value", 0)
     if isinstance(value, (list, tuple)):
         values = list(value)
     else:
@@ -226,19 +237,20 @@ def _float_slider_value(position, minimum, maximum):
 
 
 def _render_numeric(owner, item, compact=False, is_float=False):
+    props = _props(item)
     container, layout = owner._parameter_container(
         item,
         compact=compact
     )
-    size = safe_numeric_size(item.get("size", 1))
-    values = _numeric_values(item, size)
+    size = safe_numeric_size(props.get("size", 1))
+    values = _numeric_values(props, size)
     labels = safe_component_labels(
-        item.get("component_labels"),
+        props.get("component_labels"),
         size
     )
-    show_slider = bool(item.get("show_slider", False))
-    minimum = item["min"]
-    maximum = item["max"]
+    show_slider = bool(props.get("show_slider", False))
+    minimum = props["min"]
+    maximum = props["max"]
 
     control_root = QtGui.QWidget()
     if show_slider and size > 1:
@@ -268,14 +280,14 @@ def _render_numeric(owner, item, compact=False, is_float=False):
 
         if is_float:
             spin = QtGui.QDoubleSpinBox()
-            spin.setDecimals(item["decimals"])
+            spin.setDecimals(props["decimals"])
             spin.setRange(minimum, maximum)
-            spin.setSingleStep(item["step"])
+            spin.setSingleStep(props["step"])
             spin.setValue(float(values[index]))
         else:
             spin = QtGui.QSpinBox()
             spin.setRange(minimum, maximum)
-            spin.setSingleStep(item["step"])
+            spin.setSingleStep(props["step"])
             spin.setValue(int(values[index]))
 
         spins.append(spin)
@@ -298,7 +310,7 @@ def _render_numeric(owner, item, compact=False, is_float=False):
                 )
             else:
                 slider.setRange(int(minimum), int(maximum))
-                slider.setSingleStep(int(item["step"]))
+                slider.setSingleStep(int(props["step"]))
                 slider.setValue(int(values[index]))
             target_layout.addWidget(slider, 1)
         sliders.append(slider)
@@ -380,14 +392,15 @@ def _render_float(owner, item, compact=False):
 
 
 def _render_menu(owner, item, compact=False):
+    props = _props(item)
     container, layout = owner._parameter_container(
         item,
         compact=compact
     )
     control = QtGui.QComboBox()
-    control.addItems(item["items"])
+    control.addItems(props["items"])
 
-    index = control.findText(item["value"])
+    index = control.findText(props["value"])
     if index >= 0:
         control.setCurrentIndex(index)
 
@@ -403,6 +416,7 @@ def _render_menu(owner, item, compact=False):
 
 
 def _render_color(owner, item, compact=False):
+    props = _props(item)
     container, layout = owner._parameter_container(
         item,
         compact=compact
@@ -410,7 +424,7 @@ def _render_color(owner, item, compact=False):
     control = QtGui.QPushButton(
         "..." if compact else "Choose..."
     )
-    owner._color_button_style(control, item["value"])
+    owner._color_button_style(control, props["value"])
     control.clicked.connect(
         lambda checked=False, item_id=item["id"], widget=control:
         owner._choose_runtime_color(item_id, widget)

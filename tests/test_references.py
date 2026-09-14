@@ -44,15 +44,19 @@ def test_rewrite_python_references_can_remap_stable_ids():
     assert rewritten == "value = toolbox.get_value('field_new_id')"
 
 
-def test_rewrite_item_references_skips_mel_button_action_scripts():
+def test_rewrite_item_references_uses_props_language_metadata():
     item = {
-        "kind": "button",
-        "id": "button_a",
-        "name": "button_a",
-        "language": "mel",
-        "click_script": 'print("toolbox.get_value(\\\"source_mesh\\\")")',
-        "shift_script": 'print("toolbox.set_value(\\\"source_mesh\\\", 1)")',
-        "state_get_script": "toolbox.get_value('source_mesh') is not None",
+        "kind": "toggle_button",
+        "id": "toggle_a",
+        "name": "toggle_a",
+        "ui": {"label": "Toggle"},
+        "props": {
+            "state_get_script": "toolbox.get_value('source_mesh') is not None",
+            "state_get_language": "python",
+            "state_on_script": 'print("toolbox.get_value(\\\"source_mesh\\\")")',
+            "state_on_language": "mel",
+        },
+        "bindings": [],
     }
 
     changed = rewrite_item_references(
@@ -61,19 +65,23 @@ def test_rewrite_item_references_skips_mel_button_action_scripts():
     )
 
     assert changed is True
-    assert "source_mesh_2" not in item["click_script"]
-    assert "source_mesh_2" not in item["shift_script"]
-    assert item["state_get_script"] == (
+    assert item["props"]["state_get_script"] == (
         "toolbox.get_value('source_mesh_2') is not None"
     )
+    assert "source_mesh_2" not in item["props"]["state_on_script"]
 
 
-def test_rewrite_item_references_updates_on_change_python_script():
+def test_rewrite_item_references_updates_python_script_props_generically():
     item = {
-        "kind": "string",
-        "id": "string_a",
-        "name": "string_a",
-        "on_change_script": "toolbox.set_value('target', value)",
+        "kind": "toggle_icon",
+        "id": "toggle_icon_a",
+        "name": "toggle_icon_a",
+        "ui": {"label": "Toggle Icon"},
+        "props": {
+            "state_off_script": "toolbox.set_value('target', value)",
+            "state_off_language": "python",
+        },
+        "bindings": [],
     }
 
     changed = rewrite_item_references(
@@ -82,6 +90,6 @@ def test_rewrite_item_references_updates_on_change_python_script():
     )
 
     assert changed is True
-    assert item["on_change_script"] == (
+    assert item["props"]["state_off_script"] == (
         "toolbox.set_value('target_2', value)"
     )

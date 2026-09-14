@@ -143,9 +143,10 @@ def test_runtime_registry_resolves_row_and_column_from_type_metadata():
     assert 'renderer_path=".column_layout:render_column"' in definitions
     assert "for definition in ITEM_TYPES.all():" in ui_bootstrap
     assert "definition.renderer_path" in ui_bootstrap
-    assert '"horizontal_distribution"' in row_runtime
-    assert '"vertical_distribution"' in column_runtime
-    assert '"column_height_mode"' in column_runtime
+    assert 'props.get(\n        "horizontal_distribution"' in row_runtime
+    assert 'props.get(\n        "vertical_distribution"' in column_runtime
+    assert 'child_ui.get(\n            "height_mode"' in column_runtime
+    assert 'child_ui.get("vertical_stretch", 1)' in column_runtime
 
 
 def test_property_editor_exposes_unified_parent_layout_adapter():
@@ -168,12 +169,13 @@ def test_property_editor_exposes_unified_parent_layout_adapter():
     assert '"Height Mode"' in base
     assert '"Horizontal Alignment"' in base
     assert '"Vertical Alignment"' in base
-    assert '"row_width_mode"' in adapter
-    assert '"row_width"' in adapter
-    assert '"row_stretch"' in adapter
-    assert '"column_height_mode"' in adapter
-    assert '"column_height"' in adapter
-    assert '"column_stretch"' in adapter
+    assert 'ui["width_mode"]' in adapter
+    assert 'ui["width"]' in adapter
+    assert 'ui["stretch"]' in adapter
+    assert 'ui["height_mode"]' in adapter
+    assert 'ui["height"]' in adapter
+    assert 'ui["vertical_stretch"]' in adapter
+    assert "parent_definition.layout_axis" in adapter
     assert "row_equal_widths" in adapter
     assert "row_alignment" not in adapter
     assert '"Distribution"' in row
@@ -184,15 +186,17 @@ def test_property_editor_exposes_unified_parent_layout_adapter():
     assert '"Equal Child Size"' in column
 
 
-def test_property_registry_routes_editors_through_universal_item_view():
+def test_property_registry_routes_editors_directly_from_item_definition():
     registry = _source(
         "scripts", "script_toolbox", "ui", "properties", "registry.py"
     )
 
-    assert "item_view(item)" in registry
-    assert "EnvelopeRoutedEditor" in registry
+    assert "ITEM_TYPES.get(kind" in registry
     assert "definition.inspector" in registry
+    assert "bind_item_ui(kind, inspector=editor_class)" in registry
     assert "PROPERTY_EDITORS" not in registry
+    assert "item_view" not in registry
+    assert "EnvelopeRoutedEditor" not in registry
 
 
 def test_icon_editor_uses_only_canonical_content_alignment():

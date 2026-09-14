@@ -37,18 +37,8 @@ def _uses_qcolor(source, token):
 
 def _theme_python_paths():
     roots = (
-        os.path.join(
-            ROOT,
-            "scripts",
-            "script_toolbox",
-            "ui"
-        ),
-        os.path.join(
-            ROOT,
-            "scripts",
-            "script_toolbox",
-            "style"
-        ),
+        os.path.join(ROOT, "scripts", "script_toolbox", "ui"),
+        os.path.join(ROOT, "scripts", "script_toolbox", "style"),
     )
     palette_path = os.path.normpath(
         os.path.join(
@@ -65,9 +55,7 @@ def _theme_python_paths():
             for filename in filenames:
                 if not filename.endswith(".py"):
                     continue
-                path = os.path.normpath(
-                    os.path.join(directory, filename)
-                )
+                path = os.path.normpath(os.path.join(directory, filename))
                 if path == palette_path:
                     continue
                 yield path
@@ -81,21 +69,12 @@ def test_ui_and_style_modules_do_not_define_fixed_theme_colors():
             source = handle.read()
 
         matches = []
-        matches.extend(
-            _THEME_HEX.findall(source)
-        )
-        matches.extend(
-            _FIXED_QCOLOR_STRING.findall(source)
-        )
-        matches.extend(
-            _FIXED_QCOLOR_RGB.findall(source)
-        )
+        matches.extend(_THEME_HEX.findall(source))
+        matches.extend(_FIXED_QCOLOR_STRING.findall(source))
+        matches.extend(_FIXED_QCOLOR_RGB.findall(source))
 
         if matches:
-            violations.append((
-                os.path.relpath(path, ROOT),
-                matches
-            ))
+            violations.append((os.path.relpath(path, ROOT), matches))
 
     assert not violations, violations
 
@@ -103,6 +82,9 @@ def test_ui_and_style_modules_do_not_define_fixed_theme_colors():
 def test_primary_ui_modules_use_semantic_palette_tokens():
     interface_source = _read(
         "scripts/script_toolbox/ui/interface_editor.py"
+    )
+    layout_source = _read(
+        "scripts/script_toolbox/ui/layout_editor_adapter.py"
     )
     main_source = _read(
         "scripts/script_toolbox/ui/main_window.py"
@@ -116,12 +98,15 @@ def test_primary_ui_modules_use_semantic_palette_tokens():
 
     assert "from ..style.palette import WINDOW_BG" in interface_source
     assert "from ..style.palette import TEXT_PALETTE_GROUP" in interface_source
-    assert "from ..style.palette import STRUCTURE_FOLDER_BG" in interface_source
-    assert "from ..style.palette import TEXT_STRUCTURE_ROW" in interface_source
     assert _uses_qcolor(interface_source, "WINDOW_BG")
     assert _uses_qcolor(interface_source, "TEXT_PALETTE_GROUP")
-    assert _uses_qcolor(interface_source, "STRUCTURE_FOLDER_BG")
-    assert _uses_qcolor(interface_source, "TEXT_STRUCTURE_ROW")
+
+    assert "from ..style.palette import STRUCTURE_FOLDER_BG" in layout_source
+    assert "from ..style.palette import TEXT_STRUCTURE_ROW" in layout_source
+    assert "from ..style.palette import TEXT_STRUCTURE_COLUMN" in layout_source
+    assert _uses_qcolor(layout_source, "STRUCTURE_FOLDER_BG")
+    assert "QtGui.QColor(color)" in layout_source
+    assert "definition.layout_axis" in layout_source
 
     assert "from ..style.palette import CONTENT_BG" in main_source
     assert '"background-color: {0};".format(' in main_source
@@ -180,8 +165,10 @@ def test_code_editor_and_legacy_icons_use_palette_tokens():
     assert "from .palette import TOOLBAR_ICON" in icons_source
     assert "QtGui.QColor(TOOLBAR_ICON)" in icons_source
 
+    assert "TEXT_STRUCTURE_ROW" in layout_source
     assert "TEXT_STRUCTURE_COLUMN" in layout_source
-    assert "QtGui.QColor(TEXT_STRUCTURE_COLUMN)" in layout_source
+    assert "definition.layout_axis" in layout_source
+    assert "QtGui.QColor(color)" in layout_source
 
 
 def test_solar_toolbar_icons_are_tinted_from_shared_palette():

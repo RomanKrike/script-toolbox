@@ -223,8 +223,11 @@ def test_universal_applicability_disables_controls_without_schema_changes():
 
     assert "widget.setEnabled(available)" in sections
     assert "widget.setToolTip(reason)" in sections
-    assert "Controlled by parent Row because Equal Child Size is enabled." in adapter
-    assert "Controlled by parent Column > Cross Alignment." in adapter
+    assert (
+        "Controlled by parent horizontal layout because Equal Child Size is enabled."
+        in adapter
+    )
+    assert "Controlled by parent vertical layout > Cross Alignment." in adapter
     assert "self.set_property_available(" in basic
     assert "Separator does not display a label." in basic
     assert "CONFIG_VERSION = 21" in constants

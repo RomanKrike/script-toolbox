@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import pytest
+
 from script_toolbox.constants import CONFIG_VERSION
 from script_toolbox.model import ITEM_TYPES
 from script_toolbox.model import ItemTypeDefinition
@@ -10,6 +12,7 @@ from script_toolbox.model import normalize_document
 from script_toolbox.model import register_item_type
 from script_toolbox.model.fields import BoolField
 from script_toolbox.model.fields import ChoiceField
+from script_toolbox.model.fields import FieldValidationError
 from script_toolbox.model.fields import IntField
 
 
@@ -72,7 +75,7 @@ def test_synthetic_flow_layout_uses_explicit_semantics_with_custom_prop_names():
         ITEM_TYPES.unregister(kind)
 
 
-def test_synthetic_card_section_uses_display_mode_not_folder_type():
+def test_synthetic_card_section_uses_field_owned_display_mode():
     kind = "card_section_test"
     ITEM_TYPES.unregister(kind)
     definition = ItemTypeDefinition(
@@ -86,10 +89,7 @@ def test_synthetic_card_section_uses_display_mode_not_folder_type():
             ),
         },
         capabilities=("container", "section"),
-        section=SectionSpec(
-            mode_field="display_mode",
-            modes=("cards", "stack")
-        ),
+        section=SectionSpec(mode_field="display_mode"),
     )
 
     try:
@@ -112,9 +112,13 @@ def test_synthetic_card_section_uses_display_mode_not_folder_type():
         section = document["sections"][0]
         assert definition.is_section
         assert definition.section_spec.mode_field == "display_mode"
+        assert not hasattr(definition.section_spec, "modes")
         assert definition.section_mode(section["props"]) == "stack"
         assert "folder_type" not in section["props"]
         assert section["items"][0]["kind"] == "button"
+
+        with pytest.raises(FieldValidationError):
+            definition.section_mode({"display_mode": "unsupported"})
     finally:
         ITEM_TYPES.unregister(kind)
 
@@ -125,6 +129,7 @@ def test_builtin_folder_row_column_metadata_is_definition_owned():
     column = ITEM_TYPES.get("column", required=True)
 
     assert folder.section_spec.mode_field == "folder_type"
+    assert not hasattr(folder.section_spec, "modes")
     assert folder.section_mode({"folder_type": "tabs"}) == "tabs"
     assert row.layout_spec.axis == "horizontal"
     assert column.layout_spec.axis == "vertical"

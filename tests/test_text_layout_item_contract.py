@@ -70,7 +70,7 @@ def test_text_property_editor_uses_shared_multiline_metric():
     assert "metrics.PROPERTY_MULTILINE_TEXT_MIN_HEIGHT" in source
 
 
-def test_text_item_is_registered_in_editor_palette_and_runtime():
+def test_text_item_declares_editor_and_renderer_in_type_metadata():
     definitions = (
         ROOT /
         "scripts" /
@@ -78,7 +78,7 @@ def test_text_item_is_registered_in_editor_palette_and_runtime():
         "model" /
         "item_builtins.py"
     ).read_text(encoding="utf-8")
-    ui_bindings = (
+    ui_bootstrap = (
         ROOT /
         "scripts" /
         "script_toolbox" /
@@ -87,5 +87,6 @@ def test_text_item_is_registered_in_editor_palette_and_runtime():
     ).read_text(encoding="utf-8")
 
     assert '"text", "Text", "Display", 30' in definitions
-    assert '("text", TextPropertyEditor)' in ui_bindings
-    assert '("text", render_text)' in ui_bindings
+    assert 'inspector_path=".properties.text:TextPropertyEditor"' in definitions
+    assert 'renderer_path=".text_runtime:render_text"' in definitions
+    assert "for definition in ITEM_TYPES.all():" in ui_bootstrap

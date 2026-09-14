@@ -52,9 +52,11 @@ def _scaled_pixmap(pixmap, width, height, fit):
 
 
 def render_image(owner, item, compact=False):
-    width = int(item.get("width", 200))
-    height = int(item.get("height", 120))
-    fit = text_type(item.get("fit", "contain")).lower()
+    props = item.get("props", {}) or {}
+    ui = item.get("ui", {}) or {}
+    width = int(props.get("width", 200))
+    height = int(props.get("height", 120))
+    fit = text_type(props.get("fit", "contain")).lower()
     if fit not in ("contain", "cover", "stretch"):
         fit = "contain"
 
@@ -62,9 +64,9 @@ def render_image(owner, item, compact=False):
     label.setObjectName("RuntimeImage")
     label.setFixedSize(width, height)
     label.setAlignment(QtCore.Qt.AlignCenter)
-    label.setToolTip(owner._tooltip(item))
+    label.setToolTip(ui.get("tooltip", ""))
 
-    source = _expanded_path(item.get("source"))
+    source = _expanded_path(props.get("source"))
     pixmap = QtGui.QPixmap(source) if source else QtGui.QPixmap()
     pixmap = _scaled_pixmap(pixmap, width, height, fit)
 
@@ -123,27 +125,27 @@ class ImagePropertyEditor(PropertyEditorBase):
         self.source.setText(selected)
         self._control_changed()
 
-    def load_specific(self, item):
-        self.source.setText(text_type(item.get("source", "")))
+    def load_specific(self, props):
+        self.source.setText(text_type(props.get("source", "")))
         self.fit.setCurrentIndex({
             "contain": 0,
             "cover": 1,
             "stretch": 2,
-        }.get(text_type(item.get("fit", "contain")).lower(), 0))
-        self.width.setValue(int(item.get("width", 200)))
-        self.height.setValue(int(item.get("height", 120)))
+        }.get(text_type(props.get("fit", "contain")).lower(), 0))
+        self.width.setValue(int(props.get("width", 200)))
+        self.height.setValue(int(props.get("height", 120)))
 
-    def write_specific(self, item):
-        item["source"] = text_type(self.source.text())
-        item["fit"] = (
+    def write_specific(self, props):
+        props["source"] = text_type(self.source.text())
+        props["fit"] = (
             "stretch"
             if self.fit.currentIndex() == 2
             else "cover"
             if self.fit.currentIndex() == 1
             else "contain"
         )
-        item["width"] = clamp(int(self.width.value()), 8, 4096)
-        item["height"] = clamp(int(self.height.value()), 8, 4096)
+        props["width"] = clamp(int(self.width.value()), 8, 4096)
+        props["height"] = clamp(int(self.height.value()), 8, 4096)
 
 
 __all__ = [

@@ -38,6 +38,7 @@ def _bootstrap_namespace():
         "_COMPOSITION_STATE": None,
         "_LOGGER": _Logger(),
         "_runtime_module": object(),
+        "ensure_builtin_item_ui_bindings": lambda: None,
     }
     exec(
         compile(source, "ui/bootstrap.py", "exec"),
@@ -51,6 +52,9 @@ def test_initialize_ui_is_ordered_and_idempotent():
     calls = []
     registry = object()
 
+    def bind_items():
+        calls.append("bindings")
+
     def compose_editor():
         calls.append("editor")
         return "EditorClass"
@@ -63,6 +67,7 @@ def test_initialize_ui_is_ordered_and_idempotent():
         calls.append(("toolbox", active_registry))
         return "ToolboxClass"
 
+    namespace["ensure_builtin_item_ui_bindings"] = bind_items
     namespace["_compose_interface_editor"] = compose_editor
     namespace["_compose_runtime_registry"] = compose_registry
     namespace["_compose_toolbox"] = compose_toolbox
@@ -75,6 +80,7 @@ def test_initialize_ui_is_ordered_and_idempotent():
     assert first.ScriptToolbox == "ToolboxClass"
     assert first.runtime_registry is registry
     assert calls == [
+        "bindings",
         "editor",
         "registry",
         ("toolbox", registry),

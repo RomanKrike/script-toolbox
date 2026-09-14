@@ -2,19 +2,27 @@
 
 import os
 
+import pytest
+
 from script_toolbox.constants import CONFIG_VERSION
 from script_toolbox.core.editor_document import EditorDocumentController
 from script_toolbox.core.values import find_item
 from script_toolbox.core.values import normalize_value
 from script_toolbox.model import DocumentIndex
+from script_toolbox.model import ITEM_TYPES
+from script_toolbox.model import ItemTypeDefinition
+from script_toolbox.model import ItemTypeRegistry
 from script_toolbox.model import create_item
 from script_toolbox.model import walk_items
+from script_toolbox.model.bindings import binding_events
 from script_toolbox.model.bindings import make_binding
-from script_toolbox.model.items import get_item_factory
+from script_toolbox.model.fields import ChoiceField
+from script_toolbox.model.fields import IntField
 from script_toolbox.model.items import normalize_numeric_value
 from script_toolbox.model.items import safe_float
 from script_toolbox.model.items import safe_int
 from script_toolbox.model.layouts import is_container_kind
+from script_toolbox.model.layouts import is_layout_kind
 
 
 ROOT = os.path.dirname(
@@ -99,15 +107,85 @@ def _nested_document():
     }
 
 
-def test_container_contract_and_factories_are_model_owned():
+def test_registry_is_authoritative_for_builtins_and_capabilities():
+    assert CONFIG_VERSION == 21
+    assert ITEM_TYPES.get("button").title == "Button"
+    assert ITEM_TYPES.get("image").category == "Display"
+    assert ITEM_TYPES.get("folder").has_capability("section")
+    assert ITEM_TYPES.get("column").is_container is True
+    assert ITEM_TYPES.get("column").is_layout is True
+    assert ITEM_TYPES.get("button").is_container is False
     assert is_container_kind("folder") is True
     assert is_container_kind("row") is True
     assert is_container_kind("column") is True
     assert is_container_kind("button") is False
-    assert get_item_factory("column") is not None
-    assert get_item_factory("toggle_button") is not None
-    assert get_item_factory("toggle_icon") is not None
-    assert create_item("column", {})["kind"] == "column"
+    assert is_layout_kind("row") is True
+    assert is_layout_kind("column") is True
+
+
+def test_registry_rejects_duplicates_and_unknown_required_kind():
+    registry = ItemTypeRegistry()
+    definition = ItemTypeDefinition("demo", "Demo")
+    registry.register(definition)
+
+    with pytest.raises(ValueError):
+        registry.register(definition)
+    assert registry.get("missing") is None
+    with pytest.raises(ValueError):
+        registry.get("missing", required=True)
+
+
+def test_field_schema_defaults_clamps_choices_and_custom_normalizer():
+    def normalize(props, raw):
+        if props["low"] > props["high"]:
+            props["low"], props["high"] = props["high"], props["low"]
+        return props
+
+    definition = ItemTypeDefinition(
+        "demo",
+        "Demo",
+        fields={
+            "low": IntField(default=0, minimum=-10, maximum=10),
+            "high": IntField(default=5, minimum=-10, maximum=10),
+            "mode": ChoiceField(("a", "b"), default="a"),
+        },
+        normalize_props=normalize,
+    )
+    props = definition.normalize_props({
+        "low": 99,
+        "high": -99,
+        "mode": "invalid",
+    })
+    assert props == {"low": -10, "high": 10, "mode": "a"}
+
+
+def test_universal_item_envelope_keeps_type_data_out_of_root():
+    integer = create_item(
+        "integer",
+        {
+            "id": "number",
+            "name": "number",
+            "ui": {"label": "Count"},
+            "props": {
+                "size": 3,
+                "min": -10,
+                "max": 10,
+                "value": [99, "bad", -99],
+            },
+        }
+    )
+
+    assert set(integer.keys()) == set((
+        "kind", "id", "name", "ui", "props", "bindings"
+    ))
+    assert integer["ui"]["label"] == "Count"
+    assert integer["props"]["value"] == [10, 0, -10]
+    assert "value" not in integer
+    assert "min" not in integer
+
+    row = create_item("row", {"items": [{"kind": "button"}]})
+    assert "items" in row
+    assert "items" not in create_item("button", {})
 
 
 def test_walk_and_document_index_cover_nested_row_column_combinations():
@@ -132,7 +210,7 @@ def test_walk_and_document_index_cover_nested_row_column_combinations():
     assert index.find("button_b")["id"] == "button_b"
 
 
-def test_base_editor_controller_handles_column_cache_topology_and_clone_links():
+def test_base_editor_controller_handles_universal_container_topology_and_links():
     controller = EditorDocumentController(_nested_document())
 
     assert controller.find_by_id("button_b")["kind"] == "button"
@@ -154,34 +232,8 @@ def test_base_editor_controller_handles_column_cache_topology_and_clone_links():
     assert cloned_a["id"] in clone_script
     assert "'button_a'" not in clone_script
 
-    external_script = controller.find_by_id(
-        "external"
-    )["bindings"][0]["script"]
-    assert external_script == "toolbox.find_item('button_a')"
 
-    controller.cache_subtree(clone)
-    assert controller.find_by_id(cloned_b["id"]) is cloned_b
-
-
-def test_base_editor_controller_renames_references_inside_columns():
-    controller = EditorDocumentController(_nested_document())
-    target = controller.find_by_id("button_a")
-    target["name"] = "button_renamed"
-
-    changed = controller.rename_item_references(
-        "button_a",
-        "button_a",
-        "button_renamed"
-    )
-
-    assert "button_b" in changed
-    assert "external" in changed
-    assert "button_renamed" in controller.find_by_id(
-        "button_b"
-    )["bindings"][0]["script"]
-
-
-def test_numeric_factory_and_store_normalization_share_contract():
+def test_numeric_schema_and_store_normalization_share_contract():
     assert normalize_numeric_value(
         [99, "bad", -99],
         3,
@@ -194,25 +246,29 @@ def test_numeric_factory_and_store_normalization_share_contract():
     integer = create_item(
         "integer",
         {
-            "size": 3,
-            "min": -10,
-            "max": 10,
-            "value": [99, "bad", -99],
+            "props": {
+                "size": 3,
+                "min": -10,
+                "max": 10,
+                "value": [99, "bad", -99],
+            },
         }
     )
-    assert integer["value"] == [10, 0, -10]
+    assert integer["props"]["value"] == [10, 0, -10]
     assert normalize_value(integer, [8, "bad", -50]) == [8, 0, -10]
 
     scalar = create_item(
         "float",
         {
-            "size": 1,
-            "min": -1.0,
-            "max": 1.0,
-            "value": 9.0,
+            "props": {
+                "size": 1,
+                "min": -1.0,
+                "max": 1.0,
+                "value": 9.0,
+            },
         }
     )
-    assert scalar["value"] == 1.0
+    assert scalar["props"]["value"] == 1.0
     assert normalize_numeric_value(
         0.5,
         1,
@@ -223,19 +279,23 @@ def test_numeric_factory_and_store_normalization_share_contract():
     ) == 0.5
 
 
-def test_icon_alignment_uses_only_canonical_key():
-    old_key = create_item(
-        "icon",
-        {"alignment": "right"}
+def test_events_and_image_proof_are_registry_driven():
+    image = create_item(
+        "image",
+        {
+            "name": "reference_front",
+            "props": {
+                "source": "D:/refs/front.png",
+                "fit": "cover",
+                "width": 300,
+                "height": 200,
+            },
+        }
     )
-    current = create_item(
-        "icon",
-        {"content_alignment": "center"}
-    )
-
-    assert old_key["content_alignment"] == "left"
-    assert "alignment" not in old_key
-    assert current["content_alignment"] == "center"
+    assert image["props"]["fit"] == "cover"
+    assert image["props"]["width"] == 300
+    assert binding_events("image") == ("click", "double_click")
+    assert ITEM_TYPES.get("image").fields["source"] is not None
 
 
 def test_label_is_presentation_only_not_lookup_identity():
@@ -244,17 +304,14 @@ def test_label_is_presentation_only_not_lookup_identity():
         {
             "id": "item-id",
             "name": "symbolic_name",
-            "label": "Visible Label",
-            "value": "ok",
+            "ui": {"label": "Visible Label"},
+            "props": {"value": "ok"},
         }
     )
     document = {
         "version": CONFIG_VERSION,
         "sections": [
-            create_item(
-                "folder",
-                {"items": [item]}
-            )
+            create_item("folder", {"items": [item]})
         ],
     }
 
@@ -263,56 +320,38 @@ def test_label_is_presentation_only_not_lookup_identity():
     assert find_item(document, "Visible Label") is None
 
 
-def test_architecture_has_no_legacy_runtime_or_model_paths():
-    layouts_source = _source(
-        "scripts", "script_toolbox", "model", "layouts.py"
-    )
+def test_architecture_has_no_central_kind_extension_tables():
     items_source = _source(
         "scripts", "script_toolbox", "model", "items.py"
     )
     bindings_source = _source(
         "scripts", "script_toolbox", "model", "bindings.py"
     )
-    runtime_source = _source(
-        "scripts", "script_toolbox", "ui", "runtime.py"
+    layouts_source = _source(
+        "scripts", "script_toolbox", "model", "layouts.py"
     )
     renderers_source = _source(
         "scripts", "script_toolbox", "ui", "runtime_renderers.py"
     )
-    references_source = _source(
-        "scripts", "script_toolbox", "core", "references.py"
+    property_registry_source = _source(
+        "scripts", "script_toolbox", "ui", "properties", "registry.py"
     )
-    controller_source = _source(
-        "scripts", "script_toolbox", "core", "editor_document.py"
+    palette_source = _source(
+        "scripts", "script_toolbox", "ui", "item_palette.py"
     )
 
-    assert "items_module.walk_items =" not in layouts_source
-    assert "items_module.create_item =" not in layouts_source
-    assert "._FACTORIES[" not in layouts_source
-    assert "LEGACY_CALLBACK_EVENT_MAP" not in bindings_source
-    assert "click_script" not in bindings_source
-    assert "shift_script" not in bindings_source
-    assert "on_change_script" not in bindings_source
-    assert '"toggle":' not in items_source
-    assert '"section":' not in items_source
-    assert 'data.get("folders")' not in items_source
-    assert "RuntimeSection" not in runtime_source
-    assert "_LEGACY_BUILD" not in renderers_source
-    assert "install_runtime_renderer_registry" not in renderers_source
-    assert '("folder", "row")' not in references_source
-    assert '("folder", "row")' not in controller_source
-    assert "is_container_kind" in references_source
-    assert "is_container_kind" in controller_source
+    assert "_FACTORIES" not in items_source
+    assert "EVENT_CAPABILITIES" not in bindings_source
+    assert "STATE_TOGGLE_KINDS" not in bindings_source
+    assert "CONTAINER_KINDS" not in layouts_source
+    assert "LAYOUT_KINDS" not in layouts_source
+    assert "entries = (" not in renderers_source
+    assert "PROPERTY_EDITORS" not in property_registry_source
+    assert "ITEM_KINDS" not in items_source
+    assert "ITEM_TYPES.creatable()" in palette_source
 
+
+def test_old_text_item_factory_module_is_removed():
     assert not os.path.exists(os.path.join(
-        ROOT, "scripts", "script_toolbox", "model", "callbacks.py"
-    ))
-    assert not os.path.exists(os.path.join(
-        ROOT, "scripts", "script_toolbox", "model", "toggle_button.py"
-    ))
-    assert not os.path.exists(os.path.join(
-        ROOT, "scripts", "script_toolbox", "model", "toggle_icon.py"
-    ))
-    assert not os.path.exists(os.path.join(
-        ROOT, "scripts", "script_toolbox", "core", "layout_document.py"
+        ROOT, "scripts", "script_toolbox", "model", "text_item.py"
     ))

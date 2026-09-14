@@ -6,6 +6,8 @@ from ..compat import QtGui
 from ..core.event_bindings import dispatch_item_event
 from ..model.bindings import binding_events
 from ..model.bindings import matching_bindings
+from ..model.item_builtins import register_builtin_items
+from ..model.item_registry import ITEM_TYPES
 from ..pycompat import text_type
 
 
@@ -83,6 +85,11 @@ def _dispatch(
     )
 
 
+def _definition(item):
+    register_builtin_items()
+    return ITEM_TYPES.get(item.get("kind"))
+
+
 class MouseBindingFilter(QtCore.QObject):
 
     def __init__(self, toolbox, item, parent=None):
@@ -103,9 +110,11 @@ class MouseBindingFilter(QtCore.QObject):
             modifiers=modifiers
         )
 
-    def _suppress_button_clicked(self, button):
+    def _suppress_native_button_clicked(self, button):
+        definition = _definition(self.item)
         if (
-            self.item.get("kind") not in ("button", "toggle_button") or
+            definition is None or
+            not definition.has_capability("native_button") or
             button != "left"
         ):
             return
@@ -149,7 +158,7 @@ class MouseBindingFilter(QtCore.QObject):
         button = _mouse_button(event)
         modifiers = _modifiers(event)
         signature = self._signature(button, modifiers)
-        self._suppress_button_clicked(button)
+        self._suppress_native_button_clicked(button)
 
         if event_type == QtCore.QEvent.MouseButtonDblClick:
             timer = self.pending_clicks.pop(signature, None)
@@ -198,52 +207,19 @@ class MouseBindingFilter(QtCore.QObject):
         return False
 
 
-def _mouse_targets(widget, kind):
-    candidates = [widget]
-    try:
-        candidates.extend(widget.findChildren(QtGui.QWidget))
-    except Exception:
-        pass
-
+def _widget_candidates(widget):
     result = []
 
     def add(candidate):
-        if candidate not in result:
+        if candidate is not None and candidate not in result:
             result.append(candidate)
 
-    for candidate in candidates:
-        if kind in ("button", "toggle_button") and isinstance(
-            candidate,
-            QtGui.QAbstractButton
-        ):
+    add(widget)
+    try:
+        for candidate in widget.findChildren(QtGui.QWidget):
             add(candidate)
-        elif kind in ("icon", "toggle_icon", "label") and isinstance(
-            candidate,
-            (QtGui.QAbstractButton, QtGui.QLabel)
-        ):
-            add(candidate)
-        elif kind == "string" and isinstance(candidate, QtGui.QLineEdit):
-            add(candidate)
-        elif kind in ("integer", "float") and isinstance(
-            candidate,
-            (QtGui.QAbstractSpinBox, QtGui.QSlider)
-        ):
-            add(candidate)
-        elif kind == "checkbox" and isinstance(candidate, QtGui.QCheckBox):
-            add(candidate)
-        elif kind == "menu" and isinstance(candidate, QtGui.QComboBox):
-            add(candidate)
-        elif kind == "color" and isinstance(
-            candidate,
-            QtGui.QAbstractButton
-        ):
-            add(candidate)
-        elif kind == "field" and isinstance(
-            candidate,
-            (QtGui.QLineEdit, QtGui.QAbstractItemView)
-        ):
-            add(candidate)
-
+    except Exception:
+        pass
     return result
 
 
@@ -255,7 +231,7 @@ def _install_mouse_bindings(widget, toolbox, item):
     ):
         return
 
-    for target in _mouse_targets(widget, item.get("kind")):
+    for target in _widget_candidates(widget):
         installed_for = getattr(
             target,
             "_script_toolbox_binding_item",
@@ -282,25 +258,48 @@ def _semantic_value(toolbox, item):
         return item.get("value")
 
 
+def _is_inside_spinbox(control):
+    parent = control.parentWidget()
+    while parent is not None:
+        if isinstance(parent, QtGui.QAbstractSpinBox):
+            return True
+        parent = parent.parentWidget()
+    return False
+
+
+def _editing_targets(widget):
+    candidates = []
+    if isinstance(widget, QtGui.QAbstractSpinBox):
+        candidates.append(widget)
+    try:
+        candidates.extend(widget.findChildren(QtGui.QAbstractSpinBox))
+    except Exception:
+        pass
+
+    line_edits = []
+    if isinstance(widget, QtGui.QLineEdit):
+        line_edits.append(widget)
+    try:
+        line_edits.extend(widget.findChildren(QtGui.QLineEdit))
+    except Exception:
+        pass
+
+    for control in line_edits:
+        if not _is_inside_spinbox(control):
+            candidates.append(control)
+
+    result = []
+    for control in candidates:
+        if control not in result:
+            result.append(control)
+    return result
+
+
 def _install_editing_finished(widget, toolbox, item):
     if "editing_finished" not in binding_events(item.get("kind")):
         return
 
-    target_class = (
-        QtGui.QLineEdit
-        if item.get("kind") == "string"
-        else QtGui.QAbstractSpinBox
-    )
-    candidates = []
-    try:
-        candidates = widget.findChildren(target_class)
-    except Exception:
-        pass
-
-    if isinstance(widget, target_class):
-        candidates.insert(0, widget)
-
-    for control in candidates:
+    for control in _editing_targets(widget):
         if getattr(control, "_script_toolbox_editing_binding", False):
             continue
 
@@ -316,17 +315,11 @@ def _install_editing_finished(widget, toolbox, item):
         )
 
 
-def _install_field_selection(widget, toolbox, item):
-    if "selection_changed" not in binding_events("field"):
+def _install_selection_changed(widget, toolbox, item):
+    if "selection_changed" not in binding_events(item.get("kind")):
         return
 
-    candidates = [widget]
-    try:
-        candidates.extend(widget.findChildren(QtGui.QWidget))
-    except Exception:
-        pass
-
-    for control in candidates:
+    for control in _widget_candidates(widget):
         if not hasattr(control, "selected_values"):
             continue
         if not hasattr(control, "itemSelectionChanged"):
@@ -376,13 +369,12 @@ def _attach_runtime_bindings(widget, toolbox, item):
 
     _install_mouse_bindings(widget, toolbox, item)
     _install_editing_finished(widget, toolbox, item)
-    if item.get("kind") == "field":
-        _install_field_selection(widget, toolbox, item)
+    _install_selection_changed(widget, toolbox, item)
     return widget
 
 
 def install_event_binding_hooks(registry):
-    """Decorate registered renderers with event-filter attachment once."""
+    """Decorate registered renderers using events declared by ItemType data."""
     for kind in registry.kinds():
         if not binding_events(kind):
             continue

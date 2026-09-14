@@ -3,6 +3,7 @@ from __future__ import print_function
 
 from ..compat import QtCore
 from ..compat import QtGui
+from ..model.item_view import item_view
 from ..model.layout_geometry import distribution_spacer_positions
 
 
@@ -77,9 +78,10 @@ def render_column(owner, item, compact=False):
     children = []
     has_stretch = False
 
-    for child in item.get("items", []) or []:
+    for raw_child in item.get("items", []) or []:
+        child = item_view(raw_child)
         child_widget = owner.build_runtime_widget(
-            child,
+            raw_child,
             compact=compact
         )
         if child_widget is None:

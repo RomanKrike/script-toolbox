@@ -14,8 +14,8 @@ from script_toolbox.core.config_schema import detect_config_version
 from script_toolbox.core.config_schema import validate_document_schema
 
 
-def test_schema_20_is_the_only_supported_config_schema():
-    assert CONFIG_VERSION == 20
+def test_schema_21_is_the_only_supported_config_schema():
+    assert CONFIG_VERSION == 21
 
     source = {
         "version": CONFIG_VERSION,

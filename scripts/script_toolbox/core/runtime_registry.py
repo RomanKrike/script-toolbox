@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..model.item_view import ItemDataView
+from ..model.item_view import item_view
 from ..pycompat import text_type
 
 
 class RuntimeRendererRegistry(object):
-    """Map runtime item kinds to renderer callables without importing Qt."""
+    """Runtime renderer table populated from ItemType definitions on UI bootstrap."""
 
     def __init__(self):
         self._renderers = {}
@@ -48,11 +50,15 @@ class RuntimeRendererRegistry(object):
         return tuple(sorted(self._renderers.keys()))
 
     def render(self, owner, item, compact=False):
-        if not isinstance(item, dict):
+        if isinstance(item, ItemDataView):
+            view = item
+        elif isinstance(item, dict):
+            view = item_view(item)
+        else:
             return None
 
         renderer = self.renderer_for(
-            item.get("kind")
+            view.get("kind")
         )
 
         if renderer is None:
@@ -60,7 +66,7 @@ class RuntimeRendererRegistry(object):
 
         return renderer(
             owner,
-            item,
+            view,
             compact=compact
         )
 

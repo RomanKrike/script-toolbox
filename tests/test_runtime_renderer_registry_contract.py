@@ -33,45 +33,63 @@ def test_ui_package_delegates_runtime_composition_to_explicit_bootstrap():
     assert runtime_step < toolbox_step
 
 
-def test_default_registry_covers_native_base_runtime_kinds():
+def test_default_registry_is_built_from_item_type_renderer_metadata():
     source = _read("scripts/script_toolbox/ui/runtime_renderers.py")
+    definitions = _read("scripts/script_toolbox/model/item_builtins.py")
+    ui_bootstrap = _read("scripts/script_toolbox/ui/item_ui_bootstrap.py")
 
-    expected = set([
-        "folder",
-        "row",
-        "button",
-        "icon",
-        "checkbox",
-        "field",
-        "label",
-        "separator",
-        "string",
-        "integer",
-        "float",
-        "menu",
-        "color",
-    ])
+    assert "for definition in ITEM_TYPES.all():" in source
+    assert "if definition.renderer is not None:" in source
+    assert "definition.kind" in source
+    assert "definition.renderer" in source
+    assert "for definition in ITEM_TYPES.all():" in ui_bootstrap
+    assert "definition.renderer_path" in ui_bootstrap
 
-    for kind in expected:
-        assert '("{0}", _render_'.format(kind) in source
+    expected_paths = (
+        ".runtime_renderers:_render_folder",
+        ".row_layout:render_row",
+        ".column_layout:render_column",
+        ".runtime_renderers:_render_button",
+        ".toggle_button_runtime:render_toggle_button",
+        ".runtime_renderers:_render_icon",
+        ".toggle_icon_runtime:render_toggle_icon",
+        ".runtime_renderers:_render_checkbox",
+        ".runtime_renderers:_render_field",
+        ".runtime_renderers:_render_label",
+        ".text_runtime:render_text",
+        ".runtime_renderers:_render_separator",
+        ".runtime_renderers:_render_string",
+        ".runtime_renderers:_render_integer",
+        ".runtime_renderers:_render_float",
+        ".runtime_renderers:_render_menu",
+        ".runtime_renderers:_render_color",
+        ".image_item:render_image",
+    )
 
-    assert '("toggle", _render_' not in source
+    for path in expected_paths:
+        assert 'renderer_path="{0}"'.format(path) in definitions
 
 
-def test_specialized_current_kinds_are_owned_by_composition_root():
-    source = _read("scripts/script_toolbox/ui/bootstrap.py")
+def test_specialized_current_renderers_are_definition_owned():
+    definitions = _read("scripts/script_toolbox/model/item_builtins.py")
+    ui_bootstrap = _read("scripts/script_toolbox/ui/item_ui_bootstrap.py")
 
-    assert 'registry.register("row", render_row, replace=True)' in source
-    assert 'registry.register("column", render_column, replace=True)' in source
-    assert 'registry.register("text", render_text, replace=True)' in source
+    assert 'renderer_path=".row_layout:render_row"' in definitions
+    assert 'renderer_path=".column_layout:render_column"' in definitions
+    assert 'renderer_path=".text_runtime:render_text"' in definitions
     assert (
-        'registry.register("toggle_button", render_toggle_button, replace=True)'
-        in source
+        'renderer_path=".toggle_button_runtime:render_toggle_button"'
+        in definitions
     )
     assert (
-        'registry.register("toggle_icon", render_toggle_icon, replace=True)'
-        in source
+        'renderer_path=".toggle_icon_runtime:render_toggle_icon"'
+        in definitions
     )
+    assert 'renderer_path=".image_item:render_image"' in definitions
+    assert "ITEM_TYPES.bind_ui(" in ui_bootstrap
+    assert '"row"' not in ui_bootstrap
+    assert '"column"' not in ui_bootstrap
+    assert '"image"' not in ui_bootstrap
 
 
 def test_active_runtime_dispatch_is_registry_based_without_method_patch():

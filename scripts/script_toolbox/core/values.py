@@ -4,11 +4,9 @@ from __future__ import print_function
 import copy
 
 from ..model import DocumentIndex
+from ..model import ITEM_TYPES
 from ..model import walk_items
-from ..model.items import normalize_numeric_value
-from ..model.items import safe_color
-from ..model.items import safe_float
-from ..model.items import safe_int
+from ..model.item_builtins import register_builtin_items
 from ..pycompat import text_type
 
 
@@ -76,11 +74,7 @@ def _linear_find_item(document, key):
     return None
 
 
-def find_item(
-    document,
-    key,
-    index=None
-):
+def find_item(document, key, index=None):
     if index is None:
         index = get_document_index(document)
     else:
@@ -98,97 +92,53 @@ def find_item(
     return index.find(key)
 
 
-def get_value(
-    document,
-    key,
-    default=None,
-    index=None
-):
-    item = find_item(
-        document,
-        key,
-        index=index
-    )
+def _value_definition(item):
+    register_builtin_items()
+    if not isinstance(item, dict):
+        return None
+    definition = ITEM_TYPES.get(item.get("kind"))
+    if definition is None or not definition.has_capability("has_value"):
+        return None
+    if definition.has_capability("state_toggle"):
+        props = item.get("props", {}) or {}
+        if props.get("state_source", "internal") != "internal":
+            return None
+    return definition
 
-    if item is None or "value" not in item:
+
+def get_value(document, key, default=None, index=None):
+    item = find_item(document, key, index=index)
+    definition = _value_definition(item)
+    if definition is None:
         return default
 
-    return copy.deepcopy(item["value"])
+    props = item.get("props", {})
+    if "value" not in props:
+        return default
+    return copy.deepcopy(props["value"])
 
 
 def normalize_value(item, value):
-    kind = item.get("kind")
+    definition = _value_definition(item)
+    if definition is None:
+        return value
 
-    if kind == "field":
-        if value is None:
-            return ""
-
-        if isinstance(value, (list, tuple)):
-            return [
-                text_type(entry)
-                for entry in value
-            ]
-
-        return text_type(value)
-
-    if kind == "string":
-        return text_type(value)
-
-    if kind == "integer":
-        return normalize_numeric_value(
-            value,
-            item.get("size", 1),
-            item["min"],
-            item["max"],
-            safe_int,
-            item.get("value", 0)
-        )
-
-    if kind == "float":
-        return normalize_numeric_value(
-            value,
-            item.get("size", 1),
-            item["min"],
-            item["max"],
-            safe_float,
-            item.get("value", 0.0)
-        )
-
-    if kind in (
-        "checkbox",
-        "toggle_button",
-        "toggle_icon",
-    ):
-        return bool(value)
-
-    if kind == "menu":
-        value = text_type(value)
-        if value in item["items"]:
-            return value
-        return item["items"][0]
-
-    if kind == "color":
-        return safe_color(value)
-
-    return value
+    raw_props = dict(item.get("props", {}) or {})
+    raw_props["value"] = value
+    normalized = definition.normalize_props(raw_props)
+    return copy.deepcopy(normalized.get("value", value))
 
 
-def store_value(
-    document,
-    key,
-    value,
-    index=None
-):
-    item = find_item(
-        document,
-        key,
-        index=index
-    )
-
-    if item is None or "value" not in item:
+def store_value(document, key, value, index=None):
+    item = find_item(document, key, index=index)
+    definition = _value_definition(item)
+    if definition is None:
         return None
 
-    item["value"] = normalize_value(item, value)
+    props = item.setdefault("props", {})
+    if "value" not in definition.fields:
+        return None
+    props["value"] = normalize_value(item, value)
     return item
 
 

@@ -3,25 +3,33 @@ from __future__ import print_function
 
 from ..core.executor import execute_script_result
 from ..core.state_toggle import state_toggle_action
+from ..model.item_builtins import register_builtin_items
+from ..model.item_registry import ITEM_TYPES
+from ..model.item_view import ItemDataView
 
 
 _HOOK_MARKER = "_script_toolbox_state_toggle_behavior"
 
 
 def install_state_toggle_behavior(toolbox_class):
-    """Install the shared toggle transition semantics on a runtime class."""
+    """Install shared state-toggle semantics for capable Item types."""
     if getattr(toolbox_class, _HOOK_MARKER, False):
         return False
 
     def run_state_binding(self, item_or_id, binding=None, event=None):
         item = (
             item_or_id
-            if isinstance(item_or_id, dict)
+            if isinstance(item_or_id, (dict, ItemDataView))
             else self.find_item(item_or_id)
         )
-        if item is None or item.get("kind") not in (
-            "toggle_button",
-            "toggle_icon",
+        if item is None:
+            return None
+
+        register_builtin_items()
+        definition = ITEM_TYPES.get(item.get("kind"))
+        if (
+            definition is None or
+            not definition.has_capability("state_toggle")
         ):
             return None
 

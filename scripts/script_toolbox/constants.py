@@ -14,7 +14,7 @@ WINDOW_OBJECT_NAME = "MayaScriptToolbox"
 EDITOR_OBJECT_NAME = "MayaScriptToolboxInterfaceEditor"
 
 CONFIG_FILENAME = "maya_script_toolbox.json"
-CONFIG_VERSION = 20
+CONFIG_VERSION = 21
 
 SETTINGS_FILENAME = "script_toolbox_settings.json"
 
@@ -32,24 +32,4 @@ FOLDER_TYPES = (
     "simple",
     "tabs",
     "radio",
-)
-
-ITEM_KINDS = (
-    "button",
-    "toggle_button",
-    "icon",
-    "toggle_icon",
-    "string",
-    "integer",
-    "float",
-    "checkbox",
-    "menu",
-    "color",
-    "field",
-    "label",
-    "text",
-    "separator",
-    "row",
-    "column",
-    "folder",
 )

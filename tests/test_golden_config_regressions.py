@@ -22,7 +22,7 @@ def fixture_path(name):
 
 def test_current_golden_config_round_trip_is_idempotent(tmp_path):
     document = load_config(
-        path=str(fixture_path("golden_v20_current.json"))
+        path=str(fixture_path("golden_v21_current.json"))
     )
     output = tmp_path / "round_trip.json"
 
@@ -40,7 +40,7 @@ def test_current_golden_config_round_trip_is_idempotent(tmp_path):
 
 def test_current_golden_config_preserves_native_kinds_and_nested_order():
     document = load_config(
-        path=str(fixture_path("golden_v20_current.json"))
+        path=str(fixture_path("golden_v21_current.json"))
     )
 
     snapshot = [
@@ -59,13 +59,16 @@ def test_current_golden_config_preserves_native_kinds_and_nested_order():
         ("selection", "field"),
     ]
 
-    assert find_item(document, "status_icon")["content_alignment"] == "center"
+    assert (
+        find_item(document, "status_icon")["props"]["content_alignment"]
+        == "center"
+    )
     assert find_item(document, "render_state")["kind"] == "toggle_button"
 
 
 def test_current_golden_config_has_unique_stable_ids():
     document = load_config(
-        path=str(fixture_path("golden_v20_current.json"))
+        path=str(fixture_path("golden_v21_current.json"))
     )
     ids = [
         item["id"]

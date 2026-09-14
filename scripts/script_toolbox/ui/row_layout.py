@@ -3,6 +3,9 @@ from __future__ import print_function
 
 from ..compat import QtCore
 from ..compat import QtGui
+from ..model.item_builtins import register_builtin_items
+from ..model.item_registry import ITEM_TYPES
+from ..model.item_view import item_view
 from ..model.layout_geometry import distribution_spacer_positions
 
 
@@ -26,10 +29,9 @@ def _add_spacer_if_needed(layout, positions, position):
 
 
 def _layout_child_fills_height(child):
-    return child.get("kind") in (
-        "row",
-        "column",
-    )
+    register_builtin_items()
+    definition = ITEM_TYPES.get(child.get("kind"))
+    return bool(definition and definition.is_layout)
 
 
 def _add_child_widget(
@@ -40,8 +42,6 @@ def _add_child_widget(
     fill_height
 ):
     if fill_height:
-        # Nested layout containers need the full Row cross-axis so their own
-        # vertical alignment/distribution can consume the available height.
         layout.addWidget(
             child_widget,
             stretch
@@ -101,9 +101,10 @@ def render_row(owner, item, compact=False):
     children = []
     has_stretch = False
 
-    for child in item.get("items", []) or []:
+    for raw_child in item.get("items", []) or []:
+        child = item_view(raw_child)
         child_widget = owner.build_runtime_widget(
-            child,
+            raw_child,
             compact=True
         )
         if child_widget is None:

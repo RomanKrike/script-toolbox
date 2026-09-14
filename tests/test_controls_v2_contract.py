@@ -15,12 +15,18 @@ def _source(*parts):
     return open(path, "r").read()
 
 
-def test_runtime_registry_registers_icon_and_numeric_renderers():
+def test_runtime_registry_registers_icon_and_numeric_renderers_from_metadata():
     source = _source(
         "scripts", "script_toolbox", "ui", "runtime_renderers.py"
     )
+    definitions = _source(
+        "scripts", "script_toolbox", "model", "item_builtins.py"
+    )
 
-    assert '("icon", _render_icon)' in source
+    assert 'renderer_path=".runtime_renderers:_render_icon"' in definitions
+    assert 'renderer_path=".runtime_renderers:_render_integer"' in definitions
+    assert 'renderer_path=".runtime_renderers:_render_float"' in definitions
+    assert "for definition in ITEM_TYPES.all():" in source
     assert "safe_numeric_size" in source
     assert 'item.get("show_slider", False)' in source
     assert "QSlider" in source
@@ -93,23 +99,34 @@ def test_event_binding_runtime_installs_mouse_filter_and_double_click_delay():
     assert "dispatch_item_event" in source
 
 
-def test_icon_property_editor_and_palette_are_registered():
-    registry = _source(
-        "scripts", "script_toolbox", "ui", "properties", "registry.py"
+def test_icon_property_editor_and_palette_are_registry_driven():
+    definitions = _source(
+        "scripts", "script_toolbox", "model", "item_builtins.py"
     )
-    bootstrap = _source(
-        "scripts", "script_toolbox", "ui", "bootstrap.py"
+    ui_bootstrap = _source(
+        "scripts", "script_toolbox", "ui", "item_ui_bootstrap.py"
+    )
+    palette = _source(
+        "scripts", "script_toolbox", "ui", "item_palette.py"
     )
 
-    assert '"icon": IconPropertyEditor' in registry
-    assert '"toggle_icon": ToggleIconPropertyEditor' in registry
-    assert '"Icon",' in bootstrap
-    assert '"Toggle Icon",' in bootstrap
+    assert 'inspector_path=".properties.icon:IconPropertyEditor"' in definitions
+    assert (
+        'inspector_path=".properties.toggle_icon:ToggleIconPropertyEditor"'
+        in definitions
+    )
+    assert '"icon", "Icon", "Display", 10' in definitions
+    assert '"toggle_icon", "Toggle Icon", "Controls", 30' in definitions
+    assert "for definition in ITEM_TYPES.all():" in ui_bootstrap
+    assert "ITEM_TYPES.creatable()" in palette
 
 
 def test_layout_bindings_are_not_public_runtime_events():
     binding_source = _source(
         "scripts", "script_toolbox", "model", "bindings.py"
+    )
+    definitions = _source(
+        "scripts", "script_toolbox", "model", "item_builtins.py"
     )
     package_source = _source(
         "scripts", "script_toolbox", "ui", "__init__.py"
@@ -118,10 +135,11 @@ def test_layout_bindings_are_not_public_runtime_events():
         "scripts", "script_toolbox", "ui", "bootstrap.py"
     )
 
-    assert '"folder": (),' in binding_source
-    assert '"row": (),' in binding_source
-    assert '"column": (),' in binding_source
-    assert '"separator": (),' in binding_source
+    assert "definition.events" in binding_source
+    assert "EVENT_CAPABILITIES" not in binding_source
+    assert '"folder", "Folder", "Layout", 10' in definitions
+    assert '"row", "Row", "Layout", 20' in definitions
+    assert '"column", "Column", "Layout", 30' in definitions
     assert "controls_v2_hooks" not in package_source
     assert "controls_v2_hooks" not in bootstrap
 

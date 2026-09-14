@@ -6,6 +6,8 @@ import os
 from ..compat import QtCore
 from ..compat import QtGui
 from ..core.runtime_registry import RuntimeRendererRegistry
+from ..model.item_builtins import register_builtin_items
+from ..model.item_registry import ITEM_TYPES
 from ..model.items import safe_component_labels
 from ..model.items import safe_numeric_size
 from ..pycompat import text_type
@@ -418,26 +420,17 @@ def _render_color(owner, item, compact=False):
 
 
 def build_default_runtime_renderer_registry():
+    register_builtin_items()
+    from .item_ui_bootstrap import ensure_builtin_item_ui_bindings
+    ensure_builtin_item_ui_bindings()
+
     registry = RuntimeRendererRegistry()
-    entries = (
-        ("folder", _render_folder),
-        ("row", _render_row),
-        ("button", _render_button),
-        ("icon", _render_icon),
-        ("checkbox", _render_checkbox),
-        ("field", _render_field),
-        ("label", _render_label),
-        ("separator", _render_separator),
-        ("string", _render_string),
-        ("integer", _render_integer),
-        ("float", _render_float),
-        ("menu", _render_menu),
-        ("color", _render_color),
-    )
-
-    for kind, renderer in entries:
-        registry.register(kind, renderer)
-
+    for definition in ITEM_TYPES.all():
+        if definition.renderer is not None:
+            registry.register(
+                definition.kind,
+                definition.renderer
+            )
     return registry
 
 
@@ -454,26 +447,35 @@ def get_runtime_renderer_registry():
     return _ACTIVE_REGISTRY
 
 
-def register_runtime_renderer(
-    kind,
-    renderer,
-    replace=False
-):
-    if _ACTIVE_REGISTRY is None:
-        raise RuntimeError(
-            "Runtime renderer registry is not initialized."
+def register_runtime_renderer(kind, renderer, replace=False):
+    register_builtin_items()
+    definition = ITEM_TYPES.get(kind, required=True)
+    if definition.renderer is not None and not replace:
+        raise ValueError(
+            "Renderer for kind '{0}' is already registered.".format(
+                definition.kind
+            )
         )
-    return _ACTIVE_REGISTRY.register(
-        kind,
-        renderer,
-        replace=replace
-    )
+    ITEM_TYPES.bind_ui(definition.kind, renderer=renderer)
+    if _ACTIVE_REGISTRY is not None:
+        _ACTIVE_REGISTRY.register(
+            definition.kind,
+            renderer,
+            replace=replace
+        )
+    return renderer
 
 
 def unregister_runtime_renderer(kind):
-    if _ACTIVE_REGISTRY is None:
+    register_builtin_items()
+    definition = ITEM_TYPES.get(kind)
+    if definition is None:
         return None
-    return _ACTIVE_REGISTRY.unregister(kind)
+    previous = definition.renderer
+    ITEM_TYPES.bind_ui(definition.kind, renderer=None)
+    if _ACTIVE_REGISTRY is not None:
+        _ACTIVE_REGISTRY.unregister(definition.kind)
+    return previous
 
 
 __all__ = [

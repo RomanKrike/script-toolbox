@@ -1,72 +1,68 @@
 # -*- coding: utf-8 -*-
 
-from ...pycompat import text_type
+from ...model.item_builtins import register_builtin_items
+from ...model.item_registry import ITEM_TYPES
+from ...model.item_registry import bind_item_ui
+from ...model.item_view import item_view
 from .base import EmptyPropertyEditor
-from .base import PropertyEditorBase
-from .basic import CheckboxPropertyEditor
-from .basic import ColorPropertyEditor
-from .basic import FloatPropertyEditor
-from .basic import IntegerPropertyEditor
-from .basic import LabelPropertyEditor
-from .basic import MenuPropertyEditor
-from .basic import SeparatorPropertyEditor as _SeparatorPropertyEditor
-from .basic import StringPropertyEditor
-from .button import ButtonPropertyEditor
-from .column import ColumnPropertyEditor
-from .field import FieldPropertyEditor
-from .folder import FolderPropertyEditor
-from .icon import IconPropertyEditor
-from .row import RowPropertyEditor
-from .text import TextPropertyEditor
-from .toggle_button import ToggleButtonPropertyEditor
-from .toggle_icon import ToggleIconPropertyEditor
 
 
-class SeparatorPropertyEditor(_SeparatorPropertyEditor):
-    def write_to_item(self):
-        if self.item is None:
-            return
-
-        PropertyEditorBase.write_to_item(self)
-        self.item["name"] = text_type(
-            self.name_edit.text()
-        ).strip() or "separator"
-        self.item["bindings"] = []
+_ROUTED_EDITORS = {}
 
 
-PROPERTY_EDITORS = {
-    "folder": FolderPropertyEditor,
-    "row": RowPropertyEditor,
-    "column": ColumnPropertyEditor,
-    "button": ButtonPropertyEditor,
-    "toggle_button": ToggleButtonPropertyEditor,
-    "icon": IconPropertyEditor,
-    "toggle_icon": ToggleIconPropertyEditor,
-    "string": StringPropertyEditor,
-    "integer": IntegerPropertyEditor,
-    "float": FloatPropertyEditor,
-    "checkbox": CheckboxPropertyEditor,
-    "menu": MenuPropertyEditor,
-    "color": ColorPropertyEditor,
-    "field": FieldPropertyEditor,
-    "label": LabelPropertyEditor,
-    "text": TextPropertyEditor,
-    "separator": SeparatorPropertyEditor,
-}
+def _ensure_builtin_bindings():
+    from ..item_ui_bootstrap import ensure_builtin_item_ui_bindings
+    ensure_builtin_item_ui_bindings()
+
+
+def _routed_editor_class(editor_class):
+    if editor_class is EmptyPropertyEditor:
+        return editor_class
+    routed = _ROUTED_EDITORS.get(editor_class)
+    if routed is not None:
+        return routed
+
+    class EnvelopeRoutedEditor(editor_class):
+        def bind(self, item):
+            return editor_class.bind(self, item_view(item))
+
+        def set_parent_layout_context(self, parent_kind, parent_item=None):
+            if isinstance(parent_item, dict):
+                parent_item = item_view(parent_item)
+            return editor_class.set_parent_layout_context(
+                self,
+                parent_kind,
+                parent_item
+            )
+
+    EnvelopeRoutedEditor.__name__ = (
+        editor_class.__name__ + "EnvelopeRouted"
+    )
+    _ROUTED_EDITORS[editor_class] = EnvelopeRoutedEditor
+    return EnvelopeRoutedEditor
+
+
+def register_property_editor(kind, editor_class, replace=False):
+    register_builtin_items()
+    definition = ITEM_TYPES.get(kind, required=True)
+    if definition.inspector is not None and not replace:
+        raise ValueError(
+            "Property editor already registered: {0}".format(kind)
+        )
+    bind_item_ui(kind, inspector=editor_class)
+    return editor_class
 
 
 def editor_class(kind):
-    return PROPERTY_EDITORS.get(
-        kind,
-        EmptyPropertyEditor
-    )
+    register_builtin_items()
+    _ensure_builtin_bindings()
+    definition = ITEM_TYPES.get(kind)
+    if definition is None or definition.inspector is None:
+        return EmptyPropertyEditor
+    return _routed_editor_class(definition.inspector)
 
 
-def create_editor(
-    kind,
-    toolbox=None,
-    parent=None
-):
+def create_editor(kind, toolbox=None, parent=None):
     cls = editor_class(kind)
     return cls(
         toolbox=toolbox,
@@ -75,7 +71,7 @@ def create_editor(
 
 
 __all__ = [
-    "PROPERTY_EDITORS",
     "create_editor",
     "editor_class",
+    "register_property_editor",
 ]

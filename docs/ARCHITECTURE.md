@@ -163,7 +163,7 @@ raw props
   -> canonical props
 ```
 
-`ItemTypeDefinition.validate_props()` uses the same supported coercion rules for diagnostic validation. Canonical construction, `normalize_document()`, editor writes through `normalize_item_props()`, config load and runtime value writes all use `ItemTypeDefinition.normalize_props()`; validation is therefore part of the real data path rather than an optional helper.
+`ItemTypeDefinition.validate_props()` uses the same supported coercion rules for diagnostic validation. Canonical construction, `normalize_document()`, config load, Inspector writes and runtime value writes all use `ItemTypeDefinition.normalize_props()`; validation is therefore part of the real data path rather than an optional helper.
 
 The coercion boundary is explicit:
 
@@ -173,9 +173,9 @@ The coercion boundary is explicit:
 - `BoolField`: accepts booleans, `1`/`0`, and the explicit case-insensitive strings `true`/`false`, `yes`/`no`, `1`/`0`; arbitrary non-empty strings are invalid. In particular, `BoolField.normalize("false")` is `False`, never Python's `bool("false") == True` behavior.
 - numeric/color bounds normalize by clamping after successful parsing; parsing failure is not a bound case and raises validation error.
 
-`FieldValidationError` describes a field-level parse/validation failure. `ItemValidationError` is the Item-level error contract and carries `kind`, optional `id`/`name`, `field`, bad `value`, and `reason`. Config recovery surfaces that structured message for malformed current-schema data instead of silently repairing it.
+`FieldValidationError` describes a field-level parse/validation failure. `ItemValidationError` is the Item-level error contract and carries `kind`, optional `id`/`name`, `field`, bad `value`, and `reason`. Runtime value normalization passes the current Item identity into the definition, so runtime validation errors preserve the same context as config/editor errors.
 
-Complex cross-field invariants stay at definition level through `normalize_props`; the Inspector does not become a second validator. Specialized editors may write raw UI values into `props`, but `PropertyEditorBase.write_to_item()` then calls `normalize_item_props()` before emitting the changed state.
+Complex cross-field invariants stay at definition level through `normalize_props`; the Inspector does not become a second validator. `PropertyEditorBase.write_to_item()` copies the current valid props into a candidate, lets the specialized Inspector write only into that candidate, validates/normalizes it through `normalize_item_props_candidate()`, and commits `self.item["props"]` only after success. A validation failure discards the candidate and leaves the previous valid props unchanged. Universal `name`/`ui` editing remains outside that minimal props transaction to avoid a larger Inspector redesign.
 
 ## Layout semantics
 
@@ -207,16 +207,24 @@ A synthetic horizontal `Flow Layout` can therefore use properties such as `flow_
 
 ## Section semantics
 
-A section is identified by capability `section`; its type-specific mode field is declared separately by `SectionSpec`:
+A section is identified by capability `section`; `SectionSpec` states only which schema field carries the section mode:
 
 ```python
-SectionSpec(
-    mode_field="display_mode",
-    modes=("cards", "stack"),
-)
+SectionSpec(mode_field="display_mode")
 ```
 
-The `section` capability does **not** imply a property named `folder_type`. Generic runtime obtains the mode through `definition.section_mode(props)`, which resolves `section_spec.mode_field` and the declared Field. Folder keeps its existing persisted `folder_type` schema through `SectionSpec(mode_field="folder_type", ...)`, but the generic runtime does not know that literal.
+The declared Field is the single source of truth for mode data validation. For example:
+
+```python
+fields={
+    "display_mode": ChoiceField(
+        ("cards", "stack"),
+        default="cards"
+    )
+}
+```
+
+The `section` capability does **not** imply a property named `folder_type`. Generic runtime obtains the mode through `definition.section_mode(props)`, which resolves `section_spec.mode_field` and delegates normalization/validation to that Field. `SectionSpec` does not maintain a second `modes` tuple. Folder keeps its existing persisted `folder_type` schema through `SectionSpec(mode_field="folder_type")`, while its `ChoiceField` remains authoritative for `collapsible` / `simple` / `tabs` / `radio`.
 
 A future Card Section with `props.display_mode`, an Accordion Section, Tool Group or Asset Group can therefore participate in generic section routing without changing `ui/runtime.py` or adding a concrete-kind branch. Type-specific rendering behavior still belongs to that Item's renderer.
 
@@ -270,17 +278,20 @@ flow = ItemTypeDefinition(
 Example section definition:
 
 ```python
+from script_toolbox.model.fields import ChoiceField
 from script_toolbox.model.item_registry import ItemTypeDefinition, SectionSpec
 
 card = ItemTypeDefinition(
     kind="card_section",
     title="Card Section",
-    fields={...},
+    fields={
+        "display_mode": ChoiceField(
+            ("cards", "stack"),
+            default="cards"
+        )
+    },
     capabilities=("container", "section"),
-    section=SectionSpec(
-        mode_field="display_mode",
-        modes=("cards", "stack"),
-    ),
+    section=SectionSpec(mode_field="display_mode"),
     renderer_path=".card_section:render_card_section",
     inspector_path=".card_section:CardSectionPropertyEditor",
 )
@@ -315,6 +326,8 @@ Top-level document sections are expressed by the `section` capability. Layout co
 Toggle Button and Toggle Icon participate in the generic value API only when `state_source == "internal"`. Script-driven toggles do not persist or acquire a synthetic `props.value` through `store_value()`.
 
 Numeric scalar/vector construction and runtime writes share definition normalizers so size, min/max clamping and component count cannot diverge. Invalid numeric content is rejected instead of being silently replaced with an unrelated fallback. Field values preserve the established runtime contract: scalar values become text, list/tuple values become lists of text values, and single-value fields collapse list input to the first value.
+
+Selection-backed Field refresh intentionally remains transient: it does not route through `set_value()`, does not trigger an automatic save or rebuild, and preserves the existing `value_changed` behavior. Before the direct transient commit, the candidate selection value passes through `core.values.normalize_value()`, so the same Item schema produces the canonical stored value.
 
 For Icon and Toggle Icon alignment, `content_alignment` is the only type-specific property key. Generic layout alignment belongs to `ui.alignment`.
 
@@ -478,7 +491,9 @@ scripts/script_toolbox/
 - Persist event behavior only as `bindings`.
 - New item types register through `ItemTypeDefinition`; core, palette, events, runtime and Inspector routing derive from that metadata instead of central kind tables.
 - Layout semantics belong to `LayoutSpec`; generic layout code must not infer behavior from concrete prop names or Item kinds.
-- Section semantics belong to `SectionSpec`; generic section code must not assume a `folder_type` field.
+- Section semantics belong to `SectionSpec`; the Field referenced by `mode_field` is the single source of truth for allowed mode values.
+- Inspector type-specific props edits are candidate-based and commit only after schema validation succeeds.
+- Generic runtime value writes pass through Item schema normalization before mutating `props.value`.
 - External definitions that can occur in config register before config load/normalization.
 - Structural recursion and editor containment use registry capabilities and canonical traversal.
 - Shared network compatibility belongs in `core/http_transport.py`; updater/share must not duplicate PowerShell transport logic.

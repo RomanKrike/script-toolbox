@@ -7,7 +7,6 @@ from ...compat import QtCore
 from ...compat import QtGui
 from ...model.bindings import EVENT_LABELS
 from ...model.bindings import MOUSE_BUTTONS
-from ...model.bindings import STATE_TOGGLE_KINDS
 from ...model.bindings import binding_display_name
 from ...model.bindings import binding_events
 from ...model.bindings import binding_signature
@@ -16,6 +15,8 @@ from ...model.bindings import is_mouse_event
 from ...model.bindings import make_binding
 from ...model.bindings import normalize_bindings
 from ...model.bindings import supports_bindings
+from ...model.item_builtins import register_builtin_items
+from ...model.item_registry import ITEM_TYPES
 from ...pycompat import text_type
 from ...style.metrics import FORM_INLINE_SPACING
 from ...style.metrics import TRIGGER_PAGE_MARGINS
@@ -27,6 +28,15 @@ from ..layout_helpers import configure_inline_layout
 from ..layout_helpers import configure_layout
 from .inspector_tabs import style_binding_panel
 from .inspector_tabs import style_inspector_tabs
+
+
+def _item_has_capability(kind, capability):
+    register_builtin_items()
+    definition = ITEM_TYPES.get(kind)
+    return bool(
+        definition is not None and
+        definition.has_capability(capability)
+    )
 
 
 class AddBindingDialog(QtGui.QDialog):
@@ -590,7 +600,7 @@ class BindingPanel(QtGui.QWidget):
                 candidate.write().get("event") == "click"
             ) <= 1
 
-        if kind in STATE_TOGGLE_KINDS:
+        if _item_has_capability(kind, "state_toggle"):
             if current.get("handler") != "state_toggle":
                 return False
             return sum(

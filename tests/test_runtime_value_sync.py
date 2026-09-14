@@ -500,7 +500,7 @@ def test_base_and_debounced_store_overrides_are_wrapped_independently():
     )
 
 
-def test_ui_installs_sync_for_live_debounced_runtime_after_renderer_hooks():
+def test_ui_installs_sync_for_live_debounced_runtime_after_shared_decoration():
     source = _read(
         "scripts/script_toolbox/ui/bootstrap.py"
     )
@@ -508,10 +508,10 @@ def test_ui_installs_sync_for_live_debounced_runtime_after_renderer_hooks():
     value_sync = source.index(
         "install_runtime_value_sync("
     )
-    event_hooks = source.index(
-        "install_event_binding_hooks(registry)"
+    generic_decoration = source.index(
+        "_decorate_runtime_renderer_registry(registry)"
     )
 
-    assert event_hooks < value_sync
+    assert generic_decoration < value_sync
     assert "_debounced_main_window_module._DebouncedScriptToolbox" in source
     assert "store_toolbox_classes=(" in source

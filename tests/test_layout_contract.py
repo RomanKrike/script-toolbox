@@ -2,6 +2,7 @@
 
 import os
 
+from script_toolbox.model import ITEM_TYPES
 from script_toolbox.model import create_item
 from script_toolbox.model.layout_geometry import distribution_spacer_positions
 
@@ -39,6 +40,21 @@ def test_distribution_spacer_positions_cover_row_and_column_semantics():
     assert distribution_spacer_positions(
         "bottom", 2, "top", "bottom"
     ) == (0,)
+
+
+def test_row_and_column_expose_explicit_layout_specs():
+    row = ITEM_TYPES.get("row", required=True)
+    column = ITEM_TYPES.get("column", required=True)
+
+    assert row.layout_spec.axis == "horizontal"
+    assert row.layout_spec.distribution_field == "horizontal_distribution"
+    assert row.layout_spec.cross_alignment_field == "vertical_alignment"
+    assert row.layout_spec.equal_size_field == "equal_widths"
+
+    assert column.layout_spec.axis == "vertical"
+    assert column.layout_spec.distribution_field == "vertical_distribution"
+    assert column.layout_spec.cross_alignment_field == "horizontal_alignment"
+    assert column.layout_spec.equal_size_field is None
 
 
 def test_row_uses_explicit_parent_distribution_only():
@@ -102,7 +118,7 @@ def test_column_normalizes_distribution_and_child_height_contract():
     assert column["items"][1]["ui"]["vertical_stretch"] == 3
 
 
-def test_column_child_height_values_are_clamped():
+def test_column_child_height_values_are_clamped_or_defaulted_as_ui_data():
     column = create_item(
         "column",
         {
@@ -141,15 +157,19 @@ def test_runtime_registry_resolves_row_and_column_from_type_metadata():
 
     assert 'renderer_path=".row_layout:render_row"' in definitions
     assert 'renderer_path=".column_layout:render_column"' in definitions
+    assert 'axis="horizontal"' in definitions
+    assert 'axis="vertical"' in definitions
     assert "for definition in ITEM_TYPES.all():" in ui_bootstrap
     assert "definition.renderer_path" in ui_bootstrap
+    # Specialized renderers own their own persisted prop schema; only generic
+    # editor/routing code must be metadata-driven.
     assert 'props.get(\n        "horizontal_distribution"' in row_runtime
     assert 'props.get(\n        "vertical_distribution"' in column_runtime
     assert 'child_ui.get(\n            "height_mode"' in column_runtime
     assert 'child_ui.get("vertical_stretch", 1)' in column_runtime
 
 
-def test_property_editor_exposes_unified_parent_layout_adapter():
+def test_property_editor_exposes_metadata_driven_parent_layout_adapter():
     base = _source(
         "scripts", "script_toolbox", "ui", "properties", "base.py"
     )
@@ -175,8 +195,10 @@ def test_property_editor_exposes_unified_parent_layout_adapter():
     assert 'ui["height_mode"]' in adapter
     assert 'ui["height"]' in adapter
     assert 'ui["vertical_stretch"]' in adapter
-    assert "parent_definition.layout_axis" in adapter
-    assert "row_equal_widths" in adapter
+    assert "parent_definition.layout_spec" in adapter
+    assert "spec.distribution_field" in adapter
+    assert "spec.cross_alignment_field" in adapter
+    assert "equal_size_field" in adapter
     assert "row_alignment" not in adapter
     assert '"Distribution"' in row
     assert '"Cross Alignment"' in row

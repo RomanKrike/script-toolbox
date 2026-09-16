@@ -28,6 +28,7 @@ from .scroll_surface_frames import install_script_editor_scroll_frames
 from .state_toggle_hooks import install_state_toggle_behavior
 from .telemetry_hooks import build_telemetry_interface_editor_class
 from .telemetry_hooks import install_telemetry_share_controller
+from .template_transfer_hooks import build_template_transfer_interface_editor_class
 from .update_channels_ui import build_update_channel_toolbox_class
 
 
@@ -66,6 +67,7 @@ def _compose_interface_editor():
     )
     editor_class = build_reference_warning_editor_class(editor_class)
     editor_class = build_preset_interface_editor_class(editor_class)
+    editor_class = build_template_transfer_interface_editor_class(editor_class)
     editor_class = build_telemetry_interface_editor_class(editor_class)
 
     install_property_editor_scroll_frames()

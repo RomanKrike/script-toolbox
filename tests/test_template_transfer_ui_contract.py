@@ -16,7 +16,7 @@ def test_import_export_buttons_are_menu_only_toolbuttons():
 
     assert "QtGui.QToolButton.InstantPopup" in source
     assert "Import Template from File..." in source
-    assert "Import Template from Clipboard" in source
+    assert "Import Template / Item from Clipboard" in source
     assert "Paste Shared Toolbox from Clipboard" in source
     assert "Export Template to File..." in source
     assert "Copy Template to Clipboard" in source
@@ -64,13 +64,29 @@ def test_clipboard_transfer_uses_shared_config_codec_and_qt_clipboard():
     )
 
     assert "QApplication.clipboard()" in source
-    assert "deserialize_config" in source
+    assert "deserialize_transfer" in source
     assert "serialize_config" in source
     assert "def deserialize_config(data):" in config_source
+    assert "def deserialize_transfer(data):" in config_source
     assert "def serialize_config(document):" in config_source
     assert "return deserialize_config(" in config_source
     assert "serialized = serialize_config(" in config_source
     assert "PySide6" not in source
+
+
+def test_clipboard_item_transfer_uses_normal_editor_insert_path():
+    source = _read(
+        "scripts/script_toolbox/ui/template_transfer_hooks.py"
+    )
+    config_source = _read(
+        "scripts/script_toolbox/core/config.py"
+    )
+
+    assert 'if transfer_kind == "item":' in source
+    assert "self._apply_item_import(" in source
+    assert "self._insert_cloned_tree_item(" in source
+    assert "self._clone_data(" in source
+    assert "create_item(" in config_source
 
 
 def test_transfer_wrapper_is_inside_existing_telemetry_wrapper():

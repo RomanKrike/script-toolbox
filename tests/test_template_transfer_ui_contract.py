@@ -15,6 +15,10 @@ def test_import_export_buttons_are_menu_only_toolbuttons():
     )
 
     assert "QtGui.QToolButton.InstantPopup" in source
+    assert "QToolButton::menu-indicator" in source
+    assert "image: none" in source
+    assert "width: 0px" in source
+    assert "height: 0px" in source
     assert "Import Template from File..." in source
     assert "Import Template / Item from Clipboard" in source
     assert "Paste Shared Toolbox from Clipboard" in source

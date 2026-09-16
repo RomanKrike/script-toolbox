@@ -17,9 +17,42 @@ def test_import_export_buttons_are_menu_only_toolbuttons():
     assert "QtGui.QToolButton.InstantPopup" in source
     assert "Import Template from File..." in source
     assert "Import Template from Clipboard" in source
+    assert "Paste Shared Toolbox from Clipboard" in source
     assert "Export Template to File..." in source
     assert "Copy Template to Clipboard" in source
+    assert "Share Toolbox and Copy STB1 Code" in source
+    assert "menu.addSeparator()" in source
     assert "button.clicked.disconnect" in source
+
+
+def test_legacy_whole_toolbox_share_buttons_are_removed_from_toolbar():
+    source = _read(
+        "scripts/script_toolbox/ui/template_transfer_hooks.py"
+    )
+
+    assert "def _remove_redundant_share_buttons(editor):" in source
+    assert '"share_paste_button"' in source
+    assert '"share_button"' in source
+    assert "layout.removeWidget(" in source
+    assert "button.setParent(" in source
+    assert "button.deleteLater()" in source
+    assert "_remove_redundant_share_buttons(" in source
+
+
+def test_whole_toolbox_share_actions_still_use_existing_share_controller():
+    source = _read(
+        "scripts/script_toolbox/ui/template_transfer_hooks.py"
+    )
+    share_source = _read(
+        "scripts/script_toolbox/ui/share_hooks.py"
+    )
+
+    assert "self.paste_shared_settings" in source
+    assert "self.share_settings" in source
+    assert "def paste_shared_settings(self):" in share_source
+    assert "def share_settings(self):" in share_source
+    assert "fetch_shared_data(code)" in share_source
+    assert 'share_data(\n                "config",' in share_source
 
 
 def test_clipboard_transfer_uses_shared_config_codec_and_qt_clipboard():

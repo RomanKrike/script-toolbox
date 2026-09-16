@@ -62,9 +62,64 @@ def test_file_export_and_clipboard_serializer_are_exactly_equivalent(tmp_path):
     )
 
 
+def test_deserialize_transfer_accepts_full_template():
+    source = _document(u"Transfer Template")
+
+    transfer_kind, restored = config.deserialize_transfer(
+        config.serialize_config(source)
+    )
+
+    assert transfer_kind == "config"
+    assert restored == source
+
+
+def test_deserialize_transfer_accepts_single_button_item():
+    raw = u'''{
+      "kind": "button",
+      "id": "button_render_selected_write",
+      "name": "render_selected_write",
+      "ui": {
+        "label": "Render Selected Write"
+      },
+      "props": {
+        "icon_path": "stsolar:play.svg",
+        "icon_size": 18,
+        "icon_only": false
+      },
+      "bindings": [
+        {
+          "id": "render_selected_write_click",
+          "event": "click",
+          "handler": "script",
+          "language": "python",
+          "script": "import nuke\\nimport nukescripts\\n\\nwrites = [node for node in nuke.selectedNodes() if node.Class() == 'Write']\\n\\nif not writes:\\n    nuke.message('Select a Write node.')\\nelse:\\n    nukescripts.showRenderDialog(writes)",
+          "label": "",
+          "mouse_button": "left",
+          "modifiers": [],
+          "modifier_policy": "exact"
+        }
+      ]
+    }'''
+
+    transfer_kind, item = config.deserialize_transfer(raw)
+
+    assert transfer_kind == "item"
+    assert item["kind"] == "button"
+    assert item["id"] == "button_render_selected_write"
+    assert item["name"] == "render_selected_write"
+    assert item["ui"]["label"] == "Render Selected Write"
+    assert item["props"]["icon_path"] == "stsolar:play.svg"
+    assert item["props"]["icon_size"] == 18
+    assert item["props"]["icon_only"] is False
+    assert "nukescripts.showRenderDialog(writes)" in item["bindings"][0]["script"]
+
+
 def test_deserialize_rejects_non_json():
     with pytest.raises(ValueError):
         config.deserialize_config(u"this is not json")
+
+    with pytest.raises(ValueError):
+        config.deserialize_transfer(u"this is not json")
 
 
 def test_deserialize_rejects_json_that_is_not_a_template():
@@ -74,12 +129,21 @@ def test_deserialize_rejects_json_that_is_not_a_template():
     with pytest.raises(ConfigSchemaError):
         config.deserialize_config(u'{"version": %d}' % CONFIG_VERSION)
 
+    with pytest.raises(ConfigSchemaError):
+        config.deserialize_transfer(u'["not", "a", "transfer"]')
+
+    with pytest.raises(ConfigSchemaError):
+        config.deserialize_transfer(u'{"name": "missing_kind"}')
+
 
 def test_clipboard_codec_and_file_import_reject_old_schema_the_same_way(tmp_path):
     old_json = u'{"version": %d, "sections": []}' % (CONFIG_VERSION - 1)
 
     with pytest.raises(UnsupportedOldConfigVersionError):
         config.deserialize_config(old_json)
+
+    with pytest.raises(UnsupportedOldConfigVersionError):
+        config.deserialize_transfer(old_json)
 
     path = str(tmp_path / "old.json")
     with io.open(path, "w", encoding="utf-8") as handle:

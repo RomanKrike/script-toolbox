@@ -72,6 +72,10 @@ def _configure_menu_button(
     )
 
     for label, callback in actions:
+        if label is None:
+            menu.addSeparator()
+            continue
+
         action = menu.addAction(
             label
         )
@@ -91,8 +95,54 @@ def _configure_menu_button(
     )
 
 
+def _remove_redundant_share_buttons(editor):
+    """Remove legacy whole-toolbox share buttons after menu integration."""
+    layout = getattr(
+        editor,
+        "share_action_layout",
+        None
+    )
+
+    for attribute in (
+        "share_paste_button",
+        "share_button",
+    ):
+        button = getattr(
+            editor,
+            attribute,
+            None
+        )
+        if button is None:
+            continue
+
+        if layout is not None:
+            try:
+                layout.removeWidget(
+                    button
+                )
+            except Exception:
+                pass
+
+        try:
+            button.setParent(
+                None
+            )
+            button.deleteLater()
+        except Exception:
+            try:
+                button.hide()
+            except Exception:
+                pass
+
+        setattr(
+            editor,
+            attribute,
+            None
+        )
+
+
 def build_template_transfer_interface_editor_class(base_class):
-    """Add menu-driven file/clipboard template transfer to InterfaceEditor."""
+    """Add menu-driven file/clipboard/share transfer to InterfaceEditor."""
     if getattr(
         base_class,
         _EDITOR_MARKER,
@@ -126,7 +176,7 @@ def build_template_transfer_interface_editor_class(base_class):
                     callback,
                     (
                         "Import\n"
-                        "Choose how to import a template or items."
+                        "Choose how to import or paste a template."
                     ),
                     (
                         (
@@ -137,10 +187,22 @@ def build_template_transfer_interface_editor_class(base_class):
                             "Import Template from Clipboard",
                             self.import_template_from_clipboard
                         ),
+                        (
+                            None,
+                            None
+                        ),
+                        (
+                            "Paste Shared Toolbox from Clipboard",
+                            self.paste_shared_settings
+                        ),
                     )
                 )
 
             elif icon_name == "export":
+                _remove_redundant_share_buttons(
+                    self
+                )
+
                 button = getattr(
                     self,
                     "export_button",
@@ -157,7 +219,7 @@ def build_template_transfer_interface_editor_class(base_class):
                     callback,
                     (
                         "Export\n"
-                        "Choose how to export or copy the current template."
+                        "Choose how to export, copy, or share the current template."
                     ),
                     (
                         (
@@ -167,6 +229,14 @@ def build_template_transfer_interface_editor_class(base_class):
                         (
                             "Copy Template to Clipboard",
                             self.copy_template_to_clipboard
+                        ),
+                        (
+                            None,
+                            None
+                        ),
+                        (
+                            "Share Toolbox and Copy STB1 Code",
+                            self.share_settings
                         ),
                     )
                 )

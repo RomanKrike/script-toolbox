@@ -90,6 +90,24 @@ def _configure_menu_button(
     button.setPopupMode(
         QtGui.QToolButton.InstantPopup
     )
+
+    # Keep the whole icon clickable as an InstantPopup button, but suppress
+    # Qt's automatic dropdown-arrow subcontrol. This is supported by the
+    # Qt4/PySide stack used by Maya 2015 as well as newer Qt bindings.
+    existing_style = text_type(
+        button.styleSheet() or ""
+    )
+    menu_indicator_style = (
+        "QToolButton::menu-indicator { "
+        "image: none; width: 0px; height: 0px; }"
+    )
+    button.setStyleSheet(
+        "{0}\n{1}".format(
+            existing_style,
+            menu_indicator_style
+        )
+    )
+
     button.setToolTip(
         tooltip
     )

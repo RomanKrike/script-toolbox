@@ -9,6 +9,7 @@ import tempfile
 import warnings
 
 from ..pycompat import text_type
+from ..model import create_item
 from ..model import normalize_document
 from .config_schema import ConfigSchemaError
 from .config_schema import validate_document_schema
@@ -103,6 +104,48 @@ def deserialize_config(data):
 
     return _prepare_document(
         raw_document
+    )
+
+
+def deserialize_transfer(data):
+    """Parse clipboard transfer JSON as a full config or a single Item."""
+    raw = json.loads(
+        text_type(data)
+    )
+
+    if not isinstance(raw, dict) or not raw:
+        raise ConfigSchemaError(
+            "Unsupported Script Toolbox transfer format."
+        )
+
+    if "version" in raw or "sections" in raw:
+        if (
+            "version" not in raw or
+            "sections" not in raw or
+            not isinstance(raw.get("sections"), list)
+        ):
+            raise ConfigSchemaError(
+                "Unsupported Script Toolbox config format."
+            )
+        return (
+            "config",
+            _prepare_document(raw)
+        )
+
+    kind = text_type(
+        raw.get("kind") or ""
+    ).lower()
+    if kind:
+        return (
+            "item",
+            create_item(
+                kind,
+                raw
+            )
+        )
+
+    raise ConfigSchemaError(
+        "Unsupported Script Toolbox transfer format."
     )
 
 
@@ -552,6 +595,7 @@ __all__ = [
     "backup_path",
     "config_path",
     "deserialize_config",
+    "deserialize_transfer",
     "export_config",
     "import_config",
     "load_config",

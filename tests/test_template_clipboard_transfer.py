@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import io
+import os
 
 import pytest
 
@@ -10,18 +11,11 @@ from script_toolbox.core.config_schema import ConfigSchemaError
 from script_toolbox.core.config_schema import UnsupportedOldConfigVersionError
 
 
-def _document(name=u"Template"):
-    return {
-        "version": CONFIG_VERSION,
-        "sections": [
-            {
-                "kind": "folder",
-                "name": "root_folder",
-                "label": name,
-                "items": [],
-            }
-        ],
-    }
+_FIXTURE_PATH = os.path.join(
+    os.path.dirname(__file__),
+    "fixtures",
+    "current_v21_full.json"
+)
 
 
 def _read_text(path):
@@ -29,16 +23,31 @@ def _read_text(path):
         return handle.read()
 
 
-def test_config_text_codec_round_trip_preserves_unicode():
+def _document(name=u"Template"):
+    document = config.deserialize_config(
+        _read_text(_FIXTURE_PATH)
+    )
+    document["sections"][0]["ui"]["label"] = name
+    document["sections"][0]["items"][1]["bindings"][0]["script"] = (
+        u"line_one = 'Юникод'\n"
+        u"line_two = 'clipboard round trip'"
+    )
+    return document
+
+
+def test_config_text_codec_round_trip_preserves_unicode_and_multiline_script():
     source = _document(u"Папка — Template")
 
     json_text = config.serialize_config(source)
     restored = config.deserialize_config(json_text)
 
     assert u"Папка — Template" in json_text
-    assert config.deserialize_config(
-        config.serialize_config(restored)
-    ) == restored
+    assert u"Юникод" in json_text
+    assert restored == source
+    assert restored["sections"][0]["items"][1]["bindings"][0]["script"] == (
+        u"line_one = 'Юникод'\n"
+        u"line_two = 'clipboard round trip'"
+    )
 
 
 def test_file_export_and_clipboard_serializer_are_exactly_equivalent(tmp_path):
@@ -67,10 +76,6 @@ def test_deserialize_rejects_json_that_is_not_a_template():
 
 
 def test_clipboard_codec_and_file_import_reject_old_schema_the_same_way(tmp_path):
-    old_document = {
-        "version": CONFIG_VERSION - 1,
-        "sections": [],
-    }
     old_json = u'{"version": %d, "sections": []}' % (CONFIG_VERSION - 1)
 
     with pytest.raises(UnsupportedOldConfigVersionError):
@@ -83,5 +88,3 @@ def test_clipboard_codec_and_file_import_reject_old_schema_the_same_way(tmp_path
     with pytest.warns(RuntimeWarning):
         with pytest.raises(UnsupportedOldConfigVersionError):
             config.import_config(path)
-
-    assert old_document["version"] < CONFIG_VERSION

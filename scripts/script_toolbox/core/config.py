@@ -70,18 +70,52 @@ def _prepare_document(document):
     )
 
 
+def serialize_config(document):
+    """Return the canonical UTF-8 JSON text representation of a config."""
+    document = _prepare_document(
+        document
+    )
+    return text_type(
+        json.dumps(
+            document,
+            ensure_ascii=False,
+            indent=2
+        )
+    )
+
+
+def deserialize_config(data):
+    """Parse and validate config JSON text using the normal load pipeline."""
+    raw_document = json.loads(
+        text_type(data)
+    )
+
+    if (
+        not isinstance(raw_document, dict) or
+        not raw_document or
+        "version" not in raw_document or
+        "sections" not in raw_document or
+        not isinstance(raw_document.get("sections"), list)
+    ):
+        raise ConfigSchemaError(
+            "Unsupported Script Toolbox config format."
+        )
+
+    return _prepare_document(
+        raw_document
+    )
+
+
 def _read_document(path):
     with io.open(
         path,
         "r",
         encoding="utf-8"
     ) as handle:
-        raw_document = json.load(
-            handle
-        )
+        raw_text = handle.read()
 
-    return _prepare_document(
-        raw_document
+    return deserialize_config(
+        raw_text
     )
 
 
@@ -425,7 +459,7 @@ def restore_config_backup(
 
 def save_config(document, path=None):
     path = path or config_path()
-    document = _prepare_document(
+    serialized = serialize_config(
         document
     )
 
@@ -447,13 +481,7 @@ def save_config(document, path=None):
             encoding="utf-8"
         ) as handle:
             handle.write(
-                text_type(
-                    json.dumps(
-                        document,
-                        ensure_ascii=False,
-                        indent=2
-                    )
-                )
+                serialized
             )
             handle.flush()
             os.fsync(
@@ -523,10 +551,12 @@ __all__ = [
     "ConfigRecoveryRequired",
     "backup_path",
     "config_path",
+    "deserialize_config",
     "export_config",
     "import_config",
     "load_config",
     "restore_config_backup",
     "save_config",
+    "serialize_config",
     "valid_backup_paths",
 ]

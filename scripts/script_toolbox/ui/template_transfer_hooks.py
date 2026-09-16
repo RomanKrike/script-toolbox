@@ -6,7 +6,7 @@ import os
 
 from ..compat import QtCore
 from ..compat import QtGui
-from ..core.config import deserialize_config
+from ..core.config import deserialize_transfer
 from ..core.config import import_config
 from ..core.config import serialize_config
 from ..core.config_schema import ConfigSchemaError
@@ -176,7 +176,7 @@ def build_template_transfer_interface_editor_class(base_class):
                     callback,
                     (
                         "Import\n"
-                        "Choose how to import or paste a template."
+                        "Choose how to import or paste a template or item."
                     ),
                     (
                         (
@@ -184,7 +184,7 @@ def build_template_transfer_interface_editor_class(base_class):
                             callback
                         ),
                         (
-                            "Import Template from Clipboard",
+                            "Import Template / Item from Clipboard",
                             self.import_template_from_clipboard
                         ),
                         (
@@ -383,6 +383,54 @@ def build_template_transfer_interface_editor_class(base_class):
                 )
             )
 
+        def _apply_item_import(
+            self,
+            imported
+        ):
+            """Insert one validated Item using the editor's normal clone path."""
+            self.sync_working_from_tree()
+            clone = self._clone_data(
+                imported,
+                self._used_names()
+            )
+
+            previous_label = getattr(
+                self,
+                "_next_tree_label",
+                None
+            )
+            self._next_tree_label = "Import Item from Clipboard"
+
+            try:
+                tree_item = self._insert_cloned_tree_item(
+                    clone,
+                    sibling=False
+                )
+                self.tree.setCurrentItem(
+                    tree_item
+                )
+                self.fix_tree_structure()
+                self.tree_changed()
+            finally:
+                if getattr(
+                    self,
+                    "_next_tree_label",
+                    None
+                ) == "Import Item from Clipboard":
+                    self._next_tree_label = previous_label
+
+            self.status.setText(
+                "Imported item from Clipboard: {0}. Apply or Accept to save.".format(
+                    clone.get(
+                        "ui",
+                        {}
+                    ).get(
+                        "label",
+                        clone.get("name", "Item")
+                    )
+                )
+            )
+
         def import_settings(self):
             result = QtGui.QFileDialog.getOpenFileName(
                 self,
@@ -428,11 +476,11 @@ def build_template_transfer_interface_editor_class(base_class):
                 raw_text = _clipboard_text()
             except Exception:
                 _LOGGER.exception(
-                    "Could not read the system clipboard for template import."
+                    "Could not read the system clipboard for transfer import."
                 )
                 QtGui.QMessageBox.critical(
                     self,
-                    "Import Template",
+                    "Import from Clipboard",
                     "Could not read the system clipboard."
                 )
                 return
@@ -440,23 +488,23 @@ def build_template_transfer_interface_editor_class(base_class):
             if not raw_text.strip():
                 QtGui.QMessageBox.warning(
                     self,
-                    "Import Template",
-                    "Clipboard does not contain a template."
+                    "Import from Clipboard",
+                    "Clipboard does not contain a Script Toolbox template or item."
                 )
                 return
 
             try:
-                imported = deserialize_config(
+                transfer_kind, imported = deserialize_transfer(
                     raw_text
                 )
             except ValueError:
                 _LOGGER.debug(
-                    "Clipboard template import contains invalid JSON.",
+                    "Clipboard transfer import contains invalid JSON.",
                     exc_info=True
                 )
                 QtGui.QMessageBox.warning(
                     self,
-                    "Import Template",
+                    "Import from Clipboard",
                     "Clipboard does not contain valid JSON."
                 )
                 return
@@ -467,30 +515,46 @@ def build_template_transfer_interface_editor_class(base_class):
                 )
                 QtGui.QMessageBox.warning(
                     self,
-                    "Import Template",
+                    "Import from Clipboard",
                     text_type(exc)
                 )
                 return
             except (ConfigSchemaError, ItemValidationError):
                 _LOGGER.debug(
-                    "Clipboard JSON is not a supported Script Toolbox template.",
+                    "Clipboard JSON is not a supported Script Toolbox transfer.",
                     exc_info=True
                 )
                 QtGui.QMessageBox.warning(
                     self,
-                    "Import Template",
-                    "Unsupported template format."
+                    "Import from Clipboard",
+                    "Unsupported Script Toolbox template or item format."
                 )
                 return
             except Exception:
                 _LOGGER.exception(
-                    "Unexpected clipboard template import failure."
+                    "Unexpected clipboard transfer import failure."
                 )
                 QtGui.QMessageBox.critical(
                     self,
-                    "Import Template",
-                    "Could not import the template from the clipboard."
+                    "Import from Clipboard",
+                    "Could not import from the clipboard."
                 )
+                return
+
+            if transfer_kind == "item":
+                try:
+                    self._apply_item_import(
+                        imported
+                    )
+                except Exception:
+                    _LOGGER.exception(
+                        "Could not apply the clipboard item."
+                    )
+                    QtGui.QMessageBox.critical(
+                        self,
+                        "Import from Clipboard",
+                        "Could not import the item from the clipboard."
+                    )
                 return
 
             mode = self._choose_template_import_mode(
@@ -511,7 +575,7 @@ def build_template_transfer_interface_editor_class(base_class):
                 )
                 QtGui.QMessageBox.critical(
                     self,
-                    "Import Template",
+                    "Import from Clipboard",
                     "Could not import the template from the clipboard."
                 )
 

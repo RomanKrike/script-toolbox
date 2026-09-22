@@ -129,6 +129,95 @@ _BUILTIN_PRESETS = (
             ],
         },
     },
+    {
+        "id": "nuke_mask_export_tree",
+        "dcc": "nuke",
+        "category": "OUTPUT",
+        "label": "Mask Export Tree",
+        "description": (
+            "Build Copy > Shuffle > Unpremult > Write branches for "
+            "matching one-channel mask passes from the selected Nuke node."
+        ),
+        "root": {
+            "kind": "folder",
+            "id": "preset_nuke_mask_export_root",
+            "name": "mask_export_tree",
+            "label": "Mask Export Tree",
+            "folder_type": "collapsible",
+            "collapsed": False,
+            "items": [
+                {
+                    "kind": "string",
+                    "id": "preset_nuke_mask_export_layer",
+                    "name": "mask_export_layer",
+                    "label": "Layer",
+                    "value": "other",
+                },
+                {
+                    "kind": "string",
+                    "id": "preset_nuke_mask_export_pattern",
+                    "name": "mask_export_pattern",
+                    "label": "Channel Pattern",
+                    "value": "Mask_prop_*",
+                },
+                {
+                    "kind": "string",
+                    "id": "preset_nuke_mask_export_output_dir",
+                    "name": "mask_export_output_dir",
+                    "label": "Output Directory",
+                    "value": (
+                        "[python {nuke.script_directory()}]"
+                        "../../../../out/v001/tzypa"
+                    ),
+                },
+                {
+                    "kind": "string",
+                    "id": "preset_nuke_mask_export_filename",
+                    "name": "mask_export_filename",
+                    "label": "Filename",
+                    "value": "{channel}.png",
+                },
+                {
+                    "kind": "integer",
+                    "id": "preset_nuke_mask_export_spacing",
+                    "name": "mask_export_spacing",
+                    "label": "Branch Spacing",
+                    "value": 180,
+                    "min": 120,
+                    "max": 1000,
+                    "step": 10,
+                },
+                {
+                    "kind": "button",
+                    "id": "preset_nuke_mask_export_build",
+                    "name": "mask_export_build",
+                    "label": "Build Mask Tree",
+                    "bindings": [
+                        {
+                            "event": "click",
+                            "handler": "script",
+                            "language": "python",
+                            "script": (
+                                "from script_toolbox import nuke_mask_export\n"
+                                "nuke_mask_export.build_from_selected(\n"
+                                "    layer=toolbox.get_value("
+                                "\"mask_export_layer\"),\n"
+                                "    pattern=toolbox.get_value("
+                                "\"mask_export_pattern\"),\n"
+                                "    output_dir=toolbox.get_value("
+                                "\"mask_export_output_dir\"),\n"
+                                "    filename_template=toolbox.get_value("
+                                "\"mask_export_filename\"),\n"
+                                "    spacing=toolbox.get_value("
+                                "\"mask_export_spacing\"),\n"
+                                ")\n"
+                            ),
+                        }
+                    ],
+                },
+            ],
+        },
+    },
 )
 
 

@@ -51,6 +51,7 @@ plugins:
             Hosts: Хосты
             Developer: Разработчикам
             Overview: Обзор
+            LLM template authoring: LLM: шаблоны и пресеты
             Architecture: Архитектура
             Config store: Хранение конфигурации
             Runtime renderer: Рендерер Runtime
@@ -73,6 +74,7 @@ nav:
       - Houdini: HOUDINI.md
   - Developer:
       - Overview: developer/index.md
+      - LLM template authoring: developer/llm-template-authoring.md
       - Architecture: ARCHITECTURE.md
       - Config store: CONFIG_STORE.md
       - Runtime renderer: RUNTIME_RENDERER_REGISTRY.md

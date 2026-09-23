@@ -4,6 +4,7 @@ This section collects the existing implementation documentation for contributors
 
 ## Start here
 
+- [LLM template / preset authoring](llm-template-authoring.md) — machine-oriented contract for generating built-in presets, reusable item subtrees, and importable Script Toolbox JSON with an LLM.
 - [Architecture](../ARCHITECTURE.md) — package boundaries, dependency direction, document/schema contracts, and host isolation.
 - [Config store](../CONFIG_STORE.md) — persistence and configuration storage behavior.
 - [Runtime renderer registry](../RUNTIME_RENDERER_REGISTRY.md) — runtime item renderer registration and contracts.

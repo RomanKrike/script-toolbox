@@ -1,0 +1,29 @@
+# Script Toolbox
+
+> Configurable script toolbox and UI builder for Maya, Nuke, and Houdini.
+
+This file is the LLM-oriented entry point for Script Toolbox documentation. Development work is integrated in the dev branch. The current development configuration contract is schema 21.
+
+For requests to create a Script Toolbox template, preset, reusable UI block, or importable configuration, read the authoring specification first.
+
+## LLM authoring
+
+- [Template / preset authoring specification](https://raw.githubusercontent.com/RomanKrike/script-toolbox/dev/docs/developer/llm-template-authoring.md): canonical machine-oriented guide for generating preset definitions, item subtrees, bindings, and complete configuration documents.
+- [Current architecture](https://raw.githubusercontent.com/RomanKrike/script-toolbox/dev/docs/ARCHITECTURE.md): schema, item registry, layout and section semantics, runtime contracts.
+- [Item guide](https://raw.githubusercontent.com/RomanKrike/script-toolbox/dev/docs/guide/items.md): user-facing overview of built-in item types.
+- [Scripting guide](https://raw.githubusercontent.com/RomanKrike/script-toolbox/dev/docs/guide/scripting.md): bindings, script languages, names and references.
+
+## Hosts
+
+- [Nuke](https://raw.githubusercontent.com/RomanKrike/script-toolbox/dev/docs/NUKE.md)
+- [Houdini](https://raw.githubusercontent.com/RomanKrike/script-toolbox/dev/docs/HOUDINI.md)
+
+## Source-of-truth code
+
+- [Config version](https://raw.githubusercontent.com/RomanKrike/script-toolbox/dev/scripts/script_toolbox/constants.py)
+- [Universal item model](https://raw.githubusercontent.com/RomanKrike/script-toolbox/dev/scripts/script_toolbox/model/items.py)
+- [Built-in item definitions](https://raw.githubusercontent.com/RomanKrike/script-toolbox/dev/scripts/script_toolbox/model/item_builtins.py)
+- [Preset registry](https://raw.githubusercontent.com/RomanKrike/script-toolbox/dev/scripts/script_toolbox/core/presets.py)
+- [Binding contract](https://raw.githubusercontent.com/RomanKrike/script-toolbox/dev/scripts/script_toolbox/model/bindings.py)
+
+If the CONFIG_VERSION in source differs from the version stated in the authoring specification, treat the source as newer and do not invent a migration.

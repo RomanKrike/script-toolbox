@@ -1,15 +1,16 @@
 # Nuke integration
 
-Script Toolbox supports Nuke through the same core model, Interface Editor, runtime widgets, updater, and JSON schema used by Maya.
+Script Toolbox supports Nuke through the same core model, Interface Editor, runtime widgets, updater, and JSON schema used by Maya and Houdini.
 
 ## Compatibility target
 
-The first Nuke target is:
+Supported Nuke generations:
 
-- Nuke 12
-- Python 2.7
-- PySide2 / Qt 5
-- Python button scripts
+- Nuke 12–15 — PySide2 / Qt 5
+- Nuke 16+ — PySide6 / Qt 6
+- Python button scripts on every supported generation
+
+The runtime detects the Nuke version and resolves the matching Qt binding. If the host already loaded a PySide generation, Script Toolbox reuses that binding rather than loading a different Qt major into the same process.
 
 MEL remains available only when the active host is Maya.
 
@@ -111,8 +112,14 @@ Nuke uses:
 
 Both use the same JSON schema, so configs can be exported/imported between hosts. Host-specific scripts still need to use the correct DCC API.
 
+## Qt compatibility
+
+The shared UI was originally written against the Qt 4 / PySide 1 layout where widgets live under `QtGui`. Script Toolbox mirrors `QtWidgets` onto the compatibility `QtGui` namespace for Qt 5 and Qt 6 hosts, so Nuke 12–15 and Nuke 16+ use the same widget implementation.
+
+The compatibility layer also covers the Qt 6 removals used by the editor, including the `QRegExp` subset, legacy `exec_()` calls and font-metric width access.
+
 ## Updates
 
-GitHub Releases are shared by both hosts. On Windows, old Python 2.7 HTTPS stacks can fall back to the hidden PowerShell/.NET TLS transport.
+GitHub Releases are shared by all supported hosts. On Windows, old Python 2.7 HTTPS stacks can fall back to the hidden PowerShell/.NET TLS transport.
 
 The current package is pure Python/PySide, so successful updates are hot-reloaded when possible. Restarting the host remains the fallback when reload fails.

@@ -3,6 +3,8 @@ from __future__ import print_function
 
 from ..compat import QtCore
 from ..compat import QtGui
+from ..model.item_builtins import register_builtin_items
+from ..model.item_registry import ITEM_TYPES
 from ..model.items import safe_color
 from ..pycompat import text_type
 from ..style.metrics import RUNTIME_FOLDER_CONTENT_MARGINS
@@ -14,8 +16,40 @@ from ..style.metrics import RUNTIME_GROUP_SPACING
 from ..style.metrics import RUNTIME_PARAMETER_LABEL_WIDTH
 from ..style.metrics import RUNTIME_PARAMETER_ROW_MARGINS
 from ..style.metrics import RUNTIME_PARAMETER_SPACING
-from ..style.metrics import RUNTIME_SIMPLE_HEADER_MARGINS
-from ..style.metrics import RUNTIME_SIMPLE_HEADER_SPACING
+
+
+def _ui(item):
+    value = item.get("ui", {}) if isinstance(item, dict) else {}
+    return value if isinstance(value, dict) else {}
+
+
+def _props(item):
+    value = item.get("props", {}) if isinstance(item, dict) else {}
+    return value if isinstance(value, dict) else {}
+
+
+def _definition(item):
+    register_builtin_items()
+    if not isinstance(item, dict):
+        return None
+    return ITEM_TYPES.get(item.get("kind"))
+
+
+def _section_group_mode(item):
+    """Return section grouping mode through the registered SectionSpec."""
+    definition = _definition(item)
+    if definition is None or not definition.is_section:
+        return None
+    return definition.section_mode(_props(item))
+
+
+def _runtime_registry():
+    from .runtime_renderers import get_runtime_renderer_registry
+
+    registry = get_runtime_renderer_registry()
+    if registry is None:
+        raise RuntimeError("Runtime renderer registry is not initialized.")
+    return registry
 
 
 class DisplayField(QtGui.QLineEdit):
@@ -29,19 +63,21 @@ class DisplayField(QtGui.QLineEdit):
         QtGui.QLineEdit.__init__(self, parent)
         self.toolbox = toolbox
         self.item_id = item["id"]
-        self.selectable = bool(item.get("selectable", True))
-        self.select_scene = bool(item.get("select_scene", False))
+        props = _props(item)
+        ui = _ui(item)
+        self.selectable = bool(props.get("selectable", True))
+        self.select_scene = bool(props.get("select_scene", False))
         self.setReadOnly(True)
 
         try:
-            self.setPlaceholderText(item.get("placeholder", ""))
+            self.setPlaceholderText(props.get("placeholder", ""))
         except Exception:
             pass
 
         if not self.selectable:
             self.setFocusPolicy(QtCore.Qt.NoFocus)
 
-        self.setToolTip(item.get("tooltip", ""))
+        self.setToolTip(ui.get("tooltip", ""))
         self.refresh()
 
     def refresh(self):
@@ -87,10 +123,12 @@ class DisplayFieldList(QtGui.QListWidget):
         QtGui.QListWidget.__init__(self, parent)
         self.toolbox = toolbox
         self.item_id = item["id"]
-        self.selectable = bool(item.get("selectable", True))
-        self.select_scene = bool(item.get("select_scene", False))
-        self.multiple = bool(item.get("multiple", True))
-        self.visible_rows = int(item.get("visible_rows", 4))
+        props = _props(item)
+        ui = _ui(item)
+        self.selectable = bool(props.get("selectable", True))
+        self.select_scene = bool(props.get("select_scene", False))
+        self.multiple = bool(props.get("multiple", True))
+        self.visible_rows = int(props.get("visible_rows", 4))
 
         self.setObjectName("RuntimeFieldList")
         self.setAlternatingRowColors(False)
@@ -103,7 +141,7 @@ class DisplayFieldList(QtGui.QListWidget):
         else:
             self.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
 
-        self.setToolTip(item.get("tooltip", ""))
+        self.setToolTip(ui.get("tooltip", ""))
         self.itemDoubleClicked.connect(self._double_clicked)
         self.refresh()
 
@@ -164,7 +202,7 @@ class DisplayFieldList(QtGui.QListWidget):
 
 
 class RuntimeFolder(QtGui.QFrame):
-    """Runtime renderer for one Folder and its nested items."""
+    """Runtime renderer for a section container and its nested Items."""
 
     def __init__(
         self,
@@ -179,7 +217,8 @@ class RuntimeFolder(QtGui.QFrame):
         self.toolbox = toolbox
         self.section = section
         self.embedded = bool(embedded)
-        self.folder_type = section.get("folder_type", "collapsible")
+        section_ui = _ui(section)
+        self.folder_type = _section_group_mode(section) or "collapsible"
         self.is_nested = False
 
         try:
@@ -201,11 +240,13 @@ class RuntimeFolder(QtGui.QFrame):
         self.header = None
         self.header_button = None
         self.header_label = ""
+        content_parent = self
+        content_host = root
 
         if not self.embedded:
             label = (
-                section.get("label", "")
-                if section.get("show_label", True)
+                section_ui.get("label", "")
+                if section_ui.get("show_label", True)
                 else ""
             )
 
@@ -222,73 +263,64 @@ class RuntimeFolder(QtGui.QFrame):
                     "QPushButton#RuntimeFolderHeader {text-align: left;}"
                 )
                 self.header_button.setToolTip(
-                    section.get("tooltip", "")
+                    section_ui.get("tooltip", "")
                 )
                 self.header_button.clicked.connect(self.toggle)
                 self.arrow = self.header_button
                 root.addWidget(self.header_button)
-            else:
-                self.header = QtGui.QFrame()
-                self.header.setObjectName("SimpleSectionHeader")
-                header_layout = QtGui.QHBoxLayout(self.header)
-                header_layout.setContentsMargins(*RUNTIME_SIMPLE_HEADER_MARGINS)
-                header_layout.setSpacing(RUNTIME_SIMPLE_HEADER_SPACING)
-                title = QtGui.QLabel(label)
-                title.setObjectName("SectionTitle")
-                header_layout.addWidget(title)
-                header_layout.addStretch(1)
-                root.addWidget(self.header)
+            elif self.folder_type == "simple":
+                self.header = QtGui.QGroupBox(text_type(label))
+                self.header.setObjectName("SimpleSectionGroupBox")
+                self.header.setProperty("nested", self.is_nested)
+                self.header.setToolTip(section_ui.get("tooltip", ""))
 
-        self.content = QtGui.QWidget()
+                group_layout = QtGui.QVBoxLayout(self.header)
+                group_layout.setContentsMargins(*RUNTIME_FOLDER_ROOT_MARGINS)
+                group_layout.setSpacing(RUNTIME_FOLDER_ROOT_SPACING)
+
+                root.addWidget(self.header)
+                content_parent = self.header
+                content_host = group_layout
+
+        self.content = QtGui.QWidget(content_parent)
         self.content.setObjectName("RuntimeFolderContent")
         self.content_layout = QtGui.QVBoxLayout(self.content)
         self.content_layout.setContentsMargins(*RUNTIME_FOLDER_CONTENT_MARGINS)
         self.content_layout.setSpacing(RUNTIME_FOLDER_CONTENT_SPACING)
 
-        self._populate_runtime_items(section["items"])
+        self._populate_runtime_items(section.get("items", []) or [])
         self.content_layout.addStretch(1)
-        root.addWidget(self.content)
+        content_host.addWidget(self.content)
         self.update_state()
 
     def _populate_runtime_items(self, items):
         index = 0
         while index < len(items):
             item = items[index]
+            group_mode = _section_group_mode(item)
 
-            if item.get("kind") == "folder":
-                folder_type = item.get("folder_type", "collapsible")
-                if folder_type in ("tabs", "radio"):
-                    group = [item]
+            if group_mode in ("tabs", "radio"):
+                group = [item]
+                index += 1
+                while index < len(items):
+                    candidate = items[index]
+                    if _section_group_mode(candidate) != group_mode:
+                        break
+                    group.append(candidate)
                     index += 1
-                    while index < len(items):
-                        candidate = items[index]
-                        if (
-                            candidate.get("kind") != "folder" or
-                            candidate.get("folder_type", "collapsible") != folder_type
-                        ):
-                            break
-                        group.append(candidate)
-                        index += 1
 
-                    if folder_type == "tabs":
-                        widget = RuntimeFolderTabs(
-                            self.toolbox,
-                            group,
-                            self.content
-                        )
-                    else:
-                        widget = RuntimeFolderRadio(
-                            self.toolbox,
-                            group,
-                            self.content
-                        )
-                else:
-                    widget = RuntimeFolder(
+                if group_mode == "tabs":
+                    widget = RuntimeFolderTabs(
                         self.toolbox,
-                        item,
+                        group,
                         self.content
                     )
-                    index += 1
+                else:
+                    widget = RuntimeFolderRadio(
+                        self.toolbox,
+                        group,
+                        self.content
+                    )
             else:
                 widget = self.build_runtime_widget(
                     item,
@@ -300,12 +332,13 @@ class RuntimeFolder(QtGui.QFrame):
                 self.content_layout.addWidget(widget)
 
     def _label(self, item):
-        if not item.get("show_label", True):
+        ui = _ui(item)
+        if not ui.get("show_label", True):
             return ""
-        return item.get("label", "")
+        return ui.get("label", "")
 
     def _tooltip(self, item):
-        return item.get("tooltip", "")
+        return _ui(item).get("tooltip", "")
 
     def _parameter_container(
         self,
@@ -331,10 +364,11 @@ class RuntimeFolder(QtGui.QFrame):
         button = QtGui.QPushButton(self._label(item))
         button.setObjectName("ScriptButton")
         button.setToolTip(self._tooltip(item))
+        props = _props(item)
 
         rgb = [
             int(value * 255)
-            for value in safe_color(item.get("color"))
+            for value in safe_color(props.get("color"))
         ]
         button.setStyleSheet(
             "QPushButton#ScriptButton {background-color: rgb(%d,%d,%d);}" % (
@@ -354,7 +388,8 @@ class RuntimeFolder(QtGui.QFrame):
         item,
         compact=False
     ):
-        label_position = item.get("label_position", "right")
+        props = _props(item)
+        label_position = props.get("label_position", "right")
 
         if label_position == "left":
             container, layout = self._parameter_container(
@@ -363,7 +398,7 @@ class RuntimeFolder(QtGui.QFrame):
             )
             checkbox = QtGui.QCheckBox()
             checkbox.setToolTip(self._tooltip(item))
-            checkbox.setChecked(bool(item.get("value", False)))
+            checkbox.setChecked(bool(props.get("value", False)))
             checkbox.toggled.connect(
                 lambda value, item_id=item["id"]:
                 self.toolbox.store_value(item_id, bool(value))
@@ -373,7 +408,7 @@ class RuntimeFolder(QtGui.QFrame):
 
         checkbox = QtGui.QCheckBox(self._label(item))
         checkbox.setToolTip(self._tooltip(item))
-        checkbox.setChecked(bool(item.get("value", False)))
+        checkbox.setChecked(bool(props.get("value", False)))
         checkbox.toggled.connect(
             lambda value, item_id=item["id"]:
             self.toolbox.store_value(item_id, bool(value))
@@ -455,86 +490,12 @@ class RuntimeFolder(QtGui.QFrame):
         layout.addWidget(line)
         return container
 
-    def _row_widget(self, item):
-        row_widget = QtGui.QWidget()
-        row_widget.setToolTip(self._tooltip(item))
-        layout = QtGui.QHBoxLayout(row_widget)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(int(item.get("spacing", 4)))
-
-        vertical = item.get("vertical_alignment", "center")
-        vertical_flag = (
-            QtCore.Qt.AlignTop
-            if vertical == "top"
-            else QtCore.Qt.AlignBottom
-            if vertical == "bottom"
-            else QtCore.Qt.AlignVCenter
-        )
-        equal_widths = bool(item.get("equal_widths", False))
-        has_stretch = equal_widths
-
-        for child in item.get("items", []):
-            child_widget = self.build_runtime_widget(
-                child,
-                compact=True
-            )
-            if child_widget is None:
-                continue
-
-            width_mode = child.get("row_width_mode", "auto")
-            horizontal = child.get("row_alignment", "left")
-            horizontal_flag = (
-                QtCore.Qt.AlignRight
-                if horizontal == "right"
-                else QtCore.Qt.AlignHCenter
-                if horizontal == "center"
-                else QtCore.Qt.AlignLeft
-            )
-            alignment = horizontal_flag | vertical_flag
-
-            if equal_widths and child.get("kind") != "separator":
-                child_widget.setSizePolicy(
-                    QtGui.QSizePolicy.Expanding,
-                    QtGui.QSizePolicy.Preferred
-                )
-                layout.addWidget(child_widget, 1, vertical_flag)
-                continue
-
-            if width_mode == "fixed":
-                child_widget.setFixedWidth(
-                    int(child.get("row_width", 120))
-                )
-                layout.addWidget(child_widget, 0, alignment)
-            elif width_mode == "stretch":
-                has_stretch = True
-                child_widget.setSizePolicy(
-                    QtGui.QSizePolicy.Expanding,
-                    QtGui.QSizePolicy.Preferred
-                )
-                layout.addWidget(
-                    child_widget,
-                    max(1, int(child.get("row_stretch", 1))),
-                    vertical_flag
-                )
-            else:
-                layout.addWidget(child_widget, 0, alignment)
-
-        if not has_stretch:
-            layout.addStretch(1)
-
-        return row_widget
-
     def build_runtime_widget(
         self,
         item,
         compact=False
     ):
-        from .runtime_renderers import get_runtime_renderer_registry
-
-        registry = get_runtime_renderer_registry()
-        if registry is None:
-            raise RuntimeError("Runtime renderer registry is not initialized.")
-        return registry.render(
+        return _runtime_registry().render(
             self,
             item,
             compact=compact
@@ -544,8 +505,9 @@ class RuntimeFolder(QtGui.QFrame):
         if self.folder_type != "collapsible":
             return
 
-        self.section["collapsed"] = not bool(
-            self.section.get("collapsed", False)
+        props = self.section.setdefault("props", {})
+        props["collapsed"] = not bool(
+            props.get("collapsed", False)
         )
         self.toolbox.save()
         self.update_state()
@@ -555,7 +517,7 @@ class RuntimeFolder(QtGui.QFrame):
             self.content.setVisible(True)
             return
 
-        collapsed = bool(self.section.get("collapsed", False))
+        collapsed = bool(_props(self.section).get("collapsed", False))
         self.content.setVisible(not collapsed)
         self.setProperty("collapsed", collapsed)
 
@@ -597,9 +559,10 @@ class RuntimeFolderTabs(QtGui.QFrame):
                 self.tabs,
                 embedded=True
             )
+            ui = _ui(folder)
             label = (
-                folder.get("label", "")
-                if folder.get("show_label", True)
+                ui.get("label", "")
+                if ui.get("show_label", True)
                 else ""
             )
             self.tabs.addTab(page, label)
@@ -625,9 +588,10 @@ class RuntimeFolderRadio(QtGui.QFrame):
         self.stack = QtGui.QStackedWidget()
 
         for index, folder in enumerate(folders):
+            ui = _ui(folder)
             label = (
-                folder.get("label", "")
-                if folder.get("show_label", True)
+                ui.get("label", "")
+                if ui.get("show_label", True)
                 else ""
             )
             button = QtGui.QRadioButton(label)
@@ -657,34 +621,54 @@ class RuntimeFolderRadio(QtGui.QFrame):
             self.stack.setCurrentIndex(index)
 
 
+class _RuntimeRootOwner(object):
+    def __init__(self, toolbox, content):
+        self.toolbox = toolbox
+        self.content = content
+
+
+def _render_top_level_section(toolbox, section, parent):
+    owner = _RuntimeRootOwner(toolbox, parent)
+    return _runtime_registry().render(
+        owner,
+        section,
+        compact=False
+    )
+
+
 def build_folder_widgets(toolbox, folders, parent=None):
-    """Build top-level runtime folder widgets with tab/radio grouping."""
+    """Build top-level section widgets using registry metadata and renderers."""
     widgets = []
     index = 0
 
     while index < len(folders):
-        folder = folders[index]
-        folder_type = folder.get("folder_type", "collapsible")
+        section = folders[index]
+        group_mode = _section_group_mode(section)
 
-        if folder_type in ("tabs", "radio"):
-            group = [folder]
+        if group_mode in ("tabs", "radio"):
+            group = [section]
             index += 1
             while index < len(folders):
                 candidate = folders[index]
-                if candidate.get("folder_type", "collapsible") != folder_type:
+                if _section_group_mode(candidate) != group_mode:
                     break
                 group.append(candidate)
                 index += 1
 
-            if folder_type == "tabs":
+            if group_mode == "tabs":
                 widget = RuntimeFolderTabs(toolbox, group, parent)
             else:
                 widget = RuntimeFolderRadio(toolbox, group, parent)
         else:
-            widget = RuntimeFolder(toolbox, folder, parent)
+            widget = _render_top_level_section(
+                toolbox,
+                section,
+                parent
+            )
             index += 1
 
-        widgets.append(widget)
+        if widget is not None:
+            widgets.append(widget)
 
     return widgets
 

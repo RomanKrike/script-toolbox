@@ -1,26 +1,39 @@
 {
-  "version": 20,
+  "version": 21,
   "sections": [
     {
       "kind": "folder",
       "id": "folder_main",
       "name": "main_tools",
-      "label": "Main Tools",
-      "folder_type": "collapsible",
-      "collapsed": false,
+      "ui": {
+        "label": "Main Tools"
+      },
+      "props": {
+        "folder_type": "collapsible",
+        "collapsed": false
+      },
+      "bindings": [],
       "items": [
         {
           "kind": "label",
           "id": "label_header",
           "name": "header",
-          "label": "Render Controls"
+          "ui": {
+            "label": "Render Controls"
+          },
+          "props": {},
+          "bindings": []
         },
         {
           "kind": "string",
           "id": "string_asset",
           "name": "asset_name",
-          "label": "Asset Name",
-          "value": "Dragon",
+          "ui": {
+            "label": "Asset Name"
+          },
+          "props": {
+            "value": "Dragon"
+          },
           "bindings": [
             {
               "id": "asset_changed",
@@ -36,75 +49,109 @@
           "kind": "integer",
           "id": "integer_samples",
           "name": "samples",
-          "label": "Samples",
-          "min": 1,
-          "max": 64,
-          "step": 1,
-          "value": 8
+          "ui": {
+            "label": "Samples"
+          },
+          "props": {
+            "min": 1,
+            "max": 64,
+            "step": 1,
+            "value": 8
+          },
+          "bindings": []
         },
         {
           "kind": "float",
           "id": "float_exposure",
           "name": "exposure",
-          "label": "Exposure",
-          "min": -10.0,
-          "max": 10.0,
-          "step": 0.25,
-          "decimals": 2,
-          "value": 1.5
+          "ui": {
+            "label": "Exposure"
+          },
+          "props": {
+            "min": -10.0,
+            "max": 10.0,
+            "step": 0.25,
+            "decimals": 2,
+            "value": 1.5
+          },
+          "bindings": []
         },
         {
           "kind": "checkbox",
           "id": "checkbox_enabled",
           "name": "enabled",
-          "label": "Enabled",
-          "label_position": "right",
-          "value": true
+          "ui": {
+            "label": "Enabled"
+          },
+          "props": {
+            "label_position": "right",
+            "value": true
+          },
+          "bindings": []
         },
         {
           "kind": "menu",
           "id": "menu_quality",
           "name": "quality",
-          "label": "Quality",
-          "items": ["Draft", "Preview", "Final"],
-          "value": "Preview"
+          "ui": {
+            "label": "Quality"
+          },
+          "props": {
+            "items": ["Draft", "Preview", "Final"],
+            "value": "Preview"
+          },
+          "bindings": []
         },
         {
           "kind": "color",
           "id": "color_tint",
           "name": "tint",
-          "label": "Tint",
-          "value": [0.1, 0.5, 0.9]
+          "ui": {
+            "label": "Tint"
+          },
+          "props": {
+            "value": [0.1, 0.5, 0.9]
+          },
+          "bindings": []
         },
         {
           "kind": "field",
           "id": "field_nodes",
           "name": "nodes",
-          "label": "Nodes",
-          "source": "value",
-          "value": ["pCube1", "pSphere1"],
-          "multiple": true,
-          "selectable": true,
-          "select_scene": true,
-          "display_mode": "list",
-          "visible_rows": 5
+          "ui": {
+            "label": "Nodes"
+          },
+          "props": {
+            "source": "value",
+            "value": ["pCube1", "pSphere1"],
+            "multiple": true,
+            "selectable": true,
+            "select_scene": true,
+            "display_mode": "list",
+            "visible_rows": 5
+          },
+          "bindings": []
         },
         {
           "kind": "toggle_button",
           "id": "button_state",
           "name": "render_state",
-          "label": "Render State",
-          "state_source": "script",
-          "state_get_script": "state = toolbox.get_value('enabled')",
-          "state_get_language": "python",
-          "state_on_script": "toolbox.set_value('enabled', True)",
-          "state_on_language": "python",
-          "state_off_script": "toolbox.set_value('enabled', False)",
-          "state_off_language": "python",
-          "state_on_label": "Rendering: ON",
-          "state_off_label": "Rendering: OFF",
-          "state_on_color": [0.2, 0.6, 0.3],
-          "state_off_color": [0.3, 0.3, 0.3],
+          "ui": {
+            "label": "Render State"
+          },
+          "props": {
+            "state_source": "script",
+            "state_get_script": "state = toolbox.get_value('enabled')",
+            "state_get_language": "python",
+            "state_on_script": "toolbox.set_value('enabled', True)",
+            "state_on_language": "python",
+            "state_off_script": "toolbox.set_value('enabled', False)",
+            "state_off_language": "python",
+            "state_on_label": "Rendering: ON",
+            "state_off_label": "Rendering: OFF",
+            "state_on_color": [0.2, 0.6, 0.3],
+            "state_off_color": [0.3, 0.3, 0.3]
+          },
           "bindings": [
             {
               "id": "render_state_toggle",
@@ -123,16 +170,24 @@
           "kind": "row",
           "id": "row_actions",
           "name": "actions",
-          "label": "Actions",
-          "spacing": 6,
-          "equal_widths": true,
-          "vertical_alignment": "center",
+          "ui": {
+            "label": "Actions"
+          },
+          "props": {
+            "spacing": 6,
+            "equal_widths": true,
+            "vertical_alignment": "center"
+          },
+          "bindings": [],
           "items": [
             {
               "kind": "button",
               "id": "button_run",
               "name": "run_render",
-              "label": "Run",
+              "ui": {
+                "label": "Run"
+              },
+              "props": {},
               "bindings": [
                 {
                   "id": "run_click",
@@ -162,10 +217,15 @@
               "kind": "integer",
               "id": "integer_frames",
               "name": "frames",
-              "label": "Frames",
-              "min": 1,
-              "max": 1000,
-              "value": 100
+              "ui": {
+                "label": "Frames"
+              },
+              "props": {
+                "min": 1,
+                "max": 1000,
+                "value": 100
+              },
+              "bindings": []
             }
           ]
         },
@@ -173,25 +233,39 @@
           "kind": "folder",
           "id": "folder_advanced",
           "name": "advanced",
-          "label": "Advanced",
-          "folder_type": "tabs",
+          "ui": {
+            "label": "Advanced"
+          },
+          "props": {
+            "folder_type": "tabs"
+          },
+          "bindings": [],
           "items": [
             {
               "kind": "field",
               "id": "field_selection",
               "name": "selection",
-              "label": "Selection",
-              "source": "selection",
-              "value": [],
-              "multiple": true,
-              "long_names": true,
-              "display_mode": "list"
+              "ui": {
+                "label": "Selection"
+              },
+              "props": {
+                "source": "selection",
+                "value": [],
+                "multiple": true,
+                "long_names": true,
+                "display_mode": "list"
+              },
+              "bindings": []
             },
             {
               "kind": "separator",
               "id": "separator_advanced",
               "name": "advanced_separator",
-              "label": "Advanced Separator"
+              "ui": {
+                "label": "Advanced Separator"
+              },
+              "props": {},
+              "bindings": []
             }
           ]
         }
@@ -201,14 +275,22 @@
       "kind": "folder",
       "id": "folder_secondary",
       "name": "secondary",
-      "label": "Secondary",
-      "folder_type": "simple",
+      "ui": {
+        "label": "Secondary"
+      },
+      "props": {
+        "folder_type": "simple"
+      },
+      "bindings": [],
       "items": [
         {
           "kind": "button",
           "id": "button_cleanup",
           "name": "cleanup",
-          "label": "Cleanup",
+          "ui": {
+            "label": "Cleanup"
+          },
+          "props": {},
           "bindings": [
             {
               "id": "cleanup_click",

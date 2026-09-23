@@ -2,22 +2,15 @@
 from __future__ import print_function
 
 from ..compat import QtGui
+from ..model.fields import ColorField
+from ..model.item_builtins import register_builtin_items
+from ..model.item_registry import ITEM_TYPES
 from ..pycompat import text_type
 
 
-_VALUE_KINDS = (
-    "string",
-    "integer",
-    "float",
-    "checkbox",
-    "toggle",
-    "menu",
-    "color",
-)
-
 _TOOLBOX_INSTALL_MARKER = "_script_toolbox_runtime_value_sync_installed"
 _REBUILD_INSTALL_MARKER = "_script_toolbox_runtime_value_rebuild_installed"
-_RENDERER_INSTALL_MARKER = "_script_toolbox_runtime_value_renderers_installed"
+_VALUE_RENDERER_MARKER = "_script_toolbox_runtime_value_renderer"
 
 
 def _controls(root, control_class):
@@ -41,20 +34,17 @@ def _controls(root, control_class):
 
     unique = []
     seen = set()
-
     for control in result:
         identity = id(control)
         if identity in seen:
             continue
         seen.add(identity)
         unique.append(control)
-
     return unique
 
 
 def _block_signals(controls):
     previous = []
-
     for control in controls:
         try:
             previous.append((
@@ -63,16 +53,13 @@ def _block_signals(controls):
             ))
         except Exception:
             pass
-
     return previous
 
 
 def _restore_signals(previous):
     for control, was_blocked in reversed(previous):
         try:
-            control.blockSignals(
-                was_blocked
-            )
+            control.blockSignals(was_blocked)
         except Exception:
             pass
 
@@ -82,356 +69,193 @@ def _numeric_values(value, size):
         values = list(value)
     else:
         values = [value] * size
-
     while len(values) < size:
         values.append(0)
-
     return values[:size]
 
 
-def _float_slider_position(
-    value,
-    minimum,
-    maximum
-):
+def _float_slider_position(value, minimum, maximum):
     if maximum <= minimum:
         return 0
-
     ratio = (
         (float(value) - float(minimum)) /
         float(maximum - minimum)
     )
-    return max(
-        0,
-        min(
-            10000,
-            int(round(ratio * 10000.0))
-        )
-    )
+    return max(0, min(10000, int(round(ratio * 10000.0))))
 
 
 class RuntimeValueBinding(object):
-    """Connect one document value item to its already-created Qt controls."""
+    """Synchronize one has-value Item with its already-created Qt controls."""
 
-    def __init__(
-        self,
-        kind,
-        root,
-        owner
-    ):
-        self.kind = text_type(
-            kind or ""
-        ).strip().lower()
+    def __init__(self, root, owner):
         self.root = root
         self.owner = owner
 
     def _signal_controls(self):
-        if self.kind == "string":
-            return _controls(
-                self.root,
-                QtGui.QLineEdit
-            )
-
-        if self.kind in (
-            "checkbox",
-            "toggle",
-        ):
-            return _controls(
-                self.root,
-                QtGui.QCheckBox
-            )
-
-        if self.kind == "integer":
-            return (
-                _controls(
-                    self.root,
-                    QtGui.QSpinBox
-                ) +
-                _controls(
-                    self.root,
-                    QtGui.QSlider
-                )
-            )
-
-        if self.kind == "float":
-            return (
-                _controls(
-                    self.root,
-                    QtGui.QDoubleSpinBox
-                ) +
-                _controls(
-                    self.root,
-                    QtGui.QSlider
-                )
-            )
-
-        if self.kind == "menu":
-            return _controls(
-                self.root,
-                QtGui.QComboBox
-            )
-
-        if self.kind == "color":
-            return _controls(
-                self.root,
-                QtGui.QPushButton
-            )
-
-        return []
-
-    def _sync_string(self, item):
-        value = text_type(
-            item.get("value", "") or ""
+        classes = (
+            QtGui.QLineEdit,
+            QtGui.QCheckBox,
+            QtGui.QSpinBox,
+            QtGui.QDoubleSpinBox,
+            QtGui.QSlider,
+            QtGui.QComboBox,
+            QtGui.QPushButton,
         )
+        result = []
+        for control_class in classes:
+            result.extend(_controls(self.root, control_class))
+        unique = []
+        for control in result:
+            if control not in unique:
+                unique.append(control)
+        return unique
 
-        for control in _controls(
-            self.root,
-            QtGui.QLineEdit
-        ):
-            control.setText(value)
-
-    def _sync_checkbox(self, item):
-        value = bool(
-            item.get("value", False)
-        )
-
-        for control in _controls(
-            self.root,
-            QtGui.QCheckBox
-        ):
-            control.setChecked(value)
-
-    def _sync_integer(self, item):
-        spins = _controls(
-            self.root,
-            QtGui.QSpinBox
-        )
-        values = _numeric_values(
-            item.get("value", 0),
-            len(spins)
-        )
-
-        for index, control in enumerate(spins):
-            control.setValue(
-                int(values[index])
-            )
-
-        sliders = _controls(
-            self.root,
-            QtGui.QSlider
-        )
-
-        for index, slider in enumerate(sliders):
-            if index >= len(values):
-                break
-            slider.setValue(
-                int(values[index])
-            )
-
-    def _sync_float(self, item):
-        spins = _controls(
-            self.root,
-            QtGui.QDoubleSpinBox
-        )
-        values = _numeric_values(
-            item.get("value", 0.0),
-            len(spins)
-        )
-
-        for index, control in enumerate(spins):
-            control.setValue(
-                float(values[index])
-            )
-
-        sliders = _controls(
-            self.root,
-            QtGui.QSlider
-        )
-        minimum = float(
-            item.get("min", 0.0)
-        )
-        maximum = float(
-            item.get("max", 1.0)
-        )
-
-        for index, slider in enumerate(sliders):
-            if index >= len(values):
-                break
-            slider.setValue(
-                _float_slider_position(
-                    values[index],
-                    minimum,
-                    maximum
-                )
-            )
-
-    def _sync_menu(self, item):
-        value = text_type(
-            item.get("value", "") or ""
-        )
-
-        for control in _controls(
-            self.root,
-            QtGui.QComboBox
-        ):
-            index = control.findText(value)
-            if index >= 0:
-                control.setCurrentIndex(index)
-
-    def _sync_color(self, item):
-        styler = getattr(
-            self.owner,
-            "_color_button_style",
-            None
-        )
-
-        if styler is None:
-            return
-
-        for control in _controls(
-            self.root,
-            QtGui.QPushButton
-        ):
-            styler(
-                control,
-                item.get("value")
-            )
-
-    def sync(self, item):
-        syncer = {
-            "string": self._sync_string,
-            "integer": self._sync_integer,
-            "float": self._sync_float,
-            "checkbox": self._sync_checkbox,
-            "toggle": self._sync_checkbox,
-            "menu": self._sync_menu,
-            "color": self._sync_color,
-        }.get(self.kind)
-
-        if syncer is None:
+    def _sync_numeric(self, props, is_float):
+        spin_class = QtGui.QDoubleSpinBox if is_float else QtGui.QSpinBox
+        spins = _controls(self.root, spin_class)
+        if not spins:
             return False
 
-        previous = _block_signals(
-            self._signal_controls()
+        values = _numeric_values(
+            props.get("value", 0.0 if is_float else 0),
+            len(spins)
         )
+        for index, control in enumerate(spins):
+            control.setValue(
+                float(values[index]) if is_float else int(values[index])
+            )
+
+        sliders = _controls(self.root, QtGui.QSlider)
+        minimum = props.get("min", 0.0 if is_float else 0)
+        maximum = props.get("max", 1.0 if is_float else 1)
+        for index, slider in enumerate(sliders):
+            if index >= len(values):
+                break
+            if is_float:
+                slider.setValue(
+                    _float_slider_position(
+                        values[index],
+                        float(minimum),
+                        float(maximum)
+                    )
+                )
+            else:
+                slider.setValue(int(values[index]))
+        return True
+
+    def sync(self, item):
+        props = item.get("props", {}) or {}
+        previous = _block_signals(self._signal_controls())
         try:
-            syncer(item)
+            if self._sync_numeric(props, is_float=True):
+                return True
+            if self._sync_numeric(props, is_float=False):
+                return True
+
+            checkboxes = _controls(self.root, QtGui.QCheckBox)
+            if checkboxes:
+                value = bool(props.get("value", False))
+                for control in checkboxes:
+                    control.setChecked(value)
+                return True
+
+            combos = _controls(self.root, QtGui.QComboBox)
+            if combos:
+                value = text_type(props.get("value", "") or "")
+                for control in combos:
+                    index = control.findText(value)
+                    if index >= 0:
+                        control.setCurrentIndex(index)
+                return True
+
+            lines = _controls(self.root, QtGui.QLineEdit)
+            if lines:
+                value = text_type(props.get("value", "") or "")
+                for control in lines:
+                    control.setText(value)
+                return True
+
+            definition = ITEM_TYPES.get(item.get("kind"))
+            value_field = (
+                definition.fields.get("value")
+                if definition is not None
+                else None
+            )
+            if isinstance(value_field, ColorField):
+                styler = getattr(
+                    self.owner,
+                    "_color_button_style",
+                    None
+                )
+                if styler is None:
+                    return False
+                for control in _controls(self.root, QtGui.QPushButton):
+                    styler(control, props.get("value"))
+                return True
         finally:
             _restore_signals(previous)
 
-        return True
+        return False
 
 
-def _register_value_widget(
-    self,
-    item_id,
-    binding
-):
-    if not hasattr(
-        self,
-        "value_widgets"
-    ):
+def _register_value_widget(self, item_id, binding):
+    if not hasattr(self, "value_widgets"):
         self.value_widgets = {}
-
-    self.value_widgets[
-        text_type(item_id)
-    ] = binding
+    self.value_widgets[text_type(item_id)] = binding
     return binding
 
 
-def _sync_runtime_value(
-    self,
-    key
-):
+def _sync_runtime_value(self, key):
     item = self.find_item(key)
-
     if item is None:
         return False
 
-    if item.get("kind") == "field":
-        self.refresh_field_widget(
-            item["id"]
-        )
+    register_builtin_items()
+    definition = ITEM_TYPES.get(item.get("kind"))
+    if definition is not None and definition.has_capability("field_widget"):
+        self.refresh_field_widget(item["id"])
         return True
 
-    value_widgets = getattr(
-        self,
-        "value_widgets",
-        {}
-    )
-    binding = value_widgets.get(
-        text_type(item["id"])
-    )
-
+    item_id = text_type(item.get("id", ""))
+    binding = getattr(self, "value_widgets", {}).get(item_id)
     if binding is None:
         return False
 
     try:
-        return bool(
-            binding.sync(item)
-        )
+        return bool(binding.sync(item))
     except Exception:
         try:
-            del value_widgets[
-                text_type(item["id"])
-            ]
+            del self.value_widgets[item_id]
         except Exception:
             pass
         return False
 
 
 def _install_toolbox_methods(toolbox_class):
-    if not hasattr(
-        toolbox_class,
-        "register_value_widget"
-    ):
+    if not hasattr(toolbox_class, "register_value_widget"):
         toolbox_class.register_value_widget = _register_value_widget
-
-    if not hasattr(
-        toolbox_class,
-        "sync_runtime_value"
-    ):
+    if not hasattr(toolbox_class, "sync_runtime_value"):
         toolbox_class.sync_runtime_value = _sync_runtime_value
 
 
 def _install_store_wrapper(toolbox_class):
-    if toolbox_class.__dict__.get(
-        _TOOLBOX_INSTALL_MARKER,
-        False
-    ):
+    if toolbox_class.__dict__.get(_TOOLBOX_INSTALL_MARKER, False):
         return
 
     original_store_value = toolbox_class.store_value
 
-    def store_value_with_runtime_sync(
-        self,
-        key,
-        value
-    ):
-        result = original_store_value(
-            self,
-            key,
-            value
-        )
-
+    def store_value_with_runtime_sync(self, key, value):
+        result = original_store_value(self, key, value)
         if result:
             self.sync_runtime_value(key)
-
         return result
 
     toolbox_class.store_value = store_value_with_runtime_sync
-    setattr(
-        toolbox_class,
-        _TOOLBOX_INSTALL_MARKER,
-        True
-    )
+    setattr(toolbox_class, _TOOLBOX_INSTALL_MARKER, True)
 
 
 def _install_rebuild_wrapper(toolbox_class):
-    if toolbox_class.__dict__.get(
-        _REBUILD_INSTALL_MARKER,
-        False
-    ):
+    if toolbox_class.__dict__.get(_REBUILD_INSTALL_MARKER, False):
         return
 
     original_rebuild = toolbox_class.rebuild
@@ -441,71 +265,48 @@ def _install_rebuild_wrapper(toolbox_class):
         return original_rebuild(self)
 
     toolbox_class.rebuild = rebuild_with_value_registry
-    setattr(
-        toolbox_class,
-        _REBUILD_INSTALL_MARKER,
-        True
-    )
+    setattr(toolbox_class, _REBUILD_INSTALL_MARKER, True)
 
 
-def _value_renderer_wrapper(
-    kind,
-    renderer
-):
-    def render_with_value_registration(
-        owner,
-        item,
-        compact=False
-    ):
-        root = renderer(
-            owner,
-            item,
-            compact=compact
-        )
+def _copy_renderer_markers(target, source):
+    try:
+        target.__dict__.update(getattr(source, "__dict__", {}))
+    except Exception:
+        pass
 
+
+def _value_renderer_wrapper(renderer):
+    def render_with_value_registration(owner, item, compact=False):
+        root = renderer(owner, item, compact=compact)
         if root is not None:
-            binding = RuntimeValueBinding(
-                kind,
-                root,
-                owner
-            )
             owner.toolbox.register_value_widget(
                 item["id"],
-                binding
+                RuntimeValueBinding(root, owner)
             )
-
         return root
 
+    _copy_renderer_markers(render_with_value_registration, renderer)
+    setattr(render_with_value_registration, _VALUE_RENDERER_MARKER, True)
     return render_with_value_registration
 
 
-def _install_renderer_wrappers(registry):
-    if getattr(
-        registry,
-        _RENDERER_INSTALL_MARKER,
-        False
-    ):
-        return
-
-    for kind in _VALUE_KINDS:
-        renderer = registry.renderer_for(kind)
+def synchronize_runtime_value_renderers(registry):
+    """Decorate newly registered has-value renderers exactly once."""
+    register_builtin_items()
+    for definition in ITEM_TYPES.all():
+        if not definition.has_capability("has_value"):
+            continue
+        renderer = registry.renderer_for(definition.kind)
         if renderer is None:
             continue
-
+        if getattr(renderer, _VALUE_RENDERER_MARKER, False):
+            continue
         registry.register(
-            kind,
-            _value_renderer_wrapper(
-                kind,
-                renderer
-            ),
+            definition.kind,
+            _value_renderer_wrapper(renderer),
             replace=True
         )
-
-    setattr(
-        registry,
-        _RENDERER_INSTALL_MARKER,
-        True
-    )
+    return registry
 
 
 def install_runtime_value_sync(
@@ -514,31 +315,18 @@ def install_runtime_value_sync(
     store_toolbox_classes=None
 ):
     """Install runtime value registration and post-store synchronization."""
-    _install_toolbox_methods(
-        base_toolbox_class
-    )
-    _install_rebuild_wrapper(
-        base_toolbox_class
-    )
-    _install_renderer_wrappers(
-        registry
-    )
+    _install_toolbox_methods(base_toolbox_class)
+    _install_rebuild_wrapper(base_toolbox_class)
+    synchronize_runtime_value_renderers(registry)
 
-    classes = [
-        base_toolbox_class
-    ]
-
+    classes = [base_toolbox_class]
     for toolbox_class in store_toolbox_classes or ():
         if toolbox_class not in classes:
             classes.append(toolbox_class)
-        _install_toolbox_methods(
-            toolbox_class
-        )
+        _install_toolbox_methods(toolbox_class)
 
     for toolbox_class in classes:
-        _install_store_wrapper(
-            toolbox_class
-        )
+        _install_store_wrapper(toolbox_class)
 
     return registry
 
@@ -546,4 +334,5 @@ def install_runtime_value_sync(
 __all__ = [
     "RuntimeValueBinding",
     "install_runtime_value_sync",
+    "synchronize_runtime_value_renderers",
 ]

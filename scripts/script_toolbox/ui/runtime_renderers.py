@@ -6,6 +6,8 @@ import os
 from ..compat import QtCore
 from ..compat import QtGui
 from ..core.runtime_registry import RuntimeRendererRegistry
+from ..model.item_builtins import register_builtin_items
+from ..model.item_registry import ITEM_TYPES
 from ..model.items import safe_component_labels
 from ..model.items import safe_numeric_size
 from ..pycompat import text_type
@@ -15,12 +17,23 @@ from ..style.palette import TEXT_SUBTLE
 
 _ACTIVE_REGISTRY = None
 _RUNTIME_MODULE = None
+_DISABLED_RENDERERS = set()
 
 
 def _expanded_path(value):
     return os.path.expanduser(
         os.path.expandvars(text_type(value or ""))
     )
+
+
+def _props(item):
+    value = item.get("props", {}) if isinstance(item, dict) else {}
+    return value if isinstance(value, dict) else {}
+
+
+def _ui(item):
+    value = item.get("ui", {}) if isinstance(item, dict) else {}
+    return value if isinstance(value, dict) else {}
 
 
 def _has_mouse_binding(item):
@@ -45,29 +58,28 @@ def _render_folder(owner, item, compact=False):
     )
 
 
-def _render_row(owner, item, compact=False):
-    return owner._row_widget(item)
-
-
 def _render_button(owner, item, compact=False):
+    props = _props(item)
     button = owner._button_widget(item)
-    icon_path = _expanded_path(item.get("icon_path"))
-    icon_size = int(item.get("icon_size", 18))
+    icon_path = _expanded_path(props.get("icon_path"))
+    icon_size = int(props.get("icon_size", 18))
 
     if icon_path:
         button.setIcon(QtGui.QIcon(icon_path))
         button.setIconSize(QtCore.QSize(icon_size, icon_size))
 
-    if item.get("icon_only", False):
+    if props.get("icon_only", False):
         button.setText("")
 
     return button
 
 
 def _render_icon(owner, item, compact=False):
-    width = int(item.get("width", 24))
-    height = int(item.get("height", 24))
-    path = _expanded_path(item.get("path"))
+    props = _props(item)
+    ui = _ui(item)
+    width = int(props.get("width", 24))
+    height = int(props.get("height", 24))
+    path = _expanded_path(props.get("path"))
     clickable = _has_mouse_binding(item)
 
     if clickable:
@@ -96,13 +108,13 @@ def _render_icon(owner, item, compact=False):
         else:
             icon_widget.setText("?")
 
-    icon_widget.setToolTip(item.get("tooltip", ""))
+    icon_widget.setToolTip(ui.get("tooltip", ""))
 
     container = QtGui.QWidget()
     layout = QtGui.QHBoxLayout(container)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(0)
-    alignment = item.get("content_alignment", "left")
+    alignment = props.get("content_alignment", "left")
 
     if alignment in ("center", "right"):
         layout.addStretch(1)
@@ -124,13 +136,14 @@ def _render_field(owner, item, compact=False):
     if _RUNTIME_MODULE is None:
         return None
 
+    props = _props(item)
     container, layout = owner._parameter_container(
         item,
         compact=compact
     )
     list_mode = (
-        item.get("display_mode") == "list" and
-        bool(item.get("multiple", True))
+        props.get("display_mode") == "list" and
+        bool(props.get("multiple", True))
     )
     control_class = (
         _RUNTIME_MODULE.DisplayFieldList
@@ -174,12 +187,13 @@ def _render_separator(owner, item, compact=False):
 
 
 def _render_string(owner, item, compact=False):
+    props = _props(item)
     container, layout = owner._parameter_container(
         item,
         compact=compact
     )
     control = QtGui.QLineEdit(
-        text_type(item.get("value", ""))
+        text_type(props.get("value", ""))
     )
 
     if compact:
@@ -196,8 +210,8 @@ def _render_string(owner, item, compact=False):
     return container
 
 
-def _numeric_values(item, size):
-    value = item.get("value", 0)
+def _numeric_values(props, size):
+    value = props.get("value", 0)
     if isinstance(value, (list, tuple)):
         values = list(value)
     else:
@@ -224,19 +238,20 @@ def _float_slider_value(position, minimum, maximum):
 
 
 def _render_numeric(owner, item, compact=False, is_float=False):
+    props = _props(item)
     container, layout = owner._parameter_container(
         item,
         compact=compact
     )
-    size = safe_numeric_size(item.get("size", 1))
-    values = _numeric_values(item, size)
+    size = safe_numeric_size(props.get("size", 1))
+    values = _numeric_values(props, size)
     labels = safe_component_labels(
-        item.get("component_labels"),
+        props.get("component_labels"),
         size
     )
-    show_slider = bool(item.get("show_slider", False))
-    minimum = item["min"]
-    maximum = item["max"]
+    show_slider = bool(props.get("show_slider", False))
+    minimum = props["min"]
+    maximum = props["max"]
 
     control_root = QtGui.QWidget()
     if show_slider and size > 1:
@@ -266,14 +281,14 @@ def _render_numeric(owner, item, compact=False, is_float=False):
 
         if is_float:
             spin = QtGui.QDoubleSpinBox()
-            spin.setDecimals(item["decimals"])
+            spin.setDecimals(props["decimals"])
             spin.setRange(minimum, maximum)
-            spin.setSingleStep(item["step"])
+            spin.setSingleStep(props["step"])
             spin.setValue(float(values[index]))
         else:
             spin = QtGui.QSpinBox()
             spin.setRange(minimum, maximum)
-            spin.setSingleStep(item["step"])
+            spin.setSingleStep(props["step"])
             spin.setValue(int(values[index]))
 
         spins.append(spin)
@@ -296,7 +311,7 @@ def _render_numeric(owner, item, compact=False, is_float=False):
                 )
             else:
                 slider.setRange(int(minimum), int(maximum))
-                slider.setSingleStep(int(item["step"]))
+                slider.setSingleStep(int(props["step"]))
                 slider.setValue(int(values[index]))
             target_layout.addWidget(slider, 1)
         sliders.append(slider)
@@ -378,14 +393,15 @@ def _render_float(owner, item, compact=False):
 
 
 def _render_menu(owner, item, compact=False):
+    props = _props(item)
     container, layout = owner._parameter_container(
         item,
         compact=compact
     )
     control = QtGui.QComboBox()
-    control.addItems(item["items"])
+    control.addItems(props["items"])
 
-    index = control.findText(item["value"])
+    index = control.findText(props["value"])
     if index >= 0:
         control.setCurrentIndex(index)
 
@@ -401,6 +417,7 @@ def _render_menu(owner, item, compact=False):
 
 
 def _render_color(owner, item, compact=False):
+    props = _props(item)
     container, layout = owner._parameter_container(
         item,
         compact=compact
@@ -408,7 +425,7 @@ def _render_color(owner, item, compact=False):
     control = QtGui.QPushButton(
         "..." if compact else "Choose..."
     )
-    owner._color_button_style(control, item["value"])
+    owner._color_button_style(control, props["value"])
     control.clicked.connect(
         lambda checked=False, item_id=item["id"], widget=control:
         owner._choose_runtime_color(item_id, widget)
@@ -418,26 +435,59 @@ def _render_color(owner, item, compact=False):
 
 
 def build_default_runtime_renderer_registry():
+    register_builtin_items()
+    from .item_ui_bootstrap import ensure_builtin_item_ui_bindings
+    ensure_builtin_item_ui_bindings()
+
     registry = RuntimeRendererRegistry()
-    entries = (
-        ("folder", _render_folder),
-        ("row", _render_row),
-        ("button", _render_button),
-        ("icon", _render_icon),
-        ("checkbox", _render_checkbox),
-        ("field", _render_field),
-        ("label", _render_label),
-        ("separator", _render_separator),
-        ("string", _render_string),
-        ("integer", _render_integer),
-        ("float", _render_float),
-        ("menu", _render_menu),
-        ("color", _render_color),
-    )
+    for definition in ITEM_TYPES.all():
+        if (
+            definition.renderer is not None and
+            definition.kind not in _DISABLED_RENDERERS
+        ):
+            registry.register(
+                definition.kind,
+                definition.renderer
+            )
+    return registry
 
-    for kind, renderer in entries:
-        registry.register(kind, renderer)
 
+def _decorate_runtime_renderer_registry(registry):
+    from .event_binding_hooks import install_event_binding_hooks
+    from .runtime_value_sync import synchronize_runtime_value_renderers
+
+    install_event_binding_hooks(registry)
+    synchronize_runtime_value_renderers(registry)
+    return registry
+
+
+def synchronize_runtime_renderer_registry(registry=None):
+    """Attach renderers for Item definitions registered after UI bootstrap."""
+    if registry is None:
+        registry = _ACTIVE_REGISTRY
+    if registry is None:
+        return None
+
+    register_builtin_items()
+    from .item_ui_bootstrap import ensure_builtin_item_ui_bindings
+    ensure_builtin_item_ui_bindings()
+
+    added = False
+    for definition in ITEM_TYPES.all():
+        if (
+            definition.kind in _DISABLED_RENDERERS or
+            definition.renderer is None or
+            registry.has(definition.kind)
+        ):
+            continue
+        registry.register(
+            definition.kind,
+            definition.renderer
+        )
+        added = True
+
+    if added:
+        _decorate_runtime_renderer_registry(registry)
     return registry
 
 
@@ -446,34 +496,49 @@ def initialize_runtime_renderer_registry(runtime_module):
     global _RUNTIME_MODULE
 
     _RUNTIME_MODULE = runtime_module
+    _DISABLED_RENDERERS.clear()
     _ACTIVE_REGISTRY = build_default_runtime_renderer_registry()
     return _ACTIVE_REGISTRY
 
 
 def get_runtime_renderer_registry():
-    return _ACTIVE_REGISTRY
+    return synchronize_runtime_renderer_registry(_ACTIVE_REGISTRY)
 
 
-def register_runtime_renderer(
-    kind,
-    renderer,
-    replace=False
-):
-    if _ACTIVE_REGISTRY is None:
-        raise RuntimeError(
-            "Runtime renderer registry is not initialized."
+def register_runtime_renderer(kind, renderer, replace=False):
+    register_builtin_items()
+    definition = ITEM_TYPES.get(kind, required=True)
+    was_disabled = definition.kind in _DISABLED_RENDERERS
+    if definition.renderer is not None and not replace and not was_disabled:
+        raise ValueError(
+            "Renderer for kind '{0}' is already registered.".format(
+                definition.kind
+            )
         )
-    return _ACTIVE_REGISTRY.register(
-        kind,
-        renderer,
-        replace=replace
-    )
+
+    _DISABLED_RENDERERS.discard(definition.kind)
+    ITEM_TYPES.bind_ui(definition.kind, renderer=renderer)
+    if _ACTIVE_REGISTRY is not None:
+        _ACTIVE_REGISTRY.register(
+            definition.kind,
+            renderer,
+            replace=(replace or _ACTIVE_REGISTRY.has(definition.kind))
+        )
+        _decorate_runtime_renderer_registry(_ACTIVE_REGISTRY)
+    return renderer
 
 
 def unregister_runtime_renderer(kind):
-    if _ACTIVE_REGISTRY is None:
+    register_builtin_items()
+    definition = ITEM_TYPES.get(kind)
+    if definition is None:
         return None
-    return _ACTIVE_REGISTRY.unregister(kind)
+
+    previous = definition.renderer
+    _DISABLED_RENDERERS.add(definition.kind)
+    if _ACTIVE_REGISTRY is not None:
+        _ACTIVE_REGISTRY.unregister(definition.kind)
+    return previous
 
 
 __all__ = [
@@ -481,5 +546,6 @@ __all__ = [
     "get_runtime_renderer_registry",
     "initialize_runtime_renderer_registry",
     "register_runtime_renderer",
+    "synchronize_runtime_renderer_registry",
     "unregister_runtime_renderer",
 ]

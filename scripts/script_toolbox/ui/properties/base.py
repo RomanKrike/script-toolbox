@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+import copy
+
 from ...compat import QtCore
 from ...compat import QtGui
 from ...core.preferences import INSPECTOR_SECTIONS_KEY
 from ...core.preferences import load_preferences
 from ...core.preferences import set_inspector_section_collapsed
+from ...model.items import normalize_item_props_candidate
 from ...model.items import sanitize_name
 from ...pycompat import text_type
 from ...style.metrics import PROPERTY_EDITOR_SPACING
@@ -80,8 +83,7 @@ class PropertyEditorBase(QtGui.QWidget):
         self.general_section.addRow("Tooltip", self.tooltip_edit)
 
         # LAYOUT ----------------------------------------------------------
-        # These controls present one stable Inspector contract while the
-        # adapter below keeps the existing row_*/column_* persisted keys.
+        # These controls edit only universal Item ``ui`` presentation data.
         self.row_width_mode = QtGui.QComboBox()
         self.row_width_mode.addItems([
             "Auto",
@@ -137,8 +139,6 @@ class PropertyEditorBase(QtGui.QWidget):
         self.layout_adapter = LayoutPropertyAdapter(self)
 
         # TRIGGERS --------------------------------------------------------
-        # BindingPanel remains the existing event-binding implementation; it
-        # is embedded instead of replaced so persisted bindings are untouched.
         self.binding_panel = BindingPanel(
             toolbox=self.toolbox,
             parent=self.trigger_section
@@ -243,9 +243,6 @@ class PropertyEditorBase(QtGui.QWidget):
                 )
                 return
 
-        # Checkbox rows with an empty label can legitimately have no QLabel.
-        # In that case the shared helper still provides the required state and
-        # explanatory tooltip on the control itself.
         _set_property_available(
             widget,
             available,
@@ -292,21 +289,35 @@ class PropertyEditorBase(QtGui.QWidget):
     ):
         if enabled:
             parent_item = dict(self.parent_layout_item or {})
-            parent_item["equal_widths"] = bool(equal_widths)
+            parent_props = dict(parent_item.get("props", {}) or {})
+            parent_definition = self.layout_adapter.parent_definition
+            layout_spec = (
+                parent_definition.layout_spec
+                if parent_definition is not None
+                else None
+            )
+            equal_size_field = (
+                layout_spec.equal_size_field
+                if layout_spec is not None
+                else None
+            )
+            if equal_size_field:
+                parent_props[equal_size_field] = bool(equal_widths)
+            parent_item["props"] = parent_props
             self.set_parent_layout_context(
-                "row",
+                self.parent_layout_kind,
                 parent_item
             )
-        elif self.parent_layout_kind == "row":
+        elif self.row_context:
             self.set_parent_layout_context("", None)
 
     def set_column_context(self, enabled):
         if enabled:
             self.set_parent_layout_context(
-                "column",
+                self.parent_layout_kind,
                 self.parent_layout_item
             )
-        elif self.parent_layout_kind == "column":
+        elif self.column_context:
             self.set_parent_layout_context("", None)
 
     def set_parent_layout_context(
@@ -345,27 +356,29 @@ class PropertyEditorBase(QtGui.QWidget):
         self.loading = True
 
         try:
+            ui = item.get("ui", {}) or {}
+            props = item.get("props", {}) or {}
             self.name_edit.setText(
                 text_type(item.get("name", ""))
             )
             self.label_edit.setText(
                 text_type(
-                    item.get(
+                    ui.get(
                         "label",
                         item.get("name", "")
                     )
                 )
             )
             self.show_label_check.setChecked(
-                bool(item.get("show_label", True))
+                bool(ui.get("show_label", True))
             )
             self.tooltip_edit.setText(
-                text_type(item.get("tooltip", ""))
+                text_type(ui.get("tooltip", ""))
             )
 
-            self.layout_adapter.load(item)
+            self.layout_adapter.load(ui)
             self.binding_panel.load(item)
-            self.load_specific(item)
+            self.load_specific(props)
         finally:
             self.loading = False
             self.layout_adapter.refresh()
@@ -382,10 +395,10 @@ class PropertyEditorBase(QtGui.QWidget):
         finally:
             self.loading = previous
 
-    def load_specific(self, item):
+    def load_specific(self, props):
         pass
 
-    def write_specific(self, item):
+    def write_specific(self, props):
         pass
 
     def write_to_item(self):
@@ -393,6 +406,10 @@ class PropertyEditorBase(QtGui.QWidget):
             return
 
         kind = self.item.get("kind", "item")
+        ui = self.item.setdefault("ui", {})
+        current_props = self.item.get("props", {}) or {}
+        candidate_props = copy.deepcopy(current_props)
+
         if is_property_available(self.name_edit):
             self.item["name"] = sanitize_name(
                 text_type(self.name_edit.text()),
@@ -403,22 +420,27 @@ class PropertyEditorBase(QtGui.QWidget):
             label = text_type(
                 self.label_edit.text()
             ).strip()
-            self.item["label"] = (
+            ui["label"] = (
                 label or self.item.get("name", kind)
             )
 
         if is_property_available(self.show_label_check):
-            self.item["show_label"] = bool(
+            ui["show_label"] = bool(
                 self.show_label_check.isChecked()
             )
 
         if is_property_available(self.tooltip_edit):
-            self.item["tooltip"] = text_type(
+            ui["tooltip"] = text_type(
                 self.tooltip_edit.text()
             )
 
-        self.layout_adapter.write(self.item)
-        self.write_specific(self.item)
+        self.layout_adapter.write(ui)
+        self.write_specific(candidate_props)
+        normalized_props = normalize_item_props_candidate(
+            self.item,
+            candidate_props
+        )
+        self.item["props"] = normalized_props
         self.binding_panel.write_to_item(self.item)
 
     def _control_changed(self, *args):

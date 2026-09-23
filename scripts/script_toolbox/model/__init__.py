@@ -1,32 +1,42 @@
 # -*- coding: utf-8 -*-
 
-from . import items as _items
 from .index import DocumentIndex
-from .layouts import CONTAINER_KINDS
-from .layouts import LAYOUT_KINDS
+from .item_builtins import register_builtin_items
+from .item_registry import ITEM_TYPES
+from .item_registry import ItemTypeDefinition
+from .item_registry import ItemTypeRegistry
+from .item_registry import ItemValidationError
+from .item_registry import LayoutSpec
+from .item_registry import SectionSpec
+from .item_registry import bind_item_ui
+from .item_registry import get_item_type
+from .item_registry import register_item_type
+from .items import create_item
+from .items import normalize_document
+from .items import normalize_item_props
+from .items import walk_items
 from .layouts import is_container_kind
 from .layouts import is_layout_kind
-from .text_item import create_text_item as _create_text_item
 
 
-_items.register_item_factory(
-    "text",
-    _create_text_item,
-    replace=True
-)
-
-create_item = _items.create_item
-normalize_document = _items.normalize_document
-walk_items = _items.walk_items
+register_builtin_items()
 
 
 __all__ = [
-    "CONTAINER_KINDS",
     "DocumentIndex",
-    "LAYOUT_KINDS",
+    "ITEM_TYPES",
+    "ItemTypeDefinition",
+    "ItemTypeRegistry",
+    "ItemValidationError",
+    "LayoutSpec",
+    "SectionSpec",
+    "bind_item_ui",
     "create_item",
+    "get_item_type",
     "is_container_kind",
     "is_layout_kind",
     "normalize_document",
+    "normalize_item_props",
+    "register_item_type",
     "walk_items",
 ]

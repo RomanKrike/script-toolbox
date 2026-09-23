@@ -13,15 +13,42 @@ Stable remains the default.
 2. The selected update channel is loaded from `script_toolbox_settings.json`.
 3. If an update is available, the top bar shows `UPDATE <version>`.
 4. The user explicitly confirms installation.
-5. The updater downloads the packaged ZIP for the selected channel.
-6. If Maya 2015's Python 2.7 HTTPS stack cannot reach GitHub on Windows, the updater transparently falls back to PowerShell/.NET TLS 1.2 without opening a console window.
-7. If a SHA-256 asset is present, the downloaded ZIP is verified before extraction.
-8. The update is staged and validated before the live package is replaced.
+5. The updater requires the official packaged ZIP and its matching `.sha256` asset for the selected channel.
+6. Both assets are downloaded through the shared `core.http_transport` layer. On modern Windows it tries Python `urllib` first and falls back to hidden PowerShell/.NET TLS 1.2 on transport failure; on legacy Windows/Python 2 it prefers PowerShell first and falls back to `urllib`. Non-Windows hosts use `urllib` only.
+7. The ZIP SHA-256 must match the downloaded checksum before recovery, extraction, staging, or activation can touch live update state.
+8. The verified update is staged and validated before the live package is replaced.
 9. If activation fails, the transaction restores the previous package.
 10. The existing Toolbox UI is closed, all `script_toolbox.*` child modules are unloaded, the package root is reloaded in place, and the Toolbox reopens from the new files.
 11. A DCC restart is only required as a fallback if hot reload fails or a future release introduces native binaries that cannot be unloaded safely.
 
 The toolbox configuration is outside the package and is not replaced. Update-channel preferences are stored separately from `maya_script_toolbox.json`.
+
+GitHub's generated source zipball is retained only as release metadata where useful; it is not an installation fallback. If the official package, checksum asset, checksum download, or checksum verification is missing/fails, installation stops without replacing the live package.
+
+## Installation architecture
+
+`core.update_transaction.install_release()` is the production installation pipeline. It owns verified download handoff, transaction recovery, staging, validation, activation, rollback, and cleanup.
+
+`core.updater` owns release metadata, SHA-256 and archive utilities. Network request/download execution is owned by `core.http_transport`, which is also used by sharing. Updater-specific transport compatibility names remain only as forwarding wrappers; they no longer contain an independent PowerShell implementation.
+
+`core.updater.install_release()` remains as a compatibility wrapper that delegates to the transaction installer; it no longer contains a second filesystem installation implementation.
+
+## Transport details
+
+The shared transport keeps the network policy consistent between updater and sharing:
+
+- legacy Windows/Python 2: PowerShell/.NET first, `urllib` fallback;
+- modern Windows/Python: `urllib` first, PowerShell/.NET fallback;
+- non-Windows: `urllib` only.
+
+PowerShell uses .NET `HttpWebRequest`, TLS 1.2, explicit request/read-write timeouts and hidden startup flags. GitHub Authorization is passed to the child process through an environment variable rather than embedded in the command line. Transport failures are normalized as `TransportError` and translated by updater into `UpdateError`.
+
+
+## Proxy configuration
+
+Updater and sharing use the shared proxy policy from `core.network_proxy`. Settings support System, No proxy, and Manual modes. Manual mode accepts HTTP, HTTPS, and SOCKS5 proxies with optional authentication. The same resolved proxy configuration is passed to both urllib and the Windows PowerShell/.NET fallback so changing transport backend does not bypass the selected proxy policy.
+
+Saved proxy credentials are never written in clear text. Windows protects the password with the current user's DPAPI key; when a platform has no supported secure built-in credential backend, the password is intentionally not persisted.
 
 ## Update channel UI
 
@@ -39,7 +66,7 @@ Changing the channel persists the selection and immediately checks the newly sel
 `scripts/script_toolbox/constants.py` contains the current semantic version, for example:
 
 ```python
-PLUGIN_VERSION = "0.8.5"
+PLUGIN_VERSION = "1.0.0"
 ```
 
 After the stable version reaches `main`, the `Python checks` workflow runs first. If it succeeds, `.github/workflows/release.yml` builds and validates the package, creates the matching `v<version>` tag when needed, and publishes the GitHub Release.
@@ -88,6 +115,6 @@ The top bar contains a manual Check for Updates button. Check failures are shown
 
 ## Failure behavior
 
-Download and install failures are shown to the user, and the updater attempts to restore the previous package through the existing transaction mechanism.
+Missing official package/checksum metadata and checksum verification failures are reported and stop installation before the live package is replaced. Later staging/activation failures are shown to the user and use the transaction rollback/recovery mechanism to preserve the previous package.
 
 If installation succeeds but hot reload fails, the new files remain installed and Script Toolbox asks the user to restart the host application.

@@ -25,6 +25,23 @@ The Existing Parameters context menu also contains:
 Changes pasted into the Interface Editor remain staged until **Apply** or
 **Accept**, and participate in the editor command history.
 
+## Executable-content warning
+
+A decrypted share is authenticated, but it is not automatically trusted. Shared
+toolboxes and items can contain Python or MEL behavior in event bindings,
+callbacks, toggle state scripts, and other script payloads.
+
+Before a decoded shared payload can modify the staged toolbox, Script Toolbox
+checks the raw payload for executable content. Safe payloads continue without an
+extra dialog. If executable content is present, the editor shows a warning and
+requires an explicit **Import Anyway** choice; **Cancel** is the default and
+escape action.
+
+Cancelling happens before model insertion, document-history changes, successful
+paste telemetry, or execution of any imported script. The warning is an informed
+confirmation boundary, not a Python/MEL sandbox. Review scripts and import shared
+content only from sources you trust.
+
 ## Share code
 
 Protocol version 1 uses this external form:

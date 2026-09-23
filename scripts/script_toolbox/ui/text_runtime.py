@@ -9,8 +9,9 @@ from ..style.palette import TEXT_SUBTLE
 
 def render_text(owner, item, compact=False):
     """Render static multiline explanatory text without a frame or surface."""
+    props = item.get("props", {}) or {}
     label = QtGui.QLabel(
-        text_type(item.get("text", ""))
+        text_type(props.get("text", ""))
     )
     label.setObjectName("RuntimeText")
     label.setWordWrap(True)

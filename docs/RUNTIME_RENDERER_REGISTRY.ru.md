@@ -6,7 +6,7 @@ Runtime renderer registry — активный механизм dispatch для 
 
 `core.runtime_registry.RuntimeRendererRegistry` — независимое от Qt соответствие между `kind` элемента и renderer callable. Core registry не импортирует Maya, Nuke, Qt, Interface Editor или логику переписывания parameter references.
 
-UI renderers находятся в `ui.runtime_renderers` и специализированных renderer-модулях Row, Column, Toggle Button и Toggle Icon.
+UI renderers находятся в `ui.runtime_renderers` и специализированных renderer-модулях Row, Column, Text, Toggle Button и Toggle Icon.
 
 `RuntimeFolder.build_runtime_widget()` напрямую читает активный registry. UI initialization создаёт registry до импорта runtime main window, затем регистрирует специализированные актуальные kinds.
 
@@ -26,6 +26,7 @@ Default/specialized registry покрывает текущий набор render
 - `checkbox`
 - `field`
 - `label`
+- `text`
 - `separator`
 - `string`
 - `integer`

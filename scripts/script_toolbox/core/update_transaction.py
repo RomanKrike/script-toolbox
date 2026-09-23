@@ -14,6 +14,7 @@ from .updater import UpdateError
 from .updater import _download_file
 from .updater import _find_release_root
 from .updater import _safe_extract
+from .updater import _validate_installable_release
 from .updater import _verify_checksum
 from .updater import package_directory
 from .updater import repository_root
@@ -784,45 +785,19 @@ def install_release(
     token=None,
     timeout=30
 ):
-    """Install a release with a staged, journaled, recoverable transaction."""
-    if not isinstance(
-        release,
-        dict
-    ):
-        raise UpdateError(
-            "Invalid release metadata."
-        )
-
-    download_url = text_type(
-        release.get(
-            "download_url",
-            ""
-        )
-    ).strip()
-
-    if not download_url:
-        raise UpdateError(
-            "The release has no download URL."
-        )
+    """Install a verified release with the transaction-v2 pipeline."""
+    install_metadata = _validate_installable_release(
+        release
+    )
 
     destination_package = package_directory()
     destination_root = repository_root()
-
-    if not os.path.isdir(
-        destination_package
-    ):
-        raise UpdateError(
-            "Cannot find the installed Script Toolbox package."
-        )
-
     transaction = UpdateTransaction(
         destination_package,
         destination_root,
         host_key=HOST.key
     )
-
-    # Recover an interrupted earlier update before allocating/download work.
-    recovered = transaction.recover()
+    recovered = False
 
     work_directory = tempfile.mkdtemp(
         prefix="script_toolbox_update_v2_"
@@ -842,29 +817,35 @@ def install_release(
 
     try:
         _download_file(
-            download_url,
+            install_metadata[
+                "download_url"
+            ],
             archive_path,
             token=token,
             timeout=timeout
         )
+        _download_file(
+            install_metadata[
+                "checksum_url"
+            ],
+            checksum_path,
+            token=token,
+            timeout=timeout
+        )
+        _verify_checksum(
+            archive_path,
+            checksum_path
+        )
 
-        checksum_url = text_type(
-            release.get(
-                "checksum_url",
-                ""
-            )
-        ).strip()
+        # Verification must complete before recovery, staging or activation can
+        # touch any live update artifacts.
+        recovered = transaction.recover()
 
-        if checksum_url:
-            _download_file(
-                checksum_url,
-                checksum_path,
-                token=token,
-                timeout=timeout
-            )
-            _verify_checksum(
-                archive_path,
-                checksum_path
+        if not os.path.isdir(
+            destination_package
+        ):
+            raise UpdateError(
+                "Cannot find the installed Script Toolbox package."
             )
 
         os.makedirs(
@@ -899,9 +880,9 @@ def install_release(
         version = transaction.prepare(
             source_package,
             source_mod=source_mod,
-            expected_version=release.get(
+            expected_version=install_metadata[
                 "version"
-            ) or None
+            ] or None
         )
         transaction.activate(
             version
@@ -909,9 +890,9 @@ def install_release(
 
         return {
             "installed": True,
-            "version": release.get(
+            "version": install_metadata[
                 "version"
-            ) or version,
+            ] or version,
             "restart_required": False,
             "hot_reload_supported": True,
             "transaction_version": TRANSACTION_VERSION,

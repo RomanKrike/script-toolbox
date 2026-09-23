@@ -5,7 +5,7 @@ from ..pycompat import text_type
 
 
 class RuntimeRendererRegistry(object):
-    """Map runtime item kinds to renderer callables without importing Qt."""
+    """Runtime renderer table populated from ItemType definitions on UI bootstrap."""
 
     def __init__(self):
         self._renderers = {}
@@ -65,6 +65,16 @@ class RuntimeRendererRegistry(object):
         )
 
 
+def install_registry_hook_once(registry, marker, installer):
+    """Run one registry installer once for a registry instance."""
+    if getattr(registry, marker, False):
+        return False
+    installer(registry)
+    setattr(registry, marker, True)
+    return True
+
+
 __all__ = [
     "RuntimeRendererRegistry",
+    "install_registry_hook_once",
 ]

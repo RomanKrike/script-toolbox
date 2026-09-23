@@ -6,7 +6,7 @@ The runtime renderer registry is the active dispatch mechanism for Script Toolbo
 
 `core.runtime_registry.RuntimeRendererRegistry` is a Qt-independent mapping from an item `kind` to a renderer callable. The core registry does not import Maya, Nuke, Qt, the Interface Editor or parameter-reference rewriting.
 
-UI renderers live in `ui.runtime_renderers` and the specialized Row, Column, Toggle Button and Toggle Icon renderer modules.
+UI renderers live in `ui.runtime_renderers` and the specialized Row, Column, Text, Toggle Button and Toggle Icon renderer modules.
 
 `RuntimeFolder.build_runtime_widget()` reads the active registry directly. UI initialization creates the registry before the runtime main window is imported and then registers specialized current kinds.
 
@@ -26,6 +26,7 @@ The default/specialized registry covers the current renderable item set:
 - `checkbox`
 - `field`
 - `label`
+- `text`
 - `separator`
 - `string`
 - `integer`

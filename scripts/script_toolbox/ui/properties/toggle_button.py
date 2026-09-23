@@ -8,6 +8,7 @@ from ...pycompat import text_type
 from ..language_script_editor import LanguageScriptEditor
 from .base import PropertyEditorBase
 from .button import ButtonPropertyEditor
+from .inspector_tabs import add_inspector_script_tab
 
 
 class ToggleButtonPropertyEditor(ButtonPropertyEditor):
@@ -53,7 +54,6 @@ class ToggleButtonPropertyEditor(ButtonPropertyEditor):
         section.addRow("ON Color", self.state_on_color_button)
         section.addRow("OFF Color", self.state_off_color_button)
 
-        self.state_tabs = QtGui.QTabWidget()
         self.state_get_editor = LanguageScriptEditor(
             language="python",
             toolbox=self.toolbox
@@ -70,10 +70,13 @@ class ToggleButtonPropertyEditor(ButtonPropertyEditor):
             language="python",
             toolbox=self.toolbox
         )
-        self.state_tabs.addTab(self.state_get_editor, "Get State")
-        self.state_tabs.addTab(self.state_on_editor, "Turn ON")
-        self.state_tabs.addTab(self.state_off_editor, "Turn OFF")
-        self.add_trigger_widget(self.state_tabs, 1)
+
+        # System state scripts are fixed pages of the same QTabWidget that owns
+        # user event bindings. Their visual order is fixed: system tabs first,
+        # then user triggers, then the structural + tab.
+        self.state_get_page = None
+        self.state_on_page = None
+        self.state_off_page = None
 
         self.state_source.currentIndexChanged.connect(
             self._state_source_changed
@@ -87,6 +90,7 @@ class ToggleButtonPropertyEditor(ButtonPropertyEditor):
         self.state_off_color_button.clicked.connect(
             lambda: self.choose_state_color("off")
         )
+        self.binding_panel.changed.connect(self._sync_state_tabs)
 
         for editor in (
             self.state_get_editor,
@@ -96,6 +100,83 @@ class ToggleButtonPropertyEditor(ButtonPropertyEditor):
             editor.textChanged.connect(self._control_changed)
             editor.languageChanged.connect(self._control_changed)
 
+        self._refresh_state_source()
+
+    def bind(self, item):
+        # BindingPanel.load() rebuilds user-binding pages. Detach the fixed
+        # system pages first so its clear() only destroys binding-owned pages.
+        self._detach_state_tabs()
+        ButtonPropertyEditor.bind(self, item)
+
+    def _state_tab_specs(self):
+        return (
+            ("state_get_page", self.state_get_editor, "Get State"),
+            ("state_on_page", self.state_on_editor, "Turn ON"),
+            ("state_off_page", self.state_off_editor, "Turn OFF"),
+        )
+
+    def _detach_state_tabs(self):
+        tabs = self.binding_panel.tabs
+        for attr, editor, label in self._state_tab_specs():
+            page = getattr(self, attr)
+            if page is None:
+                continue
+            index = tabs.indexOf(page)
+            if index >= 0:
+                tabs.removeTab(index)
+            try:
+                page.setParent(self)
+            except Exception:
+                pass
+
+    def _hide_state_tab_close_button(self, index):
+        if index < 0:
+            return
+        try:
+            tab_bar = self.binding_panel.tabs.tabBar()
+            for side_name in ("LeftSide", "RightSide"):
+                side = getattr(QtGui.QTabBar, side_name, None)
+                if side is not None:
+                    tab_bar.setTabButton(index, side, None)
+        except Exception:
+            pass
+
+    def _sync_state_tabs(self):
+        tabs = self.binding_panel.tabs
+
+        # System state pages always lead the tab strip. BindingPanel resolves
+        # user bindings by page widget rather than by absolute tab index, so
+        # user tabs can safely follow these fixed pages.
+        self._detach_state_tabs()
+        for system_index, spec in enumerate(self._state_tab_specs()):
+            attr, editor, label = spec
+            page = getattr(self, attr)
+            if page is None:
+                page = add_inspector_script_tab(
+                    tabs,
+                    editor,
+                    label,
+                    index=system_index
+                )
+                setattr(self, attr, page)
+            else:
+                tabs.insertTab(system_index, page, label)
+
+            page.setEnabled(True)
+            index = tabs.indexOf(page)
+            if index >= 0:
+                tabs.setTabEnabled(index, True)
+                try:
+                    tabs.tabBar().setTabEnabled(index, True)
+                except Exception:
+                    pass
+                self._hide_state_tab_close_button(index)
+
+        # Fixed state pages are real tab content, so the panel must not use the
+        # compact "no triggers" height even if an old item has no bindings yet.
+        tabs.setMinimumHeight(0)
+        tabs.setMaximumHeight(16777215)
+        self.binding_panel.empty_label.setVisible(False)
         self._refresh_state_source()
 
     def current_state_source(self):
@@ -116,14 +197,29 @@ class ToggleButtonPropertyEditor(ButtonPropertyEditor):
             not scripted,
             "Internal State is controlled by Get State when State Source is Script."
         )
+        self.state_get_editor.setEnabled(True)
+
+        page = self.state_get_page
+        if page is None:
+            return
+
+        page.setEnabled(True)
+        tabs = self.binding_panel.tabs
+        index = tabs.indexOf(page)
+        if index < 0:
+            return
+
+        tabs.setTabEnabled(index, True)
         try:
-            self.state_tabs.setTabEnabled(0, scripted)
-            self.state_tabs.setTabToolTip(
-                0,
-                "" if scripted else "Get State is used only when State Source is Script."
-            )
+            tabs.tabBar().setTabEnabled(index, True)
         except Exception:
-            self.state_get_editor.setEnabled(scripted)
+            pass
+        tabs.setTabToolTip(
+            index,
+            "State query available for editing; runtime uses it when State Source is Script."
+            if not scripted else
+            "State query used to evaluate the current toggle state."
+        )
 
     def _refresh_state_colors(self):
         self.state_on_color_button.setStyleSheet(
@@ -200,7 +296,7 @@ class ToggleButtonPropertyEditor(ButtonPropertyEditor):
         )
 
         self._refresh_state_colors()
-        self._refresh_state_source()
+        self._sync_state_tabs()
 
     def write_specific(self, item):
         ButtonPropertyEditor.write_specific(self, item)

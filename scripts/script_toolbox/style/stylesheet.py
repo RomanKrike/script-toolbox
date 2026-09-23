@@ -52,12 +52,11 @@ QFrame#RuntimeFolder[folderType="collapsible"][nested="true"] {
     border-color: %(BORDER_FOLDER_NESTED)s;
 }
 
-/* Simple folders stay lightweight at top level, but nested Simple folders
-   still work as visual subgroup cards. */
+/* Simple Section owns no second outer outline. Its visual frame is the
+   dedicated QGroupBox child so the title can participate in the border. */
 QFrame#RuntimeFolder[folderType="simple"][nested="true"] {
     background-color: %(FOLDER_NESTED_BG)s;
-    border: 1px solid %(BORDER_FOLDER_NESTED)s;
-    border-radius: %(BORDER_RADIUS_CARD)spx;
+    border: 0px;
 }
 
 QWidget#RuntimeFolderContent {
@@ -191,29 +190,6 @@ QFrame#RuntimeFolder[nested="true"] QPushButton#RuntimeFolderHeader:hover {
 QFrame#RuntimeFolder[nested="true"] QPushButton#RuntimeFolderHeader[collapsed="true"] {
     background-color: %(FOLDER_NESTED_HEADER_COLLAPSED_BG)s;
     color: %(TEXT_SUBTLE)s;
-}
-
-QFrame#SimpleSectionHeader {
-    background-color: transparent;
-    border: 0px;
-}
-
-QFrame#RuntimeFolder[nested="true"] QFrame#SimpleSectionHeader {
-    background-color: %(SIMPLE_SECTION_NESTED_BG)s;
-    border: 0px;
-    border-radius: %(BORDER_RADIUS_CONTROL)spx;
-}
-
-QLabel#SectionTitle {
-    background: transparent;
-    color: %(TEXT_SECTION)s;
-    font-weight: bold;
-    padding: 2px 3px 3px 3px;
-}
-
-QFrame#RuntimeFolder[nested="true"] QLabel#SectionTitle {
-    color: %(TEXT_SECTION_NESTED)s;
-    padding: 2px 4px 3px 4px;
 }
 
 QFrame#RuntimeSeparatorLine {
@@ -466,6 +442,20 @@ QGroupBox::title {
     left: 8px;
     padding: 0px 5px;
     color: %(TEXT_SUBTLE)s;
+}
+
+/* Simple Section reuses the shared QGroupBox geometry above. The title gets
+   an opaque surface matching its parent, so the border is physically hidden
+   beneath the legend instead of merely placing a label inside the frame. */
+QGroupBox#SimpleSectionGroupBox::title {
+    background-color: %(CONTENT_BG)s;
+    color: %(TEXT_SECTION)s;
+    font-weight: bold;
+}
+
+QGroupBox#SimpleSectionGroupBox[nested="true"]::title {
+    background-color: %(SIMPLE_SECTION_NESTED_BG)s;
+    color: %(TEXT_SECTION_NESTED)s;
 }
 
 /* ---------------------------------------------------------------

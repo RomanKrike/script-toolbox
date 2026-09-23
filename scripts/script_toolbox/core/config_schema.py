@@ -14,11 +14,27 @@ class UnsupportedConfigVersionError(ConfigSchemaError):
     pass
 
 
+class MissingConfigVersionError(UnsupportedConfigVersionError):
+    pass
+
+
+class InvalidConfigVersionError(ConfigSchemaError):
+    pass
+
+
+class UnsupportedOldConfigVersionError(UnsupportedConfigVersionError):
+    pass
+
+
+class FutureConfigVersionError(UnsupportedConfigVersionError):
+    pass
+
+
 def _coerce_version(value):
     try:
         return int(value)
     except Exception:
-        raise ConfigSchemaError(
+        raise InvalidConfigVersionError(
             "Invalid Script Toolbox config version: {0!r}.".format(value)
         )
 
@@ -38,7 +54,7 @@ def validate_document_schema(document, expected_version=CONFIG_VERSION):
 
     expected_version = _coerce_version(expected_version)
 
-    # Empty mapping is used internally to construct a brand-new config.
+    # Empty mapping is used internally only to construct a brand-new config.
     if not document:
         return {
             "version": expected_version,
@@ -47,17 +63,25 @@ def validate_document_schema(document, expected_version=CONFIG_VERSION):
 
     current_version = detect_config_version(document)
     if current_version is None:
-        raise UnsupportedConfigVersionError(
+        raise MissingConfigVersionError(
             "Script Toolbox configs must declare schema version {0}.".format(
                 expected_version
             )
         )
 
-    if current_version != expected_version:
-        raise UnsupportedConfigVersionError(
+    if current_version < expected_version:
+        raise UnsupportedOldConfigVersionError(
             (
-                "Unsupported Script Toolbox config schema {0}; "
-                "this build accepts schema {1} only."
+                "Unsupported old Script Toolbox config schema {0}; "
+                "this build requires schema {1}."
+            ).format(current_version, expected_version)
+        )
+
+    if current_version > expected_version:
+        raise FutureConfigVersionError(
+            (
+                "Script Toolbox config schema {0} is newer than this build "
+                "supports ({1}); downgrade is not attempted."
             ).format(current_version, expected_version)
         )
 
@@ -66,7 +90,11 @@ def validate_document_schema(document, expected_version=CONFIG_VERSION):
 
 __all__ = [
     "ConfigSchemaError",
+    "FutureConfigVersionError",
+    "InvalidConfigVersionError",
+    "MissingConfigVersionError",
     "UnsupportedConfigVersionError",
+    "UnsupportedOldConfigVersionError",
     "detect_config_version",
     "validate_document_schema",
 ]

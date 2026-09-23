@@ -20,6 +20,8 @@ from script_toolbox.share.codec import encode_payload
 from script_toolbox.share.codec import make_payload
 from script_toolbox.share.crypto import decrypt
 from script_toolbox.share.crypto import encrypt
+from script_toolbox.share.safety import contains_executable_content
+from script_toolbox.share.safety import shared_import_allowed
 
 
 def from_hex(value):
@@ -94,7 +96,38 @@ def assert_codec_round_trip():
         )
 
 
+def assert_executable_content_gate():
+    safe = {
+        "kind": "text",
+        "text": u"Python notes only",
+    }
+    scripted = {
+        "kind": "button",
+        "bindings": [
+            {
+                "event": "click",
+                "language": "python",
+                "script": "print('run')",
+            }
+        ],
+    }
+
+    if contains_executable_content(safe):
+        raise AssertionError(
+            "Safe shared content was marked executable"
+        )
+    if not contains_executable_content(scripted):
+        raise AssertionError(
+            "Executable shared content was not detected"
+        )
+    if shared_import_allowed(scripted):
+        raise AssertionError(
+            "Executable shared content must default to cancel"
+        )
+
+
 if __name__ == "__main__":
     assert_rfc_vector()
     assert_codec_round_trip()
+    assert_executable_content_gate()
     print("Python 2 encrypted share smoke passed.")

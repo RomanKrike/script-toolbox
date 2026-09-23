@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import hashlib
 import os
 import shutil
 import zipfile
@@ -95,6 +96,51 @@ def _build_release_zip(path, version="9.9.9", bad_python=False):
 
     shutil.rmtree(str(source_root))
     return path
+
+
+def _release_metadata(version="9.9.9"):
+    return {
+        "download_url": "https://example.invalid/release.zip",
+        "checksum_url": "https://example.invalid/release.zip.sha256",
+        "asset_name": "script-toolbox-{0}.zip".format(version),
+        "version": version,
+    }
+
+
+def _patch_install_locations(monkeypatch, root, package):
+    monkeypatch.setattr(
+        update_transaction,
+        "package_directory",
+        lambda: str(package)
+    )
+    monkeypatch.setattr(
+        update_transaction,
+        "repository_root",
+        lambda: str(root)
+    )
+
+
+def _verified_download(archive, checksum_value=None):
+    expected = checksum_value
+    if expected is None:
+        expected = hashlib.sha256(
+            archive.read_bytes()
+        ).hexdigest()
+
+    def fake_download(url, destination, token=None, timeout=30):
+        if url.endswith(".sha256"):
+            with open(destination, "w") as handle:
+                handle.write(
+                    expected + "  release.zip\n"
+                )
+        else:
+            shutil.copy2(
+                str(archive),
+                destination
+            )
+        return destination
+
+    return fake_download
 
 
 def test_validate_package_rejects_version_mismatch(tmp_path):
@@ -317,47 +363,145 @@ def test_maya_module_activation_failure_rolls_back_package_and_module(
     assert "1.0.0" in old_module.read_text(encoding="utf-8")
 
 
-def test_install_release_uses_transaction_v2(tmp_path, monkeypatch):
-    transaction, root, package = _make_transaction(tmp_path)
+def test_install_release_uses_verified_transaction_v2(tmp_path, monkeypatch):
+    _, root, package = _make_transaction(tmp_path)
     archive = tmp_path / "release.zip"
     _build_release_zip(
         archive,
         version="9.9.9"
     )
-
-    monkeypatch.setattr(
-        update_transaction,
-        "package_directory",
-        lambda: str(package)
+    _patch_install_locations(
+        monkeypatch,
+        root,
+        package
     )
-    monkeypatch.setattr(
-        update_transaction,
-        "repository_root",
-        lambda: str(root)
-    )
-
-    def fake_download(url, destination, token=None, timeout=30):
-        shutil.copy2(
-            str(archive),
-            destination
-        )
-        return destination
-
     monkeypatch.setattr(
         update_transaction,
         "_download_file",
-        fake_download
+        _verified_download(archive)
     )
 
-    result = update_transaction.install_release({
-        "download_url": "https://example.invalid/release.zip",
-        "version": "9.9.9",
-    })
+    result = update_transaction.install_release(
+        _release_metadata()
+    )
 
     assert result["installed"] is True
     assert result["transaction_version"] == TRANSACTION_VERSION
     assert (package / "marker.py").is_file()
     assert not (package / "old_only.py").exists()
+
+
+def test_install_release_rejects_missing_checksum_without_touching_package(
+    tmp_path,
+    monkeypatch
+):
+    _, root, package = _make_transaction(tmp_path)
+    _patch_install_locations(
+        monkeypatch,
+        root,
+        package
+    )
+    release = _release_metadata()
+    release["checksum_url"] = ""
+
+    with pytest.raises(UpdateError) as exc_info:
+        update_transaction.install_release(
+            release
+        )
+
+    assert "checksum" in str(exc_info.value).lower()
+    assert (package / "old_only.py").is_file()
+    assert (package / "marker.py").read_text(encoding="utf-8") == (
+        "MARKER = '1.0.0'\n"
+    )
+    assert not os.path.exists(str(package) + ".update_backup")
+    assert not os.path.exists(str(package) + ".update_staged")
+
+
+def test_install_release_rejects_checksum_mismatch_before_recovery(
+    tmp_path,
+    monkeypatch
+):
+    _, root, package = _make_transaction(tmp_path)
+    archive = tmp_path / "release.zip"
+    _build_release_zip(
+        archive,
+        version="9.9.9"
+    )
+    _patch_install_locations(
+        monkeypatch,
+        root,
+        package
+    )
+    monkeypatch.setattr(
+        update_transaction,
+        "_download_file",
+        _verified_download(
+            archive,
+            checksum_value=("0" * 64)
+        )
+    )
+    recover_calls = []
+
+    def record_recover(self):
+        recover_calls.append(True)
+        return False
+
+    monkeypatch.setattr(
+        UpdateTransaction,
+        "recover",
+        record_recover
+    )
+
+    with pytest.raises(UpdateError) as exc_info:
+        update_transaction.install_release(
+            _release_metadata()
+        )
+
+    assert "checksum verification failed" in str(exc_info.value).lower()
+    assert recover_calls == []
+    assert (package / "old_only.py").is_file()
+    assert (package / "marker.py").read_text(encoding="utf-8") == (
+        "MARKER = '1.0.0'\n"
+    )
+
+
+def test_install_release_rejects_missing_official_package(
+    tmp_path,
+    monkeypatch
+):
+    _, root, package = _make_transaction(tmp_path)
+    _patch_install_locations(
+        monkeypatch,
+        root,
+        package
+    )
+    release = _release_metadata()
+    release["asset_name"] = ""
+    release["download_url"] = ""
+    release["source_archive_url"] = (
+        "https://example.invalid/source.zip"
+    )
+    download_calls = []
+
+    def unexpected_download(*args, **kwargs):
+        download_calls.append(True)
+        raise AssertionError("download should not start")
+
+    monkeypatch.setattr(
+        update_transaction,
+        "_download_file",
+        unexpected_download
+    )
+
+    with pytest.raises(UpdateError) as exc_info:
+        update_transaction.install_release(
+            release
+        )
+
+    assert "official script toolbox package" in str(exc_info.value).lower()
+    assert download_calls == []
+    assert (package / "old_only.py").is_file()
 
 
 def test_runtime_update_thread_routes_to_transaction_v2():

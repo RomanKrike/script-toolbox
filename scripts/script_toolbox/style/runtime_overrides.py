@@ -6,19 +6,23 @@ from .metrics import LIST_ITEM_MIN_HEIGHT
 from .metrics import LIST_ITEM_PADDING_HORIZONTAL
 from .metrics import LIST_ITEM_PADDING_VERTICAL
 from .metrics import RUNTIME_TAB_BAR_OFFSET
+from .metrics import RUNTIME_TAB_BAR_VERTICAL_OFFSET
 from .metrics import RUNTIME_TAB_MIN_HEIGHT
 from .metrics import RUNTIME_TAB_PADDING_HORIZONTAL
 from .metrics import RUNTIME_TAB_PADDING_VERTICAL
+from .metrics import RUNTIME_TAB_PANE_TOP_OFFSET
 from .metrics import RUNTIME_TAB_SELECTED_OVERLAP
 from .metrics import TAB_BORDER_WIDTH
 from .metrics import TAB_MARGIN_RIGHT
 from .metrics import TAB_PANE_TOP_OFFSET
+from .palette import CONTENT_BG
 from .palette import FOLDER_CARD_BG
 from .palette import FOLDER_HEADER_HOVER_BG
 from .palette import LIST_BG
 from .palette import SELECTION_BG
 from .palette import SELECTION_TEXT
 from .palette import SEPARATOR
+from .palette import SIMPLE_SECTION_NESTED_BG
 from .palette import TEXT_FOLDER_COLLAPSED
 from .palette import TEXT_FOLDER_HOVER
 from .palette import TEXT_HEADING
@@ -63,12 +67,30 @@ QFrame#RuntimeSeparatorLineVertical {{
     border-left: 1px solid {separator};
 }}
 
-/* Runtime tabs and editor Items/Presets tabs intentionally share one visual
-   contract. Geometry comes from metrics.py and colors from palette.py; the
-   selectors differ only because the widgets live in different UI scopes.
-   Keep the selected label weight stable so Qt4 never has to reconcile a tab
-   width calculated from the normal font with a wider bold selected label. */
-QWidget#ToolboxContent QTabWidget::pane,
+/* Runtime QTabWidget owns switching and tab-bar geometry only. Its pane is
+   intentionally frameless: Qt/Houdini can clip or anti-alias a one-pixel
+   rounded QTabWidget::pane border inconsistently at the corners. The existing
+   embedded RuntimeFolder tab page already is a QFrame and exposes the semantic
+   folderType="tabs" property, so that stable widget owns the visible surface
+   and outline instead. No extra wrapper or runtime item type is introduced.
+
+   The whole runtime tab bar still moves down by one border width and owns the
+   seam with the page frame. CreatePaletteTabs keeps its editor geometry
+   independently; both surfaces still share tab sizing and colors below. */
+QWidget#ToolboxContent QTabWidget::pane {{
+    background-color: transparent;
+    border: 0px;
+    border-radius: 0px;
+    top: {runtime_tab_pane_top_offset}px;
+}}
+
+QFrame#RuntimeFolder[folderType="tabs"] {{
+    background-color: {folder_card_bg};
+    border: {tab_border_width}px solid {separator};
+    border-radius: {panel_radius}px;
+    border-top-left-radius: 0px;
+}}
+
 QTabWidget#CreatePaletteTabs::pane {{
     background-color: {folder_card_bg};
     border: {tab_border_width}px solid {separator};
@@ -79,6 +101,10 @@ QTabWidget#CreatePaletteTabs::pane {{
 QWidget#ToolboxContent QTabWidget::tab-bar,
 QTabWidget#CreatePaletteTabs::tab-bar {{
     left: {runtime_tab_bar_offset}px;
+}}
+
+QWidget#ToolboxContent QTabWidget::tab-bar {{
+    top: {runtime_tab_bar_vertical_offset}px;
 }}
 
 QWidget#ToolboxContent QTabBar::tab,
@@ -109,8 +135,15 @@ QTabWidget#CreatePaletteTabs QTabBar::tab:selected {{
     color: {text_heading};
     border-color: {separator};
     border-bottom-color: {folder_card_bg};
-    margin-bottom: {runtime_tab_selected_overlap}px;
     font-weight: normal;
+}}
+
+QWidget#ToolboxContent QTabBar::tab:selected {{
+    margin-bottom: {runtime_tab_selected_overlap}px;
+}}
+
+QTabWidget#CreatePaletteTabs QTabBar::tab:selected {{
+    margin-bottom: -{tab_border_width}px;
 }}
 
 /* Runtime Field keeps the editor list surface without row decoration:
@@ -139,8 +172,22 @@ QListWidget#RuntimeFieldList::item:selected {{
     color: {selection_text};
 }}
 
+/* Maya 2015 / Qt4 needs the Simple Section title surface restated after the
+   runtime overrides. Keep the colors owned by style/palette.py: top-level
+   sections mask the border with CONTENT_BG, while nested sections use the
+   nested section surface from the same shared palette. */
+QGroupBox#SimpleSectionGroupBox::title {{
+    background-color: {content_bg};
+}}
+
+QGroupBox#SimpleSectionGroupBox[nested="true"]::title {{
+    background-color: {simple_section_nested_bg};
+}}
+
 """.format(
     window_bg=WINDOW_BG,
+    content_bg=CONTENT_BG,
+    simple_section_nested_bg=SIMPLE_SECTION_NESTED_BG,
     separator=SEPARATOR,
     folder_card_bg=FOLDER_CARD_BG,
     folder_header_hover_bg=FOLDER_HEADER_HOVER_BG,
@@ -156,6 +203,8 @@ QListWidget#RuntimeFieldList::item:selected {{
     runtime_tab_padding_vertical=RUNTIME_TAB_PADDING_VERTICAL,
     runtime_tab_padding_horizontal=RUNTIME_TAB_PADDING_HORIZONTAL,
     runtime_tab_bar_offset=RUNTIME_TAB_BAR_OFFSET,
+    runtime_tab_bar_vertical_offset=RUNTIME_TAB_BAR_VERTICAL_OFFSET,
+    runtime_tab_pane_top_offset=RUNTIME_TAB_PANE_TOP_OFFSET,
     runtime_tab_selected_overlap=RUNTIME_TAB_SELECTED_OVERLAP,
     list_bg=LIST_BG,
     text_list=TEXT_LIST,

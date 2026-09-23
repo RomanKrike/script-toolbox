@@ -472,10 +472,12 @@ class SeparatorPropertyEditor(PropertyEditorBase):
     def write_to_item(self):
         if self.item is None:
             return
+
+        PropertyEditorBase.write_to_item(self)
         self.item["name"] = text_type(
             self.name_edit.text()
         ).strip() or "separator"
-        self.item["callbacks"] = {}
+        self.item["bindings"] = []
 
 
 __all__ = [

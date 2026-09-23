@@ -6,6 +6,16 @@ from ..compat import QtGui
 from ..model.layout_geometry import distribution_spacer_positions
 
 
+def _props(item):
+    value = item.get("props", {}) if isinstance(item, dict) else {}
+    return value if isinstance(value, dict) else {}
+
+
+def _ui(item):
+    value = item.get("ui", {}) if isinstance(item, dict) else {}
+    return value if isinstance(value, dict) else {}
+
+
 def _horizontal_flag(alignment):
     return (
         QtCore.Qt.AlignRight
@@ -23,6 +33,7 @@ def _add_spacer_if_needed(layout, positions, position):
 
 def render_column(owner, item, compact=False):
     """Render a vertical layout container using the active runtime registry."""
+    props = _props(item)
     widget = QtGui.QWidget()
     widget.setObjectName("RuntimeColumn")
     widget.setSizePolicy(
@@ -36,7 +47,7 @@ def render_column(owner, item, compact=False):
         )
     except Exception:
         widget.setToolTip(
-            item.get("tooltip", "")
+            _ui(item).get("tooltip", "")
         )
 
     layout = QtGui.QVBoxLayout(widget)
@@ -47,10 +58,10 @@ def render_column(owner, item, compact=False):
         0
     )
     layout.setSpacing(
-        int(item.get("spacing", 4))
+        int(props.get("spacing", 4))
     )
 
-    alignment = item.get(
+    alignment = props.get(
         "horizontal_alignment",
         "stretch"
     )
@@ -62,7 +73,7 @@ def render_column(owner, item, compact=False):
     ):
         alignment = "stretch"
 
-    distribution = item.get(
+    distribution = props.get(
         "vertical_distribution",
         "top"
     )
@@ -85,8 +96,9 @@ def render_column(owner, item, compact=False):
         if child_widget is None:
             continue
 
-        height_mode = child.get(
-            "column_height_mode",
+        child_ui = _ui(child)
+        height_mode = child_ui.get(
+            "height_mode",
             "auto"
         )
         if height_mode not in (
@@ -124,6 +136,7 @@ def render_column(owner, item, compact=False):
 
     for index, entry in enumerate(children):
         child, child_widget, height_mode = entry
+        child_ui = _ui(child)
 
         horizontal_policy = (
             QtGui.QSizePolicy.Expanding
@@ -142,13 +155,13 @@ def render_column(owner, item, compact=False):
 
         if height_mode == "fixed":
             child_widget.setFixedHeight(
-                int(child.get("column_height", 28))
+                int(child_ui.get("height", 28))
             )
 
         stretch = (
             max(
                 1,
-                int(child.get("column_stretch", 1))
+                int(child_ui.get("vertical_stretch", 1))
             )
             if height_mode == "stretch"
             else 0

@@ -436,9 +436,12 @@ def install_runtime_scroll_frames(registry, runtime_module):
             compact=compact
         )
 
+        props = item.get("props", {}) if isinstance(item, dict) else {}
+        if not isinstance(props, dict):
+            props = {}
         list_mode = (
-            item.get("display_mode") == "list" and
-            bool(item.get("multiple", True))
+            props.get("display_mode") == "list" and
+            bool(props.get("multiple", True))
         )
         if not list_mode:
             return result

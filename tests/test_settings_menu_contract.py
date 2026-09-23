@@ -78,7 +78,7 @@ def test_resource_actions_open_project_urls_in_default_browser():
         in source
     )
     assert (
-        '_DOCS_URL = "https://github.com/RomanKrike/script-toolbox/tree/main/docs"'
+        '_DOCS_URL = "https://romankrike.github.io/script-toolbox/"'
         in source
     )
     assert "QtGui.QDesktopServices.openUrl(" in source

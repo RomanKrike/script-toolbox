@@ -24,14 +24,16 @@ from script_toolbox.model.items import create_item
 
 
 def main():
-    assert CONFIG_VERSION == 20
+    assert CONFIG_VERSION == 21
 
     icon = create_item(
         "icon",
         {
             "name": "icon_test",
-            "path": "icon.png",
-            "content_alignment": "center",
+            "props": {
+                "path": "icon.png",
+                "content_alignment": "center",
+            },
             "bindings": [
                 make_binding(
                     "click",
@@ -43,8 +45,11 @@ def main():
         }
     )
     assert icon["kind"] == "icon"
-    assert icon["content_alignment"] == "center"
+    assert icon["props"]["content_alignment"] == "center"
     assert icon["bindings"][0]["event"] == "click"
+    assert set(icon.keys()) == set((
+        "kind", "id", "name", "ui", "props", "bindings"
+    ))
 
     toggle = create_item(
         "toggle_button",
@@ -53,7 +58,7 @@ def main():
         }
     )
     assert toggle["kind"] == "toggle_button"
-    assert toggle["state_source"] == "internal"
+    assert toggle["props"]["state_source"] == "internal"
     assert toggle["bindings"][0]["handler"] == "state_toggle"
     assert "button_mode" not in toggle["bindings"][0]
 
@@ -62,11 +67,13 @@ def main():
         {
             "id": "vector",
             "name": "vector",
-            "size": 3,
-            "min": 0,
-            "max": 10,
-            "value": [1, 2, 3],
-            "show_slider": True,
+            "props": {
+                "size": 3,
+                "min": 0,
+                "max": 10,
+                "value": [1, 2, 3],
+                "show_slider": True,
+            },
         }
     )
 
@@ -121,7 +128,7 @@ def main():
         }
     )
     assert layout["items"][0]["kind"] == "column"
-    assert layout["items"][0]["row_width_mode"] == "stretch"
+    assert layout["items"][0]["ui"]["width_mode"] == "stretch"
     assert layout["items"][0]["items"][1]["kind"] == "row"
 
     document = {
@@ -154,7 +161,7 @@ def main():
         "vector",
         [-2, 5, 20]
     )
-    assert stored["value"] == [0, 5, 10]
+    assert stored["props"]["value"] == [0, 5, 10]
 
     binding_item = create_item(
         "button",
@@ -183,7 +190,7 @@ def main():
     else:
         raise AssertionError("Legacy toggle kind must be rejected")
 
-    print("Controls v2 / event bindings / toggle button / columns Python 2.7 smoke passed")
+    print("Universal Item / bindings / layouts Python 2.7 smoke passed")
 
 
 if __name__ == "__main__":

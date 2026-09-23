@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..compat import HOST
 from ..compat import QtCore
 from ..compat import QtGui
 from ..core.presets import build_preset_root
@@ -52,7 +53,13 @@ def _populate_preset_tree(tree):
     groups = {}
     group_order = []
 
-    for preset in iter_presets():
+    for preset in iter_presets(
+        getattr(
+            HOST,
+            "key",
+            ""
+        )
+    ):
         category = text_type(
             preset.get("category", "PRESETS") or "PRESETS"
         )

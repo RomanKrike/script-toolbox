@@ -1,19 +1,157 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 — 2026-09-23
+
+Major architecture and multi-DCC release.
+
+### Breaking changes
+
+- Move the configuration contract to schema 21 and the universal Item envelope (`kind`, `id`, `name`, `ui`, `props`, `bindings`, plus `items` for containers).
+- Remove the schema-20 compatibility layer and automatic conversion path. Script Toolbox 1.0.0 intentionally accepts the current schema only.
+- Treat unknown Item kinds and malformed typed properties as validation errors instead of silently coercing them into unrelated defaults.
+
+Existing 0.10.1/schema-20 configurations are not migrated automatically. Keep a backup of the previous configuration and remain on 0.10.1 if the existing schema-20 document must continue to run unchanged.
 
 ### Added
 
-- Add a dedicated `Toggle Button` item with independent ON/OFF actions, labels, colors and icon settings.
-- Add `Internal` state for persisted boolean toggles and `Script` state for host-driven/query-driven toggles.
-- Add a first-run opt-in dialog for anonymous Script Toolbox usage statistics.
-- Add Script Toolbox Settings with update-channel and Privacy controls for telemetry consent.
+- Add the registry-driven universal Item architecture and declarative field validation.
+- Add the Image display Item with contain, cover, and stretch fit modes.
+- Add DCC-aware Presets and reusable Item-subtree insertion.
+- Add Script Editor autocomplete for Script Toolbox APIs.
+- Add shared network transport and configurable System / No proxy / Manual proxy settings with HTTP, HTTPS, and SOCKS5 support.
+- Add Windows DPAPI protection for saved proxy credentials and a connection-test UI.
+- Add broad Qt/PySide compatibility across Maya 2015+, Nuke 12+, and Houdini 19+.
+- Add LLM-oriented documentation through `llms.txt` and the template/preset authoring specification.
 
 ### Changed
 
-- Make the regular `Button` item action-only instead of combining action and state behavior in one control type.
-- Upgrade config schema to version 19 and migrate existing `button` items with `mode: state` to `toggle_button` with scripted state automatically.
-- Keep scripted Toggle Button state external: only Internal toggles persist a boolean `value` in the document.
+- Centralize UI composition and runtime renderer registration around Item metadata instead of parallel kind tables.
+- Make Settings use category navigation and the same Simple Folder visual language as the runtime.
+- Keep Stable and Development as the two updater channels and share one network/proxy transport between updater and encrypted sharing.
+- Preserve HScript as a first-class persisted binding language for Houdini, including Toggle ON/OFF actions.
+
+### Fixed
+
+- Fix Maya 2015 full UI imports after the universal Item clean break.
+- Fix runtime Field list visibility in Maya 2015.
+- Fix trigger-tab ordering, duplicate signatures, state-toggle tabs, and add-tab placement.
+- Fix updater PowerShell fallback/proxy behavior and harden shared transport errors.
+- Preserve Interface Editor state and keep saved window geometry on screen.
+
+## 0.10.1 — 2026-09-11
+
+Documentation patch release.
+
+### Added
+
+- Add English and Russian GitHub Pages documentation.
+
+## 0.10.0 — 2026-09-11
+
+Multi-DCC, presets, telemetry, and UI architecture release.
+
+### Added
+
+- Add Houdini 19 integration.
+- Add dedicated Toggle Button and Toggle Icon items.
+- Add multiline Text presentation items.
+- Add opt-in PostHog telemetry with privacy-reviewed event schemas and persistent pseudonymous installation IDs.
+- Add the Presets palette.
+- Add the GitHub Pages documentation site.
+
+### Changed
+
+- Refactor the item architecture around schema 20.
+- Improve runtime Folder/Field styling, tab layout, trigger icons, and value synchronization.
+
+## 0.9.1 — 2026-09-08
+
+### Fixed
+
+- Expose the update-channel menu reliably in Runtime.
+
+## 0.9.0 — 2026-09-08
+
+### Added
+
+- Add Stable and Development update channels.
+
+## 0.8.5 — 2026-09-08
+
+Maintenance release for encrypted sharing and updater packaging.
+
+## 0.8.4 — 2026-09-08
+
+Maintenance release for encrypted sharing and runtime stability.
+
+## 0.8.3 — 2026-09-08
+
+### Changed
+
+- Speed up encrypted share transport on legacy Maya/Python 2.
+
+## 0.8.2 — 2026-09-08
+
+Maintenance release for encrypted sharing.
+
+## 0.8.1 — 2026-09-08
+
+### Fixed
+
+- Fix encrypted share-provider failures.
+
+## 0.8.0 — 2026-09-08
+
+### Added
+
+- Add encrypted Script Toolbox configuration/item sharing.
+
+## 0.7.6 — 2026-09-08
+
+Maintenance release for layout/runtime stabilization.
+
+## 0.7.5 — 2026-09-08
+
+Maintenance release for layout/runtime stabilization.
+
+## 0.7.4 — 2026-09-08
+
+Maintenance release for layout/runtime stabilization.
+
+## 0.7.3 — 2026-09-08
+
+Maintenance release for layout/runtime stabilization.
+
+## 0.7.2 — 2026-09-08
+
+Maintenance release for layout/runtime stabilization.
+
+## 0.7.1 — 2026-09-08
+
+Maintenance release for layout/runtime stabilization.
+
+## 0.7.0 — 2026-09-08
+
+### Added
+
+- Add composable Column layouts.
+- Add compact trigger-tab editor controls.
+
+## 0.6.0 — 2026-09-08
+
+### Changed
+
+- Unify executable behavior under per-item event bindings.
+
+## 0.5.0 — 2026-09-08
+
+Architecture and reliability release.
+
+### Added
+
+- Add versioned config infrastructure, backup/recovery, cached DocumentIndex lookups, and debounced persistence.
+- Add EditorDocumentController, command history, reference remapping, runtime renderer registry, host callbacks, and structured execution diagnostics.
+- Add updater transaction v2, icons, universal callbacks, and numeric-controls v2.
 
 ## 0.4.4
 

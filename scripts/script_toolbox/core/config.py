@@ -9,13 +9,16 @@ import tempfile
 import warnings
 
 from ..pycompat import text_type
+from ..model import create_item
 from ..model import normalize_document
 from .config_schema import ConfigSchemaError
 from .config_schema import validate_document_schema
+from .logging_utils import get_logger
 from .user_paths import config_path
 
 
 CONFIG_BACKUP_COUNT = 3
+_LOGGER = get_logger()
 
 
 class ConfigRecoveryRequired(RuntimeError):
@@ -68,18 +71,94 @@ def _prepare_document(document):
     )
 
 
+def serialize_config(document):
+    """Return the canonical UTF-8 JSON text representation of a config."""
+    document = _prepare_document(
+        document
+    )
+    return text_type(
+        json.dumps(
+            document,
+            ensure_ascii=False,
+            indent=2
+        )
+    )
+
+
+def deserialize_config(data):
+    """Parse and validate config JSON text using the normal load pipeline."""
+    raw_document = json.loads(
+        text_type(data)
+    )
+
+    if (
+        not isinstance(raw_document, dict) or
+        not raw_document or
+        "version" not in raw_document or
+        "sections" not in raw_document or
+        not isinstance(raw_document.get("sections"), list)
+    ):
+        raise ConfigSchemaError(
+            "Unsupported Script Toolbox config format."
+        )
+
+    return _prepare_document(
+        raw_document
+    )
+
+
+def deserialize_transfer(data):
+    """Parse clipboard transfer JSON as a full config or a single Item."""
+    raw = json.loads(
+        text_type(data)
+    )
+
+    if not isinstance(raw, dict) or not raw:
+        raise ConfigSchemaError(
+            "Unsupported Script Toolbox transfer format."
+        )
+
+    if "version" in raw or "sections" in raw:
+        if (
+            "version" not in raw or
+            "sections" not in raw or
+            not isinstance(raw.get("sections"), list)
+        ):
+            raise ConfigSchemaError(
+                "Unsupported Script Toolbox config format."
+            )
+        return (
+            "config",
+            _prepare_document(raw)
+        )
+
+    kind = text_type(
+        raw.get("kind") or ""
+    ).lower()
+    if kind:
+        return (
+            "item",
+            create_item(
+                kind,
+                raw
+            )
+        )
+
+    raise ConfigSchemaError(
+        "Unsupported Script Toolbox transfer format."
+    )
+
+
 def _read_document(path):
     with io.open(
         path,
         "r",
         encoding="utf-8"
     ) as handle:
-        raw_document = json.load(
-            handle
-        )
+        raw_text = handle.read()
 
-    return _prepare_document(
-        raw_document
+    return deserialize_config(
+        raw_text
     )
 
 
@@ -108,6 +187,11 @@ def valid_backup_paths(
                 candidate
             )
         except Exception:
+            _LOGGER.debug(
+                "Ignoring invalid config backup %r during recovery scan.",
+                candidate,
+                exc_info=True
+            )
             continue
 
         result.append(
@@ -401,7 +485,11 @@ def restore_config_backup(
                     temp_path
                 )
         except OSError:
-            pass
+            _LOGGER.debug(
+                "Could not remove temporary config recovery file %r.",
+                temp_path,
+                exc_info=True
+            )
         raise
 
     return {
@@ -414,7 +502,7 @@ def restore_config_backup(
 
 def save_config(document, path=None):
     path = path or config_path()
-    document = _prepare_document(
+    serialized = serialize_config(
         document
     )
 
@@ -436,13 +524,7 @@ def save_config(document, path=None):
             encoding="utf-8"
         ) as handle:
             handle.write(
-                text_type(
-                    json.dumps(
-                        document,
-                        ensure_ascii=False,
-                        indent=2
-                    )
-                )
+                serialized
             )
             handle.flush()
             os.fsync(
@@ -483,7 +565,11 @@ def save_config(document, path=None):
                     temp_path
                 )
         except OSError:
-            pass
+            _LOGGER.debug(
+                "Could not remove temporary config save file %r.",
+                temp_path,
+                exc_info=True
+            )
 
         raise
 
@@ -508,10 +594,13 @@ __all__ = [
     "ConfigRecoveryRequired",
     "backup_path",
     "config_path",
+    "deserialize_config",
+    "deserialize_transfer",
     "export_config",
     "import_config",
     "load_config",
     "restore_config_backup",
     "save_config",
+    "serialize_config",
     "valid_backup_paths",
 ]

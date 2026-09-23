@@ -4,6 +4,7 @@
 
 ## С чего начать
 
+- [LLM template / preset authoring](llm-template-authoring.md) — machine-oriented контракт для генерации встроенных presets, переиспользуемых item subtrees и импортируемого JSON Script Toolbox через LLM.
 - [Архитектура](../ARCHITECTURE.md) — границы пакетов, направление зависимостей, контракты документа/схемы и изоляция DCC-хостов.
 - [Config store](../CONFIG_STORE.md) — сохранение и хранение конфигурации.
 - [Runtime renderer registry](../RUNTIME_RENDERER_REGISTRY.md) — регистрация renderer-ов Runtime и их контракты.
@@ -12,6 +13,21 @@
 - [Updater](../UPDATER.md) — каналы обновления, замена пакета, проверка и reload.
 
 Дополнительные технические заметки остаются в папке `docs/` репозитория, даже если не входят в основную навигацию сайта. Они описывают отдельные подсистемы и regression-контракты, используемые при разработке.
+
+## Metadata встроенных presets
+
+Встроенные presets в `scripts/script_toolbox/core/presets.py` используют следующие поля metadata:
+
+- `id` — стабильный внутренний идентификатор preset.
+- `dcc` — lowercase identifier хоста для фильтрации доступности.
+- `category` — группа внутри вкладки Presets.
+- `label` — отображаемое пользователю название preset.
+- `description` — tooltip и текст, участвующий в поиске.
+- `root` — обычный subtree ScriptToolbox items, который клонируется в editor при вставке.
+
+Допустимые значения `dcc`: `maya`, `houdini`, `nuke`, `blender` и `all`. Значение `all` означает universal preset. `iter_presets()` сохраняет прежнее поведение и возвращает полный registry, а `iter_presets(dcc)` возвращает presets выбранного DCC вместе с universal presets. Для неизвестного или standalone host возвращаются только presets с `dcc == "all"`.
+
+UI Presets получает текущий DCC через существующую host abstraction и продолжает группировать уже отфильтрованные presets только по `category`; отдельный уровень DCC в дереве не добавляется.
 
 ## Модель веток
 

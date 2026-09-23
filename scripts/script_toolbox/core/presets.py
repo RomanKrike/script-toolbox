@@ -7,9 +7,19 @@ from ..model import create_item
 from ..pycompat import text_type
 
 
+_DCC_ALL = "all"
+_SUPPORTED_DCCS = (
+    "maya",
+    "houdini",
+    "nuke",
+    "blender",
+)
+
+
 _BUILTIN_PRESETS = (
     {
         "id": "selection_set",
+        "dcc": _DCC_ALL,
         "category": "SELECTION",
         "label": "Selection Set",
         "description": (
@@ -122,11 +132,54 @@ _BUILTIN_PRESETS = (
 )
 
 
-def iter_presets():
-    """Return immutable-order copies of built-in preset metadata."""
+def _normalize_dcc(dcc):
+    value = text_type(
+        dcc or ""
+    ).strip().lower()
+
+    if value == _DCC_ALL or value in _SUPPORTED_DCCS:
+        return value
+    return ""
+
+
+def _preset_matches_dcc(preset, target_dcc):
+    preset_dcc = _normalize_dcc(
+        preset.get("dcc", "")
+    )
+
+    if preset_dcc == _DCC_ALL:
+        return True
+
+    return bool(
+        target_dcc and
+        preset_dcc == target_dcc
+    )
+
+
+def iter_presets(dcc=None):
+    """Return immutable-order copies of built-in preset metadata.
+
+    When dcc is provided, only presets for that DCC plus universal ``all``
+    presets are returned. Unknown DCC identifiers therefore receive only
+    universal presets. Omitting dcc preserves the original full-registry
+    behavior.
+    """
+    target_dcc = (
+        None
+        if dcc is None
+        else _normalize_dcc(dcc)
+    )
+
     return tuple(
         copy.deepcopy(preset)
         for preset in _BUILTIN_PRESETS
+        if (
+            target_dcc is None or
+            _preset_matches_dcc(
+                preset,
+                target_dcc
+            )
+        )
     )
 
 

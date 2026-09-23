@@ -13,15 +13,30 @@ Stable остаётся каналом по умолчанию.
 2. Выбранный update channel загружается из `script_toolbox_settings.json`.
 3. Если обновление доступно, top bar показывает `UPDATE <version>`.
 4. Пользователь явно подтверждает установку.
-5. Updater скачивает packaged ZIP выбранного канала.
-6. Если HTTPS stack Python 2.7 в Maya 2015 на Windows не может обратиться к GitHub, updater прозрачно переключается на PowerShell/.NET TLS 1.2 без открытия console window.
-7. Если присутствует SHA-256 asset, скачанный ZIP проверяется до extraction.
-8. Update сначала staging и validation, затем заменяется live package.
+5. Updater требует официальный packaged ZIP выбранного канала и соответствующий asset `.sha256`.
+6. Оба asset скачиваются. Если HTTPS stack Python 2.7 в Maya 2015 на Windows не может обратиться к GitHub, updater прозрачно переключается на PowerShell/.NET TLS 1.2 без открытия console window.
+7. SHA-256 ZIP должен совпасть со скачанным checksum до того, как recovery, extraction, staging или activation смогут затронуть live update state.
+8. Проверенный update сначала проходит staging и validation, затем заменяется live package.
 9. Если activation завершается ошибкой, transaction восстанавливает предыдущий package.
 10. Существующий Toolbox UI закрывается, все дочерние модули `script_toolbox.*` выгружаются, package root перезагружается на месте, и Toolbox снова открывается уже из новых файлов.
 11. Перезапуск DCC требуется только как fallback, если hot reload не удался или будущий release добавит native binaries, которые нельзя безопасно выгрузить.
 
 Конфигурация toolbox находится вне package и не заменяется. Preferences канала обновления хранятся отдельно от `maya_script_toolbox.json`.
+
+GitHub source zipball сохраняется только как release metadata там, где это полезно, но больше не используется как install fallback. Если отсутствует официальный package или checksum asset, checksum не скачался либо SHA-256 не совпал, installation останавливается без замены live package.
+
+## Архитектура установки
+
+`core.update_transaction.install_release()` — единственный production installation pipeline. Он отвечает за verified download handoff, transaction recovery, staging, validation, activation, rollback и cleanup.
+
+`core.updater` отвечает за release metadata, network/download, SHA-256 и archive utilities. Публичное имя `install_release()` сохранено там только как compatibility wrapper, делегирующий transaction installer; второй независимый filesystem installer удалён.
+
+
+## Настройка прокси
+
+Updater и sharing используют общую proxy policy из `core.network_proxy`. Настройки поддерживают режимы System, No proxy и Manual. В Manual доступны HTTP, HTTPS и SOCKS5 с опциональной авторизацией. Одна и та же итоговая proxy configuration передаётся и в `urllib`, и в Windows PowerShell/.NET fallback, поэтому смена transport backend не обходит выбранную proxy policy.
+
+Сохранённые proxy credentials никогда не записываются открытым текстом. В Windows пароль защищается ключом DPAPI текущего пользователя; если на платформе нет поддерживаемого безопасного встроенного credential backend, пароль намеренно не сохраняется.
 
 ## UI канала обновления
 
@@ -39,7 +54,7 @@ Tool button Check for Updates имеет стрелку меню.
 `scripts/script_toolbox/constants.py` содержит текущую semantic version, например:
 
 ```python
-PLUGIN_VERSION = "0.8.5"
+PLUGIN_VERSION = "1.0.0"
 ```
 
 Когда stable version попадает в `main`, сначала выполняется workflow `Python checks`. После успешного завершения `.github/workflows/release.yml` собирает и проверяет package, при необходимости создаёт tag `v<version>` и публикует GitHub Release.
@@ -88,6 +103,6 @@ Top bar содержит кнопку Check for Updates. Ошибки прове
 
 ## Поведение при ошибках
 
-Ошибки download/install показываются пользователю, а updater пытается восстановить предыдущий package через существующий transaction mechanism.
+Отсутствующий официальный package/checksum metadata и ошибки checksum verification показываются пользователю и останавливают installation до замены live package. Более поздние ошибки staging/activation используют transaction rollback/recovery mechanism, чтобы сохранить предыдущий package.
 
 Если installation успешна, но hot reload завершается ошибкой, новые файлы остаются установленными и Script Toolbox просит перезапустить host application.

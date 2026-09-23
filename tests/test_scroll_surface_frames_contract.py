@@ -148,12 +148,16 @@ def test_multiline_property_fields_use_external_frames():
 
 
 def test_ui_installs_unified_scroll_surface_contract():
-    ui_source = _read("scripts/script_toolbox/ui/__init__.py")
+    bootstrap_source = _read("scripts/script_toolbox/ui/bootstrap.py")
+    package_source = _read("scripts/script_toolbox/ui/__init__.py")
     editor_search = _read("scripts/script_toolbox/ui/editor_search.py")
 
-    assert "install_property_editor_scroll_frames()" in ui_source
-    assert "install_runtime_scroll_frames(" in ui_source
-    assert "install_script_editor_scroll_frames(" in ui_source
+    assert "install_property_editor_scroll_frames()" in bootstrap_source
+    assert "install_runtime_scroll_frames(" in bootstrap_source
+    assert "install_script_editor_scroll_frames(" in bootstrap_source
+    assert "install_property_editor_scroll_frames" not in package_source
+    assert "install_runtime_scroll_frames" not in package_source
+    assert "install_script_editor_scroll_frames" not in package_source
     assert "install_interface_editor_scroll_frames(editor)" in editor_search
 
 

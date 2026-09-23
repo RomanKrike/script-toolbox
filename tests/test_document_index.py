@@ -15,23 +15,29 @@ def sample_document():
     return normalize_document({
         "sections": [
             {
+                "kind": "folder",
                 "name": "root",
+                "ui": {"label": "Root"},
                 "items": [
                     {
                         "kind": "integer",
                         "name": "count",
-                        "label": "Count Label",
-                        "min": 0,
-                        "max": 10,
-                        "value": 3,
+                        "ui": {"label": "Count Label"},
+                        "props": {
+                            "min": 0,
+                            "max": 10,
+                            "value": 3,
+                        },
                     },
                     {
                         "kind": "float",
                         "name": "amount",
-                        "label": "Amount Label",
-                        "min": -1.0,
-                        "max": 1.0,
-                        "value": 0.25,
+                        "ui": {"label": "Amount Label"},
+                        "props": {
+                            "min": -1.0,
+                            "max": 1.0,
+                            "value": 0.25,
+                        },
                     },
                 ],
             }
@@ -48,6 +54,17 @@ def test_document_index_finds_by_id_and_name_only():
     assert index.find("count") is item
     assert index.find("Count Label") is None
     assert index.find("missing") is None
+
+
+def test_document_index_can_include_registered_sections():
+    document = sample_document()
+    section = document["sections"][0]
+
+    default_index = DocumentIndex(document)
+    section_index = DocumentIndex(document, include_sections=True)
+
+    assert default_index.find("root") is None
+    assert section_index.find("root") is section
 
 
 def test_document_index_preserves_id_over_name_precedence():
@@ -136,14 +153,17 @@ def test_in_place_structure_addition_self_heals_cached_index():
     new_item = normalize_document({
         "sections": [
             {
+                "kind": "folder",
                 "name": "temp",
                 "items": [
                     {
                         "kind": "integer",
                         "name": "late_item",
-                        "min": 0,
-                        "max": 10,
-                        "value": 5,
+                        "props": {
+                            "min": 0,
+                            "max": 10,
+                            "value": 5,
+                        },
                     }
                 ],
             }

@@ -2,6 +2,10 @@
 
 import os
 
+from script_toolbox.model.fields import ColorField
+from script_toolbox.model.item_builtins import register_builtin_items
+from script_toolbox.model.item_registry import ITEM_TYPES
+
 
 ROOT = os.path.dirname(
     os.path.dirname(
@@ -130,17 +134,20 @@ def _runtime_value_sync_namespace():
     source = _read(
         "scripts/script_toolbox/ui/runtime_value_sync.py"
     )
-    source = source.replace(
+    for import_line in (
         "from ..compat import QtGui\n",
-        ""
-    )
-    source = source.replace(
+        "from ..model.fields import ColorField\n",
+        "from ..model.item_builtins import register_builtin_items\n",
+        "from ..model.item_registry import ITEM_TYPES\n",
         "from ..pycompat import text_type\n",
-        ""
-    )
+    ):
+        source = source.replace(import_line, "")
 
     namespace = {
         "QtGui": _QtGui,
+        "ColorField": ColorField,
+        "ITEM_TYPES": ITEM_TYPES,
+        "register_builtin_items": register_builtin_items,
         "text_type": str,
         "__name__": "runtime_value_sync_test",
     }
@@ -191,7 +198,7 @@ class _Toolbox(object):
             if key in (
                 item.get("id"),
                 item.get("name"),
-                item.get("label"),
+                item.get("ui", {}).get("label"),
             ):
                 return item
         return None
@@ -202,7 +209,7 @@ class _Toolbox(object):
         if item is None:
             return False
 
-        item["value"] = value
+        item.setdefault("props", {})["value"] = value
         self.state_refresh_calls += 1
         return True
 
@@ -221,7 +228,7 @@ class _DebouncedToolbox(_Toolbox):
         if item is None:
             return False
 
-        item["value"] = value
+        item.setdefault("props", {})["value"] = value
         self.state_refresh_calls += 1
         return True
 
@@ -268,7 +275,8 @@ def test_string_runtime_widget_updates_after_store_value_by_name_and_id():
         "id": "string_node",
         "name": "houdini_selectable_template_node",
         "kind": "string",
-        "value": "",
+        "ui": {"label": "String"},
+        "props": {"value": ""},
     }
     toolbox.items[item["id"]] = item
     owner = _Owner(toolbox)
@@ -310,9 +318,12 @@ def test_programmatic_sync_blocks_signals_and_does_not_store_recursively():
         "id": "integer_samples",
         "name": "samples",
         "kind": "integer",
-        "value": 1,
-        "min": 0,
-        "max": 100,
+        "ui": {"label": "Samples"},
+        "props": {
+            "value": 1,
+            "min": 0,
+            "max": 100,
+        },
     }
     toolbox.items[item["id"]] = item
     owner = _Owner(toolbox)
@@ -352,15 +363,16 @@ def test_integer_float_checkbox_menu_and_color_sync():
         integer_slider,
     ])
     integer_binding = binding_class(
-        "integer",
         integer_root,
         owner
     )
     assert integer_binding.sync({
         "kind": "integer",
-        "value": 18,
-        "min": 0,
-        "max": 100,
+        "props": {
+            "value": 18,
+            "min": 0,
+            "max": 100,
+        },
     }) is True
     assert integer_spin.value == 18
     assert integer_slider.value == 18
@@ -372,28 +384,28 @@ def test_integer_float_checkbox_menu_and_color_sync():
         float_slider,
     ])
     float_binding = binding_class(
-        "float",
         float_root,
         owner
     )
     assert float_binding.sync({
         "kind": "float",
-        "value": 0.25,
-        "min": 0.0,
-        "max": 1.0,
+        "props": {
+            "value": 0.25,
+            "min": 0.0,
+            "max": 1.0,
+        },
     }) is True
     assert float_spin.value == 0.25
     assert float_slider.value == 2500
 
     checkbox = _CheckBox(False)
     checkbox_binding = binding_class(
-        "checkbox",
         checkbox,
         owner
     )
     assert checkbox_binding.sync({
         "kind": "checkbox",
-        "value": True,
+        "props": {"value": True},
     }) is True
     assert checkbox.checked is True
 
@@ -403,26 +415,24 @@ def test_integer_float_checkbox_menu_and_color_sync():
         "Final",
     ])
     menu_binding = binding_class(
-        "menu",
         menu,
         owner
     )
     assert menu_binding.sync({
         "kind": "menu",
-        "value": "Final",
+        "props": {"value": "Final"},
     }) is True
     assert menu.index == 2
 
     color = _PushButton()
     color_binding = binding_class(
-        "color",
         color,
         owner
     )
     value = [0.1, 0.2, 0.3]
     assert color_binding.sync({
         "kind": "color",
-        "value": value,
+        "props": {"value": value},
     }) is True
     assert color.color == value
 
@@ -438,19 +448,20 @@ def test_original_store_side_effects_and_field_refresh_are_preserved():
         "id": "enabled_id",
         "name": "enabled",
         "kind": "checkbox",
-        "value": False,
+        "ui": {"label": "Enabled"},
+        "props": {"value": False},
     }
     field_item = {
         "id": "nodes_id",
         "name": "nodes",
         "kind": "field",
-        "value": [],
+        "ui": {"label": "Nodes"},
+        "props": {"value": []},
     }
     toolbox.items[checkbox_item["id"]] = checkbox_item
     toolbox.items[field_item["id"]] = field_item
 
     binding = namespace["RuntimeValueBinding"](
-        "checkbox",
         checkbox,
         _Owner(toolbox)
     )
@@ -483,21 +494,24 @@ def test_base_and_debounced_store_overrides_are_wrapped_independently():
 
     assert _Toolbox.__dict__.get(marker) is True
     assert _DebouncedToolbox.__dict__.get(marker) is True
-    assert _Toolbox.__dict__["store_value"] is not _DebouncedToolbox.__dict__["store_value"]
+    assert (
+        _Toolbox.__dict__["store_value"]
+        is not _DebouncedToolbox.__dict__["store_value"]
+    )
 
 
-def test_ui_installs_sync_for_live_debounced_runtime_after_renderer_hooks():
+def test_ui_installs_sync_for_live_debounced_runtime_after_shared_decoration():
     source = _read(
-        "scripts/script_toolbox/ui/__init__.py"
+        "scripts/script_toolbox/ui/bootstrap.py"
     )
 
     value_sync = source.index(
         "install_runtime_value_sync("
     )
-    event_hooks = source.index(
-        "install_event_binding_hooks("
+    generic_decoration = source.index(
+        "_decorate_runtime_renderer_registry(registry)"
     )
 
-    assert event_hooks < value_sync
+    assert generic_decoration < value_sync
     assert "_debounced_main_window_module._DebouncedScriptToolbox" in source
     assert "store_toolbox_classes=(" in source

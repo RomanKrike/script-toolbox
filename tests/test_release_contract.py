@@ -44,6 +44,14 @@ def test_maya_module_file_exists_and_points_to_scripts():
 
     assert "PYTHONPATH +:= scripts" in content
 
+    version_match = re.search(
+        r"^\+ MayaScriptToolbox ([^ ]+) \.$",
+        content,
+        re.M,
+    )
+    assert version_match is not None
+    assert version_match.group(1) == PLUGIN_VERSION
+
 
 def test_package_init_exists():
     path = os.path.join(

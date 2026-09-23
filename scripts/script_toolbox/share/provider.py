@@ -2,25 +2,17 @@
 from __future__ import print_function
 
 import json
-import os
 import re
-import shutil
-import subprocess
-import sys
-import tempfile
 import threading
 import time
 
 try:
     from urllib import urlencode
-    from urllib2 import Request
-    from urllib2 import urlopen
 except ImportError:
     from urllib.parse import urlencode
-    from urllib.request import Request
-    from urllib.request import urlopen
 
 from ..constants import PLUGIN_VERSION
+from ..core import http_transport
 from ..pycompat import text_type
 
 
@@ -46,7 +38,6 @@ class ShareProvider(object):
 
 _RATE_LOCK = threading.Lock()
 _LAST_REQUEST = [0.0]
-_WINDOWS_POWERSHELL_PREFERRED = [False]
 
 
 def _throttle():
@@ -70,68 +61,46 @@ def _as_text(value):
     return text_type(value)
 
 
+def _share_headers(content_type=None):
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/plain",
+    }
+    if content_type:
+        headers["Content-Type"] = content_type
+    return headers
+
+
+# ----------------------------------------------------------------------
+# Deprecated transport compatibility wrappers
+# ----------------------------------------------------------------------
+# Older tests and direct imports may still reference these private names. They
+# now forward to core.http_transport; production provider flow does not carry a
+# second Windows/PowerShell implementation.
+
+
 def _is_windows():
-    return os.name == "nt"
+    return http_transport.is_windows()
 
 
 def _legacy_windows_python():
-    return _is_windows() and sys.version_info[0] < 3
+    return http_transport.legacy_windows_python()
 
 
 def _prefer_powershell_first():
-    # Maya versions that embed Python 2.7 commonly fail modern HTTPS/TLS in
-    # urllib. Avoid paying the full urllib timeout before using the transport
-    # that is known to work there. On newer Windows runtimes, remember a
-    # successful fallback for the rest of the process after urllib fails once.
-    return _is_windows() and (
-        _legacy_windows_python() or
-        _WINDOWS_POWERSHELL_PREFERRED[0]
-    )
+    return http_transport.prefer_powershell_first()
 
 
 def _powershell_executable():
-    if not _is_windows():
-        return None
-
-    root = os.environ.get(
-        "SystemRoot",
-        r"C:\Windows"
-    )
-    candidate = os.path.join(
-        root,
-        "System32",
-        "WindowsPowerShell",
-        "v1.0",
-        "powershell.exe"
-    )
-
-    if os.path.isfile(candidate):
-        return candidate
-    return "powershell.exe"
+    return http_transport.powershell_executable()
 
 
 def _ps_quote(value):
-    return text_type(value).replace("'", "''")
+    return http_transport.powershell_quote(value)
 
 
 def _hidden_process_kwargs():
-    if not _is_windows():
-        return {}
-
-    result = {
-        "creationflags": 0x08000000,
-    }
-    try:
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        try:
-            startupinfo.wShowWindow = 0
-        except Exception:
-            pass
-        result["startupinfo"] = startupinfo
-    except Exception:
-        pass
-    return result
+    return http_transport.hidden_process_kwargs()
 
 
 def _powershell_request(
@@ -140,107 +109,15 @@ def _powershell_request(
     timeout=15,
     content_type=None
 ):
-    executable = _powershell_executable()
-    if not executable:
-        raise ShareProviderError(
-            "PowerShell TLS fallback is unavailable."
-        )
-
-    directory = tempfile.mkdtemp(
-        prefix="script_toolbox_share_"
-    )
-    body_path = os.path.join(directory, "request.bin")
-    output_path = os.path.join(directory, "response.bin")
-
     try:
-        if data is not None:
-            with open(body_path, "wb") as handle:
-                handle.write(_as_bytes(data))
-
-        timeout_ms = max(
-            1000,
-            int(float(timeout) * 1000.0)
+        return http_transport.powershell_request(
+            url,
+            data=data,
+            headers=_share_headers(content_type),
+            timeout=timeout
         )
-        script = [
-            "$ErrorActionPreference = 'Stop'",
-            "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12",
-            "$request = [System.Net.HttpWebRequest]::Create('{0}')".format(
-                _ps_quote(url)
-            ),
-            "$request.UserAgent = '{0}'".format(
-                _ps_quote(USER_AGENT)
-            ),
-            "$request.Accept = 'text/plain'",
-            "$request.Timeout = {0}".format(timeout_ms),
-            "$request.ReadWriteTimeout = {0}".format(timeout_ms),
-        ]
-
-        if data is not None:
-            script.extend([
-                "$request.Method = 'POST'",
-                "$request.ContentType = '{0}'".format(
-                    _ps_quote(
-                        content_type or
-                        "application/octet-stream"
-                    )
-                ),
-                "$body = [System.IO.File]::ReadAllBytes('{0}')".format(
-                    _ps_quote(body_path)
-                ),
-                "$request.ContentLength = [Int64]$body.Length",
-                "$requestStream = $request.GetRequestStream()",
-                "try { $requestStream.Write($body, 0, $body.Length) } finally { if ($requestStream) { $requestStream.Dispose() } }",
-            ])
-        else:
-            script.append("$request.Method = 'GET'")
-
-        script.extend([
-            "$response = $request.GetResponse()",
-            "$responseStream = $response.GetResponseStream()",
-            "$outputStream = [System.IO.File]::Open('{0}', [System.IO.FileMode]::Create)".format(
-                _ps_quote(output_path)
-            ),
-            "try { $responseStream.CopyTo($outputStream) } finally { if ($outputStream) { $outputStream.Dispose() }; if ($responseStream) { $responseStream.Dispose() }; if ($response) { $response.Close() } }",
-        ])
-
-        process = subprocess.Popen(
-            [
-                executable,
-                "-NoProfile",
-                "-NonInteractive",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-Command",
-                "; ".join(script),
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            **_hidden_process_kwargs()
-        )
-        stdout_value, stderr_value = process.communicate()
-
-        if process.returncode != 0:
-            raise ShareProviderError(
-                "PowerShell request failed: {0}".format(
-                    _as_text(stderr_value).strip() or
-                    _as_text(stdout_value).strip() or
-                    "exit code {0}".format(process.returncode)
-                )
-            )
-
-        if not os.path.isfile(output_path):
-            raise ShareProviderError(
-                "PowerShell request returned no response body."
-            )
-
-        with open(output_path, "rb") as handle:
-            return handle.read()
-
-    finally:
-        try:
-            shutil.rmtree(directory)
-        except Exception:
-            pass
+    except http_transport.TransportError as exc:
+        raise ShareProviderError(text_type(exc))
 
 
 def _request(
@@ -249,72 +126,17 @@ def _request(
     timeout=15,
     content_type=None
 ):
-    powershell_error = None
-
-    if _prefer_powershell_first():
-        try:
-            return _powershell_request(
-                url,
-                data=data,
-                timeout=timeout,
-                content_type=content_type
-            )
-        except Exception as exc:
-            # Keep urllib as a safety fallback in case PowerShell is disabled
-            # by local policy or unavailable on a particular workstation.
-            powershell_error = exc
-
-    headers = {
-        "User-Agent": USER_AGENT,
-        "Accept": "text/plain",
-    }
-    if data is not None and content_type:
-        headers["Content-Type"] = content_type
-
-    request = Request(
-        url,
-        data=_as_bytes(data) if data is not None else None,
-        headers=headers
-    )
-
     try:
-        response = urlopen(
-            request,
+        return http_transport.request_bytes(
+            url,
+            data=data,
+            headers=_share_headers(content_type),
             timeout=timeout
         )
-        try:
-            return response.read()
-        finally:
-            try:
-                response.close()
-            except Exception:
-                pass
-    except Exception as urllib_error:
-        if not _is_windows():
-            raise ShareProviderError(
-                "Share service request failed: {0}".format(
-                    urllib_error
-                )
-            )
-
-        _WINDOWS_POWERSHELL_PREFERRED[0] = True
-
-        if powershell_error is None:
-            try:
-                return _powershell_request(
-                    url,
-                    data=data,
-                    timeout=timeout,
-                    content_type=content_type
-                )
-            except Exception as fallback_error:
-                powershell_error = fallback_error
-
+    except http_transport.TransportError as exc:
         raise ShareProviderError(
-            "Share service request failed with PowerShell ({0}); "
-            "Python urllib also failed ({1}).".format(
-                powershell_error,
-                urllib_error
+            "Share service request failed: {0}".format(
+                text_type(exc)
             )
         )
 

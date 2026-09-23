@@ -12,8 +12,9 @@ def test_text_item_normalizes_static_multiline_content():
     item = create_item(
         "text",
         {
-            "text": "First line\nSecond line",
-            "show_label": True,
+            "props": {
+                "text": "First line\nSecond line",
+            },
             "bindings": [
                 {
                     "event": "click",
@@ -24,8 +25,8 @@ def test_text_item_normalizes_static_multiline_content():
     )
 
     assert item["kind"] == "text"
-    assert item["text"] == "First line\nSecond line"
-    assert item["show_label"] is False
+    assert item["props"]["text"] == "First line\nSecond line"
+    assert item["ui"]["show_label"] is False
     assert item["bindings"] == []
 
 
@@ -33,11 +34,11 @@ def test_text_item_preserves_intentional_empty_content():
     item = create_item(
         "text",
         {
-            "text": "",
+            "props": {"text": ""},
         }
     )
 
-    assert item["text"] == ""
+    assert item["props"]["text"] == ""
 
 
 def test_text_runtime_contract_uses_palette_and_word_wrap():
@@ -69,15 +70,23 @@ def test_text_property_editor_uses_shared_multiline_metric():
     assert "metrics.PROPERTY_MULTILINE_TEXT_MIN_HEIGHT" in source
 
 
-def test_text_item_is_registered_in_editor_palette_and_runtime():
-    source = (
+def test_text_item_declares_editor_and_renderer_in_type_metadata():
+    definitions = (
+        ROOT /
+        "scripts" /
+        "script_toolbox" /
+        "model" /
+        "item_builtins.py"
+    ).read_text(encoding="utf-8")
+    ui_bootstrap = (
         ROOT /
         "scripts" /
         "script_toolbox" /
         "ui" /
-        "__init__.py"
+        "item_ui_bootstrap.py"
     ).read_text(encoding="utf-8")
 
-    assert '"Text",' in source
-    assert '"text",' in source
-    assert 'register_runtime_renderer("text", render_text)' in source
+    assert '"text", "Text", "Display", 30' in definitions
+    assert 'inspector_path=".properties.text:TextPropertyEditor"' in definitions
+    assert 'renderer_path=".text_runtime:render_text"' in definitions
+    assert "for definition in ITEM_TYPES.all():" in ui_bootstrap

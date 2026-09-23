@@ -134,19 +134,173 @@ def _tokens(source):
     return result, token_source, encoded
 
 
-def rewrite_python_references(source, replacements):
-    """Rewrite literal Script Toolbox API keys without changing other text."""
-    source = text_type(source or "")
+def _normalized_replacements(replacements):
     normalized = {}
-
     for old_value, new_value in (replacements or {}).items():
         old_value = text_type(old_value or "")
         new_value = text_type(new_value or "")
         if old_value and old_value != new_value:
             normalized[old_value] = new_value
+    return normalized
+
+
+def _ast_text_value(node, names=None):
+    names = names or {}
+
+    constant = getattr(ast, "Constant", None)
+    if constant is not None:
+        if isinstance(node, constant):
+            if isinstance(node.value, text_type):
+                return text_type(node.value)
+            return None
+    else:
+        string_node = getattr(ast, "Str", None)
+        if string_node is not None and isinstance(node, string_node):
+            return text_type(node.s)
+
+    if isinstance(node, ast.Name):
+        return names.get(text_type(node.id))
+
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left = _ast_text_value(node.left, names)
+        right = _ast_text_value(node.right, names)
+        if left is not None and right is not None:
+            return left + right
+
+    return None
+
+
+def _unresolved_python_references(source, replacements):
+    """Return conservative unresolved Script Toolbox references."""
+    normalized = _normalized_replacements(replacements)
+    if not source or not normalized:
+        return []
+
+    try:
+        tree = ast.parse(text_type(source))
+    except (SyntaxError, TypeError, ValueError):
+        return []
+
+    aliases = set(["toolbox"])
+    string_names = {}
+    unresolved = []
+
+    class Visitor(ast.NodeVisitor):
+
+        def _visit_nested_scope(self, body):
+            saved_aliases = set(aliases)
+            saved_names = dict(string_names)
+            try:
+                for statement in body:
+                    self.visit(statement)
+            finally:
+                aliases.clear()
+                aliases.update(saved_aliases)
+                string_names.clear()
+                string_names.update(saved_names)
+
+        def visit_FunctionDef(self, node):
+            self._visit_nested_scope(node.body)
+
+        def visit_ClassDef(self, node):
+            self._visit_nested_scope(node.body)
+
+        def visit_Assign(self, node):
+            value = node.value
+            alias_value = (
+                isinstance(value, ast.Name) and
+                text_type(value.id) in aliases
+            )
+            text_value = _ast_text_value(value, string_names)
+
+            for target in node.targets:
+                if not isinstance(target, ast.Name):
+                    continue
+                name = text_type(target.id)
+                if alias_value:
+                    aliases.add(name)
+                elif name != "toolbox":
+                    aliases.discard(name)
+
+                if text_value is not None:
+                    string_names[name] = text_value
+                else:
+                    string_names.pop(name, None)
+
+            self.generic_visit(node)
+
+        def visit_Call(self, node):
+            function = node.func
+            if not isinstance(function, ast.Attribute):
+                self.generic_visit(node)
+                return
+
+            receiver = function.value
+            if not isinstance(receiver, ast.Name):
+                self.generic_visit(node)
+                return
+
+            receiver_name = text_type(receiver.id)
+            method = text_type(function.attr)
+            if receiver_name not in aliases or method not in REFERENCE_METHODS:
+                self.generic_visit(node)
+                return
+
+            if not node.args:
+                self.generic_visit(node)
+                return
+
+            value = _ast_text_value(node.args[0], string_names)
+            if value not in normalized:
+                self.generic_visit(node)
+                return
+
+            argument = node.args[0]
+            constant = getattr(ast, "Constant", None)
+            if constant is not None:
+                is_direct_literal = (
+                    isinstance(argument, constant) and
+                    isinstance(argument.value, text_type)
+                )
+            else:
+                string_node = getattr(ast, "Str", None)
+                is_direct_literal = (
+                    string_node is not None and
+                    isinstance(argument, string_node)
+                )
+
+            kind = "literal"
+            if receiver_name != "toolbox":
+                kind = "alias"
+            elif isinstance(argument, ast.Name):
+                kind = "dynamic_name"
+            elif not is_direct_literal:
+                kind = "computed"
+
+            unresolved.append({
+                "name": value,
+                "method": method,
+                "receiver": receiver_name,
+                "line": int(getattr(node, "lineno", 0) or 0),
+                "kind": kind,
+            })
+            self.generic_visit(node)
+
+    Visitor().visit(tree)
+    return unresolved
+
+
+def rewrite_python_references_result(source, replacements):
+    """Rewrite supported references and report conservative unresolved ones."""
+    source = text_type(source or "")
+    normalized = _normalized_replacements(replacements)
 
     if not source or not normalized:
-        return source
+        return {
+            "source": source,
+            "changed": False,
+            "unresolved": [],
+        }
 
     tokens, token_source, encoded = _tokens(source)
     significant = [
@@ -206,65 +360,64 @@ def rewrite_python_references(source, replacements):
             )
         ))
 
-    if not replacements_by_line:
-        return source
+    if replacements_by_line:
+        lines = token_source.splitlines(True)
 
-    lines = token_source.splitlines(True)
+        for line_index, line_replacements in replacements_by_line.items():
+            if line_index < 0 or line_index >= len(lines):
+                continue
 
-    for line_index, line_replacements in replacements_by_line.items():
-        if line_index < 0 or line_index >= len(lines):
-            continue
+            line = lines[line_index]
+            for start, end, replacement in sorted(
+                line_replacements,
+                key=lambda entry: entry[0],
+                reverse=True
+            ):
+                line = line[:start] + replacement + line[end:]
+            lines[line_index] = line
 
-        line = lines[line_index]
-        for start, end, replacement in sorted(
-            line_replacements,
-            key=lambda entry: entry[0],
-            reverse=True
-        ):
-            line = line[:start] + replacement + line[end:]
-        lines[line_index] = line
+        result = b"".join(lines) if encoded else "".join(lines)
+        if encoded:
+            result = result.decode("utf-8")
+    else:
+        result = source
 
-    result = b"".join(lines) if encoded else "".join(lines)
-    if encoded:
-        return result.decode("utf-8")
-    return result
+    return {
+        "source": result,
+        "changed": result != source,
+        "unresolved": _unresolved_python_references(
+            result,
+            normalized
+        ),
+    }
 
 
-def python_script_keys(item):
-    """Return flat item payload keys whose contents are Python scripts."""
-    kind = text_type(item.get("kind", ""))
+def rewrite_python_references(source, replacements):
+    """Return source with supported references rewritten."""
+    return rewrite_python_references_result(
+        source,
+        replacements
+    )["source"]
+
+
+def python_prop_script_keys(item):
+    """Return schema-21 props keys whose values are Python scripts."""
+    props = item.get("props", {}) if isinstance(item, dict) else {}
+    if not isinstance(props, dict):
+        return []
+
     result = []
-
-    for key in item.keys():
+    for key in props.keys():
         key_text = text_type(key)
         if not key_text.endswith("_script"):
             continue
 
-        if key_text == "state_get_script":
-            result.append(key)
-            continue
-
-        if key_text == "state_on_script":
-            if text_type(
-                item.get("state_on_language", "python")
-            ).lower() == "python":
-                result.append(key)
-            continue
-
-        if key_text == "state_off_script":
-            if text_type(
-                item.get("state_off_language", "python")
-            ).lower() == "python":
-                result.append(key)
-            continue
-
-        # Compatibility for direct legacy payloads before normalization.
+        language_key = key_text[:-7] + "_language"
         language = text_type(
-            item.get("language", "python")
+            props.get(language_key, "python") or "python"
         ).lower()
-        if kind != "button" or language == "python":
+        if language == "python":
             result.append(key)
-
     return result
 
 
@@ -291,19 +444,35 @@ def binding_script_indexes(item):
     return result
 
 
-def rewrite_item_references(item, replacements):
-    changed = False
+def _append_unresolved(target, references, location):
+    for reference in references:
+        entry = dict(reference)
+        entry.update(location)
+        target.append(entry)
 
-    for key in python_script_keys(item):
-        source = text_type(item.get(key) or "")
-        rewritten = rewrite_python_references(
+
+def rewrite_item_references_result(item, replacements):
+    """Rewrite schema-21 Item script references and report unresolved uses."""
+    changed = False
+    unresolved = []
+    props = item.get("props", {}) if isinstance(item, dict) else {}
+    if not isinstance(props, dict):
+        props = {}
+
+    for key in python_prop_script_keys(item):
+        source = text_type(props.get(key) or "")
+        result = rewrite_python_references_result(
             source,
             replacements
         )
-        if rewritten == source:
-            continue
-        item[key] = rewritten
-        changed = True
+        if result["changed"]:
+            props[key] = result["source"]
+            changed = True
+        _append_unresolved(
+            unresolved,
+            result["unresolved"],
+            {"prop_script_key": text_type(key)}
+        )
 
     bindings = item.get("bindings")
     if isinstance(bindings, list):
@@ -312,30 +481,34 @@ def rewrite_item_references(item, replacements):
             source = text_type(
                 binding.get("script") or ""
             )
-            rewritten = rewrite_python_references(
+            result = rewrite_python_references_result(
                 source,
                 replacements
             )
-            if rewritten == source:
-                continue
-            binding["script"] = rewritten
-            changed = True
-
-    # Compatibility for schema-17 objects passed directly to editor helpers.
-    callbacks = item.get("callbacks")
-    if isinstance(callbacks, dict):
-        for event, source in list(callbacks.items()):
-            source = text_type(source or "")
-            rewritten = rewrite_python_references(
-                source,
-                replacements
+            if result["changed"]:
+                binding["script"] = result["source"]
+                changed = True
+            _append_unresolved(
+                unresolved,
+                result["unresolved"],
+                {
+                    "binding_index": index,
+                    "binding_id": text_type(binding.get("id", "")),
+                }
             )
-            if rewritten == source:
-                continue
-            callbacks[event] = rewritten
-            changed = True
 
-    return changed
+    return {
+        "changed": changed,
+        "unresolved": unresolved,
+    }
+
+
+def rewrite_item_references(item, replacements):
+    """Return whether rewriting changed one Item."""
+    return rewrite_item_references_result(
+        item,
+        replacements
+    )["changed"]
 
 
 def _walk_subtree(item):
@@ -350,39 +523,83 @@ def _walk_subtree(item):
                 yield nested
 
 
-def rewrite_subtree_references(item, replacements):
+def _item_label(item):
+    ui = item.get("ui", {}) if isinstance(item, dict) else {}
+    if not isinstance(ui, dict):
+        ui = {}
+    return text_type(ui.get("label", ""))
+
+
+def rewrite_subtree_references_result(item, replacements):
     changed_ids = set()
+    unresolved_items = []
 
     for candidate in _walk_subtree(item):
-        if not rewrite_item_references(candidate, replacements):
-            continue
+        result = rewrite_item_references_result(
+            candidate,
+            replacements
+        )
         item_id = text_type(candidate.get("id", ""))
-        if item_id:
+        if result["changed"] and item_id:
             changed_ids.add(item_id)
+        if result["unresolved"]:
+            unresolved_items.append({
+                "id": item_id,
+                "name": text_type(candidate.get("name", "")),
+                "label": _item_label(candidate),
+                "references": result["unresolved"],
+            })
 
-    return changed_ids
+    return {
+        "changed_ids": changed_ids,
+        "unresolved_items": unresolved_items,
+    }
+
+
+def rewrite_subtree_references(item, replacements):
+    """Return IDs of changed Items in one subtree."""
+    return rewrite_subtree_references_result(
+        item,
+        replacements
+    )["changed_ids"]
+
+
+def rewrite_document_references_result(document, replacements):
+    changed_ids = set()
+    unresolved_items = []
+
+    for section in (document or {}).get("sections", []) or []:
+        result = rewrite_subtree_references_result(
+            section,
+            replacements
+        )
+        changed_ids.update(result["changed_ids"])
+        unresolved_items.extend(result["unresolved_items"])
+
+    return {
+        "changed_ids": changed_ids,
+        "unresolved_items": unresolved_items,
+    }
 
 
 def rewrite_document_references(document, replacements):
-    changed_ids = set()
-
-    for section in (document or {}).get("sections", []) or []:
-        changed_ids.update(
-            rewrite_subtree_references(
-                section,
-                replacements
-            )
-        )
-
-    return changed_ids
+    """Return IDs of changed Items in a document."""
+    return rewrite_document_references_result(
+        document,
+        replacements
+    )["changed_ids"]
 
 
 __all__ = [
     "REFERENCE_METHODS",
     "binding_script_indexes",
-    "python_script_keys",
+    "python_prop_script_keys",
     "rewrite_document_references",
+    "rewrite_document_references_result",
     "rewrite_item_references",
+    "rewrite_item_references_result",
     "rewrite_python_references",
+    "rewrite_python_references_result",
     "rewrite_subtree_references",
+    "rewrite_subtree_references_result",
 ]

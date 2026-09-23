@@ -26,12 +26,20 @@ def test_create_palette_uses_runtime_folder_tab_style_for_items_and_presets():
     assert '"palette_scroll_frame"' in source
     assert "self.palette_filter.setPlaceholderText(" in source
 
-    assert "QWidget#ToolboxContent QTabWidget::pane," in runtime_style
-    assert "QTabWidget#CreatePaletteTabs::pane" in runtime_style
+    # Runtime and editor tabs share header sizing/colors, while their pane
+    # geometry is intentionally independent so host-specific seam handling
+    # cannot leak into the Interface Editor.
+    assert "QWidget#ToolboxContent QTabWidget::pane {{" in runtime_style
+    assert "QTabWidget#CreatePaletteTabs::pane {{" in runtime_style
+    assert (
+        "QWidget#ToolboxContent QTabWidget::pane,\n"
+        "QTabWidget#CreatePaletteTabs::pane"
+    ) not in runtime_style
     assert "QWidget#ToolboxContent QTabBar::tab," in runtime_style
     assert "QTabWidget#CreatePaletteTabs QTabBar::tab" in runtime_style
     assert "QWidget#ToolboxContent QTabBar::tab:selected," in runtime_style
     assert "QTabWidget#CreatePaletteTabs QTabBar::tab:selected" in runtime_style
+    assert "RUNTIME_TAB_PANE_TOP_OFFSET" in runtime_style
     assert "RUNTIME_TAB_SELECTED_OVERLAP" in runtime_style
     assert "font-weight: bold" not in runtime_style
     assert "font-weight: normal" in runtime_style
@@ -64,8 +72,8 @@ def test_preset_insertion_goes_through_reference_safe_controller_clone():
     source = _read(
         "scripts/script_toolbox/ui/preset_hooks.py"
     )
-    ui_init = _read(
-        "scripts/script_toolbox/ui/__init__.py"
+    bootstrap = _read(
+        "scripts/script_toolbox/ui/bootstrap.py"
     )
     controller = _read(
         "scripts/script_toolbox/core/editor_document.py"
@@ -73,6 +81,30 @@ def test_preset_insertion_goes_through_reference_safe_controller_clone():
 
     assert "clone = editor._clone_data(" in source
     assert "editor._used_names()" in source
-    assert "build_preset_interface_editor_class(" in ui_init
+    assert "build_preset_interface_editor_class(" in bootstrap
     assert "def clone_subtree(self, data, used_names=None):" in controller
     assert "rewrite_subtree_references(" in controller
+
+
+def test_preset_palette_uses_host_filtered_core_results_and_keeps_ui_contracts():
+    source = _read(
+        "scripts/script_toolbox/ui/preset_hooks.py"
+    )
+    core_source = _read(
+        "scripts/script_toolbox/core/presets.py"
+    )
+
+    assert "from ..compat import HOST" in source
+    assert "for preset in iter_presets(" in source
+    assert 'preset.get("category", "PRESETS")' in source
+    assert 'preset.get("description", "")' in source
+    assert "query in label" in source
+    assert "query in tooltip" in source
+    assert "query in preset_id" in source
+
+    assert "import maya.cmds" not in source
+    assert "import hou" not in source
+    assert "import nuke" not in source
+    assert "QtCore" not in core_source
+    assert "QtGui" not in core_source
+    assert "preset_id.startswith" not in core_source

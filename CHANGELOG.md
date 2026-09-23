@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.1 — 2026-09-23
+
+Documentation hotfix for LLM-generated clipboard templates.
+
+### Fixed
+
+- Distinguish clipboard-ready Item JSON from built-in preset-registry source definitions.
+- Make a bare "template" request default to an Item/subtree that can be pasted into Import from Clipboard.
+- Require strict JSON literals (`true`, `false`, `null`) for clipboard/config output and explicitly reject Python `True` / `False` / `None`.
+- Point the stable `llms.txt` entry point at stable `main` documentation/source instead of the moving `dev` branch.
+
 ## 1.0.0 — 2026-09-23
 
 Major architecture and multi-DCC release.

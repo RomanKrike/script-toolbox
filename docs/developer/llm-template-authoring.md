@@ -8,17 +8,17 @@ It is intended to be uploaded or pasted into an LLM before asking it to create a
 
 Script Toolbox has one universal Item model. There is no separate item schema for templates.
 
-Use these terms consistently:
+The word **template** is ambiguous. Choose the output format from the user's intended action:
 
-- **Preset / template**: one entry in the built-in preset registry. It has metadata plus a root Item subtree.
-- **Item subtree**: one ordinary Script Toolbox Item, optionally containing nested Items.
-- **Config / document**: a complete importable JSON document with a schema version and top-level sections.
+- **Clipboard Item / Item subtree**: one ordinary Script Toolbox Item, optionally containing nested Items. This is the default output when the user wants to copy, paste, insert, import from clipboard, or simply "make a template" for direct use in Script Toolbox.
+- **Config / document**: a complete importable JSON document with a schema version and top-level sections. Use this when the user explicitly asks for a complete toolbox/configuration or file import/export artifact.
+- **Built-in preset definition**: a source-code registry entry with metadata plus a `root` Item subtree. Use this only when the user explicitly asks to add a built-in preset to the Presets palette, edit `core/presets.py`, or generate repository source code.
 
-When a user says only "template" or "preset", generate a preset definition unless the request explicitly asks for an importable JSON config.
+**Default rule:** a bare request such as "make a Script Toolbox template" should produce a clipboard-ready Item/subtree, not a preset-registry wrapper.
 
 ## Current contract
 
-The current development branch uses configuration schema **21**.
+The current stable 1.0.x line uses configuration schema **21**.
 
 Source of truth:
 
@@ -33,9 +33,80 @@ If CONFIG_VERSION in source is no longer 21, this document is stale. Do not gues
 
 Older, newer, or non-empty versionless config documents are rejected by the current loader.
 
-## Preset metadata
+## Clipboard import contract
 
-A built-in preset entry has this shape:
+**Import from Clipboard** accepts exactly two top-level transfer shapes:
+
+1. A single Item/subtree whose top-level object contains `"kind"`.
+2. A complete config whose top-level object contains both `"version"` and `"sections"`.
+
+It does **not** accept a built-in preset-registry wrapper such as:
+
+~~~json
+{
+  "id": "maya_graph_editor",
+  "dcc": "maya",
+  "category": "ANIMATION",
+  "label": "Graph Editor",
+  "description": "Open Maya Graph Editor.",
+  "root": {
+    "kind": "icon"
+  }
+}
+~~~
+
+That wrapper belongs in repository source code only. For clipboard import, emit the `root` Item itself.
+
+Clipboard-ready output must be strict JSON:
+
+- use `true`, `false`, and `null`;
+- never use Python literals `True`, `False`, or `None`;
+- use double-quoted JSON strings and property names;
+- do not include comments;
+- do not include trailing commas;
+- do not prepend or append prose when the user asks for copy/paste-ready JSON.
+
+### Clipboard-ready single Item example
+
+This object can be pasted directly into **Import from Clipboard**:
+
+~~~json
+{
+  "kind": "icon",
+  "id": "preset_maya_graph_editor",
+  "name": "open_graph_editor",
+  "ui": {
+    "label": "Graph Editor",
+    "show_label": false,
+    "tooltip": "Open Graph Editor"
+  },
+  "props": {
+    "path": "$MAYA_LOCATION/icons/graphEditor.png",
+    "width": 28,
+    "height": 28,
+    "content_alignment": "center"
+  },
+  "bindings": [
+    {
+      "id": "preset_maya_graph_editor_click",
+      "event": "click",
+      "handler": "script",
+      "language": "mel",
+      "script": "GraphEditor;",
+      "label": "",
+      "mouse_button": "left",
+      "modifiers": [],
+      "modifier_policy": "exact"
+    }
+  ]
+}
+~~~
+
+Environment variables such as `$MAYA_LOCATION` are expanded for runtime icon paths.
+
+## Built-in preset registry contract
+
+A built-in preset entry has this shape. This is a Python source-code structure for the preset registry; it is **not** valid input for Import from Clipboard:
 
 ~~~python
 {
@@ -492,9 +563,9 @@ Houdini:
 
 Use host abstractions when a preset should remain portable across DCCs. Use DCC modules only for host-specific presets.
 
-## Canonical preset example
+## Built-in registry preset example
 
-This example is a Maya-only Render Tools preset using schema-21 Item envelopes:
+This example is a Maya-only Render Tools **source-code preset definition** using schema-21 Item envelopes. Do not paste the outer metadata/root wrapper into Import from Clipboard:
 
 ~~~python
 {
@@ -541,9 +612,9 @@ This example is a Maya-only Render Tools preset using schema-21 Item envelopes:
 
 The normalizer fills omitted default UI, props, and mouse-binding fields.
 
-## Complete importable config
+## Complete config for clipboard or file import
 
-When the user explicitly asks for a JSON config that can be imported, output a complete document:
+When the user explicitly asks for a complete JSON config/toolbox, output a complete document:
 
 ~~~json
 {
@@ -580,24 +651,30 @@ Rules:
 
 When asked to create a Script Toolbox template:
 
-1. Determine the target DCC: maya, nuke, houdini, all, or another registry-supported target explicitly requested by the user.
-2. Decide whether the requested output is a preset definition, an Item subtree, or a complete config.
-3. Choose only registered Item kinds from this document.
-4. Build the Item tree using the canonical kind / id / name / ui / props / bindings envelope.
-5. Put children only under container Items.
-6. Give every Item a unique id and name.
-7. Use Python by default. Use MEL only for Maya when requested or materially simpler.
-8. Use bindings only on events supported by that Item kind.
-9. Keep scripts small. Prefer toolbox and host APIs for reusable behavior.
-10. Validate references: scripts should target Item names, never labels.
-11. If duplicatable blocks reference sibling Items, use direct literal toolbox calls where possible so Script Toolbox can rewrite supported references during clone / duplicate.
-12. Return only the requested artifact unless the user asks for explanation.
+1. Determine the intended action before choosing the shape.
+2. If the user says template, copy/paste, clipboard, insert, or direct import without explicitly requesting repository source code, output a clipboard-ready Item/subtree with top-level `kind`.
+3. If the user asks for a complete toolbox/configuration, output a config with top-level `version` and `sections`.
+4. Only output the `id/dcc/category/label/description/root` preset wrapper when the user explicitly asks for a built-in Presets-palette definition or repository source code.
+5. Determine the target DCC: maya, nuke, houdini, all, or another registry-supported target explicitly requested by the user.
+6. Choose only registered Item kinds from this document.
+7. Build the Item tree using the canonical `kind / id / name / ui / props / bindings` envelope.
+8. Put children only under container Items.
+9. Give every Item a unique `id` and `name`.
+10. Use Python by default. Use MEL only for Maya and HScript only for Houdini when requested or materially simpler.
+11. Use bindings only on events supported by that Item kind.
+12. Keep scripts small. Prefer toolbox and host APIs for reusable behavior.
+13. Validate references: scripts should target Item names, never labels.
+14. If duplicatable blocks reference sibling Items, use direct literal toolbox calls where possible so Script Toolbox can rewrite supported references during clone / duplicate.
+15. For clipboard/config output, validate the final artifact as strict JSON and ensure it contains no Python literals.
+16. Return only the requested artifact unless the user asks for explanation. For copy/paste-ready JSON, return only the JSON object.
 
 ## Validation checklist
 
 Before emitting a template, verify:
 
-- preset id is unique and dcc metadata is valid;
+- output mode matches the user's action: clipboard Item, complete config, or built-in registry preset;
+- clipboard Item output has top-level `kind` and no preset metadata/root wrapper;
+- built-in preset id is unique and dcc metadata is valid when generating repository preset source;
 - config version is exactly 21 when outputting a full document;
 - every kind is supported;
 - every Item has id, name, ui, props, bindings;
@@ -614,7 +691,8 @@ Before emitting a template, verify:
 - RGB values contain exactly 3 values in 0..1;
 - Field visible_rows is 1..20;
 - Image dimensions are 8..4096;
-- JSON output has no Python booleans, comments, or trailing commas.
+- JSON output uses lowercase `true` / `false` / `null` and has no Python `True` / `False` / `None`, comments, or trailing commas;
+- clipboard-ready JSON is a single top-level object accepted by the transfer contract.
 
 ## Do not invent
 
@@ -627,7 +705,8 @@ An LLM must not invent:
 - root-level aliases for ui or props;
 - compatibility fields from older schemas;
 - migration behavior;
-- unsupported script languages in persisted bindings.
+- unsupported script languages in persisted bindings;
+- preset-registry metadata wrappers in clipboard-ready output.
 
 If a requested feature cannot be represented with the current Item registry, say which missing capability would require a new Item type or plugin code instead of fabricating schema fields.
 

@@ -2,7 +2,7 @@
 
 PACKAGE_NAME = "script_toolbox"
 DISPLAY_NAME = "Script Toolbox"
-PLUGIN_VERSION = "1.0.0"
+PLUGIN_VERSION = "1.0.1"
 
 # Build metadata is stamped into Development packages by dev-build.yml.
 # Source/stable builds intentionally keep these defaults.

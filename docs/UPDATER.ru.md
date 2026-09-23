@@ -54,7 +54,7 @@ Tool button Check for Updates имеет стрелку меню.
 `scripts/script_toolbox/constants.py` содержит текущую semantic version, например:
 
 ```python
-PLUGIN_VERSION = "1.0.0"
+PLUGIN_VERSION = "1.0.1"
 ```
 
 Когда stable version попадает в `main`, сначала выполняется workflow `Python checks`. После успешного завершения `.github/workflows/release.yml` собирает и проверяет package, при необходимости создаёт tag `v<version>` и публикует GitHub Release.

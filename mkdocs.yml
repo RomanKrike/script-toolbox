@@ -51,7 +51,7 @@ plugins:
             Hosts: Хосты
             Developer: Разработчикам
             Overview: Обзор
-            LLM template authoring: LLM: шаблоны и пресеты
+            LLM template authoring: "LLM: шаблоны и пресеты"
             Architecture: Архитектура
             Config store: Хранение конфигурации
             Runtime renderer: Рендерер Runtime

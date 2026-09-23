@@ -45,7 +45,7 @@ def test_maya_module_file_exists_and_points_to_scripts():
     assert "PYTHONPATH +:= scripts" in content
 
     version_match = re.search(
-        r"^\\+ MayaScriptToolbox ([^ ]+) \\.$",
+        r"^\+ MayaScriptToolbox ([^ ]+) \.$",
         content,
         re.M,
     )

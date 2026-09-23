@@ -66,7 +66,7 @@ Changing the channel persists the selection and immediately checks the newly sel
 `scripts/script_toolbox/constants.py` contains the current semantic version, for example:
 
 ```python
-PLUGIN_VERSION = "1.0.0"
+PLUGIN_VERSION = "1.0.1"
 ```
 
 After the stable version reaches `main`, the `Python checks` workflow runs first. If it succeeds, `.github/workflows/release.yml` builds and validates the package, creates the matching `v<version>` tag when needed, and publishes the GitHub Release.

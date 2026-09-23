@@ -83,13 +83,19 @@ See the [Houdini integration notes](../HOUDINI.md) and the included `houdini/scr
 
 ## Update channels
 
-Script Toolbox supports three update channels:
+Script Toolbox supports two update channels:
 
 - **Stable** — published releases from `main`;
-- **Latest** — newest appropriate published version;
 - **Development** — test builds from `dev`.
 
 Use Stable for normal production work. Use Development only when you intentionally want to test the next release.
+
+
+## Network proxy
+
+Open **Settings → Network** when Script Toolbox must reach GitHub or sharing services through a proxy. Available modes are **System**, **No proxy**, and **Manual**. Manual configuration supports HTTP, HTTPS, and SOCKS5, with optional authentication and a built-in connection test.
+
+On Windows, saved proxy passwords are protected with the current user's DPAPI key. On platforms without a secure built-in credential backend, the password is not stored in clear text and must be entered again after restart.
 
 ## User configuration
 

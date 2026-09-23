@@ -65,7 +65,7 @@ The schema key is only:
 content_alignment = left | center | right
 ```
 
-`alignment` is not an alias in schema 20.
+`alignment` is not an alias in schema 21.
 
 ## Current-schema rules
 

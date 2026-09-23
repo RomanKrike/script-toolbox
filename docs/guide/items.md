@@ -59,6 +59,7 @@ Use Field list mode when the control needs to represent a changing collection ra
 | --- | --- |
 | Label | Display a short non-interactive label |
 | Text | Display multiline explanatory text with word wrapping |
+| Image | Display a raster image with contain, cover, or stretch fitting |
 | Separator | Add visual spacing or separation |
 
 Presentation items are useful for explanations, grouping, and making larger toolboxes easier to scan.

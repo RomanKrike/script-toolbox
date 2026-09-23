@@ -48,6 +48,15 @@ Duplicate, Copy, and Paste are intended for reusable interface fragments. Suppor
 
 This is especially useful for repeated groups that contain scripts referring to sibling controls.
 
+
+## Presets
+
+The **Presets** palette provides reusable Item subtrees that can be inserted into the staged document. Presets are filtered by the active DCC, while presets marked for `all` hosts remain available everywhere.
+
+Built-in presets carry stable metadata (`id`, `dcc`, `category`, `label`, `description`) and an ordinary Script Toolbox Item subtree as `root`. Inserting a preset clones that subtree through the same document controller used by Duplicate and Paste, so IDs/names are regenerated as needed and supported internal script references are rewritten.
+
+Use presets for repeatable tool patterns; use JSON Import/Export when you need to transfer or archive a complete configuration.
+
 ## Configuration lifecycle
 
 The editor saves a JSON document. Script Toolbox currently uses a single active configuration schema while the project is under development; unsupported older or newer non-empty schemas are rejected rather than silently guessed or converted.

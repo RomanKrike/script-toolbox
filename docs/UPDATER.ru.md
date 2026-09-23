@@ -31,6 +31,13 @@ GitHub source zipball сохраняется только как release metadat
 
 `core.updater` отвечает за release metadata, network/download, SHA-256 и archive utilities. Публичное имя `install_release()` сохранено там только как compatibility wrapper, делегирующий transaction installer; второй независимый filesystem installer удалён.
 
+
+## Настройка прокси
+
+Updater и sharing используют общую proxy policy из `core.network_proxy`. Настройки поддерживают режимы System, No proxy и Manual. В Manual доступны HTTP, HTTPS и SOCKS5 с опциональной авторизацией. Одна и та же итоговая proxy configuration передаётся и в `urllib`, и в Windows PowerShell/.NET fallback, поэтому смена transport backend не обходит выбранную proxy policy.
+
+Сохранённые proxy credentials никогда не записываются открытым текстом. В Windows пароль защищается ключом DPAPI текущего пользователя; если на платформе нет поддерживаемого безопасного встроенного credential backend, пароль намеренно не сохраняется.
+
 ## UI канала обновления
 
 Tool button Check for Updates имеет стрелку меню.
@@ -47,7 +54,7 @@ Tool button Check for Updates имеет стрелку меню.
 `scripts/script_toolbox/constants.py` содержит текущую semantic version, например:
 
 ```python
-PLUGIN_VERSION = "0.8.5"
+PLUGIN_VERSION = "1.0.0"
 ```
 
 Когда stable version попадает в `main`, сначала выполняется workflow `Python checks`. После успешного завершения `.github/workflows/release.yml` собирает и проверяет package, при необходимости создаёт tag `v<version>` и публикует GitHub Release.

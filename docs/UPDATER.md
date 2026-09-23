@@ -43,6 +43,13 @@ The shared transport keeps the network policy consistent between updater and sha
 
 PowerShell uses .NET `HttpWebRequest`, TLS 1.2, explicit request/read-write timeouts and hidden startup flags. GitHub Authorization is passed to the child process through an environment variable rather than embedded in the command line. Transport failures are normalized as `TransportError` and translated by updater into `UpdateError`.
 
+
+## Proxy configuration
+
+Updater and sharing use the shared proxy policy from `core.network_proxy`. Settings support System, No proxy, and Manual modes. Manual mode accepts HTTP, HTTPS, and SOCKS5 proxies with optional authentication. The same resolved proxy configuration is passed to both urllib and the Windows PowerShell/.NET fallback so changing transport backend does not bypass the selected proxy policy.
+
+Saved proxy credentials are never written in clear text. Windows protects the password with the current user's DPAPI key; when a platform has no supported secure built-in credential backend, the password is intentionally not persisted.
+
 ## Update channel UI
 
 The Check for Updates tool button has a menu arrow.
@@ -59,7 +66,7 @@ Changing the channel persists the selection and immediately checks the newly sel
 `scripts/script_toolbox/constants.py` contains the current semantic version, for example:
 
 ```python
-PLUGIN_VERSION = "0.8.5"
+PLUGIN_VERSION = "1.0.0"
 ```
 
 After the stable version reaches `main`, the `Python checks` workflow runs first. If it succeeds, `.github/workflows/release.yml` builds and validates the package, creates the matching `v<version>` tag when needed, and publishes the GitHub Release.

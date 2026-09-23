@@ -107,6 +107,38 @@ def test_button_can_mix_python_and_mel_per_trigger():
     )
 
 
+
+def test_hscript_language_survives_binding_and_toggle_normalization():
+    button = create_item(
+        "button",
+        {
+            "bindings": [
+                make_binding(
+                    "click",
+                    language="hscript",
+                    script="echo hello",
+                    binding_id="hscript",
+                )
+            ],
+        },
+    )
+
+    assert button["bindings"][0]["language"] == "hscript"
+
+    toggle = create_item(
+        "toggle_button",
+        {
+            "props": {
+                "state_source": "script",
+                "state_on_language": "hscript",
+                "state_off_language": "hscript",
+            },
+        },
+    )
+
+    assert toggle["props"]["state_on_language"] == "hscript"
+    assert toggle["props"]["state_off_language"] == "hscript"
+
 def test_toggle_button_has_native_state_trigger_and_can_add_script_trigger():
     item = create_item(
         "toggle_button",

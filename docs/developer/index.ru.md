@@ -4,6 +4,7 @@
 
 ## С чего начать
 
+- [LLM template / preset authoring](llm-template-authoring.md) — machine-oriented контракт для генерации встроенных presets, переиспользуемых item subtrees и импортируемого JSON Script Toolbox через LLM.
 - [Архитектура](../ARCHITECTURE.md) — границы пакетов, направление зависимостей, контракты документа/схемы и изоляция DCC-хостов.
 - [Config store](../CONFIG_STORE.md) — сохранение и хранение конфигурации.
 - [Runtime renderer registry](../RUNTIME_RENDERER_REGISTRY.md) — регистрация renderer-ов Runtime и их контракты.

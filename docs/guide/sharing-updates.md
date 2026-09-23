@@ -34,10 +34,20 @@ Script Toolbox supports selectable update channels:
 | Channel | Intended use |
 | --- | --- |
 | Stable | Normal production use and published releases |
-| Latest | Follow the newest appropriate published build |
 | Development | Test the current `dev` state before release |
 
 Stable releases are created from `main` after accumulated changes in `dev` have been tested and intentionally promoted.
+
+
+## Network and proxy settings
+
+Updater and encrypted sharing use the same HTTP transport and proxy configuration. Configure it in **Settings → Network**:
+
+- **System** uses the proxy configuration exposed by the operating system/environment;
+- **No proxy** connects directly;
+- **Manual** supports HTTP, HTTPS, and SOCKS5, with optional username/password authentication.
+
+Use **Test connection** before saving when working behind a studio proxy. Proxy passwords are never stored in clear text. Windows uses the current user's DPAPI protection; platforms without a secure built-in backend require the password to be entered again after restart.
 
 ## What the updater preserves
 

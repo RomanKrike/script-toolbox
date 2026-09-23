@@ -1,6 +1,6 @@
 # Script Toolbox
 
-**Script Toolbox** — настраиваемый лаунчер скриптов и конструктор интерфейсов для **Autodesk Maya, Foundry Nuke и SideFX Houdini**. Создавайте многоразовые интерфейсы из кнопок, полей, меню, контейнеров, иконок, подписей и других элементов, а затем назначайте им Python-скрипты или команды конкретного DCC-хоста.
+**Script Toolbox** — настраиваемый лаунчер скриптов и конструктор интерфейсов для **Autodesk Maya, Foundry Nuke и SideFX Houdini**. Создавайте многоразовые интерфейсы из кнопок, полей, меню, контейнеров, иконок, изображений, подписей и других элементов, а затем назначайте им Python-скрипты или команды конкретного DCC-хоста.
 
 <div class="stx-grid" markdown>
 
@@ -29,7 +29,7 @@
 
 ## Что можно собрать
 
-Script Toolbox поддерживает вложенные Folder-контейнеры, Rows и Columns, Tabs, Radio-группы, обычные и toggle-кнопки, иконки, текстовые и числовые контролы, Checkbox, Menu, Color, Field, Label, Separator и событийные bindings.
+Script Toolbox поддерживает вложенные Folder-контейнеры, Rows и Columns, Tabs, Radio-группы, обычные и toggle-кнопки, иконки, изображения, текстовые и числовые контролы, Checkbox, Menu, Color, Field, Label, Separator и событийные bindings.
 
 Типичные сценарии:
 

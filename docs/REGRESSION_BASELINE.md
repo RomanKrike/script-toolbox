@@ -4,11 +4,11 @@ The regression suite protects the current Script Toolbox architecture and config
 
 ## Current configuration fixtures
 
-`tests/fixtures/current_v20_full.json` is the broad current-schema document used by editor and runtime regressions. It includes multiple folders, nested layouts, value controls, Button, Toggle Button, bindings and stable explicit IDs/names.
+`tests/fixtures/current_v21_full.json` is the broad current-schema document used by editor and runtime regressions. It includes multiple folders, nested layouts, value controls, Button, Toggle Button, bindings and stable explicit IDs/names.
 
-`tests/fixtures/golden_v20_current.json` is the compact schema-20 golden document used for load/save/idempotency checks.
+`tests/fixtures/golden_v21_current.json` is the compact schema-21 golden document used for load/save/idempotency checks.
 
-The current build accepts schema 20 only.
+The current build accepts schema 21 only.
 
 ## Editor/model invariants
 

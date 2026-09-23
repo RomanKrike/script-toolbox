@@ -92,20 +92,21 @@ See [docs/HOUDINI.md](docs/HOUDINI.md) and `houdini/script_toolbox.json.example`
 - Button and dedicated Toggle Button actions
 - Icon and dedicated Toggle Icon actions
 - String, Integer, Float, Checkbox, Menu, Color and Field values
-- Label and Separator presentation items
+- Label, Text, Image and Separator presentation/display items
 - scalar and vector numeric controls with optional sliders
 - per-item `bindings` for click, double-click, value and editing events supported by each kind
 - Python / MEL / HScript event scripts according to the active host
 - stable item `id` plus script-facing symbolic `name`; `label` is presentation text only
 - nested reference rewriting for rename, duplicate, copy and paste
-- embedded code editor
-- JSON Import / Export
+- embedded code editor with Script Toolbox API autocomplete
+- DCC-aware reusable Presets plus JSON Import / Export
 - persistent parameter values and config backup/recovery
 - Interface Editor Undo / Redo, Duplicate, Copy and Paste
 - Field List mode with multi-selection, copy, double-click scene selection and configurable visible rows
 - Field collection API: `get_field_selection`, `add_to_field`, `remove_from_field`, `clear_field`
 - encrypted config/item sharing through the share-provider abstraction
-- Stable / Latest / Development update channels
+- shared HTTP transport with System / Manual proxy support for HTTP, HTTPS and SOCKS5
+- Stable / Development update channels
 
 ## Config contract
 

@@ -1,6 +1,6 @@
 # Script Toolbox
 
-**Script Toolbox** is a configurable script launcher and UI builder for **Autodesk Maya, Foundry Nuke, and SideFX Houdini**. Build reusable interfaces from buttons, fields, menus, layout containers, icons, labels, and other items, then attach Python or host-specific scripts to them.
+**Script Toolbox** is a configurable script launcher and UI builder for **Autodesk Maya, Foundry Nuke, and SideFX Houdini**. Build reusable interfaces from buttons, fields, menus, layout containers, icons, images, labels, and other items, then attach Python or host-specific scripts to them.
 
 <div class="stx-grid" markdown>
 
@@ -29,7 +29,7 @@ Use Python, MEL, or HScript according to the active host. Items expose stable ID
 
 ## What you can build
 
-Script Toolbox supports nested folder containers, rows and columns, tabs, radio groups, buttons and toggle actions, icons, text and numeric controls, checkboxes, menus, colors, fields, labels, separators, and event bindings.
+Script Toolbox supports nested folder containers, rows and columns, tabs, radio groups, buttons and toggle actions, icons, images, text and numeric controls, checkboxes, menus, colors, fields, labels, separators, and event bindings.
 
 Common workflows include:
 

@@ -217,9 +217,9 @@ props:
 - state_get_script: text
 - state_get_language: python | mel
 - state_on_script: text
-- state_on_language: python | mel
+- state_on_language: python | mel | hscript
 - state_off_script: text
-- state_off_language: python | mel
+- state_off_language: python | mel | hscript
 - state_on_label: text
 - state_off_label: text
 - state_on_color: RGB
@@ -260,9 +260,9 @@ props:
 - state_get_script: text
 - state_get_language: python | mel
 - state_on_script: text
-- state_on_language: python | mel
+- state_on_language: python | mel | hscript
 - state_off_script: text
-- state_off_language: python | mel
+- state_off_language: python | mel | hscript
 - value: boolean only when state_source is internal
 
 Events: click, double_click.
@@ -438,7 +438,7 @@ Binding fields:
 | id | Stable binding identifier. Recommended for authored presets. |
 | event | Must be supported by the Item kind. |
 | handler | script or state_toggle. state_toggle is valid only for state-toggle Items. |
-| language | Current serialized binding contract accepts python or mel. |
+| language | Persisted bindings accept python, mel, or hscript. The selected language must be supported by the target DCC host. |
 | script | Source code. |
 | label | Optional editor-facing binding label. |
 | mouse_button | left, middle, right for click / double_click. |
@@ -459,14 +459,13 @@ Runtime host capabilities:
 - Nuke: Python
 - Houdini: Python and HScript
 
-However, the current binding normalizer uses the serialized language set python / mel. Therefore:
+Persisted binding languages follow the target host:
 
-- Maya presets may use Python or MEL bindings.
-- Nuke presets must use Python bindings.
-- Houdini presets generated from this specification should use Python bindings.
-- Do not emit hscript in a persisted binding until the binding normalization contract is updated to preserve it.
+- Maya: Python or MEL.
+- Nuke: Python.
+- Houdini: Python or HScript.
 
-For state-query/on/off language properties on Toggle Button and Toggle Icon, current schema choices are also python / mel.
+Toggle Button and Toggle Icon **Get State** queries are Python-only in the editor because they must set/evaluate the Python `state` variable. Their **Turn ON** and **Turn OFF** actions may use the native language supported by the target host, including HScript in Houdini.
 
 ## Python execution namespace
 
@@ -609,7 +608,7 @@ Before emitting a template, verify:
 - props are nested under props;
 - presentation values are nested under ui;
 - bindings use supported events;
-- Nuke and Houdini persisted bindings use Python;
+- binding languages match the target host (Maya: Python/MEL, Nuke: Python, Houdini: Python/HScript);
 - menu value exists in menu items;
 - numeric vector size is 1..4;
 - RGB values contain exactly 3 values in 0..1;

@@ -85,7 +85,7 @@ def test_dcc_page_uses_nested_collapsible_sections_for_compact_layout():
     assert "nested=False" in source
     assert "nested=True" in source
     assert "collapsed=self._collapsed_value(key, True)" in source
-    assert 'adapter.key != "maya" or not installations' in source
+    assert 'adapter.key != "maya"' in source
     assert "self._collapsed_state = {}" in source
     assert "section.collapsedChanged.connect(" in source
 
@@ -107,7 +107,7 @@ def test_dcc_headers_summarize_detection_and_version_status():
     assert "def _adapter_title(self, adapter, installations):" in source
     assert '"Not detected"' in source
     assert '" | Detection only"' in source
-    assert 'title="{0}  |  {1}".format(' in source
+    assert 'title="{0} - {1}  |  {2}".format(' in source
     assert "status.state" in source
 
 

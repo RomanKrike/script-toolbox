@@ -3,6 +3,7 @@ from __future__ import print_function
 
 from ..compat import QtGui
 from ..integrations.base import STATUS_NOT_INSTALLED
+from ..integrations.base import STATUS_UPDATE_REQUIRED
 from ..integrations.config import get_integration_settings
 from ..integrations.manager import DccIntegrationManager
 from ..pycompat import text_type
@@ -238,11 +239,14 @@ class DccIntegrationsPage(QtGui.QWidget):
         })
 
         buttons = QtGui.QHBoxLayout()
-        primary = QtGui.QPushButton(
-            "Install"
-            if status.state == STATUS_NOT_INSTALLED
-            else "Apply Changes"
-        )
+        if status.state == STATUS_NOT_INSTALLED:
+            primary_label = "Install"
+        elif status.state == STATUS_UPDATE_REQUIRED:
+            primary_label = "Update"
+        else:
+            primary_label = "Apply Changes"
+
+        primary = QtGui.QPushButton(primary_label)
         repair = QtGui.QPushButton("Repair")
         uninstall = QtGui.QPushButton("Uninstall")
         repair.setEnabled(status.state != STATUS_NOT_INSTALLED)

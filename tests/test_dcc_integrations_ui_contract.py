@@ -28,6 +28,7 @@ def test_dcc_integration_ui_exposes_required_maya_actions():
     assert '"Add to Shelf"' in source
     assert '"Add to Main Menu"' in source
     assert '"Open ScriptToolbox on Maya startup"' in source
+    assert '"Update"' in source
     assert '"Repair"' in source
     assert '"Uninstall"' in source
     assert '"Install to all detected Maya versions"' in source

@@ -143,7 +143,7 @@ Available options:
 - **Add Houdini Shelf**
 - **Open on startup**
 
-Install / Update / Repair / Uninstall are filesystem-backed and do not modify `houdini.env`.
+The Houdini Shelf is exposed with `shelfdock add/remove`; Script Toolbox does not modify existing `hou.ShelfSet` definitions. Install / Update / Repair / Uninstall are filesystem-backed and do not modify `houdini.env`.
 
 Houdini also supports **Profile locations**. Add either a parent containing folders such as `houdini20.5` / `houdini21.0`, or select a specific `HOUDINI_USER_PREF_DIR` directly. Each version/profile target is configured independently, so a studio launcher can use different integration settings from the default Documents profile.
 

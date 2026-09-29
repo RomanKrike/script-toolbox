@@ -93,19 +93,23 @@ def test_settings_pages_reuse_existing_simple_folder_contract():
     source = _read(
         "scripts/script_toolbox/ui/settings_dialog.py"
     )
+    shared = _read(
+        "scripts/script_toolbox/ui/settings_components.py"
+    )
 
-    assert "from ..style.metrics import RUNTIME_FOLDER_CONTENT_MARGINS" in source
-    assert "from ..style.metrics import RUNTIME_FOLDER_CONTENT_SPACING" in source
-    assert "from ..style.metrics import RUNTIME_FOLDER_ROOT_MARGINS" in source
-    assert "from ..style.metrics import RUNTIME_FOLDER_ROOT_SPACING" in source
-    assert 'section = QtGui.QGroupBox(text_type(title_text))' in source
-    assert 'section.setObjectName("SimpleSectionGroupBox")' in source
-    assert 'section.setProperty("nested", False)' in source
-    assert 'content.setObjectName("RuntimeFolderContent")' in source
-    assert "section_layout.setContentsMargins(*RUNTIME_FOLDER_ROOT_MARGINS)" in source
-    assert "section_layout.setSpacing(RUNTIME_FOLDER_ROOT_SPACING)" in source
-    assert "content_layout.setContentsMargins(*RUNTIME_FOLDER_CONTENT_MARGINS)" in source
-    assert "content_layout.setSpacing(RUNTIME_FOLDER_CONTENT_SPACING)" in source
+    assert "from .settings_components import build_page_header" in source
+    assert "from .settings_components import build_section_form" in source
+    assert "from .settings_components import build_simple_section" in source
+    assert "from ..style import metrics" in shared
+    assert "from ..style import palette" in shared
+    assert 'section = QtGui.QGroupBox(text_type(title_text), parent)' in shared
+    assert 'section.setObjectName("SimpleSectionGroupBox")' in shared
+    assert 'section.setProperty("nested", bool(nested))' in shared
+    assert 'content.setObjectName("RuntimeFolderContent")' in shared
+    assert "metrics.RUNTIME_FOLDER_ROOT_MARGINS" in shared
+    assert "metrics.RUNTIME_FOLDER_ROOT_SPACING" in shared
+    assert "metrics.RUNTIME_FOLDER_CONTENT_MARGINS" in shared
+    assert "metrics.RUNTIME_FOLDER_CONTENT_SPACING" in shared
     assert 'self._build_simple_section("Updates")' in source
     assert 'self._build_simple_section("Proxy")' in source
     assert '"Usage statistics"' in source

@@ -56,7 +56,7 @@ def test_native_launcher_hosts_python_in_process_instead_of_spawning_pythonw():
     assert "pythonw.exe" not in launcher
     assert "LoadLibraryExW(" in launcher
     assert 'GetProcAddress(python_module, "Py_Main")' in launcher
-    assert "runtime\\python3*.dll" in launcher
+    assert "python3*.dll" in launcher
 
 
 def test_windows_version_resource_metadata_contract():

@@ -24,6 +24,7 @@ from ..model.item_registry import ITEM_TYPES
 from ..model.items import safe_color
 from ..pycompat import text_type
 from ..style import STYLE
+from ..style import apply_window_icon
 from ..style import metrics
 from ..style import toolbar_icon
 from ..style.palette import CONTENT_BG
@@ -71,6 +72,9 @@ class ScriptToolbox(QtGui.QMainWindow):
                 PLUGIN_VERSION,
                 HOST.display_name
             )
+        )
+        apply_window_icon(
+            self
         )
         self.resize(420, 700)
         self.setMinimumWidth(310)

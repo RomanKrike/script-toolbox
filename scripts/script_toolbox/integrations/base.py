@@ -85,7 +85,8 @@ class IntegrationStatus(object):
         shelf=False,
         main_menu=False,
         auto_open=False,
-        message=""
+        message="",
+        components=None
     ):
         self.state = text_type(state)
         self.loader = bool(loader)
@@ -93,6 +94,7 @@ class IntegrationStatus(object):
         self.main_menu = bool(main_menu)
         self.auto_open = bool(auto_open)
         self.message = text_type(message or "")
+        self.components = dict(components or {})
 
     def to_dict(self):
         return {
@@ -102,6 +104,7 @@ class IntegrationStatus(object):
             "main_menu": self.main_menu,
             "auto_open": self.auto_open,
             "message": self.message,
+            "components": dict(self.components),
         }
 
 
@@ -112,6 +115,47 @@ class DccAdapter(object):
     display_name = ""
     integration_available = False
     supported = False
+
+    def option_definitions(self):
+        return (
+            ("shelf", "Add to Shelf", True),
+            ("main_menu", "Add to Main Menu", True),
+            ("auto_open", "Open on startup", False),
+        )
+
+    def normalize_options(self, options=None):
+        values = dict(options or {})
+        result = {}
+        for key, unused_label, default in self.option_definitions():
+            result[key] = bool(values.get(key, default))
+        return result
+
+    def component_status_text(self, status, options=None):
+        options = self.normalize_options(options)
+        parts = [
+            "Loader: {0}".format(
+                "OK" if status.loader else "Missing"
+            )
+        ]
+        if "shelf" in options:
+            parts.append(
+                "Shelf: {0}".format(
+                    (
+                        "OK" if status.shelf else "Missing"
+                    ) if options["shelf"] else "Disabled"
+                )
+            )
+        if "main_menu" in options:
+            parts.append(
+                "Main Menu: {0}".format(
+                    (
+                        "Registered" if status.main_menu else "Missing"
+                    ) if options["main_menu"] else "Disabled"
+                )
+            )
+        for label, value in sorted(status.components.items()):
+            parts.append("{0}: {1}".format(label, value))
+        return "    ".join(parts)
 
     def detect(self):
         return bool(

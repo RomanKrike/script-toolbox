@@ -5,6 +5,7 @@ import os
 from script_toolbox.integrations.base import STATUS_INSTALLED
 from script_toolbox.integrations.base import STATUS_NOT_INSTALLED
 from script_toolbox.integrations.base import STATUS_PARTIAL
+from script_toolbox.integrations.base import DccInstallation
 from script_toolbox.integrations.base import STATUS_UPDATE_REQUIRED
 from script_toolbox.integrations.config import add_profile_root
 from script_toolbox.integrations.config import find_profile_id_for_paths
@@ -12,7 +13,9 @@ from script_toolbox.integrations.config import get_integration_settings
 from script_toolbox.integrations.config import get_profile_roots
 from script_toolbox.integrations.config import remove_profile_root
 from script_toolbox.integrations.discovery import parse_version
+from script_toolbox.integrations.houdini import HoudiniAdapter
 from script_toolbox.integrations.manager import DccIntegrationManager
+from script_toolbox.integrations.nuke import NukeAdapter
 from script_toolbox.integrations.maya import MayaAdapter
 from script_toolbox.integrations.maya import MayaIntegrationError
 
@@ -257,9 +260,10 @@ def test_capability_flags_do_not_claim_unimplemented_integrations_are_supported(
         for adapter in DccIntegrationManager().adapters()
     }
 
-    assert adapters["maya"].supported is True
-    assert adapters["maya"].integration_available is True
-    for key in ("houdini", "nuke", "blender", "3dsmax"):
+    for key in ("maya", "houdini", "nuke"):
+        assert adapters[key].supported is True
+        assert adapters[key].integration_available is True
+    for key in ("blender", "3dsmax"):
         assert adapters[key].supported is False
         assert adapters[key].integration_available is False
 
@@ -527,3 +531,321 @@ def test_profile_root_config_add_is_idempotent_and_remove_is_scoped(tmp_path):
     ) is True
     remaining = get_profile_roots("maya", path=config_path)
     assert [item["id"] for item in remaining] == [second["id"]]
+
+
+def _dcc_target(
+    dcc,
+    display_name,
+    version,
+    user_config_path,
+    install_path=""
+):
+    return DccInstallation(
+        dcc,
+        display_name,
+        version,
+        install_path=install_path,
+        user_config_path=user_config_path,
+        integration_available=True,
+        supported=True
+    )
+
+
+def test_nuke_install_is_idempotent_and_preserves_existing_menu(tmp_path):
+    user_config = tmp_path / ".nuke"
+    user_config.mkdir()
+    menu_path = user_config / "menu.py"
+    menu_path.write_text(
+        "import studio_menu\nstudio_menu.install()\n",
+        encoding="utf-8"
+    )
+    config_path = str(tmp_path / "dcc_integrations.json")
+    adapter = NukeAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        user_config_path=str(user_config),
+        config_path=config_path
+    )
+    target = _dcc_target(
+        "nuke",
+        "Foundry Nuke",
+        "15.2",
+        str(user_config)
+    )
+
+    first = adapter.install(
+        target,
+        {
+            "main_menu": True,
+            "dock_panel": True,
+            "auto_open": False,
+        }
+    )
+    first_content = menu_path.read_text(encoding="utf-8")
+    second = adapter.install(
+        target,
+        {
+            "main_menu": True,
+            "dock_panel": True,
+            "auto_open": False,
+        }
+    )
+    second_content = menu_path.read_text(encoding="utf-8")
+
+    assert first.state == STATUS_INSTALLED
+    assert second.state == STATUS_INSTALLED
+    assert first_content == second_content
+    assert "import studio_menu" in second_content
+    assert second_content.count(
+        "ScriptToolbox Nuke Integration >>>"
+    ) == 1
+    assert os.path.isfile(
+        str(menu_path) + ".script_toolbox.bak"
+    )
+
+    settings = get_integration_settings(
+        "nuke",
+        "15.2",
+        path=config_path
+    )
+    assert settings["main_menu"] is True
+    assert settings["dock_panel"] is True
+
+
+def test_nuke_update_repair_and_uninstall_preserve_foreign_menu(tmp_path):
+    user_config = tmp_path / ".nuke"
+    user_config.mkdir()
+    menu_path = user_config / "menu.py"
+    menu_path.write_text(
+        "print('keep nuke menu')\n",
+        encoding="utf-8"
+    )
+    config_path = str(tmp_path / "dcc_integrations.json")
+    adapter = NukeAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        user_config_path=str(user_config),
+        config_path=config_path
+    )
+    target = _dcc_target(
+        "nuke",
+        "Foundry Nuke",
+        "16.0",
+        str(user_config)
+    )
+    adapter.install(target)
+
+    content = menu_path.read_text(encoding="utf-8")
+    content = content.replace(
+        adapter.scripts_path.replace("\\", "/"),
+        str(tmp_path / "OldToolbox" / "scripts").replace("\\", "/")
+    )
+    menu_path.write_text(content, encoding="utf-8")
+
+    assert adapter.status(target).state == STATUS_UPDATE_REQUIRED
+    assert adapter.repair(target).state == STATUS_INSTALLED
+
+    result = adapter.uninstall(target)
+    assert result.state == STATUS_NOT_INSTALLED
+    content = menu_path.read_text(encoding="utf-8")
+    assert content == "print('keep nuke menu')\n"
+    assert "ScriptToolbox Nuke Integration" not in content
+
+
+def test_nuke_shared_menu_stays_when_other_version_is_configured(tmp_path):
+    user_config = tmp_path / ".nuke"
+    user_config.mkdir()
+    config_path = str(tmp_path / "dcc_integrations.json")
+    adapter = NukeAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        user_config_path=str(user_config),
+        config_path=config_path
+    )
+    nuke15 = _dcc_target(
+        "nuke",
+        "Foundry Nuke",
+        "15.2",
+        str(user_config)
+    )
+    nuke16 = _dcc_target(
+        "nuke",
+        "Foundry Nuke",
+        "16.0",
+        str(user_config)
+    )
+
+    adapter.install(nuke15)
+    adapter.install(nuke16)
+    adapter.uninstall(nuke15)
+
+    menu_path = user_config / "menu.py"
+    assert "ScriptToolbox Nuke Integration" in menu_path.read_text(
+        encoding="utf-8"
+    )
+    assert adapter.status(nuke15).state == STATUS_NOT_INSTALLED
+    assert adapter.status(nuke16).state == STATUS_INSTALLED
+
+
+def test_houdini_install_writes_package_startup_and_shelf(tmp_path):
+    user_config = tmp_path / "houdini21.0"
+    config_path = str(tmp_path / "dcc_integrations.json")
+    adapter = HoudiniAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        user_root=str(tmp_path),
+        config_path=config_path
+    )
+    target = _dcc_target(
+        "houdini",
+        "SideFX Houdini",
+        "21.0.440",
+        str(user_config)
+    )
+
+    result = adapter.install(
+        target,
+        {
+            "shelf": True,
+            "auto_open": False,
+        }
+    )
+    assert result.state == STATUS_INSTALLED
+
+    package_path = adapter._package_path(target)
+    assert os.path.isfile(package_path)
+    package = open(package_path, "r").read()
+    assert '"SCRIPT_TOOLBOX_ROOT"' in package
+    assert '"path"' in package
+
+    for startup_path in adapter._startup_paths(target):
+        assert os.path.isfile(startup_path)
+        assert "apply_current_integration" in open(
+            startup_path,
+            "r"
+        ).read()
+
+    shelf_path = adapter._shelf_path(target)
+    assert os.path.isfile(shelf_path)
+    shelf = open(shelf_path, "r").read()
+    assert 'name="script_toolbox"' in shelf
+    assert "script_toolbox.show()" in shelf
+
+
+def test_houdini_repair_restores_missing_shelf(tmp_path):
+    user_config = tmp_path / "houdini20.5"
+    config_path = str(tmp_path / "dcc_integrations.json")
+    adapter = HoudiniAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        user_root=str(tmp_path),
+        config_path=config_path
+    )
+    target = _dcc_target(
+        "houdini",
+        "SideFX Houdini",
+        "20.5.654",
+        str(user_config)
+    )
+    adapter.install(target)
+
+    shelf_path = adapter._shelf_path(target)
+    os.remove(shelf_path)
+    assert adapter.status(target).state == STATUS_PARTIAL
+
+    assert adapter.repair(target).state == STATUS_INSTALLED
+    assert os.path.isfile(shelf_path)
+
+
+def test_houdini_update_required_when_package_points_to_old_toolbox(tmp_path):
+    user_config = tmp_path / "houdini21.0"
+    adapter = HoudiniAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        user_root=str(tmp_path),
+        config_path=str(tmp_path / "dcc_integrations.json")
+    )
+    target = _dcc_target(
+        "houdini",
+        "SideFX Houdini",
+        "21.0.440",
+        str(user_config)
+    )
+    adapter.install(target)
+
+    package_path = adapter._package_path(target)
+    package = open(package_path, "r").read()
+    package = package.replace(
+        str(tmp_path / "ScriptToolbox").replace("\\", "/"),
+        str(tmp_path / "OldToolbox").replace("\\", "/")
+    )
+    with open(package_path, "w") as handle:
+        handle.write(package)
+
+    assert adapter.status(target).state == STATUS_UPDATE_REQUIRED
+    assert adapter.repair(target).state == STATUS_INSTALLED
+
+
+def test_houdini_uninstall_removes_only_managed_integration(tmp_path):
+    user_config = tmp_path / "houdini19.5"
+    user_config.mkdir()
+    unrelated = user_config / "houdini.env"
+    unrelated.write_text(
+        "STUDIO_ROOT=C:/studio\n",
+        encoding="utf-8"
+    )
+
+    adapter = HoudiniAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        user_root=str(tmp_path),
+        config_path=str(tmp_path / "dcc_integrations.json")
+    )
+    target = _dcc_target(
+        "houdini",
+        "SideFX Houdini",
+        "19.5.640",
+        str(user_config)
+    )
+    adapter.install(target)
+    result = adapter.uninstall(target)
+
+    assert result.state == STATUS_NOT_INSTALLED
+    assert unrelated.read_text(
+        encoding="utf-8"
+    ) == "STUDIO_ROOT=C:/studio\n"
+    assert not os.path.exists(adapter._package_path(target))
+    assert not os.path.exists(adapter._plugin_root(target))
+
+
+def test_houdini_uses_major_minor_for_user_preferences(tmp_path):
+    adapter = HoudiniAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        user_root=str(tmp_path),
+        config_path=str(tmp_path / "dcc_integrations.json")
+    )
+
+    assert adapter.user_config_path(
+        "21.0.440"
+    ).endswith("houdini21.0")
+    assert adapter.user_config_path(
+        "20.5.654"
+    ).endswith("houdini20.5")
+
+
+def test_houdini_and_nuke_expose_host_specific_options(tmp_path):
+    houdini = HoudiniAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        user_root=str(tmp_path)
+    )
+    nuke = NukeAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        user_config_path=str(tmp_path / ".nuke")
+    )
+
+    assert [
+        item[0] for item in houdini.option_definitions()
+    ] == [
+        "shelf",
+        "auto_open",
+    ]
+    assert [
+        item[0] for item in nuke.option_definitions()
+    ] == [
+        "main_menu",
+        "dock_panel",
+        "auto_open",
+    ]

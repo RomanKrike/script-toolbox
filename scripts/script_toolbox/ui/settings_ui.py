@@ -3,8 +3,6 @@ from __future__ import print_function
 
 from ..compat import QtCore
 from ..compat import QtGui
-from ..style import STYLE
-from ..style import toolbar_icon
 from .settings_dialog import prompt_telemetry_consent
 from .settings_dialog import show_settings_dialog
 
@@ -14,67 +12,32 @@ _DOCS_URL = "https://romankrike.github.io/script-toolbox/"
 
 
 def build_settings_toolbox_class(base_class):
-    """Attach Script Toolbox settings and first-run privacy UI to a window."""
+    """Attach Script Toolbox settings, resource links and privacy UI."""
 
     class SettingsToolbox(base_class):
 
         def __init__(self, parent=None):
-            self.settings_button = None
-            self.settings_menu = None
-            self.open_editor_action = None
-            self.settings_action = None
             self.github_action = None
             self.help_docs_action = None
-            base_class.__init__(self, parent)
+            base_class.__init__(
+                self,
+                parent
+            )
 
         def build_ui(self):
-            base_class.build_ui(self)
-            self._install_settings_menu()
+            base_class.build_ui(
+                self
+            )
+            self._install_help_resources()
 
-        def _install_settings_menu(self):
-            button = getattr(
+        def _install_help_resources(self):
+            menu = getattr(
                 self,
-                "interface_editor_button",
+                "help_menu",
                 None
             )
-            if button is None:
+            if menu is None:
                 return
-
-            try:
-                button.clicked.disconnect()
-            except Exception:
-                pass
-
-            button.setIcon(
-                toolbar_icon("gear")
-            )
-            button.setToolTip(
-                "Script Toolbox Menu"
-            )
-
-            menu = QtGui.QMenu(
-                button
-            )
-            # QMenu is a top-level popup. Qt6/Windows does not reliably
-            # inherit the main-window stylesheet across that native popup
-            # boundary, so apply the shared palette explicitly.
-            menu.setStyleSheet(
-                STYLE
-            )
-
-            self.open_editor_action = menu.addAction(
-                "Open Editor"
-            )
-            self.open_editor_action.triggered.connect(
-                self._open_editor_from_menu
-            )
-
-            self.settings_action = menu.addAction(
-                "Settings..."
-            )
-            self.settings_action.triggered.connect(
-                self._open_settings_from_menu
-            )
 
             menu.addSeparator()
 
@@ -91,42 +54,6 @@ def build_settings_toolbox_class(base_class):
             self.help_docs_action.triggered.connect(
                 self._open_help_docs_from_menu
             )
-
-            button.clicked.connect(
-                self._show_settings_menu
-            )
-
-            self.settings_button = button
-            self.settings_menu = menu
-
-        def _show_settings_menu(
-            self,
-            checked=False
-        ):
-            if (
-                self.settings_button is None or
-                self.settings_menu is None
-            ):
-                return
-
-            position = self.settings_button.mapToGlobal(
-                self.settings_button.rect().bottomLeft()
-            )
-            self.settings_menu.exec_(
-                position
-            )
-
-        def _open_editor_from_menu(
-            self,
-            checked=False
-        ):
-            return self.open_interface_editor()
-
-        def _open_settings_from_menu(
-            self,
-            checked=False
-        ):
-            return self.open_settings_dialog()
 
         def _open_github_from_menu(
             self,
@@ -149,7 +76,9 @@ def build_settings_toolbox_class(base_class):
             url
         ):
             return QtGui.QDesktopServices.openUrl(
-                QtCore.QUrl(url)
+                QtCore.QUrl(
+                    url
+                )
             )
 
         def open_settings_dialog(self):

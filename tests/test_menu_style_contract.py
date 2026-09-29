@@ -41,3 +41,17 @@ def test_context_menus_use_dark_plugin_palette():
     assert "QMenu::item:selected" in source
     assert "background-color: %(ICON_BUTTON_HOVER_BG)s;" in source
     assert "QMenu::item:disabled" in source
+
+
+def test_common_menu_bar_and_status_use_dark_plugin_palette():
+    source = _read(
+        "scripts/script_toolbox/style/components.py"
+    )
+
+    assert "QMenuBar#ToolboxMenuBar {" in source
+    assert "background-color: %(CONTROL_BG)s;" in source
+    assert "QMenuBar#ToolboxMenuBar::item:selected" in source
+    assert "background-color: %(ICON_BUTTON_HOVER_BG)s;" in source
+    assert "QStatusBar#ToolboxStatusBar {" in source
+    assert "background-color: %(STATUS_BG)s;" in source
+    assert "QToolButton#StatusAction" in source

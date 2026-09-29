@@ -83,18 +83,50 @@ def main():
             "Main standalone window has no Script Toolbox icon."
         )
 
-    menu = getattr(
+    menu_bar = getattr(
         window,
-        "settings_menu",
+        "menu_bar",
         None
     )
-    if menu is None:
+    if menu_bar is None:
         raise RuntimeError(
-            "Header settings menu was not created."
+            "Common menu bar was not created."
         )
-    if menu.styleSheet() != STYLE:
+
+    for menu_name in (
+        "editor_menu",
+        "settings_menu",
+        "help_menu",
+    ):
+        menu = getattr(
+            window,
+            menu_name,
+            None
+        )
+        if menu is None:
+            raise RuntimeError(
+                "Common menu is missing: {0}".format(
+                    menu_name
+                )
+            )
+        if menu.styleSheet() != STYLE:
+            raise RuntimeError(
+                "Common menu lost the Script Toolbox stylesheet: {0}".format(
+                    menu_name
+                )
+            )
+
+    status_bar = window.statusBar()
+    if (
+        getattr(
+            status_bar,
+            "logs_label",
+            None
+        ) is None or
+        status_bar.logs_label.text() != "Logs"
+    ):
         raise RuntimeError(
-            "Header settings menu does not use the Script Toolbox stylesheet."
+            "Common status bar does not expose the persistent Logs label."
         )
 
     window.open_interface_editor()
@@ -133,14 +165,37 @@ def main():
                     "Reloaded standalone window lost the Script Toolbox icon."
                 )
 
-            menu = getattr(
-                reloaded,
+            for menu_name in (
+                "editor_menu",
                 "settings_menu",
-                None
-            )
-            if menu is None or menu.styleSheet() != STYLE:
+                "help_menu",
+            ):
+                menu = getattr(
+                    reloaded,
+                    menu_name,
+                    None
+                )
+                if menu is None or menu.styleSheet() != STYLE:
+                    raise RuntimeError(
+                        (
+                            "Reloaded common menu lost the Script Toolbox "
+                            "stylesheet: {0}"
+                        ).format(
+                            menu_name
+                        )
+                    )
+
+            status_bar = reloaded.statusBar()
+            if (
+                getattr(
+                    status_bar,
+                    "logs_label",
+                    None
+                ) is None or
+                status_bar.logs_label.text() != "Logs"
+            ):
                 raise RuntimeError(
-                    "Reloaded settings menu lost the Script Toolbox stylesheet."
+                    "Reloaded status bar lost the persistent Logs label."
                 )
 
             state["completed"] = True

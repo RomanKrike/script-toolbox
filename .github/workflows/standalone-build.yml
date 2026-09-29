@@ -10,6 +10,7 @@ on:
       - "scripts/script_toolbox/**"
       - "standalone/**"
       - "tools/build_standalone_portable.py"
+      - "tools/build_windows_resources.py"
       - "tools/embed_windows_icon.py"
       - ".github/workflows/standalone-build.yml"
 
@@ -29,6 +30,12 @@ jobs:
         with:
           python-version: "3.11"
           architecture: "x64"
+
+      - name: Clean standalone build outputs
+        shell: pwsh
+        run: |
+          Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force dist-standalone -ErrorAction SilentlyContinue
 
       - name: Prepare official embeddable Python runtime
         shell: pwsh
@@ -75,8 +82,17 @@ jobs:
           $vcvars = Join-Path $install "VC\Auxiliary\Build\vcvars64.bat"
           New-Item -ItemType Directory -Force -Path "build/launcher" | Out-Null
           $source = Join-Path $PWD "standalone\launcher.c"
+          $resourceSource = Join-Path $PWD "build\launcher\ScriptToolbox.rc"
+          $resource = Join-Path $PWD "build\launcher\ScriptToolbox.res"
           $output = Join-Path $PWD "build\launcher\ScriptToolbox.exe"
-          cmd /d /s /c "`"$vcvars`" && cl /nologo /O2 /W4 `"$source`" /link /SUBSYSTEM:WINDOWS /OUT:`"$output`""
+
+          python tools/build_windows_resources.py `
+            --output $resourceSource
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows metadata resource generation failed."
+          }
+
+          cmd /d /s /c "`"$vcvars`" && rc /nologo /fo `"$resource`" `"$resourceSource`" && cl /nologo /O2 /W4 `"$source`" `"$resource`" /link /SUBSYSTEM:WINDOWS /OUT:`"$output`""
           if ($LASTEXITCODE -ne 0) {
             throw "Standalone launcher compilation failed."
           }
@@ -86,6 +102,19 @@ jobs:
             --icon "scripts/script_toolbox/resources/logo_sbt.ico"
           if ($LASTEXITCODE -ne 0) {
             throw "Standalone launcher icon embedding failed."
+          }
+
+          $versionInfo = (Get-Item $output).VersionInfo
+          $expected = @{
+            ProductName = "Script Toolbox"
+            FileDescription = "Script Toolbox"
+            InternalName = "ScriptToolbox"
+            OriginalFilename = "ScriptToolbox.exe"
+          }
+          foreach ($name in $expected.Keys) {
+            if ("$($versionInfo.$name)" -ne $expected[$name]) {
+              throw "Unexpected Windows metadata $name=$($versionInfo.$name)"
+            }
           }
 
       - name: Build portable ZIP
@@ -112,6 +141,24 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "Portable standalone UI lifecycle smoke failed."
           }
+
+      - name: Smoke ScriptToolbox.exe entrypoint
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $package = Get-ChildItem -Path "dist-standalone" -Directory | Select-Object -First 1
+          $exe = Join-Path $package.FullName "ScriptToolbox.exe"
+          if (-not (Test-Path $exe)) {
+            throw "ScriptToolbox.exe was not produced."
+          }
+
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 5
+          if ($process.HasExited) {
+            throw "ScriptToolbox.exe exited during startup with code $($process.ExitCode)."
+          }
+          Stop-Process -Id $process.Id -Force
 
       - name: Upload portable artifact
         uses: actions/upload-artifact@v4

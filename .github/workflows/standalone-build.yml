@@ -6,6 +6,7 @@ on:
     branches:
       - dev
       - feature/**
+      - fix/**
     paths:
       - "scripts/script_toolbox/**"
       - "standalone/**"
@@ -30,6 +31,15 @@ jobs:
         with:
           python-version: "3.11"
           architecture: "x64"
+
+      - name: Run Windows identity contract tests
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check pytest
+          python -m pytest `
+            tests/test_windows_application_identity.py `
+            tests/test_app_icon_contract.py `
+            tests/test_standalone_portable_build.py
 
       - name: Clean standalone build outputs
         shell: pwsh

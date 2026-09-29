@@ -57,9 +57,8 @@ def test_shared_windows_apply_application_icon():
     assert "def apply_window_icon" in helper
 
     assert "apply_window_icon(" in main_window
-    assert "self.logo_label" in main_window
-    assert "application_icon()" in main_window
-    assert "logo.pixmap(" in main_window
+    assert "self.logo_label" not in main_window
+    assert '"ToolboxLogo"' not in main_window
     assert "apply_window_icon(" in editor
     assert settings.count("apply_window_icon(") >= 2
 

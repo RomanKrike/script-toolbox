@@ -2,12 +2,12 @@
 from __future__ import print_function
 
 from ..compat import QtCore
-from ..compat import QtGui
 from ..core.preferences import UPDATE_CHANNEL_DEVELOPMENT
 from ..core.preferences import UPDATE_CHANNEL_STABLE
 from ..core.preferences import get_update_channel
 from ..core.preferences import normalize_update_channel
 from ..core.preferences import set_update_channel
+from ..style import STYLE
 from .update_ui import UpdateCheckThread
 
 
@@ -29,7 +29,6 @@ def build_update_channel_toolbox_class(
         ):
             self.update_channel = get_update_channel()
             self._update_channel_actions = {}
-            self._update_channel_button = None
             self._update_channel_menu = None
             base_class.__init__(
                 self,
@@ -43,29 +42,21 @@ def build_update_channel_toolbox_class(
             self._install_update_channel_menu()
 
         def _install_update_channel_menu(self):
-            button = getattr(
+            settings_menu = getattr(
                 self,
-                "check_updates_button",
+                "settings_menu",
                 None
             )
-
-            if button is None:
+            if settings_menu is None:
                 return
 
-            menu = QtGui.QMenu(
-                button
+            settings_menu.addSeparator()
+            menu = settings_menu.addMenu(
+                "Update Channel"
             )
-            title_action = QtGui.QAction(
-                "Update channel",
-                menu
+            menu.setStyleSheet(
+                STYLE
             )
-            title_action.setEnabled(
-                False
-            )
-            menu.addAction(
-                title_action
-            )
-            menu.addSeparator()
 
             self._update_channel_actions = {}
 
@@ -73,11 +64,10 @@ def build_update_channel_toolbox_class(
                 UPDATE_CHANNEL_STABLE,
                 UPDATE_CHANNEL_DEVELOPMENT,
             ):
-                action = QtGui.QAction(
+                action = menu.addAction(
                     _CHANNEL_LABELS[
                         channel
-                    ],
-                    menu
+                    ]
                 )
                 action.setCheckable(
                     True
@@ -87,40 +77,12 @@ def build_update_channel_toolbox_class(
                         channel
                     )
                 )
-                menu.addAction(
-                    action
-                )
                 self._update_channel_actions[
                     channel
                 ] = action
 
-            button.setContextMenuPolicy(
-                QtCore.Qt.CustomContextMenu
-            )
-            button.customContextMenuRequested.connect(
-                self._show_update_channel_menu
-            )
-
-            self._update_channel_button = button
             self._update_channel_menu = menu
             self._refresh_update_channel_ui()
-
-        def _show_update_channel_menu(
-            self,
-            position
-        ):
-            if (
-                self._update_channel_button is None or
-                self._update_channel_menu is None
-            ):
-                return
-
-            self._refresh_update_channel_ui()
-            self._update_channel_menu.exec_(
-                self._update_channel_button.mapToGlobal(
-                    position
-                )
-            )
 
         def _make_update_channel_handler(
             self,
@@ -139,25 +101,10 @@ def build_update_channel_toolbox_class(
             channel = normalize_update_channel(
                 self.update_channel
             )
-            label = _CHANNEL_LABELS.get(
-                channel,
-                "Stable"
-            )
 
             for value, action in self._update_channel_actions.items():
                 action.setChecked(
                     value == channel
-                )
-
-            if self._update_channel_button is not None:
-                self._update_channel_button.setToolTip(
-                    (
-                        "Check for Script Toolbox updates\n"
-                        "Update channel: {0}\n"
-                        "Right-click to change channel."
-                    ).format(
-                        label
-                    )
                 )
 
         def set_update_channel(
@@ -176,14 +123,6 @@ def build_update_channel_toolbox_class(
                 channel
             )
             self.update_info = None
-
-            try:
-                self.update_button.setVisible(
-                    False
-                )
-            except Exception:
-                pass
-
             self._refresh_update_channel_ui()
 
             self.statusBar().showMessage(
@@ -216,8 +155,7 @@ def build_update_channel_toolbox_class(
             if manual:
                 self.statusBar().showMessage(
                     (
-                        "Checking for Script Toolbox "
-                        "{0} updates..."
+                        "Checking for {0} updates..."
                     ).format(
                         _CHANNEL_LABELS[
                             self.update_channel

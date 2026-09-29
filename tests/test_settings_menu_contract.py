@@ -19,59 +19,59 @@ def _read(relative_path):
         return handle.read()
 
 
-def test_header_gear_replaces_separate_editor_and_settings_buttons():
+def test_common_menu_bar_replaces_legacy_header_controls():
+    source = _read(
+        "scripts/script_toolbox/ui/main_window.py"
+    )
+
+    assert "QtGui.QMenuBar(" in source
+    assert '"ToolboxMenuBar"' in source
+    assert 'self._styled_menu("Editor")' in source
+    assert 'self._styled_menu("Settings")' in source
+    assert 'self._styled_menu("Help")' in source
+    assert '"Open Editor"' in source
+    assert '"Open Settings"' in source
+    assert '"Check for Updates"' in source
+    assert '"Reload Config"' in source
+    assert "setNativeMenuBar" in source
+    assert "menu.setStyleSheet(STYLE)" in source
+
+    assert '"TopBar"' not in source
+    assert '"ToolboxTitle"' not in source
+    assert "interface_editor_button" not in source
+    assert "check_updates_button" not in source
+    assert "reload_button" not in source
+    assert "update_button" not in source
+
+
+def test_status_bar_keeps_logs_left_and_transient_status_right():
+    source = _read(
+        "scripts/script_toolbox/ui/main_window.py"
+    )
+
+    assert "class ToolboxStatusBar(" in source
+    assert '"Logs"' in source
+    assert '"StatusLogs"' in source
+    assert '"StatusAction"' in source
+    assert "addPermanentWidget(" in source
+    assert "def show_status(" in source
+    assert "def show_action(" in source
+    assert "def clearMessage(" in source
+    assert '"Ready"' not in source
+
+
+def test_settings_wrapper_reuses_existing_settings_dialog_and_help_menu():
     source = _read(
         "scripts/script_toolbox/ui/settings_ui.py"
     )
 
-    assert '"interface_editor_button"' in source
-    assert 'toolbar_icon("gear")' in source
-    assert '"Open Editor"' in source
-    assert '"Settings..."' in source
+    assert '"help_menu"' in source
     assert '"GitHub"' in source
     assert '"Help / Docs"' in source
-    assert '"Usage Statistics..."' not in source
-    assert "button.clicked.disconnect()" in source
-    assert "button.clicked.connect(" in source
-    assert "_show_settings_menu" in source
-
-    assert 'toolbar_icon("clipboard")' not in source
-    assert "create_icon_button(" not in source
-    assert "findChild(" not in source
-    assert "topbar.layout().addWidget" not in source
-
-
-def test_header_gear_menu_keeps_direct_action_references():
-    source = _read(
-        "scripts/script_toolbox/ui/settings_ui.py"
-    )
-
-    assert "self.settings_menu = menu" in source
-    assert "self.open_editor_action = menu.addAction(" in source
-    assert "self.settings_action = menu.addAction(" in source
-    assert "self.github_action = menu.addAction(" in source
-    assert "self.help_docs_action = menu.addAction(" in source
-    assert "self._open_editor_from_menu" in source
-    assert "self._open_settings_from_menu" in source
-    assert "self._open_github_from_menu" in source
-    assert "self._open_help_docs_from_menu" in source
-    assert "self.settings_menu.exec_(" in source
-
-
-def test_settings_menu_action_opens_general_settings_dialog():
-    source = _read(
-        "scripts/script_toolbox/ui/settings_ui.py"
-    )
-
-    assert "def _open_settings_from_menu(" in source
-    assert "return self.open_settings_dialog()" in source
+    assert "_install_help_resources" in source
     assert "return show_settings_dialog(" in source
-
-
-def test_resource_actions_open_project_urls_in_default_browser():
-    source = _read(
-        "scripts/script_toolbox/ui/settings_ui.py"
-    )
+    assert "QtGui.QDesktopServices.openUrl(" in source
+    assert "QtCore.QUrl(" in source
 
     assert (
         '_GITHUB_URL = "https://github.com/RomanKrike/script-toolbox"'
@@ -81,15 +81,14 @@ def test_resource_actions_open_project_urls_in_default_browser():
         '_DOCS_URL = "https://romankrike.github.io/script-toolbox/"'
         in source
     )
-    assert "QtGui.QDesktopServices.openUrl(" in source
-    assert "QtCore.QUrl(url)" in source
 
 
-def test_header_gear_menu_uses_shared_plugin_stylesheet():
+def test_menu_bar_is_common_ui_not_host_specific():
     source = _read(
-        "scripts/script_toolbox/ui/settings_ui.py"
+        "scripts/script_toolbox/ui/main_window.py"
     )
 
-    assert "from ..style import STYLE" in source
-    assert "menu.setStyleSheet(" in source
-    assert "STYLE" in source
+    assert 'HOST.key == "maya"' not in source
+    assert 'HOST.key == "nuke"' not in source
+    assert "maya.cmds" not in source
+    assert "import nuke" not in source

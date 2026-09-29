@@ -77,19 +77,21 @@ def test_technical_icon_buttons_use_shared_factory_and_presets():
     assert "button.setFixedSize(" in source
 
 
-def test_main_header_uses_shared_icon_button_factory():
+def test_main_window_uses_menu_bar_instead_of_header_icon_controls():
     source = _read(
         "scripts/script_toolbox/ui/main_window.py"
     )
 
-    assert "ICON_BUTTON_HEADER" in source
-    assert "create_icon_button(" in source
-    assert "self.check_updates_button = create_icon_button(" in source
-    assert "self.reload_button = create_icon_button(" in source
-    assert "self.interface_editor_button = create_icon_button(" in source
-    assert "check_updates_button = QtGui.QToolButton()" not in source
-    assert "reload_button = QtGui.QToolButton()" not in source
-    assert "gear = QtGui.QToolButton()" not in source
+    assert "QtGui.QMenuBar(" in source
+    assert '"ToolboxMenuBar"' in source
+    assert '"Open Editor"' in source
+    assert '"Open Settings"' in source
+    assert '"Check for Updates"' in source
+    assert "ICON_BUTTON_HEADER" not in source
+    assert "create_icon_button(" not in source
+    assert "check_updates_button" not in source
+    assert "reload_button" not in source
+    assert "interface_editor_button" not in source
 
 
 def test_interface_editor_uses_shared_icon_button_factory():

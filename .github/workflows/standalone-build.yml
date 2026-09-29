@@ -13,6 +13,9 @@ on:
       - "tools/build_standalone_portable.py"
       - "tools/build_windows_resources.py"
       - "tools/embed_windows_icon.py"
+      - "tests/test_app_icon_contract.py"
+      - "tests/test_standalone_portable_build.py"
+      - "tests/test_windows_application_identity.py"
       - ".github/workflows/standalone-build.yml"
 
 concurrency:

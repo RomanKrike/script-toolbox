@@ -39,7 +39,8 @@ def build_settings_toolbox_class(base_class):
             if menu is None:
                 return
 
-            menu.addSeparator()
+            if menu.actions():
+                menu.addSeparator()
 
             self.github_action = menu.addAction(
                 "GitHub"

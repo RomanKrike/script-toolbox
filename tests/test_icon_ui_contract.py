@@ -28,6 +28,7 @@ def test_required_solar_icons_are_bundled():
         "close-circle.svg",
         "cloud-download.svg",
         "cloud-upload.svg",
+        "console.svg",
         "folder-open.svg",
         "settings.svg",
     ):
@@ -41,6 +42,7 @@ def test_toolbar_icon_mappings_match_ui_contract():
 
     assert '"update": "import"' in source
     assert '("gear", "Settings", "settings.svg")' in source
+    assert '("console", "Console", "console.svg")' in source
     assert '("add", "Add", "add.svg")' in source
     assert '("close", "Close", "close.svg")' in source
     assert '"cloud-download.svg"' in source

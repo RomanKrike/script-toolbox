@@ -55,9 +55,9 @@ QStatusBar#ToolboxStatusBar::item {
     border: 0px;
 }
 
-QLabel#StatusLogs {
-    color: %(TEXT_STATUS)s;
-    padding: 0px 6px;
+QLabel#StatusLogsIcon {
+    background-color: transparent;
+    padding: 0px 5px;
 }
 
 QToolButton#StatusAction {

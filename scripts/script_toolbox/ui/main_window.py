@@ -26,6 +26,7 @@ from ..pycompat import text_type
 from ..style import STYLE
 from ..style import apply_window_icon
 from ..style import metrics
+from ..style import toolbar_icon
 from ..style.palette import CONTENT_BG
 from .layout_helpers import configure_layout
 from .runtime import build_folder_widgets
@@ -76,9 +77,24 @@ class ToolboxStatusBar(QtGui.QStatusBar):
         self._persistent_callback = None
         self._persistent_tooltip = ""
 
-        self.logs_label = QtGui.QLabel("Logs", self)
-        self.logs_label.setObjectName("StatusLogs")
-        self.addWidget(self.logs_label, 1)
+        self.logs_icon = QtGui.QLabel(self)
+        self.logs_icon.setObjectName("StatusLogsIcon")
+        self.logs_icon.setAlignment(QtCore.Qt.AlignCenter)
+        self.logs_icon.setFixedWidth(28)
+        self.logs_icon.setToolTip("Logs")
+
+        icon = toolbar_icon("console")
+        if not icon.isNull():
+            self.logs_icon.setPixmap(
+                icon.pixmap(
+                    QtCore.QSize(
+                        16,
+                        16
+                    )
+                )
+            )
+
+        self.addWidget(self.logs_icon)
 
         self.status_action = QtGui.QToolButton(self)
         self.status_action.setObjectName("StatusAction")
@@ -264,13 +280,14 @@ class ScriptToolbox(QtGui.QMainWindow):
             self._reload_config_from_menu
         )
 
-        self.help_menu = self._styled_menu("Help")
-        self.check_updates_action = self.help_menu.addAction(
+        self.check_updates_action = self.settings_menu.addAction(
             "Check for Updates"
         )
         self.check_updates_action.triggered.connect(
             self._check_updates_from_menu
         )
+
+        self.help_menu = self._styled_menu("Help")
 
         root.addWidget(self.menu_bar)
 
@@ -293,8 +310,6 @@ class ScriptToolbox(QtGui.QMainWindow):
     def _check_updates_from_menu(self, checked=False):
         return self.manual_check_for_updates()
 
-    # ------------------------------------------------------------------
-    # Config / value API
     # ------------------------------------------------------------------
     # Config / value API
     # ------------------------------------------------------------------
@@ -958,8 +973,6 @@ class ScriptToolbox(QtGui.QMainWindow):
                 ).format(HOST.display_name, text_type(exc))
             )
 
-    # ------------------------------------------------------------------
-    # Editor / reload
     # ------------------------------------------------------------------
     # Editor / reload
     # ------------------------------------------------------------------

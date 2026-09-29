@@ -117,16 +117,18 @@ def main():
             )
 
     status_bar = window.statusBar()
+    logs_icon = getattr(
+        status_bar,
+        "logs_icon",
+        None
+    )
     if (
-        getattr(
-            status_bar,
-            "logs_label",
-            None
-        ) is None or
-        status_bar.logs_label.text() != "Logs"
+        logs_icon is None or
+        logs_icon.pixmap() is None or
+        logs_icon.pixmap().isNull()
     ):
         raise RuntimeError(
-            "Common status bar does not expose the persistent Logs label."
+            "Common status bar does not expose the Logs console icon."
         )
 
     window.open_interface_editor()
@@ -186,16 +188,18 @@ def main():
                     )
 
             status_bar = reloaded.statusBar()
+            logs_icon = getattr(
+                status_bar,
+                "logs_icon",
+                None
+            )
             if (
-                getattr(
-                    status_bar,
-                    "logs_label",
-                    None
-                ) is None or
-                status_bar.logs_label.text() != "Logs"
+                logs_icon is None or
+                logs_icon.pixmap() is None or
+                logs_icon.pixmap().isNull()
             ):
                 raise RuntimeError(
-                    "Reloaded status bar lost the persistent Logs label."
+                    "Reloaded status bar lost the Logs console icon."
                 )
 
             state["completed"] = True

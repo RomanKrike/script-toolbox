@@ -28,6 +28,7 @@ _ICON_ENTRIES = (
     ("paste", "Paste", "clipboard.svg"),
     ("find", "Find", "magnifier.svg"),
     ("run", "Run", "play.svg"),
+    ("console", "Console", "console.svg"),
     ("import", "Import", "download-minimalistic.svg"),
     ("export", "Export", "upload-minimalistic.svg"),
     ("cloud-download", "Cloud Download", "cloud-download.svg"),

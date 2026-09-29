@@ -32,6 +32,10 @@ def test_common_menu_bar_replaces_legacy_header_controls():
     assert '"Open Editor"' in source
     assert '"Open Settings"' in source
     assert '"Check for Updates"' in source
+    assert (
+        'self.check_updates_action = self.settings_menu.addAction('
+        in source
+    )
     assert '"Reload Config"' in source
     assert "setNativeMenuBar" in source
     assert "menu.setStyleSheet(STYLE)" in source
@@ -44,20 +48,36 @@ def test_common_menu_bar_replaces_legacy_header_controls():
     assert "update_button" not in source
 
 
-def test_status_bar_keeps_logs_left_and_transient_status_right():
+def test_status_bar_keeps_console_icon_left_and_transient_status_right():
     source = _read(
         "scripts/script_toolbox/ui/main_window.py"
     )
 
     assert "class ToolboxStatusBar(" in source
-    assert '"Logs"' in source
-    assert '"StatusLogs"' in source
+    assert 'toolbar_icon("console")' in source
+    assert '"StatusLogsIcon"' in source
+    assert "self.logs_label" not in source
     assert '"StatusAction"' in source
     assert "addPermanentWidget(" in source
     assert "def show_status(" in source
     assert "def show_action(" in source
     assert "def clearMessage(" in source
     assert '"Ready"' not in source
+
+
+def test_update_check_is_not_owned_by_help_menu():
+    source = _read(
+        "scripts/script_toolbox/ui/main_window.py"
+    )
+
+    assert (
+        'self.check_updates_action = self.settings_menu.addAction('
+        in source
+    )
+    assert (
+        'self.check_updates_action = self.help_menu.addAction('
+        not in source
+    )
 
 
 def test_settings_wrapper_reuses_existing_settings_dialog_and_help_menu():

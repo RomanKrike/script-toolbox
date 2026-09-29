@@ -72,8 +72,8 @@ def test_standalone_application_sets_global_icon_without_touching_dcc_hosts():
 
 
 def test_windows_launcher_embeds_logo_resource():
-    resource = _read(
-        "standalone/launcher.rc"
+    embedder = _read(
+        "tools/embed_windows_icon.py"
     )
     dev_workflow = _read(
         ".github/workflows/dev-build.yml"
@@ -82,13 +82,20 @@ def test_windows_launcher_embeds_logo_resource():
         ".github/workflows/standalone-build.yml"
     )
 
-    assert "ICON" in resource
-    assert "logo_sbt.ico" in resource
+    assert "BeginUpdateResourceW" in embedder
+    assert "UpdateResourceW" in embedder
+    assert "EndUpdateResourceW" in embedder
+    assert "RT_ICON = 3" in embedder
+    assert "RT_GROUP_ICON = 14" in embedder
+    assert "def parse_ico(" in embedder
+    assert "def build_group_icon(" in embedder
+    assert "def verify_icon_resource(" in embedder
 
     for workflow in (
         dev_workflow,
         standalone_workflow,
     ):
-        assert "standalone\\launcher.rc" in workflow
-        assert "launcher.res" in workflow
-        assert "rc /nologo" in workflow
+        assert "tools/embed_windows_icon.py" in workflow
+        assert "scripts/script_toolbox/resources/logo_sbt.ico" in workflow
+        assert "rc /nologo" not in workflow
+        assert "launcher.res" not in workflow

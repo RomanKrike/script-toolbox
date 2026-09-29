@@ -123,7 +123,7 @@ def _versioned_python_dlls(runtime_root):
         filename
         for filename in os.listdir(runtime_root)
         if re.match(
-            r"^python3\\d+\\.dll$",
+            r"^python3\d+\.dll$",
             filename,
             re.I
         )

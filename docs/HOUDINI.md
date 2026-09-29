@@ -34,6 +34,8 @@ Options:
 - **Add Houdini Shelf**
 - **Open on startup**
 
+The Shelf definition is loaded through Houdini's normal `toolbar` resource path. Script Toolbox shows/hides the tab with Houdini's `shelfdock add/remove` command and does **not** call `hou.ShelfSet.setShelves()`. This avoids modifying factory/user shelf-set definition files and prevents the “Could not save some of the shelf elements to their definition files” warning.
+
 **Repair** recreates missing managed files. **Update** refreshes stale package paths/version metadata. **Uninstall** removes only Script Toolbox-managed package/plugin files and does not edit `houdini.env`.
 
 Restart Houdini after installing from standalone so Houdini processes the package during startup. When Script Toolbox runs inside the matching Houdini process it also attempts a live UI sync.

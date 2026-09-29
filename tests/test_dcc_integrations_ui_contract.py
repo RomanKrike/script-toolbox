@@ -198,3 +198,13 @@ def test_nuke_dock_panel_is_not_exposed():
     assert '"Register Dock Panel"' not in runtime
     assert "def register_panel(" not in runtime
     assert "register_nuke_panel" not in package
+
+
+def test_houdini_shelf_runtime_uses_shelfdock_without_mutating_shelf_sets():
+    runtime = _read("scripts/script_toolbox/houdini_integration.py")
+
+    assert '"shelfdock add {0}".format(' in runtime
+    assert '"shelfdock remove {0}".format(' in runtime
+    assert "reloadShelfFiles()" in runtime
+    assert ".setShelves(" not in runtime
+    assert "def _writable_shelf_sets(" not in runtime

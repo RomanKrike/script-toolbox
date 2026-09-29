@@ -42,26 +42,6 @@ def _shelf_object():
         return None
 
 
-def _writable_shelf_sets():
-    hou = _hou()
-    try:
-        values = list(
-            hou.shelves.shelfSets().values()
-        )
-    except Exception:
-        return []
-
-    result = []
-    for shelf_set in values:
-        try:
-            if shelf_set.isReadOnly():
-                continue
-        except Exception:
-            pass
-        result.append(shelf_set)
-    return result
-
-
 def ensure_shelf():
     hou = _hou()
     try:
@@ -73,47 +53,28 @@ def ensure_shelf():
     if shelf is None:
         return False
 
-    for shelf_set in _writable_shelf_sets():
-        try:
-            current = tuple(
-                shelf_set.shelves() or ()
+    try:
+        hou.hscript(
+            "shelfdock add {0}".format(
+                _SHELF_NAME
             )
-            if shelf in current:
-                return True
-            shelf_set.setShelves(
-                current + (shelf,)
-            )
-            return True
-        except Exception:
-            continue
-
-    return True
+        )
+        return True
+    except Exception:
+        return False
 
 
 def remove_shelf():
-    shelf = _shelf_object()
-    if shelf is None:
+    hou = _hou()
+    try:
+        hou.hscript(
+            "shelfdock remove {0}".format(
+                _SHELF_NAME
+            )
+        )
+        return True
+    except Exception:
         return False
-
-    removed = False
-    for shelf_set in _writable_shelf_sets():
-        try:
-            current = tuple(
-                shelf_set.shelves() or ()
-            )
-            if shelf not in current:
-                continue
-            shelf_set.setShelves(
-                tuple(
-                    item
-                    for item in current
-                    if item != shelf
-                )
-            )
-            removed = True
-        except Exception:
-            continue
-    return removed
 
 
 def apply_current_integration(profile_id=None):

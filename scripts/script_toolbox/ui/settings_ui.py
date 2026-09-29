@@ -3,6 +3,7 @@ from __future__ import print_function
 
 from ..compat import QtCore
 from ..compat import QtGui
+from ..style import STYLE
 from ..style import toolbar_icon
 from .settings_dialog import prompt_telemetry_consent
 from .settings_dialog import show_settings_dialog
@@ -53,6 +54,12 @@ def build_settings_toolbox_class(base_class):
 
             menu = QtGui.QMenu(
                 button
+            )
+            # QMenu is a top-level popup. Qt6/Windows does not reliably
+            # inherit the main-window stylesheet across that native popup
+            # boundary, so apply the shared palette explicitly.
+            menu.setStyleSheet(
+                STYLE
             )
 
             self.open_editor_action = menu.addAction(

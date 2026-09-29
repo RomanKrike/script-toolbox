@@ -24,6 +24,29 @@ QLineEdit#SearchField:focus {
     border: 1px solid %(FOCUS_BORDER)s;
 }
 
+QMenu {
+    background-color: %(PANEL_BG)s;
+    color: %(TEXT_PRIMARY)s;
+    border: 1px solid %(BORDER_GROUP)s;
+    padding: 4px;
+}
+
+QMenu::item {
+    background-color: transparent;
+    color: %(TEXT_PRIMARY)s;
+    padding: 5px 22px 5px 9px;
+    border: 0px;
+}
+
+QMenu::item:selected {
+    background-color: %(ICON_BUTTON_HOVER_BG)s;
+    color: %(TEXT_STRONG)s;
+}
+
+QMenu::item:disabled {
+    color: %(TEXT_DISABLED)s;
+}
+
 QMenu::separator {
     height: 1px;
     background-color: %(SEPARATOR)s;

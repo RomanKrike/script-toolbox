@@ -72,4 +72,4 @@ The compatibility layer also supplies the Qt 6 compatibility surface required by
 
 The common Script Toolbox runtime and editor run as a normal Qt window across the supported Houdini generations.
 
-A Houdini-native Python Panel descriptor and packaged release installer remain separate follow-up work. They should be validated independently from the cross-version runtime compatibility layer.
+The managed package installer is available from Settings → DCC Integrations. A Houdini-native Python Panel descriptor remains separate follow-up work; the current integration exposes Script Toolbox through its managed Shelf and normal floating window.

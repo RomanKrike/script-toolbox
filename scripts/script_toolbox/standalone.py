@@ -4,6 +4,8 @@ from __future__ import print_function
 
 import sys
 
+from .windows_identity import apply_windows_app_user_model_id
+
 
 def application_arguments(argv=None):
     """Return argv in the form expected by QApplication."""
@@ -42,6 +44,8 @@ def run_standalone(
     argv=None
 ):
     """Create the standalone QApplication and show the normal toolbox UI."""
+    apply_windows_app_user_model_id()
+
     application = application_class.instance()
     owns_application = application is None
 

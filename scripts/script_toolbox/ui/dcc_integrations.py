@@ -8,21 +8,21 @@ from ..integrations.config import get_integration_settings
 from ..integrations.manager import DccIntegrationManager
 from ..pycompat import text_type
 from ..style import metrics
+from .collapsible_folder import CollapsibleSection
 from .settings_components import build_page_header
-from .settings_components import build_simple_section
 from .settings_components import configure_settings_scroll_area
 from .settings_components import mark_secondary_text
-from .settings_components import mark_status_text
 
 
 class DccIntegrationsPage(QtGui.QWidget):
-    """Settings page for detection and per-version DCC integration actions."""
+    """Compact Settings page for per-version DCC integration actions."""
 
     def __init__(self, parent=None, manager=None):
         QtGui.QWidget.__init__(self, parent)
         self.manager = manager or DccIntegrationManager()
         self.installations = {}
         self.rows = {}
+        self._collapsed_state = {}
 
         root = QtGui.QVBoxLayout(self)
         root.setContentsMargins(*metrics.SETTINGS_PAGE_MARGINS)
@@ -31,8 +31,8 @@ class DccIntegrationsPage(QtGui.QWidget):
         root.addWidget(
             build_page_header(
                 "DCC Integrations",
-                "Detect installed DCC applications and install Script Toolbox "
-                "without copying bootstrap code into a Script Editor.",
+                "Detect installed DCC applications and manage Script Toolbox "
+                "integration for each host version.",
                 parent=self
             )
         )
@@ -80,6 +80,35 @@ class DccIntegrationsPage(QtGui.QWidget):
             "auto_open": bool(stored.get("auto_open", False)),
         }
 
+    @staticmethod
+    def _version_count_text(count):
+        return "{0} version{1}".format(
+            count,
+            "" if count == 1 else "s"
+        )
+
+    def _collapse_key(self, adapter_key, version=None):
+        if version is None:
+            return "dcc:{0}".format(adapter_key)
+        return "dcc:{0}:version:{1}".format(
+            adapter_key,
+            text_type(version)
+        )
+
+    def _collapsed_value(self, key, default):
+        return bool(self._collapsed_state.get(key, default))
+
+    def _remember_collapsed(self, key, collapsed):
+        self._collapsed_state[key] = bool(collapsed)
+
+    def _connect_collapse_state(self, section, key):
+        section.collapsedChanged.connect(
+            lambda collapsed, state_key=key: self._remember_collapsed(
+                state_key,
+                collapsed
+            )
+        )
+
     def scan(self, *args):
         self.scan_button.setEnabled(False)
         try:
@@ -91,12 +120,6 @@ class DccIntegrationsPage(QtGui.QWidget):
     def _rebuild_cards(self):
         self._clear_cards()
 
-        maya_installations = self.installations.get("maya", [])
-        if len(maya_installations) > 1:
-            self.container_layout.addWidget(
-                self._build_install_all_section(maya_installations)
-            )
-
         for adapter in self.manager.adapters():
             self.container_layout.addWidget(
                 self._build_adapter_section(adapter)
@@ -104,104 +127,130 @@ class DccIntegrationsPage(QtGui.QWidget):
 
         self.container_layout.addStretch(1)
 
-    def _build_adapter_section(self, adapter):
-        installations = self.installations.get(adapter.key, [])
-        section, layout = build_simple_section(
+    def _adapter_title(self, adapter, installations):
+        if not installations:
+            suffix = "Not detected"
+        else:
+            suffix = self._version_count_text(len(installations))
+            if not adapter.integration_available:
+                suffix += " | Detection only"
+
+        return "{0}  |  {1}".format(
             adapter.display_name,
-            nested=False,
-            parent=self.container
+            suffix
         )
 
-        capability = mark_secondary_text(
-            QtGui.QLabel(
-                "Supported: {0}    Detected: {1}    Integration available: {2}".format(
-                    "Yes" if adapter.supported else "No",
-                    "Yes" if installations else "No",
-                    "Yes" if adapter.integration_available else "No"
-                ),
-                section
-            )
+    def _build_adapter_section(self, adapter):
+        installations = self.installations.get(adapter.key, [])
+        key = self._collapse_key(adapter.key)
+        section = CollapsibleSection(
+            title=self._adapter_title(adapter, installations),
+            collapsed=self._collapsed_value(
+                key,
+                adapter.key != "maya" or not installations
+            ),
+            nested=False,
+            content_margins=metrics.RUNTIME_FOLDER_CONTENT_MARGINS,
+            content_spacing=metrics.RUNTIME_FOLDER_CONTENT_SPACING,
+            parent=self.container
         )
-        capability.setWordWrap(True)
-        layout.addWidget(capability)
+        self._connect_collapse_state(section, key)
+        layout = section.content_layout
 
         if not installations:
             empty = mark_secondary_text(
                 QtGui.QLabel(
                     "No installed versions detected.",
-                    section
+                    section.content
                 )
             )
             empty.setWordWrap(True)
             layout.addWidget(empty)
             return section
 
-        for installation in installations:
-            layout.addWidget(
-                self._build_installation_section(
-                    adapter,
-                    installation,
-                    section
-                )
-            )
+        if adapter.integration_available and adapter.key == "maya":
+            if len(installations) > 1:
+                self._add_install_all_row(layout, section.content)
 
         if not adapter.integration_available:
             note = mark_secondary_text(
                 QtGui.QLabel(
-                    "Detection is implemented. Automatic integration is not "
-                    "implemented for this DCC yet.",
-                    section
+                    "Automatic integration is not implemented for this DCC yet.",
+                    section.content
                 )
             )
             note.setWordWrap(True)
             layout.addWidget(note)
 
+        for installation in installations:
+            layout.addWidget(
+                self._build_installation_section(
+                    adapter,
+                    installation,
+                    section.content
+                )
+            )
+
         return section
 
-    def _build_install_all_section(self, installations):
-        section, layout = build_simple_section(
-            "Install to all detected Maya versions",
-            nested=False,
-            parent=self.container
+    def _add_install_all_row(self, layout, parent):
+        row = QtGui.QHBoxLayout()
+        row.setSpacing(metrics.SETTINGS_ACTION_SPACING)
+
+        label = mark_secondary_text(
+            QtGui.QLabel("All versions:", parent)
         )
-
-        checks = QtGui.QHBoxLayout()
-        checks.setSpacing(metrics.SETTINGS_ACTION_SPACING)
-        shelf = QtGui.QCheckBox("Shelf")
+        shelf = QtGui.QCheckBox("Shelf", parent)
         shelf.setChecked(True)
-        menu = QtGui.QCheckBox("Main Menu")
+        menu = QtGui.QCheckBox("Main Menu", parent)
         menu.setChecked(True)
-        checks.addWidget(shelf)
-        checks.addWidget(menu)
-        checks.addStretch(1)
-        layout.addLayout(checks)
-
-        button_row = QtGui.QHBoxLayout()
-        button_row.setSpacing(metrics.SETTINGS_ACTION_SPACING)
-        button = QtGui.QPushButton("Install to all")
+        button = QtGui.QPushButton("Install to all", parent)
         button.clicked.connect(
             lambda checked=False: self._install_all_maya(
                 shelf.isChecked(),
                 menu.isChecked()
             )
         )
-        button_row.addWidget(button)
-        button_row.addStretch(1)
-        layout.addLayout(button_row)
-        return section
+
+        row.addWidget(label)
+        row.addWidget(shelf)
+        row.addWidget(menu)
+        row.addStretch(1)
+        row.addWidget(button)
+        layout.addLayout(row)
 
     def _build_installation_section(self, adapter, installation, parent):
-        section, layout = build_simple_section(
-            "Version {0}".format(installation.version),
+        status = self.manager.status(installation)
+        key = self._collapse_key(
+            installation.dcc,
+            installation.version
+        )
+        section = CollapsibleSection(
+            title="{0}  |  {1}".format(
+                installation.version,
+                status.state
+            ),
+            collapsed=self._collapsed_value(key, True),
             nested=True,
+            content_margins=metrics.RUNTIME_FOLDER_CONTENT_MARGINS,
+            content_spacing=metrics.RUNTIME_FOLDER_CONTENT_SPACING,
             parent=parent
         )
+        self._connect_collapse_state(section, key)
+        layout = section.content_layout
+
+        if status.message:
+            detail_label = mark_secondary_text(
+                QtGui.QLabel(status.message, section.content)
+            )
+            detail_label.setWordWrap(True)
+            layout.addWidget(detail_label)
 
         if installation.install_path:
             install_path = mark_secondary_text(
                 QtGui.QLabel(
                     "Install: {0}".format(installation.install_path),
-                    section
+                    section.content
                 )
             )
             install_path.setWordWrap(True)
@@ -213,32 +262,15 @@ class DccIntegrationsPage(QtGui.QWidget):
                     "User config: {0}".format(
                         installation.user_config_path
                     ),
-                    section
+                    section.content
                 )
             )
             user_path.setWordWrap(True)
             layout.addWidget(user_path)
 
-        status = self.manager.status(installation)
-        status_label = mark_status_text(
-            QtGui.QLabel(
-                "Integration: {0}".format(status.state),
-                section
-            )
-        )
-        status_label.setWordWrap(True)
-        layout.addWidget(status_label)
-
-        if status.message:
-            detail_label = mark_secondary_text(
-                QtGui.QLabel(status.message, section)
-            )
-            detail_label.setWordWrap(True)
-            layout.addWidget(detail_label)
-
         row = {
             "installation": installation,
-            "status_label": status_label,
+            "status": status,
         }
         self.rows[installation.key] = row
 
@@ -257,24 +289,27 @@ class DccIntegrationsPage(QtGui.QWidget):
                         "Registered" if status.main_menu else "Missing"
                     ) if options["main_menu"] else "Disabled"
                 ),
-                section
+                section.content
             )
         )
         component_status.setWordWrap(True)
         layout.addWidget(component_status)
 
-        shelf = QtGui.QCheckBox("Add to Shelf", section)
+        options_row = QtGui.QHBoxLayout()
+        options_row.setSpacing(metrics.SETTINGS_ACTION_SPACING)
+
+        shelf = QtGui.QCheckBox("Add to Shelf", section.content)
         shelf.setChecked(options["shelf"])
-        menu = QtGui.QCheckBox("Add to Main Menu", section)
+        menu = QtGui.QCheckBox("Add to Main Menu", section.content)
         menu.setChecked(options["main_menu"])
-        auto_open = QtGui.QCheckBox(
-            "Open ScriptToolbox on Maya startup",
-            section
-        )
+        auto_open = QtGui.QCheckBox("Open on startup", section.content)
         auto_open.setChecked(options["auto_open"])
-        layout.addWidget(shelf)
-        layout.addWidget(menu)
-        layout.addWidget(auto_open)
+
+        options_row.addWidget(shelf)
+        options_row.addWidget(menu)
+        options_row.addWidget(auto_open)
+        options_row.addStretch(1)
+        layout.addLayout(options_row)
 
         row.update({
             "shelf": shelf,

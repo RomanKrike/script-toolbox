@@ -1,0 +1,115 @@
+# -*- coding: utf-8 -*-
+from __future__ import print_function
+
+from ..core.logging_utils import get_logger
+from .blender import BlenderAdapter
+from .houdini import HoudiniAdapter
+from .max import MaxAdapter
+from .maya import MayaAdapter
+from .nuke import NukeAdapter
+
+
+_LOGGER = get_logger()
+
+
+class DccIntegrationManager(object):
+    """Facade used by Settings UI; adapters own all DCC-specific details."""
+
+    def __init__(self, adapters=None):
+        if adapters is None:
+            adapters = [
+                MayaAdapter(),
+                HoudiniAdapter(),
+                NukeAdapter(),
+                BlenderAdapter(),
+                MaxAdapter(),
+            ]
+        self._adapters = {}
+        for adapter in adapters:
+            self._adapters[adapter.key] = adapter
+
+    def adapters(self):
+        order = ("maya", "houdini", "nuke", "blender", "3dsmax")
+        result = []
+        for key in order:
+            adapter = self._adapters.get(key)
+            if adapter is not None:
+                result.append(adapter)
+        for key, adapter in self._adapters.items():
+            if key not in order:
+                result.append(adapter)
+        return result
+
+    def adapter(self, dcc):
+        return self._adapters.get(dcc)
+
+    def scan(self):
+        result = {}
+        for adapter in self.adapters():
+            try:
+                installations = adapter.get_installations()
+            except Exception:
+                _LOGGER.exception(
+                    "[DCC] Detection failed for %s",
+                    adapter.display_name
+                )
+                installations = []
+            result[adapter.key] = installations
+            for installation in installations:
+                _LOGGER.info(
+                    "[DCC] %s %s detected",
+                    adapter.display_name,
+                    installation.version
+                )
+        return result
+
+    def status(self, installation):
+        adapter = self.adapter(installation.dcc)
+        if adapter is None:
+            raise KeyError(installation.dcc)
+        result = adapter.status(installation)
+        installation.integration_status = result.state
+        return result
+
+    def install(self, installation, options=None):
+        adapter = self.adapter(installation.dcc)
+        if adapter is None:
+            raise KeyError(installation.dcc)
+        if not adapter.integration_available:
+            raise RuntimeError(
+                "Integration is not implemented for {0}.".format(
+                    adapter.display_name
+                )
+            )
+        return adapter.install(installation, options=options)
+
+    def repair(self, installation):
+        adapter = self.adapter(installation.dcc)
+        if adapter is None:
+            raise KeyError(installation.dcc)
+        return adapter.repair(installation)
+
+    def uninstall(self, installation):
+        adapter = self.adapter(installation.dcc)
+        if adapter is None:
+            raise KeyError(installation.dcc)
+        return adapter.uninstall(installation)
+
+    def install_all(self, dcc, options=None):
+        adapter = self.adapter(dcc)
+        if adapter is None:
+            raise KeyError(dcc)
+        results = []
+        for installation in adapter.get_installations():
+            try:
+                status = adapter.install(
+                    installation,
+                    options=options
+                )
+                results.append((installation, status, None))
+            except Exception as exc:
+                results.append((installation, None, exc))
+        return results
+
+
+__all__ = ["DccIntegrationManager"]

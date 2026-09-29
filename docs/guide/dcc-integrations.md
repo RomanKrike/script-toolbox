@@ -7,12 +7,12 @@ Script Toolbox can detect installed DCC applications and manage host integration
 | DCC | Detection | Managed integration |
 | --- | --- | --- |
 | Autodesk Maya | Yes | Yes |
-| SideFX Houdini | Yes | No |
-| Foundry Nuke | Yes | No |
+| SideFX Houdini | Yes | Yes |
+| Foundry Nuke | Yes | Yes |
 | Blender | Yes | No |
 | Autodesk 3ds Max | Yes | No |
 
-Only Maya is marked **Supported** in the first implementation. The other adapters expose detection and capability information without claiming that automatic integration is available.
+Maya, Houdini, and Nuke have managed integration backends. Blender and 3ds Max currently expose detection/capability scaffolding only.
 
 ## Maya integration
 
@@ -128,6 +128,35 @@ Add unrelated code to `userSetup.py`, uninstall Script Toolbox integration for o
 
 Add a custom Maya profile root, confirm its version folders appear as separate targets, install Script Toolbox into one of them, and launch Maya through the studio launcher. Confirm the Script Toolbox module, Shelf, and Main Menu are available from the studio profile without requiring the default Maya profile.
 
+## Houdini integration
+
+For each detected Houdini version, Install creates a managed package in:
+
+```text
+$HOUDINI_USER_PREF_DIR/packages/script_toolbox.json
+```
+
+The package prepends Script Toolbox's `scripts` directory to `PYTHONPATH` and adds a managed plugin resource directory to the Houdini path. The plugin directory contains startup hooks for supported Houdini Python generations and an optional Script Toolbox Shelf definition.
+
+Available options:
+
+- **Add Houdini Shelf**
+- **Open on startup**
+
+Install / Update / Repair / Uninstall are filesystem-backed and do not modify `houdini.env`.
+
+## Nuke integration
+
+For Nuke, Install adds one marked Script Toolbox block to the existing user `~/.nuke/menu.py`. Existing menu code is preserved and backed up before the first managed edit.
+
+Available options:
+
+- **Add to Main Menu**
+- **Register Dock Panel**
+- **Open on startup**
+
+The same `~/.nuke/menu.py` can serve multiple installed Nuke versions. Per-version integration settings remain independent; the managed startup block is removed only after the final configured Nuke version is uninstalled.
+
 ## Remaining work
 
-Automatic installers are still to be implemented for Houdini, Nuke, Blender, and 3ds Max. Their adapters currently provide discovery/capability scaffolding only.
+Automatic installers are still to be implemented for Blender and 3ds Max. Their adapters currently provide discovery/capability scaffolding only.

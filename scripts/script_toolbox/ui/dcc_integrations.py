@@ -69,19 +69,15 @@ class DccIntegrationsPage(QtGui.QWidget):
                 widget.deleteLater()
 
     @staticmethod
-    def _default_options(installation):
+    def _default_options(adapter, installation):
         stored = get_integration_settings(
             installation.dcc,
             installation.version,
             profile_id=installation.profile_id
         )
-        if stored is None:
-            stored = {}
-        return {
-            "shelf": bool(stored.get("shelf", True)),
-            "main_menu": bool(stored.get("main_menu", True)),
-            "auto_open": bool(stored.get("auto_open", False)),
-        }
+        return adapter.normalize_options(
+            stored or {}
+        )
 
     @staticmethod
     def _target_count_text(adapter, count):
@@ -406,17 +402,15 @@ class DccIntegrationsPage(QtGui.QWidget):
         if not adapter.integration_available:
             return section
 
-        options = self._default_options(installation)
+        options = self._default_options(
+            adapter,
+            installation
+        )
         component_status = mark_secondary_text(
             QtGui.QLabel(
-                "Loader: {0}    Shelf: {1}    Main Menu: {2}".format(
-                    "OK" if status.loader else "Missing",
-                    (
-                        "OK" if status.shelf else "Missing"
-                    ) if options["shelf"] else "Disabled",
-                    (
-                        "Registered" if status.main_menu else "Missing"
-                    ) if options["main_menu"] else "Disabled"
+                adapter.component_status_text(
+                    status,
+                    options
                 ),
                 section.content
             )
@@ -426,25 +420,23 @@ class DccIntegrationsPage(QtGui.QWidget):
 
         options_row = QtGui.QHBoxLayout()
         options_row.setSpacing(metrics.SETTINGS_ACTION_SPACING)
+        option_widgets = {}
 
-        shelf = QtGui.QCheckBox("Add to Shelf", section.content)
-        shelf.setChecked(options["shelf"])
-        menu = QtGui.QCheckBox("Add to Main Menu", section.content)
-        menu.setChecked(options["main_menu"])
-        auto_open = QtGui.QCheckBox("Open on startup", section.content)
-        auto_open.setChecked(options["auto_open"])
+        for option_key, label, unused_default in adapter.option_definitions():
+            checkbox = QtGui.QCheckBox(
+                label,
+                section.content
+            )
+            checkbox.setChecked(
+                bool(options.get(option_key))
+            )
+            option_widgets[option_key] = checkbox
+            options_row.addWidget(checkbox)
 
-        options_row.addWidget(shelf)
-        options_row.addWidget(menu)
-        options_row.addWidget(auto_open)
         options_row.addStretch(1)
         layout.addLayout(options_row)
 
-        row.update({
-            "shelf": shelf,
-            "main_menu": menu,
-            "auto_open": auto_open,
-        })
+        row["option_widgets"] = option_widgets
 
         buttons = QtGui.QHBoxLayout()
         buttons.setSpacing(metrics.SETTINGS_ACTION_SPACING)
@@ -480,10 +472,13 @@ class DccIntegrationsPage(QtGui.QWidget):
 
     def _options_for(self, installation):
         row = self.rows[installation.key]
+        widgets = row.get(
+            "option_widgets",
+            {}
+        )
         return {
-            "shelf": row["shelf"].isChecked(),
-            "main_menu": row["main_menu"].isChecked(),
-            "auto_open": row["auto_open"].isChecked(),
+            key: widget.isChecked()
+            for key, widget in widgets.items()
         }
 
     def _show_error(self, title, exc):

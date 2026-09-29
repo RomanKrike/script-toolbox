@@ -22,18 +22,19 @@ def test_settings_dialog_exposes_dcc_integrations_page():
     assert 'self._add_category("DCC Integrations"' in source
 
 
-def test_dcc_integration_ui_exposes_required_maya_actions():
+def test_dcc_integration_ui_exposes_required_actions():
     source = _read("scripts/script_toolbox/ui/dcc_integrations.py")
+    base = _read("scripts/script_toolbox/integrations/base.py")
     assert '"Scan DCCs"' in source
-    assert '"Add to Shelf"' in source
-    assert '"Add to Main Menu"' in source
-    assert '"Open on startup"' in source
     assert '"Update"' in source
     assert '"Repair"' in source
     assert '"Uninstall"' in source
     assert '"Install to all"' in source
     assert '"Add profile path..."' in source
     assert '"Profile locations  |  {0}"' in source
+    assert '"Add to Shelf"' in base
+    assert '"Add to Main Menu"' in base
+    assert '"Open on startup"' in base
 
 
 def test_dcc_page_uses_shared_settings_style_primitives_and_metrics():
@@ -132,3 +133,34 @@ def test_dcc_version_headers_include_profile_identity():
     assert "installation.profile_label" in source
     assert "installation.key" in source
     assert "profile_id=installation.profile_id" in source
+
+
+def test_dcc_ui_builds_host_specific_integration_options():
+    source = _read("scripts/script_toolbox/ui/dcc_integrations.py")
+    houdini = _read("scripts/script_toolbox/integrations/houdini.py")
+    nuke = _read("scripts/script_toolbox/integrations/nuke.py")
+
+    assert "adapter.option_definitions()" in source
+    assert "adapter.component_status_text(" in source
+    assert '"Add Houdini Shelf"' in houdini
+    assert '"Add to Main Menu"' in nuke
+    assert '"Register Dock Panel"' in nuke
+    assert '"Open on startup"' in houdini
+    assert '"Open on startup"' in nuke
+
+
+def test_houdini_and_nuke_are_managed_integrations_not_detection_only():
+    houdini = _read("scripts/script_toolbox/integrations/houdini.py")
+    nuke = _read("scripts/script_toolbox/integrations/nuke.py")
+
+    assert "integration_available = True" in houdini
+    assert "supported = True" in houdini
+    assert "def install(self, installation, options=None):" in houdini
+    assert "def repair(self, installation):" in houdini
+    assert "def uninstall(self, installation):" in houdini
+
+    assert "integration_available = True" in nuke
+    assert "supported = True" in nuke
+    assert "def install(self, installation, options=None):" in nuke
+    assert "def repair(self, installation):" in nuke
+    assert "def uninstall(self, installation):" in nuke

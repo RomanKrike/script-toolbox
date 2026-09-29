@@ -6,17 +6,34 @@ from script_toolbox.integrations.base import STATUS_INSTALLED
 from script_toolbox.integrations.base import STATUS_NOT_INSTALLED
 from script_toolbox.integrations.base import STATUS_PARTIAL
 from script_toolbox.integrations.base import STATUS_UPDATE_REQUIRED
+from script_toolbox.integrations.config import add_profile_root
+from script_toolbox.integrations.config import find_profile_id_for_paths
 from script_toolbox.integrations.config import get_integration_settings
+from script_toolbox.integrations.config import get_profile_roots
+from script_toolbox.integrations.config import remove_profile_root
 from script_toolbox.integrations.discovery import parse_version
 from script_toolbox.integrations.manager import DccIntegrationManager
 from script_toolbox.integrations.maya import MayaAdapter
+from script_toolbox.integrations.maya import MayaIntegrationError
 
 
 def _installation(adapter, version):
     for item in adapter.get_installations():
-        if item.version == version:
+        if item.version == version and item.profile_id == "default":
             return item
     raise AssertionError("Maya {0} was not detected".format(version))
+
+
+def _profile_installation(adapter, version, label):
+    for item in adapter.get_installations():
+        if item.version == version and item.profile_label == label:
+            return item
+    raise AssertionError(
+        "Maya {0} profile {1} was not detected".format(
+            version,
+            label
+        )
+    )
 
 
 def test_version_parsing_handles_dcc_folder_names():
@@ -278,3 +295,235 @@ def test_maya_update_required_is_repaired_by_install(tmp_path):
         {"shelf": True, "main_menu": True, "auto_open": False}
     )
     assert result.state == STATUS_INSTALLED
+
+
+def test_custom_maya_profile_root_discovers_same_version_independently(tmp_path):
+    default_root = tmp_path / "maya"
+    custom_root = tmp_path / "parovoz" / "maya" / "rkrikunov"
+    (default_root / "2025").mkdir(parents=True)
+    (custom_root / "2025").mkdir(parents=True)
+
+    config_path = str(tmp_path / "dcc_integrations.json")
+    record = add_profile_root(
+        "maya",
+        str(custom_root),
+        label="Parovoz",
+        path=config_path
+    )
+
+    adapter = MayaAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        user_root=str(default_root),
+        registry_reader=lambda: [
+            ("2025", str(tmp_path / "Autodesk" / "Maya2025"))
+        ],
+        config_path=config_path
+    )
+
+    targets = [
+        item for item in adapter.get_installations()
+        if item.version == "2025"
+    ]
+    assert len(targets) == 2
+    assert [item.profile_label for item in targets] == [
+        "Default",
+        "Parovoz",
+    ]
+    assert targets[0].profile_id == "default"
+    assert targets[1].profile_id == record["id"]
+    assert targets[0].key != targets[1].key
+    assert targets[0].user_config_path.endswith(
+        os.path.join("maya", "2025")
+    )
+    assert targets[1].user_config_path == os.path.normpath(
+        str(custom_root / "2025")
+    )
+
+
+def test_custom_maya_profile_root_can_point_to_specific_version(tmp_path):
+    default_root = tmp_path / "maya"
+    version_profile = tmp_path / "studio" / "maya" / "2025"
+    default_root.mkdir(parents=True)
+    version_profile.mkdir(parents=True)
+
+    config_path = str(tmp_path / "dcc_integrations.json")
+    add_profile_root(
+        "maya",
+        str(version_profile),
+        label="Studio 2025",
+        path=config_path
+    )
+
+    adapter = MayaAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        user_root=str(default_root),
+        registry_reader=lambda: [
+            ("2025", str(tmp_path / "Autodesk" / "Maya2025"))
+        ],
+        config_path=config_path
+    )
+
+    custom = _profile_installation(adapter, "2025", "Studio 2025")
+    assert custom.user_config_path == os.path.normpath(
+        str(version_profile)
+    )
+    assert custom.profile_source == "custom"
+
+
+def test_same_maya_version_profiles_keep_independent_integration_settings(tmp_path):
+    default_root = tmp_path / "maya"
+    custom_root = tmp_path / "parovoz" / "maya" / "rkrikunov"
+    (default_root / "2025").mkdir(parents=True)
+    (custom_root / "2025").mkdir(parents=True)
+    config_path = str(tmp_path / "dcc_integrations.json")
+
+    add_profile_root(
+        "maya",
+        str(custom_root),
+        label="Parovoz",
+        path=config_path
+    )
+    adapter = MayaAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        user_root=str(default_root),
+        registry_reader=lambda: [
+            ("2025", str(tmp_path / "Autodesk" / "Maya2025"))
+        ],
+        config_path=config_path
+    )
+
+    default = _profile_installation(adapter, "2025", "Default")
+    parovoz = _profile_installation(adapter, "2025", "Parovoz")
+
+    adapter.install(
+        default,
+        {"shelf": False, "main_menu": True, "auto_open": False}
+    )
+    adapter.install(
+        parovoz,
+        {"shelf": True, "main_menu": False, "auto_open": False}
+    )
+
+    default_settings = get_integration_settings(
+        "maya",
+        "2025",
+        path=config_path,
+        profile_id=default.profile_id
+    )
+    parovoz_settings = get_integration_settings(
+        "maya",
+        "2025",
+        path=config_path,
+        profile_id=parovoz.profile_id
+    )
+
+    assert default_settings["shelf"] is False
+    assert default_settings["main_menu"] is True
+    assert parovoz_settings["shelf"] is True
+    assert parovoz_settings["main_menu"] is False
+    assert os.path.isfile(adapter._module_path(default))
+    assert os.path.isfile(adapter._module_path(parovoz))
+
+
+def test_runtime_profile_resolution_matches_custom_maya_app_dir(tmp_path):
+    config_path = str(tmp_path / "dcc_integrations.json")
+    custom_root = tmp_path / "parovoz" / "preferences" / "maya" / "rkrikunov"
+    custom_version = custom_root / "2025"
+    custom_version.mkdir(parents=True)
+
+    record = add_profile_root(
+        "maya",
+        str(custom_root),
+        label="Parovoz",
+        path=config_path
+    )
+
+    resolved = find_profile_id_for_paths(
+        "maya",
+        [
+            str(custom_root),
+            str(custom_version),
+        ],
+        path=config_path
+    )
+    assert resolved == record["id"]
+
+    assert find_profile_id_for_paths(
+        "maya",
+        [str(tmp_path / "Documents" / "maya")],
+        path=config_path
+    ) == "default"
+
+
+def test_custom_profile_root_removal_is_blocked_until_uninstalled(tmp_path):
+    import pytest
+
+    default_root = tmp_path / "maya"
+    custom_root = tmp_path / "studio" / "maya"
+    default_root.mkdir(parents=True)
+    (custom_root / "2025").mkdir(parents=True)
+    config_path = str(tmp_path / "dcc_integrations.json")
+
+    record = add_profile_root(
+        "maya",
+        str(custom_root),
+        label="Studio",
+        path=config_path
+    )
+    adapter = MayaAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        user_root=str(default_root),
+        registry_reader=lambda: [
+            ("2025", str(tmp_path / "Autodesk" / "Maya2025"))
+        ],
+        config_path=config_path
+    )
+
+    studio = _profile_installation(adapter, "2025", "Studio")
+    adapter.install(studio)
+
+    with pytest.raises(MayaIntegrationError):
+        adapter.remove_profile_root(record["id"])
+
+    adapter.uninstall(studio)
+    assert adapter.remove_profile_root(record["id"]) is True
+    assert get_profile_roots("maya", path=config_path) == []
+
+
+def test_profile_root_config_add_is_idempotent_and_remove_is_scoped(tmp_path):
+    config_path = str(tmp_path / "dcc_integrations.json")
+    first_path = tmp_path / "profiles" / "one"
+    second_path = tmp_path / "profiles" / "two"
+
+    first = add_profile_root(
+        "maya",
+        str(first_path),
+        label="First",
+        path=config_path
+    )
+    duplicate = add_profile_root(
+        "maya",
+        str(first_path),
+        label="Renamed",
+        path=config_path
+    )
+    second = add_profile_root(
+        "maya",
+        str(second_path),
+        label="Second",
+        path=config_path
+    )
+
+    roots = get_profile_roots("maya", path=config_path)
+    assert len(roots) == 2
+    assert first["id"] == duplicate["id"]
+    assert roots[0]["label"] == "Renamed"
+    assert second["id"] != first["id"]
+
+    assert remove_profile_root(
+        "maya",
+        first["id"],
+        path=config_path
+    ) is True
+    remaining = get_profile_roots("maya", path=config_path)
+    assert [item["id"] for item in remaining] == [second["id"]]

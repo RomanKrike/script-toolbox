@@ -13,7 +13,7 @@ STATUS_UNSUPPORTED = "Unsupported"
 
 
 class DccInstallation(object):
-    """One detected DCC installation and its user configuration location."""
+    """One detected DCC installation/profile integration target."""
 
     def __init__(
         self,
@@ -24,7 +24,11 @@ class DccInstallation(object):
         user_config_path="",
         detected=True,
         integration_available=False,
-        supported=False
+        supported=False,
+        profile_id="default",
+        profile_label="Default",
+        profile_root="",
+        profile_source="default"
     ):
         self.dcc = text_type(dcc or "").strip().lower()
         self.display_name = text_type(display_name or dcc or "").strip()
@@ -34,13 +38,23 @@ class DccInstallation(object):
         self.detected = bool(detected)
         self.integration_available = bool(integration_available)
         self.supported = bool(supported)
+        self.profile_id = text_type(profile_id or "default").strip()
+        self.profile_label = text_type(profile_label or "Default").strip()
+        self.profile_root = text_type(profile_root or "").strip()
+        self.profile_source = text_type(profile_source or "default").strip()
         self.integration_status = STATUS_NOT_INSTALLED
 
     @property
     def key(self):
-        return "{0}:{1}".format(
+        if self.profile_id == "default":
+            return "{0}:{1}".format(
+                self.dcc,
+                self.version
+            )
+        return "{0}:{1}:{2}".format(
             self.dcc,
-            self.version
+            self.version,
+            self.profile_id
         )
 
     def to_dict(self):
@@ -53,6 +67,10 @@ class DccInstallation(object):
             "detected": self.detected,
             "integration_available": self.integration_available,
             "supported": self.supported,
+            "profile_id": self.profile_id,
+            "profile_label": self.profile_label,
+            "profile_root": self.profile_root,
+            "profile_source": self.profile_source,
             "integration_status": self.integration_status,
         }
 

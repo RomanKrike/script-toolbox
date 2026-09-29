@@ -18,8 +18,13 @@ from .base import STATUS_INSTALLED
 from .base import STATUS_NOT_INSTALLED
 from .base import STATUS_PARTIAL
 from .base import STATUS_UPDATE_REQUIRED
+from .config import DEFAULT_PROFILE_ID
+from .config import add_profile_root
+from .config import find_profile_id_for_paths
 from .config import get_integration_settings
+from .config import get_profile_roots
 from .config import remove_integration_settings
+from .config import remove_profile_root
 from .config import set_integration_settings
 from .discovery import distribution_root
 from .discovery import existing_directories
@@ -266,6 +271,77 @@ class MayaAdapter(DccAdapter):
         self.config_path = config_path
 
     @staticmethod
+    def _same_path(first, second):
+        if not first or not second:
+            return False
+        return os.path.normcase(os.path.normpath(first)) == os.path.normcase(
+            os.path.normpath(second)
+        )
+
+    def profile_roots(self):
+        roots = [{
+            "id": DEFAULT_PROFILE_ID,
+            "label": "Default",
+            "path": self.user_root,
+            "source": "default",
+            "removable": False,
+        }]
+        for record in get_profile_roots(
+            self.key,
+            path=self.config_path
+        ):
+            item = dict(record)
+            item["source"] = "custom"
+            item["removable"] = True
+            roots.append(item)
+        return roots
+
+    def add_profile_root(self, profile_path, label=""):
+        normalized = os.path.normpath(
+            os.path.expanduser(
+                text_type(profile_path or "").strip()
+            )
+        )
+        if not normalized:
+            raise MayaIntegrationError("Profile path is empty.")
+        if self._same_path(normalized, self.user_root):
+            raise MayaIntegrationError(
+                "This path is already the default Maya profile root."
+            )
+        return add_profile_root(
+            self.key,
+            normalized,
+            label=label,
+            path=self.config_path
+        )
+
+    def remove_profile_root(self, profile_id):
+        profile_id = text_type(profile_id or "").strip()
+        if not profile_id or profile_id == DEFAULT_PROFILE_ID:
+            raise MayaIntegrationError(
+                "The default Maya profile root cannot be removed."
+            )
+
+        for installation in self.get_installations():
+            if installation.profile_id != profile_id:
+                continue
+            if self.status(installation).state != STATUS_NOT_INSTALLED:
+                raise MayaIntegrationError(
+                    "Uninstall Script Toolbox from {0} {1} ({2}) before "
+                    "removing this profile path.".format(
+                        self.display_name,
+                        installation.version,
+                        installation.profile_label
+                    )
+                )
+
+        return remove_profile_root(
+            self.key,
+            profile_id,
+            path=self.config_path
+        )
+
+    @staticmethod
     def _module_path(installation):
         return os.path.join(
             installation.user_config_path,
@@ -365,50 +441,130 @@ class MayaAdapter(DccAdapter):
                 result.append((version, path))
         return result
 
-    def get_installations(self):
-        by_version = {}
-        for version, install_path in self._detected_install_paths():
-            by_version[version] = install_path
+    @staticmethod
+    def _profile_targets_for_root(root_path):
+        root_path = os.path.normpath(
+            os.path.expanduser(
+                text_type(root_path or "").strip()
+            )
+        )
+        if not root_path or not os.path.isdir(root_path):
+            return []
 
-        if os.path.isdir(self.user_root):
-            try:
-                names = os.listdir(self.user_root)
-            except OSError:
-                names = []
-            for name in names:
-                path = os.path.join(self.user_root, name)
-                if not os.path.isdir(path):
-                    continue
-                version = parse_version(name)
-                if not version or len(version) != 4:
-                    continue
-                by_version.setdefault(version, "")
+        base_name = os.path.basename(root_path.rstrip("\\/"))
+        base_version = parse_version(base_name)
+        if base_version and len(base_version) == 4:
+            return [(base_version, root_path)]
+
+        try:
+            names = os.listdir(root_path)
+        except OSError:
+            names = []
+
+        result = []
+        seen = set()
+        for name in names:
+            profile_path = os.path.join(root_path, name)
+            if not os.path.isdir(profile_path):
+                continue
+            version = parse_version(name)
+            if not version or len(version) != 4:
+                continue
+            key = (version, os.path.normcase(profile_path))
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append((version, profile_path))
+        result.sort(key=lambda item: version_sort_key(item[0]))
+        return result
+
+    def get_installations(self):
+        install_paths = {}
+        for version, install_path in self._detected_install_paths():
+            install_paths[version] = install_path
+
+        default_versions = set(install_paths.keys())
+        for version, unused_path in self._profile_targets_for_root(
+            self.user_root
+        ):
+            default_versions.add(version)
 
         installations = []
-        for version in sorted(by_version.keys(), key=version_sort_key):
+        seen_user_configs = set()
+        for version in sorted(default_versions, key=version_sort_key):
+            default_config_path = maya_user_config_for_version(
+                version,
+                user_root=self.user_root
+            )
+            seen_user_configs.add(
+                os.path.normcase(
+                    os.path.normpath(default_config_path)
+                )
+            )
             installation = DccInstallation(
                 self.key,
                 self.display_name,
                 version,
-                install_path=by_version[version],
-                user_config_path=maya_user_config_for_version(
-                    version,
-                    user_root=self.user_root
-                ),
+                install_path=install_paths.get(version, ""),
+                user_config_path=default_config_path,
                 integration_available=True,
-                supported=True
+                supported=True,
+                profile_id=DEFAULT_PROFILE_ID,
+                profile_label="Default",
+                profile_root=self.user_root,
+                profile_source="default"
             )
             installation.integration_status = self.status(
                 installation
             ).state
             installations.append(installation)
+
+        for record in get_profile_roots(
+            self.key,
+            path=self.config_path
+        ):
+            for version, profile_path in self._profile_targets_for_root(
+                record.get("path")
+            ):
+                profile_path_key = os.path.normcase(
+                    os.path.normpath(profile_path)
+                )
+                if profile_path_key in seen_user_configs:
+                    continue
+                seen_user_configs.add(profile_path_key)
+                installation = DccInstallation(
+                    self.key,
+                    self.display_name,
+                    version,
+                    install_path=install_paths.get(version, ""),
+                    user_config_path=profile_path,
+                    integration_available=True,
+                    supported=True,
+                    profile_id=record["id"],
+                    profile_label=record.get("label") or "Custom",
+                    profile_root=record.get("path") or "",
+                    profile_source="custom"
+                )
+                installation.integration_status = self.status(
+                    installation
+                ).state
+                installations.append(installation)
+
+        installations.sort(
+            key=lambda item: (
+                version_sort_key(item.version),
+                0 if item.profile_id == DEFAULT_PROFILE_ID else 1,
+                item.profile_label.lower()
+            )
+        )
         return installations
 
     def status(self, installation):
         settings = get_integration_settings(
             self.key,
             installation.version,
-            path=self.config_path
+            path=self.config_path,
+            profile_id=installation.profile_id
         )
         user_setup = self._user_setup_path(installation)
         shelf_path = self._shelf_path(installation)
@@ -559,6 +715,33 @@ class MayaAdapter(DccAdapter):
             )
             if current != text_type(installation.version):
                 return False
+
+            candidates = []
+            try:
+                candidates.append(cmds.internalVar(userAppDir=True))
+            except Exception:
+                pass
+            try:
+                user_pref = cmds.internalVar(userPrefDir=True)
+                if user_pref:
+                    candidates.append(
+                        os.path.dirname(
+                            os.path.normpath(
+                                user_pref.rstrip("\\/")
+                            )
+                        )
+                    )
+            except Exception:
+                pass
+
+            current_profile_id = find_profile_id_for_paths(
+                self.key,
+                candidates,
+                path=self.config_path
+            )
+            if current_profile_id != installation.profile_id:
+                return False
+
             from . import maya_runtime
             maya_runtime.apply_current_integration()
             return True
@@ -595,13 +778,17 @@ class MayaAdapter(DccAdapter):
         stored.update({
             "install_path": installation.install_path,
             "user_config_path": installation.user_config_path,
+            "profile_id": installation.profile_id,
+            "profile_label": installation.profile_label,
+            "profile_root": installation.profile_root,
             "plugin_version": PLUGIN_VERSION,
         })
         set_integration_settings(
             self.key,
             installation.version,
             stored,
-            path=self.config_path
+            path=self.config_path,
+            profile_id=installation.profile_id
         )
         self._sync_live_maya(installation)
 
@@ -620,7 +807,8 @@ class MayaAdapter(DccAdapter):
         settings = get_integration_settings(
             self.key,
             installation.version,
-            path=self.config_path
+            path=self.config_path,
+            profile_id=installation.profile_id
         )
         if settings is None:
             settings = {
@@ -647,7 +835,8 @@ class MayaAdapter(DccAdapter):
         remove_integration_settings(
             self.key,
             installation.version,
-            path=self.config_path
+            path=self.config_path,
+            profile_id=installation.profile_id
         )
         self._sync_live_maya(installation)
 

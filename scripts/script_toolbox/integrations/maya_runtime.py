@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+import os
+
 from ..core.logging_utils import get_logger
+from .config import find_profile_id_for_paths
 from .config import get_integration_settings
 from .discovery import parse_version
 
@@ -26,13 +29,42 @@ def _current_version():
         return ""
 
 
+def _current_profile_id():
+    candidates = []
+    cmds = _cmds()
+
+    try:
+        candidates.append(cmds.internalVar(userAppDir=True))
+    except Exception:
+        pass
+
+    try:
+        user_pref = cmds.internalVar(userPrefDir=True)
+        if user_pref:
+            candidates.append(
+                os.path.dirname(
+                    os.path.normpath(
+                        user_pref.rstrip("\\/")
+                    )
+                )
+            )
+    except Exception:
+        pass
+
+    return find_profile_id_for_paths(
+        "maya",
+        candidates
+    )
+
+
 def _current_settings():
     version = _current_version()
     if not version:
         return None
     return get_integration_settings(
         "maya",
-        version
+        version,
+        profile_id=_current_profile_id()
     )
 
 

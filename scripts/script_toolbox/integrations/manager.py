@@ -63,6 +63,41 @@ class DccIntegrationManager(object):
                 )
         return result
 
+    def profile_roots(self, dcc):
+        adapter = self.adapter(dcc)
+        if adapter is None:
+            raise KeyError(dcc)
+        callback = getattr(adapter, "profile_roots", None)
+        if not callable(callback):
+            return []
+        return callback()
+
+    def add_profile_root(self, dcc, profile_path, label=""):
+        adapter = self.adapter(dcc)
+        if adapter is None:
+            raise KeyError(dcc)
+        callback = getattr(adapter, "add_profile_root", None)
+        if not callable(callback):
+            raise RuntimeError(
+                "Custom profile roots are not supported for {0}.".format(
+                    adapter.display_name
+                )
+            )
+        return callback(profile_path, label=label)
+
+    def remove_profile_root(self, dcc, profile_id):
+        adapter = self.adapter(dcc)
+        if adapter is None:
+            raise KeyError(dcc)
+        callback = getattr(adapter, "remove_profile_root", None)
+        if not callable(callback):
+            raise RuntimeError(
+                "Custom profile roots are not supported for {0}.".format(
+                    adapter.display_name
+                )
+            )
+        return callback(profile_id)
+
     def status(self, installation):
         adapter = self.adapter(installation.dcc)
         if adapter is None:

@@ -83,3 +83,13 @@ def test_resource_actions_open_project_urls_in_default_browser():
     )
     assert "QtGui.QDesktopServices.openUrl(" in source
     assert "QtCore.QUrl(url)" in source
+
+
+def test_header_gear_menu_uses_shared_plugin_stylesheet():
+    source = _read(
+        "scripts/script_toolbox/ui/settings_ui.py"
+    )
+
+    assert "from ..style import STYLE" in source
+    assert "menu.setStyleSheet(" in source
+    assert "STYLE" in source

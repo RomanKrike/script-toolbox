@@ -20,6 +20,7 @@ from ..model.items import new_id
 from ..model.items import sanitize_name
 from ..pycompat import text_type
 from ..style import STYLE
+from ..style import apply_window_icon
 from ..style import metrics
 from ..style.palette import TEXT_PALETTE_GROUP
 from ..style.palette import WINDOW_BG
@@ -119,6 +120,9 @@ class InterfaceEditor(QtGui.QDialog):
             "Edit Parameter Interface - {0}".format(
                 HOST.display_name
             )
+        )
+        apply_window_icon(
+            self
         )
         self.resize(
             1240,

@@ -10,6 +10,7 @@ on:
       - "scripts/script_toolbox/**"
       - "standalone/**"
       - "tools/build_standalone_portable.py"
+      - "tools/embed_windows_icon.py"
       - ".github/workflows/standalone-build.yml"
 
 concurrency:
@@ -78,6 +79,13 @@ jobs:
           cmd /d /s /c "`"$vcvars`" && cl /nologo /O2 /W4 `"$source`" /link /SUBSYSTEM:WINDOWS /OUT:`"$output`""
           if ($LASTEXITCODE -ne 0) {
             throw "Standalone launcher compilation failed."
+          }
+
+          python tools/embed_windows_icon.py `
+            --exe $output `
+            --icon "scripts/script_toolbox/resources/logo_sbt.ico"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Standalone launcher icon embedding failed."
           }
 
       - name: Build portable ZIP

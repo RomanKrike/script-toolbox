@@ -24,6 +24,8 @@ from ..model.item_registry import ITEM_TYPES
 from ..model.items import safe_color
 from ..pycompat import text_type
 from ..style import STYLE
+from ..style import application_icon
+from ..style import apply_window_icon
 from ..style import metrics
 from ..style import toolbar_icon
 from ..style.palette import CONTENT_BG
@@ -71,6 +73,9 @@ class ScriptToolbox(QtGui.QMainWindow):
                 PLUGIN_VERSION,
                 HOST.display_name
             )
+        )
+        apply_window_icon(
+            self
         )
         self.resize(420, 700)
         self.setMinimumWidth(310)
@@ -123,6 +128,29 @@ class ScriptToolbox(QtGui.QMainWindow):
             top_layout,
             margins=metrics.TOOLBOX_TOPBAR_MARGINS,
             spacing=metrics.TOOLBOX_TOPBAR_SPACING
+        )
+
+        self.logo_label = QtGui.QLabel()
+        self.logo_label.setObjectName("ToolboxLogo")
+        self.logo_label.setFixedSize(
+            18,
+            18
+        )
+        self.logo_label.setAlignment(
+            QtCore.Qt.AlignCenter
+        )
+        logo = application_icon()
+        if not logo.isNull():
+            self.logo_label.setPixmap(
+                logo.pixmap(
+                    QtCore.QSize(
+                        16,
+                        16
+                    )
+                )
+            )
+        top_layout.addWidget(
+            self.logo_label
         )
 
         title = QtGui.QLabel(

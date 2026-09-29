@@ -124,6 +124,12 @@ def validate_portable_root(root):
         os.path.join(
             "scripts",
             "script_toolbox",
+            "resources",
+            "logo_sbt.ico"
+        ),
+        os.path.join(
+            "scripts",
+            "script_toolbox",
             "hosts",
             "standalone_host.py"
         ),

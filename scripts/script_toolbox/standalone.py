@@ -52,6 +52,22 @@ def run_standalone(
             )
         )
 
+    set_window_icon = getattr(
+        application,
+        "setWindowIcon",
+        None
+    )
+    if set_window_icon is not None:
+        try:
+            from .style import application_icon
+            icon = application_icon()
+            if not icon.isNull():
+                set_window_icon(
+                    icon
+                )
+        except Exception:
+            pass
+
     show_toolbox()
 
     if not owns_application:

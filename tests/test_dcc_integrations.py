@@ -849,3 +849,403 @@ def test_houdini_and_nuke_expose_host_specific_options(tmp_path):
         "dock_panel",
         "auto_open",
     ]
+
+
+def test_houdini_custom_profile_root_discovers_version_profile(tmp_path):
+    program_files = tmp_path / "Program Files"
+    install = (
+        program_files /
+        "Side Effects Software" /
+        "Houdini 21.0.440"
+    )
+    install.mkdir(parents=True)
+
+    default_root = tmp_path / "Documents"
+    default_root.mkdir()
+    studio_root = tmp_path / "studio_houdini"
+    studio_profile = studio_root / "houdini21.0"
+    studio_profile.mkdir(parents=True)
+
+    config_path = str(tmp_path / "dcc_integrations.json")
+    adapter = HoudiniAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        program_files=str(program_files),
+        user_root=str(default_root),
+        config_path=config_path
+    )
+    adapter.detected_install_paths = lambda: [
+        ("21.0.440", str(install))
+    ]
+    record = adapter.add_profile_root(
+        str(studio_root),
+        label="Studio"
+    )
+
+    targets = [
+        item for item in adapter.get_installations()
+        if item.version == "21.0.440"
+    ]
+    assert [item.profile_label for item in targets] == [
+        "Default",
+        "Studio",
+    ]
+    assert targets[1].profile_id == record["id"]
+    assert targets[1].user_config_path == os.path.normpath(
+        str(studio_profile)
+    )
+
+
+def test_houdini_custom_direct_pref_path_supports_arbitrary_folder_name(tmp_path):
+    program_files = tmp_path / "Program Files"
+    install = (
+        program_files /
+        "Side Effects Software" /
+        "Houdini 20.5.654"
+    )
+    install.mkdir(parents=True)
+
+    custom_pref = tmp_path / "project" / "prefs"
+    custom_pref.mkdir(parents=True)
+    config_path = str(tmp_path / "dcc_integrations.json")
+    adapter = HoudiniAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        program_files=str(program_files),
+        user_root=str(tmp_path / "Documents"),
+        config_path=config_path
+    )
+    adapter.detected_install_paths = lambda: [
+        ("20.5.654", str(install))
+    ]
+    adapter.add_profile_root(
+        str(custom_pref),
+        label="Project"
+    )
+
+    project = _profile_installation(
+        adapter,
+        "20.5.654",
+        "Project"
+    )
+    assert project.user_config_path == os.path.normpath(
+        str(custom_pref)
+    )
+
+
+def test_houdini_same_version_profiles_keep_independent_settings(tmp_path):
+    program_files = tmp_path / "Program Files"
+    install = (
+        program_files /
+        "Side Effects Software" /
+        "Houdini 21.0.440"
+    )
+    install.mkdir(parents=True)
+
+    default_root = tmp_path / "Documents"
+    default_root.mkdir()
+    custom_pref = tmp_path / "studio" / "houdini21.0"
+    custom_pref.mkdir(parents=True)
+    config_path = str(tmp_path / "dcc_integrations.json")
+
+    adapter = HoudiniAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        program_files=str(program_files),
+        user_root=str(default_root),
+        config_path=config_path
+    )
+    adapter.detected_install_paths = lambda: [
+        ("21.0.440", str(install))
+    ]
+    adapter.add_profile_root(
+        str(custom_pref),
+        label="Studio"
+    )
+
+    default = _profile_installation(
+        adapter,
+        "21.0.440",
+        "Default"
+    )
+    studio = _profile_installation(
+        adapter,
+        "21.0.440",
+        "Studio"
+    )
+    adapter.install(
+        default,
+        {"shelf": False, "auto_open": False}
+    )
+    adapter.install(
+        studio,
+        {"shelf": True, "auto_open": True}
+    )
+
+    default_settings = get_integration_settings(
+        "houdini",
+        "21.0.440",
+        path=config_path,
+        profile_id=default.profile_id
+    )
+    studio_settings = get_integration_settings(
+        "houdini",
+        "21.0.440",
+        path=config_path,
+        profile_id=studio.profile_id
+    )
+    assert default_settings["shelf"] is False
+    assert studio_settings["shelf"] is True
+    assert studio_settings["auto_open"] is True
+    assert studio.profile_id in open(
+        adapter._startup_paths(studio)[0],
+        "r"
+    ).read()
+
+
+def test_houdini_profile_root_removal_requires_uninstall(tmp_path):
+    import pytest
+
+    program_files = tmp_path / "Program Files"
+    install = (
+        program_files /
+        "Side Effects Software" /
+        "Houdini 21.0.440"
+    )
+    install.mkdir(parents=True)
+    custom_pref = tmp_path / "studio" / "houdini21.0"
+    custom_pref.mkdir(parents=True)
+    config_path = str(tmp_path / "dcc_integrations.json")
+
+    adapter = HoudiniAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        program_files=str(program_files),
+        user_root=str(tmp_path / "Documents"),
+        config_path=config_path
+    )
+    adapter.detected_install_paths = lambda: [
+        ("21.0.440", str(install))
+    ]
+    record = adapter.add_profile_root(
+        str(custom_pref),
+        label="Studio"
+    )
+    studio = _profile_installation(
+        adapter,
+        "21.0.440",
+        "Studio"
+    )
+    adapter.install(studio)
+
+    with pytest.raises(Exception):
+        adapter.remove_profile_root(
+            record["id"]
+        )
+
+    adapter.uninstall(studio)
+    assert adapter.remove_profile_root(
+        record["id"]
+    ) is True
+
+
+def test_nuke_custom_profile_path_creates_targets_for_each_version(tmp_path):
+    program_files = tmp_path / "Program Files"
+    (program_files / "Nuke15.2v3").mkdir(parents=True)
+    (program_files / "Nuke16.0v1").mkdir()
+
+    default_nuke = tmp_path / "home" / ".nuke"
+    default_nuke.mkdir(parents=True)
+    studio_parent = tmp_path / "studio"
+    studio_nuke = studio_parent / ".nuke"
+    studio_nuke.mkdir(parents=True)
+    config_path = str(tmp_path / "dcc_integrations.json")
+
+    adapter = NukeAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        program_files=str(program_files),
+        user_config_path=str(default_nuke),
+        config_path=config_path
+    )
+    adapter.detected_install_paths = lambda: [
+        ("15.2", str(program_files / "Nuke15.2v3")),
+        ("16.0", str(program_files / "Nuke16.0v1")),
+    ]
+    record = adapter.add_profile_root(
+        str(studio_parent),
+        label="Studio"
+    )
+
+    studio_targets = [
+        item for item in adapter.get_installations()
+        if item.profile_label == "Studio"
+    ]
+    assert [item.version for item in studio_targets] == [
+        "15.2",
+        "16.0",
+    ]
+    assert all(
+        item.profile_id == record["id"]
+        for item in studio_targets
+    )
+    assert all(
+        item.user_config_path == os.path.normpath(
+            str(studio_nuke)
+        )
+        for item in studio_targets
+    )
+
+
+def test_nuke_same_version_profiles_are_independent(tmp_path):
+    program_files = tmp_path / "Program Files"
+    (program_files / "Nuke16.0v1").mkdir(parents=True)
+
+    default_nuke = tmp_path / "home" / ".nuke"
+    studio_nuke = tmp_path / "studio" / ".nuke"
+    default_nuke.mkdir(parents=True)
+    studio_nuke.mkdir(parents=True)
+    config_path = str(tmp_path / "dcc_integrations.json")
+
+    adapter = NukeAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        program_files=str(program_files),
+        user_config_path=str(default_nuke),
+        config_path=config_path
+    )
+    adapter.detected_install_paths = lambda: [
+        ("16.0", str(program_files / "Nuke16.0v1"))
+    ]
+    adapter.add_profile_root(
+        str(studio_nuke),
+        label="Studio"
+    )
+
+    default = _profile_installation(
+        adapter,
+        "16.0",
+        "Default"
+    )
+    studio = _profile_installation(
+        adapter,
+        "16.0",
+        "Studio"
+    )
+
+    adapter.install(
+        default,
+        {
+            "main_menu": True,
+            "dock_panel": False,
+            "auto_open": False,
+        }
+    )
+    adapter.install(
+        studio,
+        {
+            "main_menu": False,
+            "dock_panel": True,
+            "auto_open": True,
+        }
+    )
+
+    default_settings = get_integration_settings(
+        "nuke",
+        "16.0",
+        path=config_path,
+        profile_id=default.profile_id
+    )
+    studio_settings = get_integration_settings(
+        "nuke",
+        "16.0",
+        path=config_path,
+        profile_id=studio.profile_id
+    )
+    assert default_settings["main_menu"] is True
+    assert default_settings["dock_panel"] is False
+    assert studio_settings["main_menu"] is False
+    assert studio_settings["dock_panel"] is True
+    assert studio.profile_id in (
+        studio_nuke / "menu.py"
+    ).read_text(encoding="utf-8")
+
+
+def test_nuke_uninstall_one_profile_does_not_touch_other_menu(tmp_path):
+    program_files = tmp_path / "Program Files"
+    (program_files / "Nuke16.0v1").mkdir(parents=True)
+
+    default_nuke = tmp_path / "home" / ".nuke"
+    studio_nuke = tmp_path / "studio" / ".nuke"
+    default_nuke.mkdir(parents=True)
+    studio_nuke.mkdir(parents=True)
+    config_path = str(tmp_path / "dcc_integrations.json")
+
+    adapter = NukeAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        program_files=str(program_files),
+        user_config_path=str(default_nuke),
+        config_path=config_path
+    )
+    adapter.detected_install_paths = lambda: [
+        ("16.0", str(program_files / "Nuke16.0v1"))
+    ]
+    adapter.add_profile_root(
+        str(studio_nuke),
+        label="Studio"
+    )
+
+    default = _profile_installation(
+        adapter,
+        "16.0",
+        "Default"
+    )
+    studio = _profile_installation(
+        adapter,
+        "16.0",
+        "Studio"
+    )
+    adapter.install(default)
+    adapter.install(studio)
+    adapter.uninstall(studio)
+
+    assert "ScriptToolbox Nuke Integration" in (
+        default_nuke / "menu.py"
+    ).read_text(encoding="utf-8")
+    assert "ScriptToolbox Nuke Integration" not in (
+        studio_nuke / "menu.py"
+    ).read_text(encoding="utf-8")
+
+
+def test_nuke_profile_root_removal_requires_uninstall(tmp_path):
+    import pytest
+
+    program_files = tmp_path / "Program Files"
+    (program_files / "Nuke15.2v3").mkdir(parents=True)
+    custom_nuke = tmp_path / "studio" / ".nuke"
+    custom_nuke.mkdir(parents=True)
+    config_path = str(tmp_path / "dcc_integrations.json")
+
+    adapter = NukeAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        program_files=str(program_files),
+        user_config_path=str(tmp_path / "home" / ".nuke"),
+        config_path=config_path
+    )
+    adapter.detected_install_paths = lambda: [
+        ("15.2", str(program_files / "Nuke15.2v3"))
+    ]
+    record = adapter.add_profile_root(
+        str(custom_nuke),
+        label="Studio"
+    )
+    studio = _profile_installation(
+        adapter,
+        "15.2",
+        "Studio"
+    )
+    adapter.install(studio)
+
+    with pytest.raises(Exception):
+        adapter.remove_profile_root(
+            record["id"]
+        )
+
+    adapter.uninstall(studio)
+    assert adapter.remove_profile_root(
+        record["id"]
+    ) is True

@@ -23,7 +23,7 @@ class DetectionOnlyAdapter(DccAdapter):
     def user_config_path(self, version):
         return ""
 
-    def get_installations(self):
+    def detected_install_paths(self):
         by_version = {}
 
         if self.environment_variable:
@@ -37,6 +37,19 @@ class DetectionOnlyAdapter(DccAdapter):
             version = parse_version(path)
             if version:
                 by_version.setdefault(version, path)
+
+        return [
+            (version, by_version[version])
+            for version in sorted(
+                by_version.keys(),
+                key=version_sort_key
+            )
+        ]
+
+    def get_installations(self):
+        by_version = dict(
+            self.detected_install_paths()
+        )
 
         result = []
         for version in sorted(by_version.keys(), key=version_sort_key):

@@ -112,19 +112,28 @@ def test_dcc_headers_summarize_detection_and_version_status():
     assert "status.state" in source
 
 
-def test_dcc_page_exposes_custom_maya_profile_root_controls():
+def test_dcc_page_exposes_generic_custom_profile_root_controls():
     source = _read("scripts/script_toolbox/ui/dcc_integrations.py")
     manager = _read("scripts/script_toolbox/integrations/manager.py")
+    maya = _read("scripts/script_toolbox/integrations/maya.py")
+    houdini = _read("scripts/script_toolbox/integrations/houdini.py")
+    nuke = _read("scripts/script_toolbox/integrations/nuke.py")
 
-    assert "def _add_maya_profile_locations(self, layout, parent):" in source
-    assert "def _add_maya_profile_path(self, *args):" in source
-    assert "def _remove_maya_profile_path(self, profile_id):" in source
+    assert "def _add_profile_locations(" in source
+    assert "def _add_profile_path(" in source
+    assert "def _remove_profile_path(" in source
+    assert "def _supports_profile_locations(adapter):" in source
     assert "QtGui.QFileDialog.getExistingDirectory(" in source
     assert "QtGui.QInputDialog.getText(" in source
     assert 'self.manager.add_profile_root(' in source
     assert 'self.manager.remove_profile_root(' in source
     assert "def add_profile_root(self, dcc, profile_path, label=" in manager
     assert "def remove_profile_root(self, dcc, profile_id):" in manager
+
+    for adapter_source in (maya, houdini, nuke):
+        assert "def profile_roots(self):" in adapter_source
+        assert "def add_profile_root(self, profile_path, label=" in adapter_source
+        assert "def remove_profile_root(self, profile_id):" in adapter_source
 
 
 def test_dcc_version_headers_include_profile_identity():
@@ -164,3 +173,17 @@ def test_houdini_and_nuke_are_managed_integrations_not_detection_only():
     assert "def install(self, installation, options=None):" in nuke
     assert "def repair(self, installation):" in nuke
     assert "def uninstall(self, installation):" in nuke
+
+
+def test_houdini_and_nuke_custom_profiles_are_profile_aware_at_runtime():
+    houdini = _read("scripts/script_toolbox/integrations/houdini.py")
+    nuke = _read("scripts/script_toolbox/integrations/nuke.py")
+    houdini_runtime = _read("scripts/script_toolbox/houdini_integration.py")
+    nuke_runtime = _read("scripts/script_toolbox/nuke_integration.py")
+
+    assert "profile_id=installation.profile_id" in houdini
+    assert "profile_id=installation.profile_id" in nuke
+    assert "def apply_current_integration(profile_id=None):" in houdini_runtime
+    assert "def apply_current_integration(profile_id=None):" in nuke_runtime
+    assert "profile_id=profile_id" in houdini_runtime
+    assert "profile_id=profile_id" in nuke_runtime

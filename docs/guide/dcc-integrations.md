@@ -145,6 +145,8 @@ Available options:
 
 Install / Update / Repair / Uninstall are filesystem-backed and do not modify `houdini.env`.
 
+Houdini also supports **Profile locations**. Add either a parent containing folders such as `houdini20.5` / `houdini21.0`, or select a specific `HOUDINI_USER_PREF_DIR` directly. Each version/profile target is configured independently, so a studio launcher can use different integration settings from the default Documents profile.
+
 ## Nuke integration
 
 For Nuke, Install adds one marked Script Toolbox block to the existing user `~/.nuke/menu.py`. Existing menu code is preserved and backed up before the first managed edit.
@@ -155,7 +157,9 @@ Available options:
 - **Register Dock Panel**
 - **Open on startup**
 
-The same `~/.nuke/menu.py` can serve multiple installed Nuke versions. Per-version integration settings remain independent; the managed startup block is removed only after the final configured Nuke version is uninstalled.
+The same `~/.nuke/menu.py` can serve multiple installed Nuke versions. Per-version integration settings remain independent; the managed startup block is removed only after the final configured Nuke version in that profile is uninstalled.
+
+Nuke also supports **Profile locations**. Add a custom Nuke prefs directory (for example a studio `.nuke` directory). If the selected parent contains a `.nuke` child, Script Toolbox uses that child automatically. Every detected Nuke version gets a separate target for each configured profile location.
 
 ## Remaining work
 

@@ -36,6 +36,19 @@ Nuke versions share the same `~/.nuke/menu.py` bootstrap, while their options ar
 
 **Repair** recreates a missing managed startup block. **Update** rewrites a stale Script Toolbox path.
 
+### Custom profile locations
+
+Expand **Profile locations** in the Nuke section to add a studio-specific preferences path. Select the actual Nuke preferences folder, or select a parent that already contains a `.nuke` child; Script Toolbox resolves that child automatically.
+
+For each detected Nuke version, Settings then shows separate targets such as:
+
+```text
+16.0 - Default | Installed
+16.0 - Studio  | Not installed
+```
+
+Each profile gets its own managed `menu.py` block and independent Main Menu / Dock Panel / startup options. Uninstalling one profile does not edit another profile's `menu.py`.
+
 ## Usage
 
 Floating window:

@@ -38,6 +38,28 @@ Options:
 
 Restart Houdini after installing from standalone so Houdini processes the package during startup. When Script Toolbox runs inside the matching Houdini process it also attempts a live UI sync.
 
+### Custom profile locations
+
+Expand **Profile locations** in the Houdini section to add studio or launcher-specific preferences.
+
+You can select either:
+
+```text
+D:\\studio\\houdini-prefs
+    houdini20.5
+    houdini21.0
+```
+
+or a concrete preferences directory such as:
+
+```text
+D:\\studio\\show\\prefs
+```
+
+If the selected root contains `houdiniX.Y` children, Script Toolbox maps installed Houdini builds to those folders by major/minor version. Otherwise the selected directory is treated as the direct custom `HOUDINI_USER_PREF_DIR`.
+
+Default and custom targets of the same Houdini version keep independent integration settings.
+
 ## Manual development setup
 
 The managed installer uses the same Houdini package mechanism as a manual development setup. The example package remains available at:

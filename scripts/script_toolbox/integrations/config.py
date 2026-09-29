@@ -295,6 +295,77 @@ def configured_versions(dcc, path=None):
     return sorted(versions)
 
 
+def user_config_has_integration_settings(
+    dcc,
+    user_config_path,
+    path=None
+):
+    requested = text_type(
+        user_config_path or ""
+    ).strip()
+    if not requested:
+        return False
+    requested = os.path.normcase(
+        os.path.normpath(
+            os.path.expanduser(requested)
+        )
+    )
+
+    document = load_integration_config(path=path)
+    dcc_data = document.get("dcc_integrations", {}).get(
+        text_type(dcc).lower(),
+        {}
+    )
+    if not isinstance(dcc_data, dict):
+        return False
+
+    for settings in dcc_data.values():
+        if not isinstance(settings, dict):
+            continue
+        candidate = text_type(
+            settings.get("user_config_path") or ""
+        ).strip()
+        if not candidate:
+            continue
+        candidate = os.path.normcase(
+            os.path.normpath(
+                os.path.expanduser(candidate)
+            )
+        )
+        if candidate == requested:
+            return True
+    return False
+
+
+def profile_has_integration_settings(
+    dcc,
+    profile_id,
+    path=None
+):
+    document = load_integration_config(path=path)
+    dcc_data = document.get("dcc_integrations", {}).get(
+        text_type(dcc).lower(),
+        {}
+    )
+    if not isinstance(dcc_data, dict):
+        return False
+
+    requested = text_type(
+        profile_id or DEFAULT_PROFILE_ID
+    ).strip() or DEFAULT_PROFILE_ID
+
+    for target_key in dcc_data.keys():
+        parts = text_type(target_key).split("::", 1)
+        current = (
+            parts[1]
+            if len(parts) == 2
+            else DEFAULT_PROFILE_ID
+        )
+        if current == requested:
+            return True
+    return False
+
+
 def get_profile_roots(dcc, path=None):
     document = load_integration_config(path=path)
     roots = document.get("dcc_profile_roots", {}).get(
@@ -405,9 +476,11 @@ __all__ = [
     "integration_config_path",
     "integration_target_key",
     "load_integration_config",
+    "profile_has_integration_settings",
     "profile_id_for_path",
     "remove_integration_settings",
     "remove_profile_root",
     "save_integration_config",
     "set_integration_settings",
+    "user_config_has_integration_settings",
 ]

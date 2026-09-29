@@ -99,7 +99,7 @@ jobs:
 
           $env:QT_QPA_PLATFORM = "offscreen"
           $env:SCRIPT_TOOLBOX_PORTABLE_ROOT = $package.FullName
-          $code = "import os,sys; root=os.environ['SCRIPT_TOOLBOX_PORTABLE_ROOT']; sys.path.insert(0, os.path.join(root, 'scripts')); import script_toolbox; assert script_toolbox.__host__ == 'standalone'; from script_toolbox.compat import QtGui; app=QtGui.QApplication([]); window=script_toolbox.show(); assert window is not None; window.close(); app.processEvents(); print('Standalone UI smoke passed')"
+          $code = "import os,sys; root=os.environ['SCRIPT_TOOLBOX_PORTABLE_ROOT']; sys.path.insert(0, os.path.join(root, 'scripts')); import script_toolbox; assert script_toolbox.__host__ == 'standalone'; from script_toolbox.compat import QtGui; app=QtGui.QApplication([]); window=script_toolbox.show(); assert window is not None; window.open_interface_editor(); editor=window.editor_window; assert editor is not None and editor.isVisible(); editor.close(); window.close(); app.processEvents(); print('Standalone UI/editor smoke passed')"
           & (Join-Path $package.FullName "runtime\python.exe") -c $code
           if ($LASTEXITCODE -ne 0) {
             throw "Portable standalone UI smoke failed."

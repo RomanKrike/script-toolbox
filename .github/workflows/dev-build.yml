@@ -258,10 +258,30 @@ jobs:
         env:
           BUILD_NUMBER: ${{ github.run_number }}
         run: |
-          $baseVersion = python -c "import re,pathlib; text=pathlib.Path('scripts/script_toolbox/constants.py').read_text(encoding='utf-8'); m=re.search(r'^PLUGIN_VERSION\s*=\s*[\"'']([^\"'']+)[\"'']', text, re.M); print(m.group(1).split('-',1)[0])"
+          $baseVersion = @'
+          import re
+          from pathlib import Path
+
+          text = Path("scripts/script_toolbox/constants.py").read_text(
+              encoding="utf-8"
+          )
+          match = re.search(
+              r'^PLUGIN_VERSION\s*=\s*"([^"]+)"',
+              text,
+              re.M,
+          )
+          if not match:
+              raise SystemExit("PLUGIN_VERSION not found")
+          print(
+              match.group(1).split("-", 1)[0]
+          )
+          '@ | python -
+
+          $baseVersion = "$baseVersion".Trim()
           if (-not $baseVersion) {
             throw "PLUGIN_VERSION not found"
           }
+
           $devVersion = "$baseVersion-dev.$env:BUILD_NUMBER"
           "dev=$devVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 

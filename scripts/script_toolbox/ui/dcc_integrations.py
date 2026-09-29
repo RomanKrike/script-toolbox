@@ -7,6 +7,12 @@ from ..integrations.base import STATUS_UPDATE_REQUIRED
 from ..integrations.config import get_integration_settings
 from ..integrations.manager import DccIntegrationManager
 from ..pycompat import text_type
+from ..style import metrics
+from .settings_components import build_page_header
+from .settings_components import build_simple_section
+from .settings_components import configure_settings_scroll_area
+from .settings_components import mark_secondary_text
+from .settings_components import mark_status_text
 
 
 class DccIntegrationsPage(QtGui.QWidget):
@@ -19,41 +25,35 @@ class DccIntegrationsPage(QtGui.QWidget):
         self.rows = {}
 
         root = QtGui.QVBoxLayout(self)
-        root.setContentsMargins(4, 0, 0, 0)
-        root.setSpacing(12)
+        root.setContentsMargins(*metrics.SETTINGS_PAGE_MARGINS)
+        root.setSpacing(metrics.SETTINGS_PAGE_SPACING)
 
-        title = QtGui.QLabel("DCC Integrations")
-        title.setObjectName("SettingsPageTitle")
-        title_font = title.font()
-        title_font.setBold(True)
-        title_font.setPointSize(title_font.pointSize() + 2)
-        title.setFont(title_font)
-        root.addWidget(title)
-
-        description = QtGui.QLabel(
-            "Detect installed DCC applications and install Script Toolbox "
-            "without copying bootstrap code into a Script Editor."
+        root.addWidget(
+            build_page_header(
+                "DCC Integrations",
+                "Detect installed DCC applications and install Script Toolbox "
+                "without copying bootstrap code into a Script Editor.",
+                parent=self
+            )
         )
-        description.setObjectName("SettingsPageDescription")
-        description.setWordWrap(True)
-        root.addWidget(description)
 
         actions = QtGui.QHBoxLayout()
+        actions.setSpacing(metrics.SETTINGS_ACTION_SPACING)
         self.scan_button = QtGui.QPushButton("Scan DCCs")
         self.scan_button.clicked.connect(self.scan)
         actions.addWidget(self.scan_button)
         actions.addStretch(1)
         root.addLayout(actions)
 
-        self.scroll = QtGui.QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QtGui.QFrame.NoFrame)
+        self.scroll = QtGui.QScrollArea(self)
+        configure_settings_scroll_area(self.scroll)
         root.addWidget(self.scroll, 1)
 
         self.container = QtGui.QWidget()
+        self.container.setObjectName("SettingsScrollContent")
         self.container_layout = QtGui.QVBoxLayout(self.container)
-        self.container_layout.setContentsMargins(0, 0, 0, 0)
-        self.container_layout.setSpacing(10)
+        self.container_layout.setContentsMargins(*metrics.MARGINS_NONE)
+        self.container_layout.setSpacing(metrics.SETTINGS_SECTION_SPACING)
         self.scroll.setWidget(self.container)
 
         self.scan()
@@ -94,55 +94,79 @@ class DccIntegrationsPage(QtGui.QWidget):
         maya_installations = self.installations.get("maya", [])
         if len(maya_installations) > 1:
             self.container_layout.addWidget(
-                self._build_install_all_card(maya_installations)
+                self._build_install_all_section(maya_installations)
             )
 
         for adapter in self.manager.adapters():
-            installations = self.installations.get(adapter.key, [])
-            group = QtGui.QGroupBox(adapter.display_name)
-            layout = QtGui.QVBoxLayout(group)
-            layout.setSpacing(8)
+            self.container_layout.addWidget(
+                self._build_adapter_section(adapter)
+            )
 
-            capability = QtGui.QLabel(
+        self.container_layout.addStretch(1)
+
+    def _build_adapter_section(self, adapter):
+        installations = self.installations.get(adapter.key, [])
+        section, layout = build_simple_section(
+            adapter.display_name,
+            nested=False,
+            parent=self.container
+        )
+
+        capability = mark_secondary_text(
+            QtGui.QLabel(
                 "Supported: {0}    Detected: {1}    Integration available: {2}".format(
                     "Yes" if adapter.supported else "No",
                     "Yes" if installations else "No",
                     "Yes" if adapter.integration_available else "No"
+                ),
+                section
+            )
+        )
+        capability.setWordWrap(True)
+        layout.addWidget(capability)
+
+        if not installations:
+            empty = mark_secondary_text(
+                QtGui.QLabel(
+                    "No installed versions detected.",
+                    section
                 )
             )
-            capability.setWordWrap(True)
-            layout.addWidget(capability)
+            empty.setWordWrap(True)
+            layout.addWidget(empty)
+            return section
 
-            if not installations:
-                empty = QtGui.QLabel("No installed versions detected.")
-                empty.setWordWrap(True)
-                layout.addWidget(empty)
-            else:
-                for installation in installations:
-                    layout.addWidget(
-                        self._build_installation_card(
-                            adapter,
-                            installation
-                        )
-                    )
-
-            if installations and not adapter.integration_available:
-                note = QtGui.QLabel(
-                    "Detection is implemented. Automatic integration is not "
-                    "implemented for this DCC yet."
+        for installation in installations:
+            layout.addWidget(
+                self._build_installation_section(
+                    adapter,
+                    installation,
+                    section
                 )
-                note.setWordWrap(True)
-                layout.addWidget(note)
+            )
 
-            self.container_layout.addWidget(group)
+        if not adapter.integration_available:
+            note = mark_secondary_text(
+                QtGui.QLabel(
+                    "Detection is implemented. Automatic integration is not "
+                    "implemented for this DCC yet.",
+                    section
+                )
+            )
+            note.setWordWrap(True)
+            layout.addWidget(note)
 
-        self.container_layout.addStretch(1)
+        return section
 
-    def _build_install_all_card(self, installations):
-        card = QtGui.QGroupBox("Install to all detected Maya versions")
-        layout = QtGui.QVBoxLayout(card)
+    def _build_install_all_section(self, installations):
+        section, layout = build_simple_section(
+            "Install to all detected Maya versions",
+            nested=False,
+            parent=self.container
+        )
 
         checks = QtGui.QHBoxLayout()
+        checks.setSpacing(metrics.SETTINGS_ACTION_SPACING)
         shelf = QtGui.QCheckBox("Shelf")
         shelf.setChecked(True)
         menu = QtGui.QCheckBox("Main Menu")
@@ -152,6 +176,8 @@ class DccIntegrationsPage(QtGui.QWidget):
         checks.addStretch(1)
         layout.addLayout(checks)
 
+        button_row = QtGui.QHBoxLayout()
+        button_row.setSpacing(metrics.SETTINGS_ACTION_SPACING)
         button = QtGui.QPushButton("Install to all")
         button.clicked.connect(
             lambda checked=False: self._install_all_maya(
@@ -159,42 +185,54 @@ class DccIntegrationsPage(QtGui.QWidget):
                 menu.isChecked()
             )
         )
-        layout.addWidget(button)
-        return card
+        button_row.addWidget(button)
+        button_row.addStretch(1)
+        layout.addLayout(button_row)
+        return section
 
-    def _build_installation_card(self, adapter, installation):
-        card = QtGui.QGroupBox(
-            "{0} {1}".format(
-                adapter.display_name,
-                installation.version
-            )
+    def _build_installation_section(self, adapter, installation, parent):
+        section, layout = build_simple_section(
+            "Version {0}".format(installation.version),
+            nested=True,
+            parent=parent
         )
-        layout = QtGui.QVBoxLayout(card)
-        layout.setSpacing(6)
 
         if installation.install_path:
-            install_path = QtGui.QLabel(
-                "Install: {0}".format(installation.install_path)
+            install_path = mark_secondary_text(
+                QtGui.QLabel(
+                    "Install: {0}".format(installation.install_path),
+                    section
+                )
             )
             install_path.setWordWrap(True)
             layout.addWidget(install_path)
 
         if installation.user_config_path:
-            user_path = QtGui.QLabel(
-                "User config: {0}".format(installation.user_config_path)
+            user_path = mark_secondary_text(
+                QtGui.QLabel(
+                    "User config: {0}".format(
+                        installation.user_config_path
+                    ),
+                    section
+                )
             )
             user_path.setWordWrap(True)
             layout.addWidget(user_path)
 
         status = self.manager.status(installation)
-        status_label = QtGui.QLabel(
-            "Integration: {0}".format(status.state)
+        status_label = mark_status_text(
+            QtGui.QLabel(
+                "Integration: {0}".format(status.state),
+                section
+            )
         )
         status_label.setWordWrap(True)
         layout.addWidget(status_label)
 
         if status.message:
-            detail_label = QtGui.QLabel(status.message)
+            detail_label = mark_secondary_text(
+                QtGui.QLabel(status.message, section)
+            )
             detail_label.setWordWrap(True)
             layout.addWidget(detail_label)
 
@@ -205,28 +243,34 @@ class DccIntegrationsPage(QtGui.QWidget):
         self.rows[installation.key] = row
 
         if not adapter.integration_available:
-            return card
+            return section
 
         options = self._default_options(installation)
-        component_status = QtGui.QLabel(
-            "Loader: {0}    Shelf: {1}    Main Menu: {2}".format(
-                "OK" if status.loader else "Missing",
-                (
-                    "OK" if status.shelf else "Missing"
-                ) if options["shelf"] else "Disabled",
-                (
-                    "Registered" if status.main_menu else "Missing"
-                ) if options["main_menu"] else "Disabled"
+        component_status = mark_secondary_text(
+            QtGui.QLabel(
+                "Loader: {0}    Shelf: {1}    Main Menu: {2}".format(
+                    "OK" if status.loader else "Missing",
+                    (
+                        "OK" if status.shelf else "Missing"
+                    ) if options["shelf"] else "Disabled",
+                    (
+                        "Registered" if status.main_menu else "Missing"
+                    ) if options["main_menu"] else "Disabled"
+                ),
+                section
             )
         )
         component_status.setWordWrap(True)
         layout.addWidget(component_status)
 
-        shelf = QtGui.QCheckBox("Add to Shelf")
+        shelf = QtGui.QCheckBox("Add to Shelf", section)
         shelf.setChecked(options["shelf"])
-        menu = QtGui.QCheckBox("Add to Main Menu")
+        menu = QtGui.QCheckBox("Add to Main Menu", section)
         menu.setChecked(options["main_menu"])
-        auto_open = QtGui.QCheckBox("Open ScriptToolbox on Maya startup")
+        auto_open = QtGui.QCheckBox(
+            "Open ScriptToolbox on Maya startup",
+            section
+        )
         auto_open.setChecked(options["auto_open"])
         layout.addWidget(shelf)
         layout.addWidget(menu)
@@ -239,6 +283,7 @@ class DccIntegrationsPage(QtGui.QWidget):
         })
 
         buttons = QtGui.QHBoxLayout()
+        buttons.setSpacing(metrics.SETTINGS_ACTION_SPACING)
         if status.state == STATUS_NOT_INSTALLED:
             primary_label = "Install"
         elif status.state == STATUS_UPDATE_REQUIRED:
@@ -267,7 +312,7 @@ class DccIntegrationsPage(QtGui.QWidget):
         buttons.addWidget(uninstall)
         buttons.addStretch(1)
         layout.addLayout(buttons)
-        return card
+        return section
 
     def _options_for(self, installation):
         row = self.rows[installation.key]

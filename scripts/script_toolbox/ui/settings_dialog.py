@@ -18,11 +18,12 @@ from ..core.preferences import get_telemetry_consent
 from ..core.preferences import get_update_channel
 from ..pycompat import text_type
 from ..style import apply_window_icon
-from ..style.metrics import RUNTIME_FOLDER_CONTENT_MARGINS
-from ..style.metrics import RUNTIME_FOLDER_CONTENT_SPACING
-from ..style.metrics import RUNTIME_FOLDER_ROOT_MARGINS
-from ..style.metrics import RUNTIME_FOLDER_ROOT_SPACING
+from ..style.metrics import SETTINGS_PAGE_MARGINS
+from ..style.metrics import SETTINGS_PAGE_SPACING
 from .dcc_integrations import DccIntegrationsPage
+from .settings_components import build_page_header
+from .settings_components import build_section_form
+from .settings_components import build_simple_section
 
 
 _CONSENT_PROMPT_SHOWN = False
@@ -192,7 +193,7 @@ class SettingsDialog(QtGui.QDialog):
         root.setSpacing(12)
 
         content_layout = QtGui.QHBoxLayout()
-        content_layout.setSpacing(16)
+        content_layout.setSpacing(SETTINGS_PAGE_SPACING)
         root.addLayout(content_layout, 1)
 
         self.category_list = QtGui.QListWidget()
@@ -303,57 +304,29 @@ class SettingsDialog(QtGui.QDialog):
         self.pages.addWidget(page)
 
     def _build_page_header(self, title_text, description_text):
-        header = QtGui.QWidget()
-        layout = QtGui.QVBoxLayout(header)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
-
-        title = QtGui.QLabel(title_text)
-        title.setObjectName("SettingsPageTitle")
-        title_font = title.font()
-        title_font.setBold(True)
-        title_font.setPointSize(title_font.pointSize() + 2)
-        title.setFont(title_font)
-        layout.addWidget(title)
-
-        description = QtGui.QLabel(description_text)
-        description.setObjectName("SettingsPageDescription")
-        description.setWordWrap(True)
-        layout.addWidget(description)
-        return header
+        return build_page_header(
+            title_text,
+            description_text,
+            parent=self
+        )
 
     def _build_simple_section(self, title_text, tooltip=""):
-        """Build settings chrome from the existing Runtime Simple Folder."""
-        section = QtGui.QGroupBox(text_type(title_text))
-        section.setObjectName("SimpleSectionGroupBox")
-        section.setProperty("nested", False)
-        section.setToolTip(text_type(tooltip or ""))
-
-        section_layout = QtGui.QVBoxLayout(section)
-        section_layout.setContentsMargins(*RUNTIME_FOLDER_ROOT_MARGINS)
-        section_layout.setSpacing(RUNTIME_FOLDER_ROOT_SPACING)
-
-        content = QtGui.QWidget(section)
-        content.setObjectName("RuntimeFolderContent")
-        content_layout = QtGui.QVBoxLayout(content)
-        content_layout.setContentsMargins(*RUNTIME_FOLDER_CONTENT_MARGINS)
-        content_layout.setSpacing(RUNTIME_FOLDER_CONTENT_SPACING)
-
-        section_layout.addWidget(content)
-        return section, content_layout
+        return build_simple_section(
+            title_text,
+            tooltip=tooltip,
+            nested=False,
+            parent=self
+        )
 
     @staticmethod
     def _build_section_form():
-        form = QtGui.QFormLayout()
-        form.setContentsMargins(0, 0, 0, 0)
-        form.setSpacing(RUNTIME_FOLDER_CONTENT_SPACING)
-        return form
+        return build_section_form()
 
     def _build_general_page(self):
         page = QtGui.QWidget()
         layout = QtGui.QVBoxLayout(page)
-        layout.setContentsMargins(4, 0, 0, 0)
-        layout.setSpacing(16)
+        layout.setContentsMargins(*SETTINGS_PAGE_MARGINS)
+        layout.setSpacing(SETTINGS_PAGE_SPACING)
 
         layout.addWidget(
             self._build_page_header(
@@ -374,8 +347,8 @@ class SettingsDialog(QtGui.QDialog):
     def _build_network_page(self):
         page = QtGui.QWidget()
         layout = QtGui.QVBoxLayout(page)
-        layout.setContentsMargins(4, 0, 0, 0)
-        layout.setSpacing(14)
+        layout.setContentsMargins(*SETTINGS_PAGE_MARGINS)
+        layout.setSpacing(SETTINGS_PAGE_SPACING)
 
         layout.addWidget(
             self._build_page_header(
@@ -420,8 +393,8 @@ class SettingsDialog(QtGui.QDialog):
     def _build_privacy_page(self):
         page = QtGui.QWidget()
         layout = QtGui.QVBoxLayout(page)
-        layout.setContentsMargins(4, 0, 0, 0)
-        layout.setSpacing(14)
+        layout.setContentsMargins(*SETTINGS_PAGE_MARGINS)
+        layout.setSpacing(SETTINGS_PAGE_SPACING)
 
         layout.addWidget(
             self._build_page_header(
@@ -466,8 +439,8 @@ class SettingsDialog(QtGui.QDialog):
     def _build_about_page(self):
         page = QtGui.QWidget()
         layout = QtGui.QVBoxLayout(page)
-        layout.setContentsMargins(4, 0, 0, 0)
-        layout.setSpacing(14)
+        layout.setContentsMargins(*SETTINGS_PAGE_MARGINS)
+        layout.setSpacing(SETTINGS_PAGE_SPACING)
 
         layout.addWidget(
             self._build_page_header(

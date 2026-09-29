@@ -32,3 +32,41 @@ def test_dcc_integration_ui_exposes_required_maya_actions():
     assert '"Repair"' in source
     assert '"Uninstall"' in source
     assert '"Install to all detected Maya versions"' in source
+
+
+def test_dcc_page_uses_shared_settings_style_primitives_and_metrics():
+    source = _read("scripts/script_toolbox/ui/dcc_integrations.py")
+    shared = _read("scripts/script_toolbox/ui/settings_components.py")
+    stylesheet = _read("scripts/script_toolbox/style/stylesheet.py")
+    metrics = _read("scripts/script_toolbox/style/metrics.py")
+
+    assert "from ..style import metrics" in source
+    assert "build_page_header" in source
+    assert "build_simple_section" in source
+    assert "configure_settings_scroll_area" in source
+    assert "metrics.SETTINGS_PAGE_MARGINS" in source
+    assert "metrics.SETTINGS_PAGE_SPACING" in source
+    assert "metrics.SETTINGS_SECTION_SPACING" in source
+    assert "metrics.SETTINGS_ACTION_SPACING" in source
+    assert "QtGui.QGroupBox(" not in source
+    assert "setContentsMargins(4, 0, 0, 0)" not in source
+    assert "setSpacing(12)" not in source
+
+    assert "from ..style import metrics" in shared
+    assert "from ..style import palette" in shared
+    assert 'section.setObjectName("SimpleSectionGroupBox")' in shared
+    assert 'content.setObjectName("RuntimeFolderContent")' in shared
+    assert 'scroll.setObjectName("SettingsScroll")' in shared
+    assert 'viewport.setObjectName("SettingsScrollViewport")' in shared
+    assert "QtGui.QColor(palette.CONTENT_BG)" in shared
+    assert "QtGui.QColor(palette.TEXT_PRIMARY)" in shared
+
+    assert "SETTINGS_PAGE_MARGINS" in metrics
+    assert "SETTINGS_PAGE_SPACING" in metrics
+    assert "SETTINGS_SECTION_SPACING" in metrics
+    assert "SETTINGS_ACTION_SPACING" in metrics
+    assert "QScrollArea#SettingsScroll" in stylesheet
+    assert "QWidget#SettingsScrollViewport" in stylesheet
+    assert "background-color: %(CONTENT_BG)s;" in stylesheet
+    assert "color: %(TEXT_MUTED)s;" in stylesheet
+    assert "color: %(TEXT_SUBTLE)s;" in stylesheet

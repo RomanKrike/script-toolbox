@@ -470,6 +470,23 @@ QScrollArea {
     background-color: transparent;
 }
 
+/* Settings scroll surfaces need an explicit content color because Maya 2015 /
+   Qt4 can retain the native light QAbstractScrollArea viewport palette. */
+QScrollArea#SettingsScroll,
+QWidget#SettingsScrollViewport,
+QWidget#SettingsScrollContent {
+    background-color: %(CONTENT_BG)s;
+    border: 0px;
+}
+
+QLabel#SettingsSecondaryText {
+    color: %(TEXT_MUTED)s;
+}
+
+QLabel#SettingsStatusText {
+    color: %(TEXT_SUBTLE)s;
+}
+
 QScrollArea#ToolboxScroll {
     background-color: %(CONTENT_BG)s;
     border: 0px;

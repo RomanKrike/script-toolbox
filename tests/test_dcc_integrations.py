@@ -873,6 +873,9 @@ def test_houdini_custom_profile_root_discovers_version_profile(tmp_path):
         user_root=str(default_root),
         config_path=config_path
     )
+    adapter.detected_install_paths = lambda: [
+        ("21.0.440", str(install))
+    ]
     record = adapter.add_profile_root(
         str(studio_root),
         label="Studio"
@@ -910,6 +913,9 @@ def test_houdini_custom_direct_pref_path_supports_arbitrary_folder_name(tmp_path
         user_root=str(tmp_path / "Documents"),
         config_path=config_path
     )
+    adapter.detected_install_paths = lambda: [
+        ("20.5.654", str(install))
+    ]
     adapter.add_profile_root(
         str(custom_pref),
         label="Project"
@@ -946,6 +952,9 @@ def test_houdini_same_version_profiles_keep_independent_settings(tmp_path):
         user_root=str(default_root),
         config_path=config_path
     )
+    adapter.detected_install_paths = lambda: [
+        ("21.0.440", str(install))
+    ]
     adapter.add_profile_root(
         str(custom_pref),
         label="Studio"
@@ -1011,6 +1020,9 @@ def test_houdini_profile_root_removal_requires_uninstall(tmp_path):
         user_root=str(tmp_path / "Documents"),
         config_path=config_path
     )
+    adapter.detected_install_paths = lambda: [
+        ("21.0.440", str(install))
+    ]
     record = adapter.add_profile_root(
         str(custom_pref),
         label="Studio"
@@ -1051,6 +1063,10 @@ def test_nuke_custom_profile_path_creates_targets_for_each_version(tmp_path):
         user_config_path=str(default_nuke),
         config_path=config_path
     )
+    adapter.detected_install_paths = lambda: [
+        ("15.2", str(program_files / "Nuke15.2v3")),
+        ("16.0", str(program_files / "Nuke16.0v1")),
+    ]
     record = adapter.add_profile_root(
         str(studio_parent),
         label="Studio"
@@ -1092,6 +1108,9 @@ def test_nuke_same_version_profiles_are_independent(tmp_path):
         user_config_path=str(default_nuke),
         config_path=config_path
     )
+    adapter.detected_install_paths = lambda: [
+        ("16.0", str(program_files / "Nuke16.0v1"))
+    ]
     adapter.add_profile_root(
         str(studio_nuke),
         label="Studio"
@@ -1162,6 +1181,9 @@ def test_nuke_uninstall_one_profile_does_not_touch_other_menu(tmp_path):
         user_config_path=str(default_nuke),
         config_path=config_path
     )
+    adapter.detected_install_paths = lambda: [
+        ("16.0", str(program_files / "Nuke16.0v1"))
+    ]
     adapter.add_profile_root(
         str(studio_nuke),
         label="Studio"
@@ -1204,6 +1226,9 @@ def test_nuke_profile_root_removal_requires_uninstall(tmp_path):
         user_config_path=str(tmp_path / "home" / ".nuke"),
         config_path=config_path
     )
+    adapter.detected_install_paths = lambda: [
+        ("15.2", str(program_files / "Nuke15.2v3"))
+    ]
     record = adapter.add_profile_root(
         str(custom_nuke),
         label="Studio"

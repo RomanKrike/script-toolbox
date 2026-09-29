@@ -32,6 +32,8 @@ def test_dcc_integration_ui_exposes_required_maya_actions():
     assert '"Repair"' in source
     assert '"Uninstall"' in source
     assert '"Install to all"' in source
+    assert '"Add profile path..."' in source
+    assert '"Profile locations  |  {0}"' in source
 
 
 def test_dcc_page_uses_shared_settings_style_primitives_and_metrics():
@@ -83,7 +85,7 @@ def test_dcc_page_uses_nested_collapsible_sections_for_compact_layout():
     assert "nested=False" in source
     assert "nested=True" in source
     assert "collapsed=self._collapsed_value(key, True)" in source
-    assert 'adapter.key != "maya" or not installations' in source
+    assert 'adapter.key != "maya"' in source
     assert "self._collapsed_state = {}" in source
     assert "section.collapsedChanged.connect(" in source
 
@@ -92,7 +94,7 @@ def test_dcc_page_keeps_install_all_inside_maya_section():
     source = _read("scripts/script_toolbox/ui/dcc_integrations.py")
 
     assert "def _add_install_all_row(self, layout, parent):" in source
-    assert '"All versions:"' in source
+    assert '"All profiles:"' in source
     assert '"Shelf"' in source
     assert '"Main Menu"' in source
     assert '"Install to all"' in source
@@ -105,5 +107,28 @@ def test_dcc_headers_summarize_detection_and_version_status():
     assert "def _adapter_title(self, adapter, installations):" in source
     assert '"Not detected"' in source
     assert '" | Detection only"' in source
-    assert 'title="{0}  |  {1}".format(' in source
+    assert 'title="{0} - {1}  |  {2}".format(' in source
     assert "status.state" in source
+
+
+def test_dcc_page_exposes_custom_maya_profile_root_controls():
+    source = _read("scripts/script_toolbox/ui/dcc_integrations.py")
+    manager = _read("scripts/script_toolbox/integrations/manager.py")
+
+    assert "def _add_maya_profile_locations(self, layout, parent):" in source
+    assert "def _add_maya_profile_path(self, *args):" in source
+    assert "def _remove_maya_profile_path(self, profile_id):" in source
+    assert "QtGui.QFileDialog.getExistingDirectory(" in source
+    assert "QtGui.QInputDialog.getText(" in source
+    assert 'self.manager.add_profile_root(' in source
+    assert 'self.manager.remove_profile_root(' in source
+    assert "def add_profile_root(self, dcc, profile_path, label=" in manager
+    assert "def remove_profile_root(self, dcc, profile_id):" in manager
+
+
+def test_dcc_version_headers_include_profile_identity():
+    source = _read("scripts/script_toolbox/ui/dcc_integrations.py")
+
+    assert "installation.profile_label" in source
+    assert "installation.key" in source
+    assert "profile_id=installation.profile_id" in source

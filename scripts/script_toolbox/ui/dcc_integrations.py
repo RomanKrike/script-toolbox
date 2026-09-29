@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+import os
+
 from ..compat import QtGui
 from ..integrations.base import STATUS_NOT_INSTALLED
 from ..integrations.base import STATUS_UPDATE_REQUIRED
@@ -70,7 +72,8 @@ class DccIntegrationsPage(QtGui.QWidget):
     def _default_options(installation):
         stored = get_integration_settings(
             installation.dcc,
-            installation.version
+            installation.version,
+            profile_id=installation.profile_id
         )
         if stored is None:
             stored = {}
@@ -81,11 +84,12 @@ class DccIntegrationsPage(QtGui.QWidget):
         }
 
     @staticmethod
-    def _version_count_text(count):
-        return "{0} version{1}".format(
-            count,
-            "" if count == 1 else "s"
-        )
+    def _target_count_text(adapter, count):
+        if adapter.key == "maya":
+            noun = "profile" if count == 1 else "profiles"
+        else:
+            noun = "version" if count == 1 else "versions"
+        return "{0} {1}".format(count, noun)
 
     def _collapse_key(self, adapter_key, version=None):
         if version is None:
@@ -131,7 +135,7 @@ class DccIntegrationsPage(QtGui.QWidget):
         if not installations:
             suffix = "Not detected"
         else:
-            suffix = self._version_count_text(len(installations))
+            suffix = self._target_count_text(adapter, len(installations))
             if not adapter.integration_available:
                 suffix += " | Detection only"
 
@@ -147,7 +151,7 @@ class DccIntegrationsPage(QtGui.QWidget):
             title=self._adapter_title(adapter, installations),
             collapsed=self._collapsed_value(
                 key,
-                adapter.key != "maya" or not installations
+                adapter.key != "maya"
             ),
             nested=False,
             content_margins=metrics.RUNTIME_FOLDER_CONTENT_MARGINS,
@@ -156,6 +160,12 @@ class DccIntegrationsPage(QtGui.QWidget):
         )
         self._connect_collapse_state(section, key)
         layout = section.content_layout
+
+        if adapter.key == "maya":
+            self._add_maya_profile_locations(
+                layout,
+                section.content
+            )
 
         if not installations:
             empty = mark_secondary_text(
@@ -193,12 +203,130 @@ class DccIntegrationsPage(QtGui.QWidget):
 
         return section
 
+    def _add_maya_profile_locations(self, layout, parent):
+        roots = self.manager.profile_roots("maya")
+        section = CollapsibleSection(
+            title="Profile locations  |  {0}".format(len(roots)),
+            collapsed=self._collapsed_value(
+                "dcc:maya:profile-locations",
+                True
+            ),
+            nested=True,
+            content_margins=metrics.RUNTIME_FOLDER_CONTENT_MARGINS,
+            content_spacing=metrics.RUNTIME_FOLDER_CONTENT_SPACING,
+            parent=parent
+        )
+        self._connect_collapse_state(
+            section,
+            "dcc:maya:profile-locations"
+        )
+
+        for profile in roots:
+            row = QtGui.QHBoxLayout()
+            row.setSpacing(metrics.SETTINGS_ACTION_SPACING)
+
+            label = mark_secondary_text(
+                QtGui.QLabel(
+                    "{0}: {1}".format(
+                        profile.get("label") or "Custom",
+                        profile.get("path") or ""
+                    ),
+                    section.content
+                )
+            )
+            label.setWordWrap(True)
+            row.addWidget(label, 1)
+
+            if profile.get("removable", False):
+                remove_button = QtGui.QPushButton(
+                    "Remove",
+                    section.content
+                )
+                remove_button.clicked.connect(
+                    lambda checked=False, profile_id=profile.get("id"):
+                    self._remove_maya_profile_path(profile_id)
+                )
+                row.addWidget(remove_button)
+
+            section.content_layout.addLayout(row)
+
+        add_row = QtGui.QHBoxLayout()
+        add_row.setSpacing(metrics.SETTINGS_ACTION_SPACING)
+        add_button = QtGui.QPushButton(
+            "Add profile path...",
+            section.content
+        )
+        add_button.clicked.connect(self._add_maya_profile_path)
+        add_row.addWidget(add_button)
+        add_row.addStretch(1)
+        section.content_layout.addLayout(add_row)
+
+        layout.addWidget(section)
+
+    def _add_maya_profile_path(self, *args):
+        selected = QtGui.QFileDialog.getExistingDirectory(
+            self,
+            "Add Maya Profile Path"
+        )
+        selected = text_type(selected or "").strip()
+        if not selected:
+            return
+
+        normalized = os.path.normpath(selected)
+        suggested = os.path.basename(
+            normalized.rstrip("\\/")
+        ) or "Custom"
+
+        label, accepted = QtGui.QInputDialog.getText(
+            self,
+            "Maya Profile Name",
+            "Name:",
+            QtGui.QLineEdit.Normal,
+            suggested
+        )
+        if not accepted:
+            return
+
+        label = text_type(label or "").strip() or suggested
+        try:
+            self.manager.add_profile_root(
+                "maya",
+                normalized,
+                label=label
+            )
+        except Exception as exc:
+            self._show_error("Add Profile Path Failed", exc)
+            return
+        self.scan()
+
+    def _remove_maya_profile_path(self, profile_id):
+        answer = QtGui.QMessageBox.question(
+            self,
+            "Remove Profile Path",
+            "Stop scanning this Maya profile path?\n\n"
+            "Installed Script Toolbox integration must be uninstalled first.",
+            QtGui.QMessageBox.Yes | QtGui.QMessageBox.No,
+            QtGui.QMessageBox.No
+        )
+        if answer != QtGui.QMessageBox.Yes:
+            return
+
+        try:
+            self.manager.remove_profile_root(
+                "maya",
+                profile_id
+            )
+        except Exception as exc:
+            self._show_error("Remove Profile Path Failed", exc)
+            return
+        self.scan()
+
     def _add_install_all_row(self, layout, parent):
         row = QtGui.QHBoxLayout()
         row.setSpacing(metrics.SETTINGS_ACTION_SPACING)
 
         label = mark_secondary_text(
-            QtGui.QLabel("All versions:", parent)
+            QtGui.QLabel("All profiles:", parent)
         )
         shelf = QtGui.QCheckBox("Shelf", parent)
         shelf.setChecked(True)
@@ -223,11 +351,12 @@ class DccIntegrationsPage(QtGui.QWidget):
         status = self.manager.status(installation)
         key = self._collapse_key(
             installation.dcc,
-            installation.version
+            installation.key
         )
         section = CollapsibleSection(
-            title="{0}  |  {1}".format(
+            title="{0} - {1}  |  {2}".format(
                 installation.version,
+                installation.profile_label,
                 status.state
             ),
             collapsed=self._collapsed_value(key, True),
@@ -417,14 +546,20 @@ class DccIntegrationsPage(QtGui.QWidget):
                 failures += 1
                 lines.append(
                     "{0}: failed - {1}".format(
-                        installation.version,
+                        "{0} - {1}".format(
+                            installation.version,
+                            installation.profile_label
+                        ),
                         text_type(error)
                     )
                 )
             else:
                 lines.append(
                     "{0}: {1}".format(
-                        installation.version,
+                        "{0} - {1}".format(
+                            installation.version,
+                            installation.profile_label
+                        ),
                         status.state
                     )
                 )

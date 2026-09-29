@@ -78,6 +78,11 @@ def main():
             "Main standalone window did not open."
         )
 
+    if window.windowIcon().isNull():
+        raise RuntimeError(
+            "Main standalone window has no Script Toolbox icon."
+        )
+
     menu = getattr(
         window,
         "settings_menu",
@@ -98,6 +103,10 @@ def main():
         raise RuntimeError(
             "Interface Editor did not open."
         )
+    if editor.windowIcon().isNull():
+        raise RuntimeError(
+            "Interface Editor has no Script Toolbox icon."
+        )
     editor.close()
 
     def fail():
@@ -117,6 +126,11 @@ def main():
             if reloaded is None or not reloaded.isVisible():
                 raise RuntimeError(
                     "Standalone window did not reopen after hot reload."
+                )
+
+            if reloaded.windowIcon().isNull():
+                raise RuntimeError(
+                    "Reloaded standalone window lost the Script Toolbox icon."
                 )
 
             menu = getattr(
@@ -175,7 +189,7 @@ def main():
         )
 
     print(
-        "Standalone UI/editor/menu/update smoke passed"
+        "Standalone UI/editor/menu/icon/update smoke passed"
     )
     return 0
 

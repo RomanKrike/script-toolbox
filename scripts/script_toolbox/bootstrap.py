@@ -17,30 +17,128 @@ except NameError:
 PACKAGE_NAME = "script_toolbox"
 
 
-def show():
+def _begin_standalone_window_transition():
+    """Keep the standalone Qt loop alive while replacing its last window."""
     try:
-        from .telemetry import initialize_telemetry
-        initialize_telemetry()
+        from .compat import HOST
+        from .compat import QtCore
+        from .compat import QtGui
     except Exception:
-        # Telemetry must never prevent Script Toolbox from opening.
-        _LOGGER.debug(
-            "Telemetry initialization failed; continuing without telemetry.",
-            exc_info=True
-        )
+        return None
 
-    from .ui.debounced_main_window import show as _show
-    window = _show()
+    if HOST.key != "standalone":
+        return None
 
+    application = QtGui.QApplication.instance()
+    if application is None:
+        return None
+
+    setter = getattr(
+        application,
+        "setQuitOnLastWindowClosed",
+        None
+    )
+    getter = getattr(
+        application,
+        "quitOnLastWindowClosed",
+        None
+    )
+    previous = True
+
+    if getter is not None:
+        try:
+            previous = bool(
+                getter()
+            )
+        except Exception:
+            pass
+
+    if setter is not None:
+        try:
+            setter(
+                False
+            )
+        except Exception:
+            setter = None
+
+    # Older standalone builds may already have queued a Quit event when the
+    # last window closed. Removing it here lets an updated bootstrap recover
+    # during the same self-update that installs this fix.
     try:
-        from .ui.window_geometry import install_window_geometry_persistence
-        install_window_geometry_persistence(
-            window
+        remove_posted_events = getattr(
+            QtCore.QCoreApplication,
+            "removePostedEvents",
+            None
         )
+        quit_event = getattr(
+            QtCore.QEvent,
+            "Quit",
+            None
+        )
+        if (
+            remove_posted_events is not None and
+            quit_event is not None
+        ):
+            remove_posted_events(
+                application,
+                quit_event
+            )
     except Exception:
-        # Window placement recovery must never prevent the toolbox from opening.
         pass
 
-    return window
+    return (
+        application,
+        setter,
+        previous,
+    )
+
+
+def _end_standalone_window_transition(state):
+    if state is None:
+        return
+
+    application, setter, previous = state
+    if application is None or setter is None:
+        return
+
+    try:
+        setter(
+            previous
+        )
+    except Exception:
+        pass
+
+
+def show():
+    transition = _begin_standalone_window_transition()
+    try:
+        try:
+            from .telemetry import initialize_telemetry
+            initialize_telemetry()
+        except Exception:
+            # Telemetry must never prevent Script Toolbox from opening.
+            _LOGGER.debug(
+                "Telemetry initialization failed; continuing without telemetry.",
+                exc_info=True
+            )
+
+        from .ui.debounced_main_window import show as _show
+        window = _show()
+
+        try:
+            from .ui.window_geometry import install_window_geometry_persistence
+            install_window_geometry_persistence(
+                window
+            )
+        except Exception:
+            # Window placement recovery must never prevent the toolbox from opening.
+            pass
+
+        return window
+    finally:
+        _end_standalone_window_transition(
+            transition
+        )
 
 
 def package_child_module_names(
@@ -153,36 +251,42 @@ def hot_reload_toolbox():
     The package root object is reloaded in place. That keeps existing external
     references to `script_toolbox` useful and refreshes `__version__`.
     """
-    _close_live_ui()
+    transition = _begin_standalone_window_transition()
+    try:
+        _close_live_ui()
 
-    root_module = sys.modules.get(
-        PACKAGE_NAME
-    )
-
-    if root_module is None:
-        root_module = __import__(
+        root_module = sys.modules.get(
             PACKAGE_NAME
         )
 
-    purge_child_modules()
+        if root_module is None:
+            root_module = __import__(
+                PACKAGE_NAME
+            )
 
-    root_module = reload(
-        root_module
-    )
+        purge_child_modules()
 
-    window = root_module.show()
-
-    try:
-        window.statusBar().showMessage(
-            "Updated to Script Toolbox {0}.".format(
-                root_module.__version__
-            ),
-            7000
+        root_module = reload(
+            root_module
         )
-    except Exception:
-        pass
 
-    return window
+        window = root_module.show()
+
+        try:
+            window.statusBar().showMessage(
+                "Updated to Script Toolbox {0}.".format(
+                    root_module.__version__
+                ),
+                7000
+            )
+        except Exception:
+            pass
+
+        return window
+    finally:
+        _end_standalone_window_transition(
+            transition
+        )
 
 
 def reload_toolbox():

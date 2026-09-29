@@ -229,8 +229,8 @@ class SettingsDialog(QtGui.QDialog):
         self._create_network_controls()
 
         self._add_category("General", self._build_general_page())
-        self._add_category("DCC Integrations", DccIntegrationsPage(parent=self))
         self._add_category("Network", self._build_network_page())
+        self._add_category("DCC Integrations", DccIntegrationsPage(parent=self))
         self._add_category("Privacy", self._build_privacy_page())
         self._add_category("About", self._build_about_page())
 

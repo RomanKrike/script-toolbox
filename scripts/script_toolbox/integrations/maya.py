@@ -548,7 +548,6 @@ class MayaAdapter(DccAdapter):
         if os.path.isfile(path):
             content = _read_text(path)
             if _SHELF_MARKER in content:
-                _backup_once(path)
                 os.remove(path)
         return path
 
@@ -564,7 +563,7 @@ class MayaAdapter(DccAdapter):
             maya_runtime.apply_current_integration()
             return True
         except Exception:
-            _LOGGGER.debug(
+            _LOGGER.debug(
                 "[DCC] Live Maya UI sync skipped.",
                 exc_info=True
             )

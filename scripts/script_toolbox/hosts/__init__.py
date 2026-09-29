@@ -5,6 +5,7 @@ from .base import BaseHost
 from .callbacks import EVENT_SELECTION_CHANGED
 from .callbacks import HostCallbackGroup
 from .callbacks import HostCallbackHandle
+from .standalone_host import StandaloneHost
 
 
 def _detect_host():
@@ -26,7 +27,7 @@ def _detect_host():
     except Exception:
         pass
 
-    return BaseHost()
+    return StandaloneHost()
 
 
 HOST = _detect_host()
@@ -42,5 +43,6 @@ __all__ = [
     "HOST",
     "HostCallbackGroup",
     "HostCallbackHandle",
+    "StandaloneHost",
     "get_host",
 ]

@@ -1,0 +1,116 @@
+name: Standalone portable build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev
+      - feature/**
+    paths:
+      - "scripts/script_toolbox/**"
+      - "standalone/**"
+      - "tools/build_standalone_portable.py"
+      - ".github/workflows/standalone-build.yml"
+
+concurrency:
+  group: standalone-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-portable:
+    name: Windows x64 portable
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          architecture: "x64"
+
+      - name: Prepare official embeddable Python runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = python -c "import platform; print(platform.python_version())"
+          $runtime = Join-Path $PWD "build/runtime"
+          $archive = Join-Path $PWD "build/python-embed.zip"
+          New-Item -ItemType Directory -Force -Path (Split-Path $runtime) | Out-Null
+          Invoke-WebRequest `
+            -Uri "https://www.python.org/ftp/python/$version/python-$version-embed-amd64.zip" `
+            -OutFile $archive
+          Expand-Archive -Path $archive -DestinationPath $runtime
+
+          New-Item -ItemType Directory -Force -Path "$runtime/Lib/site-packages" | Out-Null
+          python -m pip install `
+            --disable-pip-version-check `
+            --no-cache-dir `
+            --only-binary=:all: `
+            --target "$runtime/Lib/site-packages" `
+            "PySide6>=6.8,<7"
+
+          $pth = Get-ChildItem -Path $runtime -Filter "python*._pth" | Select-Object -First 1
+          if (-not $pth) {
+            throw "Embedded Python _pth file was not found."
+          }
+          Add-Content -Path $pth.FullName -Value "Lib\site-packages"
+          Add-Content -Path $pth.FullName -Value "import site"
+
+      - name: Build native launcher
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $install = & $vswhere `
+            -latest `
+            -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          if (-not $install) {
+            throw "MSVC Build Tools were not found."
+          }
+
+          $vcvars = Join-Path $install "VC\Auxiliary\Build\vcvars64.bat"
+          New-Item -ItemType Directory -Force -Path "build/launcher" | Out-Null
+          $source = Join-Path $PWD "standalone\launcher.c"
+          $output = Join-Path $PWD "build\launcher\ScriptToolbox.exe"
+          cmd /d /s /c "`"$vcvars`" && cl /nologo /O2 /W4 `"$source`" /link /SUBSYSTEM:WINDOWS /OUT:`"$output`""
+          if ($LASTEXITCODE -ne 0) {
+            throw "Standalone launcher compilation failed."
+          }
+
+      - name: Build portable ZIP
+        shell: pwsh
+        run: |
+          python tools/build_standalone_portable.py `
+            --runtime build/runtime `
+            --launcher build/launcher/ScriptToolbox.exe `
+            --output dist-standalone
+
+      - name: Smoke portable standalone UI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $package = Get-ChildItem -Path "dist-standalone" -Directory | Select-Object -First 1
+          if (-not $package) {
+            throw "Portable package directory was not found."
+          }
+
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $env:SCRIPT_TOOLBOX_PORTABLE_ROOT = $package.FullName
+          $code = "import os,sys; root=os.environ['SCRIPT_TOOLBOX_PORTABLE_ROOT']; sys.path.insert(0, os.path.join(root, 'scripts')); import script_toolbox; assert script_toolbox.__host__ == 'standalone'; from script_toolbox.compat import QtGui; app=QtGui.QApplication([]); window=script_toolbox.show(); assert window is not None; window.close(); app.processEvents(); print('Standalone UI smoke passed')"
+          & (Join-Path $package.FullName "runtime\python.exe") -c $code
+          if ($LASTEXITCODE -ne 0) {
+            throw "Portable standalone UI smoke failed."
+          }
+
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: script-toolbox-standalone-windows-x64
+          path: |
+            dist-standalone/*.zip
+            dist-standalone/*.sha256
+          if-no-files-found: error
+          retention-days: 14

@@ -9,7 +9,6 @@ from .generic import DetectionOnlyAdapter
 
 class NukeAdapter(DetectionOnlyAdapter):
     key = "nuke"
-    supported = True
     display_name = "Foundry Nuke"
     environment_variable = "NUKE_PATH"
 

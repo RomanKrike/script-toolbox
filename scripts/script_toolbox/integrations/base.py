@@ -24,7 +24,7 @@ class DccInstallation(object):
         user_config_path="",
         detected=True,
         integration_available=False,
-        supported=True
+        supported=False
     ):
         self.dcc = text_type(dcc or "").strip().lower()
         self.display_name = text_type(display_name or dcc or "").strip()
@@ -93,7 +93,7 @@ class DccAdapter(object):
     key = ""
     display_name = ""
     integration_available = False
-    supported = True
+    supported = False
 
     def detect(self):
         return bool(

@@ -5,8 +5,10 @@ import os
 from script_toolbox.integrations.base import STATUS_INSTALLED
 from script_toolbox.integrations.base import STATUS_NOT_INSTALLED
 from script_toolbox.integrations.base import STATUS_PARTIAL
+from script_toolbox.integrations.base import STATUS_UPDATE_REQUIRED
 from script_toolbox.integrations.config import get_integration_settings
 from script_toolbox.integrations.discovery import parse_version
+from script_toolbox.integrations.manager import DccIntegrationManager
 from script_toolbox.integrations.maya import MayaAdapter
 
 
@@ -230,3 +232,49 @@ def test_maya_install_refuses_to_overwrite_foreign_shelf(tmp_path):
         adapter.install(installation)
 
     assert shelf.read_text(encoding="utf-8") == "// user-owned shelf\n"
+
+
+def test_capability_flags_do_not_claim_unimplemented_integrations_are_supported():
+    adapters = {
+        adapter.key: adapter
+        for adapter in DccIntegrationManager().adapters()
+    }
+
+    assert adapters["maya"].supported is True
+    assert adapters["maya"].integration_available is True
+    for key in ("houdini", "nuke", "blender", "3dsmax"):
+        assert adapters[key].supported is False
+        assert adapters[key].integration_available is False
+
+
+def test_maya_update_required_is_repaired_by_install(tmp_path):
+    user_root = tmp_path / "maya"
+    (user_root / "2026").mkdir(parents=True)
+    adapter = MayaAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        user_root=str(user_root),
+        registry_reader=lambda: [("2026", str(tmp_path / "Maya2026"))],
+        config_path=str(tmp_path / "dcc_integrations.json")
+    )
+    installation = _installation(adapter, "2026")
+    adapter.install(
+        installation,
+        {"shelf": True, "main_menu": True, "auto_open": False}
+    )
+
+    module_path = adapter._module_path(installation)
+    with open(module_path, "r") as handle:
+        stale = handle.read()
+    stale = stale.replace(
+        adapter.distribution_path.replace("\\", "/"),
+        str(tmp_path / "OldScriptToolbox").replace("\\", "/")
+    )
+    with open(module_path, "w") as handle:
+        handle.write(stale)
+
+    assert adapter.status(installation).state == STATUS_UPDATE_REQUIRED
+    result = adapter.install(
+        installation,
+        {"shelf": True, "main_menu": True, "auto_open": False}
+    )
+    assert result.state == STATUS_INSTALLED

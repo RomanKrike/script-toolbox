@@ -10,7 +10,6 @@ from .discovery import windows_documents_dir
 
 class HoudiniAdapter(DetectionOnlyAdapter):
     key = "houdini"
-    supported = True
     display_name = "SideFX Houdini"
     environment_variable = "HFS"
 

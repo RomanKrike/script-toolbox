@@ -153,7 +153,6 @@ def test_dcc_ui_builds_host_specific_integration_options():
     assert "adapter.component_status_text(" in source
     assert '"Add Houdini Shelf"' in houdini
     assert '"Add to Main Menu"' in nuke
-    assert '"Register Dock Panel"' in nuke
     assert '"Open on startup"' in houdini
     assert '"Open on startup"' in nuke
 
@@ -187,3 +186,15 @@ def test_houdini_and_nuke_custom_profiles_are_profile_aware_at_runtime():
     assert "def apply_current_integration(profile_id=None):" in nuke_runtime
     assert "profile_id=profile_id" in houdini_runtime
     assert "profile_id=profile_id" in nuke_runtime
+
+
+def test_nuke_dock_panel_is_not_exposed():
+    adapter = _read("scripts/script_toolbox/integrations/nuke.py")
+    runtime = _read("scripts/script_toolbox/nuke_integration.py")
+    package = _read("scripts/script_toolbox/__init__.py")
+
+    assert '"Register Dock Panel"' not in adapter
+    assert '"dock_panel"' not in adapter
+    assert '"Register Dock Panel"' not in runtime
+    assert "def register_panel(" not in runtime
+    assert "register_nuke_panel" not in package

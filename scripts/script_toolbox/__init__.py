@@ -26,8 +26,3 @@ def hot_reload_toolbox():
 def register_nuke_menu():
     from .nuke_integration import register_menu
     return register_menu()
-
-
-def register_nuke_panel():
-    from .nuke_integration import register_panel
-    return register_panel()

@@ -292,7 +292,6 @@ class NukeAdapter(DetectionOnlyAdapter):
     def option_definitions(self):
         return (
             ("main_menu", "Add to Main Menu", True),
-            ("dock_panel", "Register Dock Panel", True),
             ("auto_open", "Open on startup", False),
         )
 
@@ -308,13 +307,6 @@ class NukeAdapter(DetectionOnlyAdapter):
                     if status.main_menu
                     else "Missing"
                 ) if options["main_menu"] else "Disabled"
-            ),
-            "Dock Panel: {0}".format(
-                (
-                    "Enabled"
-                    if options["dock_panel"]
-                    else "Disabled"
-                )
             ),
         ])
 
@@ -417,14 +409,7 @@ class NukeAdapter(DetectionOnlyAdapter):
             STATUS_INSTALLED,
             loader=True,
             main_menu=desired["main_menu"],
-            auto_open=desired["auto_open"],
-            components={
-                "Dock Panel": (
-                    "Enabled"
-                    if desired["dock_panel"]
-                    else "Disabled"
-                )
-            }
+            auto_open=desired["auto_open"]
         )
 
     def _sync_live_nuke(self, installation):

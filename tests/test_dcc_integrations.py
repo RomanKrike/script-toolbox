@@ -576,7 +576,6 @@ def test_nuke_install_is_idempotent_and_preserves_existing_menu(tmp_path):
         target,
         {
             "main_menu": True,
-            "dock_panel": True,
             "auto_open": False,
         }
     )
@@ -585,7 +584,6 @@ def test_nuke_install_is_idempotent_and_preserves_existing_menu(tmp_path):
         target,
         {
             "main_menu": True,
-            "dock_panel": True,
             "auto_open": False,
         }
     )
@@ -608,7 +606,7 @@ def test_nuke_install_is_idempotent_and_preserves_existing_menu(tmp_path):
         path=config_path
     )
     assert settings["main_menu"] is True
-    assert settings["dock_panel"] is True
+    assert "dock_panel" not in settings
 
 
 def test_nuke_update_repair_and_uninstall_preserve_foreign_menu(tmp_path):
@@ -846,7 +844,6 @@ def test_houdini_and_nuke_expose_host_specific_options(tmp_path):
         item[0] for item in nuke.option_definitions()
     ] == [
         "main_menu",
-        "dock_panel",
         "auto_open",
     ]
 
@@ -1131,7 +1128,6 @@ def test_nuke_same_version_profiles_are_independent(tmp_path):
         default,
         {
             "main_menu": True,
-            "dock_panel": False,
             "auto_open": False,
         }
     )
@@ -1139,7 +1135,6 @@ def test_nuke_same_version_profiles_are_independent(tmp_path):
         studio,
         {
             "main_menu": False,
-            "dock_panel": True,
             "auto_open": True,
         }
     )
@@ -1157,9 +1152,11 @@ def test_nuke_same_version_profiles_are_independent(tmp_path):
         profile_id=studio.profile_id
     )
     assert default_settings["main_menu"] is True
-    assert default_settings["dock_panel"] is False
+    assert default_settings["auto_open"] is False
     assert studio_settings["main_menu"] is False
-    assert studio_settings["dock_panel"] is True
+    assert studio_settings["auto_open"] is True
+    assert "dock_panel" not in default_settings
+    assert "dock_panel" not in studio_settings
     assert studio.profile_id in (
         studio_nuke / "menu.py"
     ).read_text(encoding="utf-8")

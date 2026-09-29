@@ -29,7 +29,6 @@ The block adds the Script Toolbox `scripts` directory to Python's search path an
 Options:
 
 - **Add to Main Menu**
-- **Register Dock Panel**
 - **Open on startup**
 
 Nuke versions share the same `~/.nuke/menu.py` bootstrap, while their options are stored independently. Uninstalling one configured version does not remove the shared bootstrap if another Nuke version still uses it.
@@ -47,7 +46,7 @@ For each detected Nuke version, Settings then shows separate targets such as:
 16.0 - Studio  | Not installed
 ```
 
-Each profile gets its own managed `menu.py` block and independent Main Menu / Dock Panel / startup options. Uninstalling one profile does not edit another profile's `menu.py`.
+Each profile gets its own managed `menu.py` block and independent Main Menu / startup options. Uninstalling one profile does not edit another profile's `menu.py`.
 
 ## Usage
 
@@ -58,14 +57,7 @@ import script_toolbox
 script_toolbox.show()
 ```
 
-Register the dockable Nuke pane:
-
-```python
-import script_toolbox
-script_toolbox.register_nuke_panel()
-```
-
-The Nuke application menu also exposes these actions after `register_nuke_menu()`.
+The Nuke application menu exposes **Open** after `register_nuke_menu()`.
 
 ## Script namespace
 

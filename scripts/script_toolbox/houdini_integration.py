@@ -13,7 +13,7 @@ def _hou():
     return hou
 
 
-def _current_settings():
+def _current_settings(profile_id=None):
     hou = _hou()
     try:
         version = parse_version(
@@ -27,7 +27,8 @@ def _current_settings():
 
     return get_integration_settings(
         "houdini",
-        version
+        version,
+        profile_id=profile_id
     )
 
 
@@ -115,8 +116,10 @@ def remove_shelf():
     return removed
 
 
-def apply_current_integration():
-    settings = _current_settings()
+def apply_current_integration(profile_id=None):
+    settings = _current_settings(
+        profile_id=profile_id
+    )
     if not settings:
         try:
             remove_shelf()

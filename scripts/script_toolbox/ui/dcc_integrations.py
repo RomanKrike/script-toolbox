@@ -80,8 +80,20 @@ class DccIntegrationsPage(QtGui.QWidget):
         )
 
     @staticmethod
+    def _supports_profile_locations(adapter):
+        return callable(
+            getattr(
+                adapter,
+                "profile_roots",
+                None
+            )
+        )
+
+    @staticmethod
     def _target_count_text(adapter, count):
-        if adapter.key == "maya":
+        if DccIntegrationsPage._supports_profile_locations(
+            adapter
+        ):
             noun = "profile" if count == 1 else "profiles"
         else:
             noun = "version" if count == 1 else "versions"
@@ -157,8 +169,11 @@ class DccIntegrationsPage(QtGui.QWidget):
         self._connect_collapse_state(section, key)
         layout = section.content_layout
 
-        if adapter.key == "maya":
-            self._add_maya_profile_locations(
+        if self._supports_profile_locations(
+            adapter
+        ):
+            self._add_profile_locations(
+                adapter,
                 layout,
                 section.content
             )
@@ -199,12 +214,24 @@ class DccIntegrationsPage(QtGui.QWidget):
 
         return section
 
-    def _add_maya_profile_locations(self, layout, parent):
-        roots = self.manager.profile_roots("maya")
+    def _add_profile_locations(
+        self,
+        adapter,
+        layout,
+        parent
+    ):
+        roots = self.manager.profile_roots(
+            adapter.key
+        )
+        state_key = "dcc:{0}:profile-locations".format(
+            adapter.key
+        )
         section = CollapsibleSection(
-            title="Profile locations  |  {0}".format(len(roots)),
+            title="Profile locations  |  {0}".format(
+                len(roots)
+            ),
             collapsed=self._collapsed_value(
-                "dcc:maya:profile-locations",
+                state_key,
                 True
             ),
             nested=True,
@@ -214,12 +241,14 @@ class DccIntegrationsPage(QtGui.QWidget):
         )
         self._connect_collapse_state(
             section,
-            "dcc:maya:profile-locations"
+            state_key
         )
 
         for profile in roots:
             row = QtGui.QHBoxLayout()
-            row.setSpacing(metrics.SETTINGS_ACTION_SPACING)
+            row.setSpacing(
+                metrics.SETTINGS_ACTION_SPACING
+            )
 
             label = mark_secondary_text(
                 QtGui.QLabel(
@@ -233,49 +262,87 @@ class DccIntegrationsPage(QtGui.QWidget):
             label.setWordWrap(True)
             row.addWidget(label, 1)
 
-            if profile.get("removable", False):
+            if profile.get(
+                "removable",
+                False
+            ):
                 remove_button = QtGui.QPushButton(
                     "Remove",
                     section.content
                 )
                 remove_button.clicked.connect(
-                    lambda checked=False, profile_id=profile.get("id"):
-                    self._remove_maya_profile_path(profile_id)
+                    lambda checked=False,
+                    dcc_key=adapter.key,
+                    display_name=adapter.display_name,
+                    profile_id=profile.get("id"):
+                    self._remove_profile_path(
+                        dcc_key,
+                        display_name,
+                        profile_id
+                    )
                 )
-                row.addWidget(remove_button)
+                row.addWidget(
+                    remove_button
+                )
 
-            section.content_layout.addLayout(row)
+            section.content_layout.addLayout(
+                row
+            )
 
         add_row = QtGui.QHBoxLayout()
-        add_row.setSpacing(metrics.SETTINGS_ACTION_SPACING)
+        add_row.setSpacing(
+            metrics.SETTINGS_ACTION_SPACING
+        )
         add_button = QtGui.QPushButton(
             "Add profile path...",
             section.content
         )
-        add_button.clicked.connect(self._add_maya_profile_path)
+        add_button.clicked.connect(
+            lambda checked=False,
+            dcc_key=adapter.key,
+            display_name=adapter.display_name:
+            self._add_profile_path(
+                dcc_key,
+                display_name
+            )
+        )
         add_row.addWidget(add_button)
         add_row.addStretch(1)
-        section.content_layout.addLayout(add_row)
+        section.content_layout.addLayout(
+            add_row
+        )
 
         layout.addWidget(section)
 
-    def _add_maya_profile_path(self, *args):
+    def _add_profile_path(
+        self,
+        dcc_key,
+        display_name
+    ):
         selected = QtGui.QFileDialog.getExistingDirectory(
             self,
-            "Add Maya Profile Path"
+            "Add {0} Profile Path".format(
+                display_name
+            )
         )
-        selected = text_type(selected or "").strip()
+        selected = text_type(
+            selected or ""
+        ).strip()
         if not selected:
             return
 
-        normalized = os.path.normpath(selected)
+        normalized = os.path.normpath(
+            selected
+        )
         suggested = os.path.basename(
             normalized.rstrip("\\/")
         ) or "Custom"
 
         label, accepted = QtGui.QInputDialog.getText(
             self,
-            "Maya Profile Name",
+            "{0} Profile Name".format(
+                display_name
+            ),
             "Name:",
             QtGui.QLineEdit.Normal,
             suggested
@@ -283,24 +350,42 @@ class DccIntegrationsPage(QtGui.QWidget):
         if not accepted:
             return
 
-        label = text_type(label or "").strip() or suggested
+        label = (
+            text_type(
+                label or ""
+            ).strip() or
+            suggested
+        )
         try:
             self.manager.add_profile_root(
-                "maya",
+                dcc_key,
                 normalized,
                 label=label
             )
         except Exception as exc:
-            self._show_error("Add Profile Path Failed", exc)
+            self._show_error(
+                "Add Profile Path Failed",
+                exc
+            )
             return
         self.scan()
 
-    def _remove_maya_profile_path(self, profile_id):
+    def _remove_profile_path(
+        self,
+        dcc_key,
+        display_name,
+        profile_id
+    ):
         answer = QtGui.QMessageBox.question(
             self,
             "Remove Profile Path",
-            "Stop scanning this Maya profile path?\n\n"
-            "Installed Script Toolbox integration must be uninstalled first.",
+            (
+                "Stop scanning this {0} profile path?\n\n"
+                "Installed Script Toolbox integration must be "
+                "uninstalled first."
+            ).format(
+                display_name
+            ),
             QtGui.QMessageBox.Yes | QtGui.QMessageBox.No,
             QtGui.QMessageBox.No
         )
@@ -309,11 +394,14 @@ class DccIntegrationsPage(QtGui.QWidget):
 
         try:
             self.manager.remove_profile_root(
-                "maya",
+                dcc_key,
                 profile_id
             )
         except Exception as exc:
-            self._show_error("Remove Profile Path Failed", exc)
+            self._show_error(
+                "Remove Profile Path Failed",
+                exc
+            )
             return
         self.scan()
 

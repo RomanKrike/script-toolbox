@@ -235,3 +235,187 @@ jobs:
           echo "- Version: \`${{ steps.version.outputs.dev }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Commit: \`${{ steps.version.outputs.short_sha }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Release tag: \`dev-latest\`" >> "$GITHUB_STEP_SUMMARY"
+
+
+  portable:
+    name: Publish standalone portable
+    if: github.ref == 'refs/heads/dev'
+    needs:
+      - publish
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          architecture: "x64"
+
+      - name: Resolve development version
+        id: version
+        shell: pwsh
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          $baseVersion = python -c "import re,pathlib; text=pathlib.Path('scripts/script_toolbox/constants.py').read_text(encoding='utf-8'); m=re.search(r'^PLUGIN_VERSION\s*=\s*[\"'']([^\"'']+)[\"'']', text, re.M); print(m.group(1).split('-',1)[0])"
+          if (-not $baseVersion) {
+            throw "PLUGIN_VERSION not found"
+          }
+          $devVersion = "$baseVersion-dev.$env:BUILD_NUMBER"
+          "dev=$devVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Stamp development build metadata
+        shell: pwsh
+        env:
+          DEV_VERSION: ${{ steps.version.outputs.dev }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          BUILD_COMMIT: ${{ github.sha }}
+        run: |
+          @'
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path("scripts/script_toolbox/constants.py")
+          text = path.read_text(encoding="utf-8")
+
+          replacements = (
+              (
+                  r'^PLUGIN_VERSION\s*=\s*"[^"]*"',
+                  'PLUGIN_VERSION = "{0}"'.format(os.environ["DEV_VERSION"]),
+              ),
+              (
+                  r'^BUILD_CHANNEL\s*=\s*"[^"]*"',
+                  'BUILD_CHANNEL = "development"',
+              ),
+              (
+                  r'^BUILD_NUMBER\s*=\s*\d+',
+                  'BUILD_NUMBER = {0}'.format(int(os.environ["BUILD_NUMBER"])),
+              ),
+              (
+                  r'^BUILD_COMMIT\s*=\s*"[^"]*"',
+                  'BUILD_COMMIT = "{0}"'.format(os.environ["BUILD_COMMIT"]),
+              ),
+          )
+
+          for pattern, replacement in replacements:
+              text, count = re.subn(
+                  pattern,
+                  replacement,
+                  text,
+                  count=1,
+                  flags=re.M,
+              )
+              if count != 1:
+                  raise SystemExit(
+                      "Could not stamp constants pattern: {0}".format(pattern)
+                  )
+
+          path.write_text(text, encoding="utf-8")
+          '@ | python -
+
+      - name: Prepare official embeddable Python runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = python -c "import platform; print(platform.python_version())"
+          $runtime = Join-Path $PWD "build/runtime"
+          $archive = Join-Path $PWD "build/python-embed.zip"
+          New-Item -ItemType Directory -Force -Path (Split-Path $runtime) | Out-Null
+          Invoke-WebRequest `
+            -Uri "https://www.python.org/ftp/python/$version/python-$version-embed-amd64.zip" `
+            -OutFile $archive
+          Expand-Archive -Path $archive -DestinationPath $runtime
+
+          New-Item -ItemType Directory -Force -Path "$runtime/Lib/site-packages" | Out-Null
+          python -m pip install `
+            --disable-pip-version-check `
+            --no-cache-dir `
+            --only-binary=:all: `
+            --target "$runtime/Lib/site-packages" `
+            "PySide6>=6.8,<7"
+
+          $pth = Get-ChildItem -Path $runtime -Filter "python*._pth" | Select-Object -First 1
+          if (-not $pth) {
+            throw "Embedded Python _pth file was not found."
+          }
+          Add-Content -Path $pth.FullName -Value "Lib\site-packages"
+          Add-Content -Path $pth.FullName -Value "import site"
+
+      - name: Build native launcher
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $install = & $vswhere `
+            -latest `
+            -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          if (-not $install) {
+            throw "MSVC Build Tools were not found."
+          }
+
+          $vcvars = Join-Path $install "VC\Auxiliary\Build\vcvars64.bat"
+          New-Item -ItemType Directory -Force -Path "build/launcher" | Out-Null
+          $source = Join-Path $PWD "standalone\launcher.c"
+          $output = Join-Path $PWD "build\launcher\ScriptToolbox.exe"
+          cmd /d /s /c "`"$vcvars`" && cl /nologo /O2 /W4 `"$source`" /link /SUBSYSTEM:WINDOWS /OUT:`"$output`""
+          if ($LASTEXITCODE -ne 0) {
+            throw "Standalone launcher compilation failed."
+          }
+
+      - name: Build portable standalone package
+        shell: pwsh
+        run: |
+          python tools/build_standalone_portable.py `
+            --runtime build/runtime `
+            --launcher build/launcher/ScriptToolbox.exe `
+            --output dist-standalone
+
+          $zip = Get-ChildItem -Path dist-standalone -Filter "*.zip" | Select-Object -First 1
+          $checksum = Get-ChildItem -Path dist-standalone -Filter "*.zip.sha256" | Select-Object -First 1
+          if (-not $zip -or -not $checksum) {
+            throw "Portable standalone package was not produced."
+          }
+
+          Move-Item -Force $zip.FullName "dist-standalone/script-toolbox-standalone-dev.zip"
+          Move-Item -Force $checksum.FullName "dist-standalone/script-toolbox-standalone-dev.zip.sha256"
+
+      - name: Smoke portable standalone UI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $package = Get-ChildItem -Path "dist-standalone" -Directory | Select-Object -First 1
+          if (-not $package) {
+            throw "Portable package directory was not found."
+          }
+
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $env:SCRIPT_TOOLBOX_PORTABLE_ROOT = $package.FullName
+          $code = "import os,sys; root=os.environ['SCRIPT_TOOLBOX_PORTABLE_ROOT']; sys.path.insert(0, os.path.join(root, 'scripts')); import script_toolbox; assert script_toolbox.__host__ == 'standalone'; assert '-dev.' in script_toolbox.__version__; from script_toolbox.compat import QtGui; app=QtGui.QApplication([]); window=script_toolbox.show(); assert window is not None; window.close(); app.processEvents(); print('Standalone dev UI smoke passed')"
+          & (Join-Path $package.FullName "runtime\python.exe") -c $code
+          if ($LASTEXITCODE -ne 0) {
+            throw "Portable standalone UI smoke failed."
+          }
+
+      - name: Attach portable standalone to dev-latest
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload dev-latest `
+            dist-standalone/script-toolbox-standalone-dev.zip `
+            dist-standalone/script-toolbox-standalone-dev.zip.sha256 `
+            --clobber
+
+      - name: Upload standalone workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: script-toolbox-standalone-dev
+          path: |
+            dist-standalone/script-toolbox-standalone-dev.zip
+            dist-standalone/script-toolbox-standalone-dev.zip.sha256
+          if-no-files-found: error
+          retention-days: 14

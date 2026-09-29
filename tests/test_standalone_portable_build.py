@@ -44,6 +44,15 @@ def test_portable_build_keeps_one_shared_script_toolbox_source(tmp_path):
             "standalone.py"
         )
     )
+    assert os.path.isfile(
+        os.path.join(
+            staging_root,
+            "scripts",
+            "script_toolbox",
+            "resources",
+            "logo_sbt.ico"
+        )
+    )
     assert not os.path.exists(
         os.path.join(
             staging_root,

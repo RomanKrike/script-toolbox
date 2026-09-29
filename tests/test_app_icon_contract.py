@@ -77,6 +77,9 @@ def test_windows_launcher_embeds_logo_resource():
     embedder = _read(
         "tools/embed_windows_icon.py"
     )
+    metadata_builder = _read(
+        "tools/build_windows_resources.py"
+    )
     dev_workflow = _read(
         ".github/workflows/dev-build.yml"
     )
@@ -93,11 +96,22 @@ def test_windows_launcher_embeds_logo_resource():
     assert "def build_group_icon(" in embedder
     assert "def verify_icon_resource(" in embedder
 
+    assert '"ProductName", "Script Toolbox' in metadata_builder
+    assert '"FileDescription", "Script Toolbox' in metadata_builder
+    assert '"InternalName", "ScriptToolbox' in metadata_builder
+    assert '"OriginalFilename", "ScriptToolbox.exe' in metadata_builder
+    assert "CompanyName" not in metadata_builder
+    assert "BlinPi" not in metadata_builder
+
     for workflow in (
         dev_workflow,
         standalone_workflow,
     ):
+        assert "tools/build_windows_resources.py" in workflow
         assert "tools/embed_windows_icon.py" in workflow
         assert "scripts/script_toolbox/resources/logo_sbt.ico" in workflow
-        assert "rc /nologo" not in workflow
-        assert "launcher.res" not in workflow
+        assert "ScriptToolbox.rc" in workflow
+        assert "ScriptToolbox.res" in workflow
+        assert "rc /nologo" in workflow
+        assert 'ProductName = "Script Toolbox"' in workflow
+        assert 'OriginalFilename = "ScriptToolbox.exe"' in workflow

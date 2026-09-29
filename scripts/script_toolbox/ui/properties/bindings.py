@@ -397,25 +397,33 @@ class BindingPanel(QtGui.QWidget):
 
     def eventFilter(self, watched, event):
         if watched is self.tabs.tabBar():
-            index = watched.tabAt(event.pos())
+            event_type = event.type()
 
-            if (
-                event.type() == QtCore.QEvent.MouseButtonPress and
-                index == self.tabs.add_tab_index()
+            if event_type in (
+                QtCore.QEvent.MouseButtonPress,
+                QtCore.QEvent.MouseButtonDblClick,
             ):
-                try:
-                    if event.button() != QtCore.Qt.LeftButton:
-                        return True
-                except Exception:
-                    pass
-                self.add_binding()
-                return True
+                index = watched.tabAt(
+                    event.pos()
+                )
 
-            if event.type() == QtCore.QEvent.MouseButtonDblClick:
-                page = self._binding_page_at_tab(index)
-                if page is not None:
-                    self.edit_binding(page)
+                if (
+                    event_type == QtCore.QEvent.MouseButtonPress and
+                    index == self.tabs.add_tab_index()
+                ):
+                    try:
+                        if event.button() != QtCore.Qt.LeftButton:
+                            return True
+                    except Exception:
+                        pass
+                    self.add_binding()
                     return True
+
+                if event_type == QtCore.QEvent.MouseButtonDblClick:
+                    page = self._binding_page_at_tab(index)
+                    if page is not None:
+                        self.edit_binding(page)
+                        return True
 
         return QtGui.QWidget.eventFilter(self, watched, event)
 

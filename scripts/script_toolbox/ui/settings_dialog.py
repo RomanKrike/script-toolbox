@@ -17,6 +17,7 @@ from ..core.preferences import UPDATE_CHANNEL_STABLE
 from ..core.preferences import get_telemetry_consent
 from ..core.preferences import get_update_channel
 from ..pycompat import text_type
+from ..style import apply_window_icon
 from ..style.metrics import RUNTIME_FOLDER_CONTENT_MARGINS
 from ..style.metrics import RUNTIME_FOLDER_CONTENT_SPACING
 from ..style.metrics import RUNTIME_FOLDER_ROOT_MARGINS
@@ -61,6 +62,9 @@ class TelemetryConsentDialog(QtGui.QDialog):
         QtGui.QDialog.__init__(self, parent)
 
         self.setWindowTitle("Usage Statistics")
+        apply_window_icon(
+            self
+        )
         self.setModal(True)
         self.setMinimumWidth(440)
 
@@ -175,6 +179,9 @@ class SettingsDialog(QtGui.QDialog):
         QtGui.QDialog.__init__(self, parent)
 
         self.setWindowTitle("Script Toolbox Settings")
+        apply_window_icon(
+            self
+        )
         self.setModal(True)
         self.setMinimumSize(680, 500)
         self._network_test = None

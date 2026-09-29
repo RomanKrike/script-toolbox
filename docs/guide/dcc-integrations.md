@@ -154,7 +154,6 @@ For Nuke, Install adds one marked Script Toolbox block to the existing user `~/.
 Available options:
 
 - **Add to Main Menu**
-- **Register Dock Panel**
 - **Open on startup**
 
 The same `~/.nuke/menu.py` can serve multiple installed Nuke versions. Per-version integration settings remain independent; the managed startup block is removed only after the final configured Nuke version in that profile is uninstalled.

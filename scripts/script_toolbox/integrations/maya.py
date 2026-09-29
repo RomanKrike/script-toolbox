@@ -655,4 +655,16 @@ class MayaAdapter(DccAdapter):
         module_path = self._module_path(installation)
         if os.path.isfile(module_path):
             try:
-                content = 
+                content = _read_text(module_path)
+            except Exception:
+                content = ""
+            if _MANAGED_MODULE_MARKER in content:
+                os.remove(module_path)
+
+        return self.status(installation)
+
+
+__all__ = [
+    "MayaAdapter",
+    "MayaIntegrationError",
+]

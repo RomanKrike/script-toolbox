@@ -47,7 +47,7 @@ class DetectionOnlyAdapter(DccAdapter):
                 install_path=by_version[version],
                 user_config_path=self.user_config_path(version),
                 integration_available=False,
-                supported=True
+                supported=self.supported
             )
             installation.integration_status = self.status(installation).state
             result.append(installation)

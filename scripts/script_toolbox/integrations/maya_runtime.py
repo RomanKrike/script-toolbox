@@ -101,7 +101,6 @@ def ensure_main_menu():
 
 
 def _shelf_parent():
-    cmds = _cmds()
     try:
         import maya.mel as mel
         return mel.eval("$tmp=$gShelfTopLevel")

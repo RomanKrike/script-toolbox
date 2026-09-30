@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+import json
 import os
 import shutil
 import subprocess
@@ -89,6 +90,39 @@ def _validate_portable_root(
         )
 
     return True
+
+
+def _read_build_marker(root):
+    path = os.path.join(
+        root,
+        "standalone-build.json"
+    )
+
+    try:
+        with open(path, "rb") as handle:
+            payload = handle.read()
+
+        if not isinstance(payload, text_type):
+            payload = payload.decode(
+                "utf-8"
+            )
+
+        data = json.loads(
+            payload
+        )
+    except Exception as exc:
+        raise UpdateError(
+            "Standalone build marker is unreadable: {0}".format(
+                text_type(exc)
+            )
+        )
+
+    if not isinstance(data, dict):
+        raise UpdateError(
+            "Standalone build marker has an invalid format."
+        )
+
+    return data
 
 
 def render_apply_script():
@@ -289,6 +323,32 @@ def install_release(
         _validate_portable_root(
             source_root
         )
+
+        marker = _read_build_marker(
+            source_root
+        )
+        marker_version = text_type(
+            marker.get(
+                "version",
+                ""
+            )
+        ).strip()
+        expected_version = text_type(
+            install_metadata[
+                "version"
+            ]
+        ).strip()
+
+        if marker_version != expected_version:
+            raise UpdateError(
+                (
+                    "Standalone package version mismatch: expected {0}, "
+                    "got {1}."
+                ).format(
+                    expected_version,
+                    marker_version or "<missing>"
+                )
+            )
 
         script_path = _write_apply_script(
             work_directory

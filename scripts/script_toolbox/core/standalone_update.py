@@ -272,6 +272,7 @@ try {
         exit 0
     }
     $Source = $plan.source
+    [Console]::WriteLine("Portable update: backing up and validating staged files")
     # Copy every previous file before journalling or touching the installation.
     foreach ($entry in $plan.entries) {
         if ($entry.existed) {
@@ -282,6 +283,7 @@ try {
             if ($actual -ne $entry.sha256) { throw "Staged checksum mismatch: $($entry.path)" }
         }
     }
+    [Console]::WriteLine("Portable update: applying files")
     Write-JsonAtomic $journalPath @{phase="applying"}
     foreach ($entry in $plan.entries) {
         $target = Safe-Path $Destination $entry.path
@@ -293,6 +295,7 @@ try {
             if ((File-Sha256 (Safe-Path $Destination $entry.path)) -ne $entry.sha256) { throw "Installed checksum mismatch" }
         }
     }
+    [Console]::WriteLine("Portable update: installed files verified")
     Write-JsonAtomic $journalPath @{phase="committed"}
     Write-JsonAtomic $statusPath @{state="installed"; version=$plan.version}
     Remove-Item -LiteralPath $transaction -Recurse -Force

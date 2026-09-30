@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 
@@ -28,7 +29,6 @@ def main(root):
         (source / standalone_update.MANIFEST_FILENAME).write_text(json.dumps(
             standalone_update.package_manifest(str(source))))
         old_process = subprocess.Popen([str(destination / 'ScriptToolbox.exe')], cwd=str(destination))
-        import time
         time.sleep(3)
         if old_process.poll() is not None:
             raise RuntimeError('Initial native app exited before the update')
@@ -42,7 +42,22 @@ def main(root):
                                    '-ParentProcessId', str(old_process.pid), '-CleanupRoot', str(source)])
         old_process.terminate()
         old_process.wait(timeout=10)
-        code = helper.wait(timeout=90)
+        # Full Python/Qt payload replacement is substantially slower than the
+        # tiny fault-injection fixtures. Startup retains its own 30s deadline.
+        deadline = time.monotonic() + 360
+        next_report = 0
+        while helper.poll() is None:
+            now = time.monotonic()
+            if now >= next_report:
+                transaction = destination / standalone_update.PORTABLE_TRANSACTION_DIRECTORY
+                journal = transaction / 'journal.json'
+                phase = journal.read_text() if journal.exists() else 'backing up / validating'
+                print('Portable helper phase: ' + phase, flush=True)
+                next_report = now + 15
+            if now >= deadline:
+                raise RuntimeError('Portable helper exceeded 360s during ' + phase)
+            time.sleep(1)
+        code = helper.returncode
         status = json.loads((destination / 'standalone-update-status.json').read_text())
         restarted_pid = status.get('restart_pid')
         if code != 0 or status.get('restart') != 'started' or not restarted_pid:

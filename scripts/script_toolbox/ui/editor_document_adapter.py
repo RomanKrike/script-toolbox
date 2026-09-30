@@ -178,10 +178,12 @@ def _unwrap_base(base_class):
 def build_interface_editor_class(
     base_class,
     controller_class=None,
-    layout_support=False
+    layout_support=False,
+    share_controller_factory=None
 ):
     """Build the active controller-backed InterfaceEditor."""
     base_class = _unwrap_base(base_class)
+    share_controller_factory = share_controller_factory or install_share_controller
     if controller_class is None:
         controller_class = EditorDocumentController
 
@@ -201,7 +203,7 @@ def build_interface_editor_class(
 
             # Share exists before the base constructor calls build_ui(), where
             # _icon_button() resolves dynamically on this instance.
-            install_share_controller(self)
+            share_controller_factory(self)
 
             base_class.__init__(
                 self,

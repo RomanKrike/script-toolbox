@@ -52,7 +52,9 @@ def test_native_launcher_hosts_python_in_process_instead_of_spawning_pythonw():
         "standalone/launcher.c"
     )
 
-    assert "CreateProcessW(" not in launcher
+    main = launcher.split("int WINAPI", 1)[1]
+    assert "CreateProcessW(" not in main
+    assert "start_pending_recovery(root)" in main
     assert "pythonw.exe" not in launcher
     assert "LoadLibraryExW(" in launcher
     assert "GetProcAddress(" in launcher

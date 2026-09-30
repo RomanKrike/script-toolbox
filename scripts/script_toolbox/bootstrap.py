@@ -290,56 +290,8 @@ def hot_reload_toolbox():
 
 
 def reload_toolbox():
-    """
-    Development reload for the active DCC host.
-
-    Close the live window first, then reload child modules from deepest names
-    to shallowest names so UI classes do not keep stale module references.
-    Pending runtime config changes are flushed before any module reload starts.
-    """
-    from .ui.debounced_main_window import close_toolbox
-    close_toolbox()
-    _close_telemetry()
-
-    prefix = "script_toolbox."
-
-    names = [
-        name
-        for name in list(sys.modules.keys())
-        if (
-            name.startswith(prefix) and
-            name != __name__
-        )
-    ]
-
-    names.sort(
-        key=lambda value: (
-            value.count("."),
-            len(value)
-        ),
-        reverse=True
-    )
-
-    for name in names:
-        module = sys.modules.get(
-            name
-        )
-
-        if module is None:
-            continue
-
-        try:
-            reload(
-                module
-            )
-        except Exception:
-            _LOGGER.warning(
-                "Failed to reload Script Toolbox module %s.",
-                name,
-                exc_info=True
-            )
-
-    return show()
+    """Use the same close, purge and fresh import lifecycle as update reload."""
+    return hot_reload_toolbox()
 
 
 __all__ = [

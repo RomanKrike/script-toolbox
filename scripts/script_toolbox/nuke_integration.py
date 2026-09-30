@@ -8,6 +8,13 @@ from .integrations.discovery import parse_version
 
 
 
+_ACTIVE_PROFILE_ID = None
+
+
+def active_profile_id():
+    return _ACTIVE_PROFILE_ID
+
+
 def _require_nuke():
     if HOST.key != "nuke" or nuke is None:
         raise RuntimeError(
@@ -99,7 +106,12 @@ def _current_settings(profile_id=None):
     )
 
 
-def apply_current_integration(profile_id=None):
+def apply_current_integration(profile_id=None, activate_profile=False):
+    global _ACTIVE_PROFILE_ID
+    if activate_profile or _ACTIVE_PROFILE_ID is None:
+        _ACTIVE_PROFILE_ID = profile_id or "default"
+    elif profile_id is not None and profile_id != _ACTIVE_PROFILE_ID:
+        return False
     settings = _current_settings(
         profile_id=profile_id
     )

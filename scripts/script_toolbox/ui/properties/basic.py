@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..scroll_surface_frames import wrap_scroll_widget
+
 from ...compat import QtGui
 from ...model.items import clamp
 from ...model.items import safe_color
@@ -350,6 +352,8 @@ class MenuPropertyEditor(ValuePropertyEditorBase):
 
         self.items_edit.textChanged.connect(self._items_changed)
         self.value.currentIndexChanged.connect(self._control_changed)
+
+        self.items_edit_scroll_frame = wrap_scroll_widget(self.items_edit)
 
     def load_specific(self, item):
         self.items_edit.setPlainText(

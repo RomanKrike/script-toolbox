@@ -24,24 +24,11 @@ def test_debounced_runtime_installs_update_and_settings_wrappers():
         "scripts/script_toolbox/ui/debounced_main_window.py"
     )
 
-    assert (
-        "from .settings_ui import build_settings_toolbox_class"
-    ) in source
-    assert (
-        "from .update_channels_ui import "
-        "build_update_channel_toolbox_class"
-    ) in source
-    assert "_DebouncedScriptToolbox = ScriptToolbox" in source
-    assert (
-        "_UpdateChannelScriptToolbox = build_update_channel_toolbox_class(\n"
-        "    _DebouncedScriptToolbox\n"
-        ")"
-    ) in source
-    assert (
-        "ScriptToolbox = build_settings_toolbox_class(\n"
-        "    _UpdateChannelScriptToolbox\n"
-        ")"
-    ) in source
+    assert "from .settings_ui import SettingsToolboxMixin" in source
+    assert "from .update_channels_ui import UpdateChannelToolboxMixin" in source
+    assert "class ScriptToolbox(SettingsToolboxMixin, UpdateChannelToolboxMixin," in source
+    assert "build_update_channel_toolbox_class(" not in source
+    assert "build_settings_toolbox_class(" not in source
 
 
 def test_bootstrap_still_launches_debounced_runtime_window():

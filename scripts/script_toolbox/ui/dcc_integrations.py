@@ -4,6 +4,7 @@ from __future__ import print_function
 import os
 
 from ..compat import QtGui
+from ..compat import QtCore
 from ..integrations.base import STATUS_NOT_INSTALLED
 from ..integrations.base import STATUS_UPDATE_REQUIRED
 from ..integrations.config import get_integration_settings
@@ -11,9 +12,27 @@ from ..integrations.manager import DccIntegrationManager
 from ..pycompat import text_type
 from ..style import metrics
 from .collapsible_folder import CollapsibleSection
+from .update_ui import update_jobs
 from .settings_components import build_page_header
 from .settings_components import configure_settings_scroll_area
 from .settings_components import mark_secondary_text
+
+
+class IntegrationJob(QtCore.QThread):
+    completed = QtCore.Signal(object)
+
+    def __init__(self, callback):
+        owner = update_jobs()
+        QtCore.QThread.__init__(self, owner)
+        self.callback = callback
+        owner.retain(self)
+
+    def run(self):
+        try:
+            result = {"value": self.callback()}
+        except Exception as exc:
+            result = {"error": text_type(exc)}
+        self.completed.emit(result)
 
 
 class DccIntegrationsPage(QtGui.QWidget):
@@ -24,6 +43,9 @@ class DccIntegrationsPage(QtGui.QWidget):
         self.manager = manager or DccIntegrationManager()
         self.installations = {}
         self.rows = {}
+        self._scan_job = None
+        self._operation_job = None
+        self._profile_roots = {}
         self._collapsed_state = {}
 
         root = QtGui.QVBoxLayout(self)
@@ -58,7 +80,7 @@ class DccIntegrationsPage(QtGui.QWidget):
         self.container_layout.setSpacing(metrics.SETTINGS_SECTION_SPACING)
         self.scroll.setWidget(self.container)
 
-        self.scan()
+        QtCore.QTimer.singleShot(0, self.scan)
 
     def _clear_cards(self):
         self.rows = {}
@@ -70,6 +92,8 @@ class DccIntegrationsPage(QtGui.QWidget):
 
     @staticmethod
     def _default_options(adapter, installation):
+        if hasattr(installation, "scanned_options"):
+            return installation.scanned_options
         stored = get_integration_settings(
             installation.dcc,
             installation.version,
@@ -122,12 +146,24 @@ class DccIntegrationsPage(QtGui.QWidget):
         )
 
     def scan(self, *args):
+        if self._scan_job is not None and self._scan_job.isRunning():
+            return
         self.scan_button.setEnabled(False)
-        try:
-            self.installations = self.manager.scan()
-            self._rebuild_cards()
-        finally:
-            self.scan_button.setEnabled(True)
+        self.scan_button.setText("Scanning...")
+        self._scan_job = IntegrationJob(self.manager.scan_details)
+        self._scan_job.completed.connect(self._scan_finished)
+        self._scan_job.start()
+
+    @QtCore.Slot(object)
+    def _scan_finished(self, result):
+        self.scan_button.setEnabled(True)
+        self.scan_button.setText("Scan DCCs")
+        if result.get("error"):
+            self._show_error("DCC Scan Failed", result["error"])
+            return
+        self.installations = result["value"]["installations"]
+        self._profile_roots = result["value"]["roots"]
+        self._rebuild_cards()
 
     def _rebuild_cards(self):
         self._clear_cards()
@@ -220,9 +256,7 @@ class DccIntegrationsPage(QtGui.QWidget):
         layout,
         parent
     ):
-        roots = self.manager.profile_roots(
-            adapter.key
-        )
+        roots = self._profile_roots.get(adapter.key, [])
         state_key = "dcc:{0}:profile-locations".format(
             adapter.key
         )
@@ -432,7 +466,7 @@ class DccIntegrationsPage(QtGui.QWidget):
         layout.addLayout(row)
 
     def _build_installation_section(self, adapter, installation, parent):
-        status = self.manager.status(installation)
+        status = installation.scanned_status
         key = self._collapse_key(
             installation.dcc,
             installation.key
@@ -576,22 +610,32 @@ class DccIntegrationsPage(QtGui.QWidget):
             text_type(exc)
         )
 
-    def _install(self, installation):
-        try:
-            self.manager.install(
-                installation,
-                options=self._options_for(installation)
-            )
-        except Exception as exc:
-            self._show_error("DCC Integration Failed", exc)
+    def _start_operation(self, operation, installation, options=None):
+        if self._operation_job is not None and self._operation_job.isRunning():
+            return
+        self._operation_target = installation
+        self.container.setEnabled(False)
+        self.scan_button.setEnabled(False)
+        self._operation_job = IntegrationJob(lambda: self.manager.files_operation(
+            operation, installation, options=options))
+        self._operation_job.completed.connect(self._operation_finished)
+        self._operation_job.start()
+
+    @QtCore.Slot(object)
+    def _operation_finished(self, result):
+        self.container.setEnabled(True)
+        if result.get("error"):
+            self._show_error("DCC Integration Failed", result["error"])
+        else:
+            # Native DCC API always stays on the Qt/main thread.
+            self.manager.sync_live(self._operation_target)
         self.scan()
 
+    def _install(self, installation):
+        self._start_operation("install", installation, self._options_for(installation))
+
     def _repair(self, installation):
-        try:
-            self.manager.repair(installation)
-        except Exception as exc:
-            self._show_error("Repair Failed", exc)
-        self.scan()
+        self._start_operation("repair", installation)
 
     def _uninstall(self, installation):
         answer = QtGui.QMessageBox.question(
@@ -607,21 +651,42 @@ class DccIntegrationsPage(QtGui.QWidget):
         if answer != QtGui.QMessageBox.Yes:
             return
 
-        try:
-            self.manager.uninstall(installation)
-        except Exception as exc:
-            self._show_error("Uninstall Failed", exc)
-        self.scan()
+        self._start_operation("uninstall", installation)
 
     def _install_all_maya(self, shelf, main_menu):
-        results = self.manager.install_all(
-            "maya",
-            options={
-                "shelf": bool(shelf),
-                "main_menu": bool(main_menu),
-                "auto_open": False,
-            }
-        )
+        if self._operation_job is not None and self._operation_job.isRunning():
+            return
+        manager = self.manager
+        targets = list(self.installations.get("maya", []))
+        options = {"shelf": bool(shelf), "main_menu": bool(main_menu), "auto_open": False}
+
+        def install_files():
+            results = []
+            for target in targets:
+                try:
+                    status = manager.files_operation("install", target, options)
+                    results.append((target, status, None))
+                except Exception as exc:
+                    results.append((target, None, text_type(exc)))
+            return results
+
+        self.container.setEnabled(False)
+        self.scan_button.setEnabled(False)
+        self._operation_job = IntegrationJob(install_files)
+        self._operation_job.completed.connect(self._bulk_install_finished)
+        self._operation_job.start()
+
+    @QtCore.Slot(object)
+    def _bulk_install_finished(self, result):
+        self.container.setEnabled(True)
+        if result.get("error"):
+            self._show_error("Maya Integration Failed", result["error"])
+            self.scan()
+            return
+        results = result["value"]
+        for installation, status, error in results:
+            if error is None:
+                self.manager.sync_live(installation)
         lines = []
         failures = 0
         for installation, status, error in results:

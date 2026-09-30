@@ -32,6 +32,8 @@ from .layout_helpers import configure_layout
 from .runtime import build_folder_widgets
 from .update_ui import UpdateCheckThread
 from .update_ui import UpdateInstallThread
+from .state_toggle_hooks import StateToggleBehaviorMixin
+from .runtime_value_sync import RuntimeValueMixin
 
 
 _TOOLBOX = None
@@ -165,7 +167,7 @@ class ToolboxStatusBar(QtGui.QStatusBar):
         return self._message
 
 
-class ScriptToolbox(QtGui.QMainWindow):
+class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWindow):
 
     def __init__(self, parent=None):
         QtGui.QMainWindow.__init__(self, parent or main_window())
@@ -206,7 +208,10 @@ class ScriptToolbox(QtGui.QMainWindow):
         self.selection_timer.timeout.connect(self.refresh_selection_fields)
         self.selection_timer.start()
 
-        QtCore.QTimer.singleShot(1200, self.check_for_updates)
+        self.update_check_timer = QtCore.QTimer(self)
+        self.update_check_timer.setSingleShot(True)
+        self.update_check_timer.timeout.connect(self.check_for_updates)
+        self.update_check_timer.start(1200)
 
     # ------------------------------------------------------------------
     # UI
@@ -398,6 +403,7 @@ class ScriptToolbox(QtGui.QMainWindow):
             self.save()
             self._run_on_change(item, old_value, new_value)
             self.refresh_state_buttons()
+        self.sync_runtime_value(key)
         return True
 
     def set_value(self, key, value):
@@ -777,6 +783,7 @@ class ScriptToolbox(QtGui.QMainWindow):
     # ------------------------------------------------------------------
 
     def rebuild(self):
+        self.value_widgets = {}
         self.field_widgets = {}
         self.state_button_widgets = {}
         self.toggle_icon_widgets = {}
@@ -848,6 +855,7 @@ class ScriptToolbox(QtGui.QMainWindow):
         )
         self.update_check_thread.start()
 
+    @QtCore.Slot(object)
     def update_check_finished(self, result):
         self.update_info = result
         error = result.get("error")
@@ -890,6 +898,9 @@ class ScriptToolbox(QtGui.QMainWindow):
         self._manual_update_check = False
 
     def install_available_update(self):
+        if self.update_install_thread is not None and self.update_install_thread.isRunning():
+            self.statusBar().showMessage("An update is already running.")
+            return
         if not self.update_info:
             return
 
@@ -920,6 +931,10 @@ class ScriptToolbox(QtGui.QMainWindow):
         )
         if answer != QtGui.QMessageBox.Yes:
             return
+        # The confirmation dialog runs a nested Qt event loop. Another action
+        # may have started an install while this dialog was open.
+        if self.update_install_thread is not None and self.update_install_thread.isRunning():
+            return
 
         self.statusBar().showMessage(
             "Installing Script Toolbox {0}...".format(latest)
@@ -931,8 +946,9 @@ class ScriptToolbox(QtGui.QMainWindow):
         )
         self.update_install_thread.start()
 
+    @QtCore.Slot(object)
     def update_install_finished(self, result):
-        if not result.get("installed", False):
+        if not (result.get("installed", False) or result.get("staged", False)):
             error = result.get("error", "Unknown update error.")
             self.statusBar().show_status(
                 "Update failed",
@@ -1023,7 +1039,8 @@ class ScriptToolbox(QtGui.QMainWindow):
     # ------------------------------------------------------------------
 
     def open_interface_editor(self):
-        from .interface_editor import InterfaceEditor
+        from .bootstrap import initialize_ui
+        InterfaceEditor = initialize_ui().InterfaceEditor
 
         try:
             if (
@@ -1048,24 +1065,13 @@ class ScriptToolbox(QtGui.QMainWindow):
 
 
 def close_toolbox():
-    global _TOOLBOX
-    try:
-        if _TOOLBOX is not None:
-            _TOOLBOX.close()
-            _TOOLBOX.deleteLater()
-    except Exception:
-        pass
-    _TOOLBOX = None
+    from .debounced_main_window import close_toolbox as close_final_window
+    return close_final_window()
 
 
 def show():
-    global _TOOLBOX
-    close_toolbox()
-    _TOOLBOX = ScriptToolbox(parent=main_window())
-    _TOOLBOX.show()
-    _TOOLBOX.raise_()
-    _TOOLBOX.activateWindow()
-    return _TOOLBOX
+    from .debounced_main_window import show as show_final_window
+    return show_final_window()
 
 
 __all__ = [

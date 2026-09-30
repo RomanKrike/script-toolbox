@@ -13,7 +13,8 @@ from ...model.items import sanitize_name
 from ...pycompat import text_type
 from ...style.metrics import PROPERTY_EDITOR_SPACING
 from ...style.palette import WINDOW_BG
-from .bindings import BindingPanel
+from .toggle_state_tabs import IntegratedBindingPanel as BindingPanel
+from .script_editor_sizing import configure_property_editor
 from .layout_adapter import LayoutPropertyAdapter
 from .sections import INSPECTOR_SECTION_ORDER
 from .sections import INSPECTOR_SECTION_TITLES
@@ -175,6 +176,7 @@ class PropertyEditorBase(QtGui.QWidget):
 
         self.layout_adapter.refresh()
         self._refresh_trigger_section_visibility()
+        configure_property_editor(self)
 
     def _build_sections(self):
         always_visible = set((

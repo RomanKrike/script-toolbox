@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..qt_compat import qt_exec
+
 import copy
 
 from ..compat import QtCore
@@ -186,7 +188,7 @@ class ShareController(object):
         menu.addSeparator()
         delete_action = menu.addAction("Delete")
 
-        action = menu.exec_(
+        action = qt_exec(menu,
             editor.tree.viewport().mapToGlobal(point)
         )
 
@@ -323,7 +325,7 @@ class ShareController(object):
         message_box.setEscapeButton(
             cancel_button
         )
-        message_box.exec_()
+        qt_exec(message_box)
         return message_box.clickedButton() == import_button
 
     def _allow_shared_import(self, data):

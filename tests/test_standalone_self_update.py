@@ -10,8 +10,10 @@ def test_standalone_apply_script_waits_replaces_and_restarts():
     script = standalone_update.render_apply_script()
 
     assert "Wait-Process -Id $ParentProcessId" in script
-    assert "robocopy.exe" in script
-    assert "/E" in script
+    assert "Restore-Previous" in script
+    assert "Write-JsonAtomic" in script
+    assert "$lock.Lock(0, 1)" in script
+    assert "foreach ($entry in $plan.entries)" in script
     assert '"ScriptToolbox.exe"' in script
     assert "Start-Process -FilePath $exe" in script
 

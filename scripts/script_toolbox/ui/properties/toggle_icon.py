@@ -9,6 +9,7 @@ from ..icon_browse import install_icon_browse
 from ..language_script_editor import LanguageScriptEditor
 from .base import PropertyEditorBase
 from .inspector_tabs import add_inspector_script_tab
+from .toggle_state_tabs import _integrate_editor_state_tabs, _state_source_refresh
 
 
 class ToggleIconPropertyEditor(PropertyEditorBase):
@@ -107,6 +108,8 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
 
         self._refresh_state_source()
 
+        _integrate_editor_state_tabs(self)
+
     def bind(self, item):
         # BindingPanel.load() rebuilds user-binding pages. Detach the fixed
         # system pages first so its clear() only destroys binding-owned pages.
@@ -194,35 +197,7 @@ class ToggleIconPropertyEditor(PropertyEditorBase):
         self._control_changed()
 
     def _refresh_state_source(self):
-        scripted = self.current_state_source() == "script"
-        self.set_property_available(
-            self.internal_state,
-            not scripted,
-            "Internal State is controlled by Get State when State Source is Script."
-        )
-        self.state_get_editor.setEnabled(True)
-
-        page = self.state_get_page
-        if page is None:
-            return
-
-        page.setEnabled(True)
-        tabs = self.binding_panel.tabs
-        index = tabs.indexOf(page)
-        if index < 0:
-            return
-
-        tabs.setTabEnabled(index, True)
-        try:
-            tabs.tabBar().setTabEnabled(index, True)
-        except Exception:
-            pass
-        tabs.setTabToolTip(
-            index,
-            "State query available for editing; runtime uses it when State Source is Script."
-            if not scripted else
-            "State query used to evaluate the current toggle state."
-        )
+        return _state_source_refresh(self)
 
     def load_specific(self, item):
         self.state_source.setCurrentIndex(

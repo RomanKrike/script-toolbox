@@ -8,8 +8,6 @@ from ..model.item_registry import ITEM_TYPES
 from ..pycompat import text_type
 
 
-_TOOLBOX_INSTALL_MARKER = "_script_toolbox_runtime_value_sync_installed"
-_REBUILD_INSTALL_MARKER = "_script_toolbox_runtime_value_rebuild_installed"
 _VALUE_RENDERER_MARKER = "_script_toolbox_runtime_value_renderer"
 
 
@@ -231,41 +229,12 @@ def _sync_runtime_value(self, key):
         return False
 
 
-def _install_toolbox_methods(toolbox_class):
-    if not hasattr(toolbox_class, "register_value_widget"):
-        toolbox_class.register_value_widget = _register_value_widget
-    if not hasattr(toolbox_class, "sync_runtime_value"):
-        toolbox_class.sync_runtime_value = _sync_runtime_value
+class RuntimeValueMixin(object):
+    def register_value_widget(self, item_id, binding):
+        return _register_value_widget(self, item_id, binding)
 
-
-def _install_store_wrapper(toolbox_class):
-    if toolbox_class.__dict__.get(_TOOLBOX_INSTALL_MARKER, False):
-        return
-
-    original_store_value = toolbox_class.store_value
-
-    def store_value_with_runtime_sync(self, key, value):
-        result = original_store_value(self, key, value)
-        if result:
-            self.sync_runtime_value(key)
-        return result
-
-    toolbox_class.store_value = store_value_with_runtime_sync
-    setattr(toolbox_class, _TOOLBOX_INSTALL_MARKER, True)
-
-
-def _install_rebuild_wrapper(toolbox_class):
-    if toolbox_class.__dict__.get(_REBUILD_INSTALL_MARKER, False):
-        return
-
-    original_rebuild = toolbox_class.rebuild
-
-    def rebuild_with_value_registry(self):
-        self.value_widgets = {}
-        return original_rebuild(self)
-
-    toolbox_class.rebuild = rebuild_with_value_registry
-    setattr(toolbox_class, _REBUILD_INSTALL_MARKER, True)
+    def sync_runtime_value(self, key):
+        return _sync_runtime_value(self, key)
 
 
 def _copy_renderer_markers(target, source):
@@ -309,30 +278,5 @@ def synchronize_runtime_value_renderers(registry):
     return registry
 
 
-def install_runtime_value_sync(
-    registry,
-    base_toolbox_class,
-    store_toolbox_classes=None
-):
-    """Install runtime value registration and post-store synchronization."""
-    _install_toolbox_methods(base_toolbox_class)
-    _install_rebuild_wrapper(base_toolbox_class)
-    synchronize_runtime_value_renderers(registry)
 
-    classes = [base_toolbox_class]
-    for toolbox_class in store_toolbox_classes or ():
-        if toolbox_class not in classes:
-            classes.append(toolbox_class)
-        _install_toolbox_methods(toolbox_class)
-
-    for toolbox_class in classes:
-        _install_store_wrapper(toolbox_class)
-
-    return registry
-
-
-__all__ = [
-    "RuntimeValueBinding",
-    "install_runtime_value_sync",
-    "synchronize_runtime_value_renderers",
-]
+__all__ = ["RuntimeValueBinding", "RuntimeValueMixin", "synchronize_runtime_value_renderers"]

@@ -21,7 +21,7 @@ def test_toggle_state_scripts_share_the_event_tab_surface():
         "toggle_state_tabs.py"
     )
 
-    assert "def install_integrated_toggle_state_tabs():" in source
+    assert "class IntegratedBindingPanel(trigger_tabs_module.TriggerTabBindingPanel):" in source
     assert "def add_auxiliary_tab(" in source
     assert "def set_auxiliary_tab_enabled(" in source
     assert "def script_editor_widgets(" in source
@@ -32,9 +32,9 @@ def test_toggle_state_scripts_share_the_event_tab_surface():
     assert '"Turn ON"' in source
     assert '"Turn OFF"' in source
     assert "editor.trigger_section.content_layout.removeWidget(state_tabs)" in source
-    assert "panel_class.clear = clear" in source
-    assert "panel_class._add_page = add_page" in source
-    assert "panel_class.eventFilter = event_filter" in source
+    assert "def clear(self):" in source
+    assert "def _add_page(self, binding):" in source
+    assert "def eventFilter(self, watched, event):" in source
     assert "self.tabs.indexOf(" in source
     assert "self._add_tab_page" in source
 
@@ -67,8 +67,8 @@ def test_trigger_tabs_order_fixed_before_removable_then_add():
     )
     assert "panel._remove_add_tab()" in state_source
     assert "panel._ensure_add_tab()" in state_source
-    assert "panel_class._refresh_tabs = refresh_tabs" in state_source
-    assert "panel_class.remove_binding = remove_binding" in state_source
+    assert "def _refresh_tabs(self):" in state_source
+    assert "def remove_binding(self, page):" in state_source
     assert "index = self.tabs.indexOf(page)" in state_source
 
     assert "def _remove_trigger_close_button(self, page):" in trigger_source
@@ -86,15 +86,11 @@ def test_toggle_state_tab_hook_installs_after_trigger_and_sizing_hooks():
         "__init__.py"
     )
 
-    trigger_pos = source.index("install_integrated_trigger_tabs()")
-    sizing_pos = source.index("install_expanding_script_editors()")
-    state_pos = source.index("install_integrated_toggle_state_tabs()")
-
-    assert trigger_pos < sizing_pos < state_pos
-    assert (
-        "from .toggle_state_tabs import install_integrated_toggle_state_tabs"
-        in source
-    )
+    assert "install_integrated_trigger_tabs()" not in source
+    assert "install_expanding_script_editors()" not in source
+    assert "install_integrated_toggle_state_tabs()" not in source
+    base = _source("scripts", "script_toolbox", "ui", "properties", "base.py")
+    assert "from .toggle_state_tabs import IntegratedBindingPanel as BindingPanel" in base
 
 
 def test_toggle_state_persistence_contract_is_unchanged():

@@ -12,9 +12,6 @@ from ..style.metrics import PROPERTY_GROUP_MARGINS
 COLLAPSIBLE_FOLDER_ICON_SIZE = 12
 COLLAPSIBLE_FOLDER_CONTENT_MARGINS = PROPERTY_GROUP_MARGINS
 COLLAPSIBLE_FOLDER_CONTENT_SPACING = PROPERTY_EDITOR_SPACING
-_RUNTIME_COMPOSITION_MARKER = (
-    "_script_toolbox_collapsible_section_composition"
-)
 
 
 class CollapsibleSection(QtGui.QFrame):
@@ -178,17 +175,8 @@ class CollapsibleSection(QtGui.QFrame):
             pass
 
 
-def install_runtime_folder_composition(runtime_module):
-    """Compose the shared collapsible primitive into RuntimeFolder."""
-    runtime_class = runtime_module.RuntimeFolder
-    if getattr(runtime_class, _RUNTIME_COMPOSITION_MARKER, False):
-        return runtime_class
-
-    standard_init = runtime_class.__init__
-    standard_toggle = runtime_class.toggle
-    standard_update_state = runtime_class.update_state
-
-    def runtime_folder_init(
+class CollapsibleRuntimeMixin(object):
+    def __init__(
         self,
         toolbox,
         section,
@@ -203,8 +191,7 @@ def install_runtime_folder_composition(runtime_module):
         )
 
         if embedded or folder_type != "collapsible":
-            standard_init(
-                self,
+            super(CollapsibleRuntimeMixin, self).__init__(
                 toolbox,
                 section,
                 parent=parent,
@@ -268,7 +255,7 @@ def install_runtime_folder_composition(runtime_module):
         )
         self.update_state()
 
-    def collapsible_section_changed(self, collapsed):
+    def _collapsible_section_changed(self, collapsed):
         collapsed = bool(collapsed)
         props = self.section.setdefault("props", {})
         previous = bool(props.get("collapsed", False))
@@ -278,7 +265,7 @@ def install_runtime_folder_composition(runtime_module):
         props["collapsed"] = collapsed
         self.toolbox.save()
 
-    def runtime_folder_toggle(self):
+    def toggle(self):
         current = getattr(
             self,
             "collapsible_section",
@@ -287,9 +274,9 @@ def install_runtime_folder_composition(runtime_module):
         if current is not None:
             current.toggle()
             return
-        return standard_toggle(self)
+        return super(CollapsibleRuntimeMixin, self).toggle()
 
-    def runtime_folder_update_state(self):
+    def update_state(self):
         current = getattr(
             self,
             "collapsible_section",
@@ -302,24 +289,8 @@ def install_runtime_folder_composition(runtime_module):
                 notify=False
             )
             return
-        return standard_update_state(self)
-
-    runtime_class.__init__ = runtime_folder_init
-    runtime_class._collapsible_section_changed = collapsible_section_changed
-    runtime_class.toggle = runtime_folder_toggle
-    runtime_class.update_state = runtime_folder_update_state
-    setattr(
-        runtime_class,
-        _RUNTIME_COMPOSITION_MARKER,
-        True
-    )
-    return runtime_class
+        return super(CollapsibleRuntimeMixin, self).update_state()
 
 
-__all__ = [
-    "COLLAPSIBLE_FOLDER_CONTENT_MARGINS",
-    "COLLAPSIBLE_FOLDER_CONTENT_SPACING",
-    "COLLAPSIBLE_FOLDER_ICON_SIZE",
-    "CollapsibleSection",
-    "install_runtime_folder_composition",
-]
+
+__all__ = ["CollapsibleSection", "CollapsibleRuntimeMixin", "COLLAPSIBLE_FOLDER_CONTENT_MARGINS"]

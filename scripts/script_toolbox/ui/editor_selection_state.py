@@ -103,74 +103,19 @@ def _restore_property_scroll(
         pass
 
 
-def install_editor_selection_state(editor_class):
-    """Install editor-only selection styling and Apply state preservation."""
-    if getattr(
-        editor_class,
-        "_script_toolbox_selection_state_installed",
-        False
-    ):
-        return editor_class
-
-    original_build_ui = editor_class.build_ui
-    original_apply_changes = editor_class.apply_changes
-
+class EditorSelectionStateMixin(object):
     def build_ui(self):
-        original_build_ui(
-            self
-        )
-        _apply_selection_palette(
-            self.palette
-        )
-        _apply_selection_palette(
-            self.tree
-        )
+        super(EditorSelectionStateMixin, self).build_ui()
+        _apply_selection_palette(self.palette)
+        _apply_selection_palette(self.tree)
 
     def apply_changes(self):
         current_id = self.current_item_id
-        scroll_value = _property_scroll_value(
-            self
-        )
-
-        result = original_apply_changes(
-            self
-        )
-        if not result:
-            return result
-
-        selected = None
-        if current_id:
-            selected = self.tree_item_by_id(
-                current_id
-            )
-
-        if selected is not None:
-            self.tree.setCurrentItem(
-                selected
-            )
-
-            def restore_scroll():
-                _restore_property_scroll(
-                    self,
-                    scroll_value
-                )
-
-            try:
-                QtCore.QTimer.singleShot(
-                    0,
-                    restore_scroll
-                )
-            except Exception:
-                restore_scroll()
-
+        scroll_value = _property_scroll_value(self)
+        result = super(EditorSelectionStateMixin, self).apply_changes()
+        if result and current_id:
+            selected = self.tree_item_by_id(current_id)
+            if selected is not None:
+                self.tree.setCurrentItem(selected)
+                QtCore.QTimer.singleShot(0, lambda: _restore_property_scroll(self, scroll_value))
         return result
-
-    editor_class.build_ui = build_ui
-    editor_class.apply_changes = apply_changes
-    editor_class._script_toolbox_selection_state_installed = True
-    return editor_class
-
-
-__all__ = [
-    "install_editor_selection_state",
-]

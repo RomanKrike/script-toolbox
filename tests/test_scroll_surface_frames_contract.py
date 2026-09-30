@@ -126,8 +126,8 @@ def test_editor_palette_tree_and_script_editor_use_shared_wrapper():
     assert 'getattr(editor, "palette", None)' in editor_frames
     assert 'getattr(editor, "tree", None)' in editor_frames
     assert editor_frames.count("wrap_scroll_widget(") >= 2
-    assert "self.editor_scroll_frame = wrap_scroll_widget(" in frames
-    assert "self.output_scroll_frame = wrap_scroll_widget(" in frames
+    assert "editor.editor_scroll_frame = wrap_scroll_widget(" in frames
+    assert "editor.output_scroll_frame = wrap_scroll_widget(" in frames
 
 
 def test_runtime_folder_pane_override_is_removed():
@@ -139,12 +139,10 @@ def test_runtime_folder_pane_override_is_removed():
 
 
 def test_multiline_property_fields_use_external_frames():
-    source = _read("scripts/script_toolbox/ui/scroll_surface_frames.py")
-
-    assert "basic_module.MenuPropertyEditor" in source
-    assert 'getattr(self, "items_edit", None)' in source
-    assert "field_module.FieldPropertyEditor" in source
-    assert 'getattr(self, "value", None)' in source
+    menu = _read("scripts/script_toolbox/ui/properties/basic.py")
+    field = _read("scripts/script_toolbox/ui/properties/field.py")
+    assert "wrap_scroll_widget(self.items_edit)" in menu
+    assert "wrap_scroll_widget(self.value)" in field
 
 
 def test_ui_installs_unified_scroll_surface_contract():
@@ -152,9 +150,9 @@ def test_ui_installs_unified_scroll_surface_contract():
     package_source = _read("scripts/script_toolbox/ui/__init__.py")
     editor_search = _read("scripts/script_toolbox/ui/editor_search.py")
 
-    assert "install_property_editor_scroll_frames()" in bootstrap_source
+    assert "install_property_editor_scroll_frames()" not in bootstrap_source
     assert "install_runtime_scroll_frames(" in bootstrap_source
-    assert "install_script_editor_scroll_frames(" in bootstrap_source
+    assert "install_script_editor_scroll_frames(" not in bootstrap_source
     assert "install_property_editor_scroll_frames" not in package_source
     assert "install_runtime_scroll_frames" not in package_source
     assert "install_script_editor_scroll_frames" not in package_source

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..qt_compat import qt_exec
+
 from .. import telemetry
 from ..compat import QtCore
 from ..compat import QtGui
@@ -698,13 +700,13 @@ def prompt_telemetry_consent(parent=None):
 
     _CONSENT_PROMPT_SHOWN = True
     dialog = TelemetryConsentDialog(parent=parent)
-    dialog.exec_()
+    qt_exec(dialog)
     return get_telemetry_consent()
 
 
 def show_settings_dialog(parent=None):
     dialog = SettingsDialog(parent=parent)
-    dialog.exec_()
+    qt_exec(dialog)
     return dialog
 
 

@@ -17,7 +17,7 @@ ROOT = os.path.dirname(
 def test_portable_build_keeps_one_shared_script_toolbox_source(tmp_path):
     runtime = tmp_path / "runtime-source"
     runtime.mkdir()
-    (runtime / "pythonw.exe").write_bytes(b"pythonw")
+    (runtime / "python311.dll").write_bytes(b"python-dll")
 
     launcher = tmp_path / "ScriptToolbox.exe"
     launcher.write_bytes(b"launcher")
@@ -59,6 +59,26 @@ def test_portable_build_keeps_one_shared_script_toolbox_source(tmp_path):
             "runtime",
             "scripts",
             "script_toolbox"
+        )
+    )
+    assert os.path.isfile(
+        os.path.join(
+            staging_root,
+            "ScriptToolbox.exe"
+        )
+    )
+    assert os.path.isfile(
+        os.path.join(
+            staging_root,
+            "runtime",
+            "python311.dll"
+        )
+    )
+    assert not os.path.exists(
+        os.path.join(
+            staging_root,
+            "runtime",
+            "pythonw.exe"
         )
     )
 

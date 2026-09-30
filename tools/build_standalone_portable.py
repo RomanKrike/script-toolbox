@@ -4,6 +4,7 @@ from __future__ import print_function
 import argparse
 import hashlib
 import os
+import re
 import shutil
 import zipfile
 
@@ -114,10 +115,24 @@ def sha256_file(path):
     return digest.hexdigest()
 
 
+def _versioned_python_dlls(runtime_root):
+    if not os.path.isdir(runtime_root):
+        return []
+
+    return sorted([
+        filename
+        for filename in os.listdir(runtime_root)
+        if re.match(
+            r"^python3\d+\.dll$",
+            filename,
+            re.I
+        )
+    ])
+
+
 def validate_portable_root(root):
     required = [
         "ScriptToolbox.exe",
-        os.path.join("runtime", "pythonw.exe"),
         os.path.join("standalone", "bootstrap.py"),
         os.path.join("scripts", "script_toolbox", "__init__.py"),
         os.path.join("scripts", "script_toolbox", "standalone.py"),
@@ -146,6 +161,20 @@ def validate_portable_root(root):
             )
         )
     ]
+
+    runtime_root = os.path.join(
+        root,
+        "runtime"
+    )
+    if not _versioned_python_dlls(
+        runtime_root
+    ):
+        missing.append(
+            os.path.join(
+                "runtime",
+                "python3*.dll"
+            )
+        )
 
     if missing:
         raise StandaloneBuildError(

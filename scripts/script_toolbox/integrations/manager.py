@@ -78,6 +78,32 @@ class DccIntegrationManager(object):
                         profile_id=target.profile_id) or {})
         return {"installations": installations, "roots": roots}
 
+    def discovery_request(self):
+        fields = {"maya": ("distribution_path", "user_root", "program_files", "config_path"),
+                  "nuke": ("distribution_path", "program_files", "config_path"),
+                  "houdini": ("distribution_path", "user_root", "program_files", "config_path"),
+                  "blender": (), "3dsmax": ()}
+        adapters = []
+        for adapter in self.adapters():
+            if adapter.key not in fields:
+                raise RuntimeError("Isolated discovery does not support adapter: " + adapter.key)
+            options = {name: getattr(adapter, name) for name in fields[adapter.key]}
+            if adapter.key == "nuke":
+                options["user_config_path"] = adapter._user_config_path
+            adapters.append({"dcc": adapter.key, "options": options})
+        return {"adapters": adapters}
+
+    @classmethod
+    def from_discovery_request(cls, request):
+        classes = {"maya": MayaAdapter, "nuke": NukeAdapter, "houdini": HoudiniAdapter,
+                   "blender": BlenderAdapter, "3dsmax": MaxAdapter}
+        return cls(adapters=[classes[entry["dcc"]](**entry["options"])
+                             for entry in request["adapters"]])
+
+    def scan_details_bounded(self, cancel_event, timeout=15.0):
+        from .discovery_process import scan_in_process
+        return scan_in_process(self.discovery_request(), cancel_event=cancel_event, timeout=timeout)
+
     def files_operation(self, operation, installation, options=None):
         adapter = self.adapter(installation.dcc)
         callback = getattr(adapter, operation)

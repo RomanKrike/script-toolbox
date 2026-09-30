@@ -54,7 +54,7 @@ def main():
         try:
             with open(status_path, "r") as handle:
                 status = json.load(handle)
-            if status.get("state") in ("failed", "recovered", "recovery_required", "cancelled"):
+            if status.get("restart") == "failed" or status.get("state") in ("failed", "recovered", "recovery_required", "cancelled"):
                 show_startup_error(u"Portable update: {0}\n\n{1}\n\nDetails: {2}".format(
                     status.get("state"), status.get("message", ""), status_path))
         except Exception:

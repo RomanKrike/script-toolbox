@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 import os
+import threading
 
 from ..compat import QtGui
 from ..compat import QtCore
@@ -21,18 +22,24 @@ from .settings_components import mark_secondary_text
 class IntegrationJob(QtCore.QThread):
     completed = QtCore.Signal(object)
 
-    def __init__(self, callback):
+    def __init__(self, callback, cancellable=False):
         owner = update_jobs()
         QtCore.QThread.__init__(self, owner)
         self.callback = callback
+        self.cancel_event = threading.Event() if cancellable else None
         owner.retain(self)
 
     def run(self):
         try:
-            result = {"value": self.callback()}
+            value = self.callback(self.cancel_event) if self.cancel_event is not None else self.callback()
+            result = {"value": value}
         except Exception as exc:
             result = {"error": text_type(exc)}
         self.completed.emit(result)
+
+    def cancel(self, *args):
+        if self.cancel_event is not None:
+            self.cancel_event.set()
 
 
 class DccIntegrationsPage(QtGui.QWidget):
@@ -80,7 +87,10 @@ class DccIntegrationsPage(QtGui.QWidget):
         self.container_layout.setSpacing(metrics.SETTINGS_SECTION_SPACING)
         self.scroll.setWidget(self.container)
 
-        QtCore.QTimer.singleShot(0, self.scan)
+        self._initial_scan_timer = QtCore.QTimer(self)
+        self._initial_scan_timer.setSingleShot(True)
+        self._initial_scan_timer.timeout.connect(self.scan)
+        self._initial_scan_timer.start(0)
 
     def _clear_cards(self):
         self.rows = {}
@@ -150,12 +160,19 @@ class DccIntegrationsPage(QtGui.QWidget):
             return
         self.scan_button.setEnabled(False)
         self.scan_button.setText("Scanning...")
-        self._scan_job = IntegrationJob(self.manager.scan_details)
+        bounded = getattr(self.manager, "scan_details_bounded", None)
+        self._scan_job = IntegrationJob(bounded or self.manager.scan_details,
+                                       cancellable=callable(bounded))
+        self.destroyed.connect(self._scan_job.cancel)
         self._scan_job.completed.connect(self._scan_finished)
         self._scan_job.start()
 
     @QtCore.Slot(object)
     def _scan_finished(self, result):
+        try:
+            self.destroyed.disconnect(self._scan_job.cancel)
+        except (RuntimeError, TypeError):
+            pass
         self.scan_button.setEnabled(True)
         self.scan_button.setText("Scan DCCs")
         if result.get("error"):

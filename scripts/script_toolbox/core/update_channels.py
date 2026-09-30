@@ -200,6 +200,20 @@ def development_release(
             "Development manifest has no version."
         )
 
+    packages = manifest.get("packages")
+    if packages is not None:
+        kind = "standalone" if standalone else "plugin"
+        expected_name = "script-toolbox-{0}{1}.zip".format(
+            version, "-standalone-windows-x64" if standalone else "")
+        record = packages.get(kind, {}) if isinstance(packages, dict) else {}
+        if not isinstance(record, dict) or record.get("asset_name") != expected_name:
+            raise updater.UpdateError("Development manifest has invalid versioned package metadata.")
+        package_asset_name = expected_name
+        package_url = _asset_url(_asset_by_name(data, expected_name))
+        checksum_url = _asset_url(_asset_by_name(data, expected_name + ".sha256"))
+        if not package_url or not checksum_url:
+            raise updater.UpdateError("Development package publication is incomplete. Retry the update check.")
+
     try:
         build_number = int(
             manifest.get(

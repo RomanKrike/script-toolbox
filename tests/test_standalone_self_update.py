@@ -15,7 +15,9 @@ def test_standalone_apply_script_waits_replaces_and_restarts():
     assert "$lock.Lock(0, 1)" in script
     assert "foreach ($entry in $plan.entries)" in script
     assert '"ScriptToolbox.exe"' in script
-    assert "Start-Process -FilePath $exe" in script
+    assert "[Diagnostics.Process]::Start($start)" in script
+    assert "SCRIPT_TOOLBOX_RESTART_TOKEN" in script
+    assert 'restart="failed"' in script
 
 
 def test_standalone_validator_accepts_legacy_destination_without_marker(

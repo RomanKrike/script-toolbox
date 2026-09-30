@@ -39,7 +39,7 @@ def prepare(tmp_path):
 def script_path(tmp_path, injection=None):
     script = standalone_update.render_apply_script()
     # Suppress only the external relaunch of a native EXE in this test fixture.
-    script = "\n".join(line for line in script.splitlines() if "Start-Process -FilePath" not in line)
+    script = "\n".join(line for line in script.splitlines() if not line.strip().startswith("if (-not (Restart-Portable "))
     if injection:
         marker = '    Write-JsonAtomic $journalPath @{phase="applying"}\n    foreach ($entry in $plan.entries) {\n        $target = Safe-Path $Destination $entry.path'
         assert script.count(marker) == 1
@@ -123,3 +123,53 @@ def test_locked_runtime_dll_keeps_previous_installation(tmp_path):
         assert result.returncode == 0, result.stderr.decode(errors="replace")
     assert (destination / "README.md").read_text() == "old"
     assert (destination / "runtime" / "python311.dll").read_bytes() == b"old dll"
+
+
+def compile_restart_fixture(tmp_path, acknowledge):
+    """Real native child executable; transaction tests do not suppress restart."""
+    path = tmp_path / 'restart-fixture.exe'
+    body = '''using System;
+using System.IO;
+using System.Threading;
+public class RestartFixture {
+    public static int Main() {
+        %s
+    }
+}''' % ('''File.WriteAllText(Path.Combine(Environment.CurrentDirectory, ".script_toolbox_restart_ack"),
+                    Environment.GetEnvironmentVariable("SCRIPT_TOOLBOX_RESTART_TOKEN"));
+        Thread.Sleep(3000); return 0;''' if acknowledge else 'return 7;')
+    script = tmp_path / 'compile.ps1'
+    script.write_text("Add-Type -TypeDefinition @'\n" + body + "\n'@ -OutputAssembly '" +
+                      str(path).replace("'", "''") + "' -OutputType ConsoleApplication\n")
+    result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-File', str(script)],
+                            capture_output=True, timeout=30)
+    assert result.returncode == 0, result.stderr.decode(errors='replace')
+    return path.read_bytes()
+
+
+@pytest.mark.parametrize('acknowledge', [True, False])
+def test_actual_restart_is_confirmed_or_reported_without_rollback(tmp_path, acknowledge):
+    executable = compile_restart_fixture(tmp_path, acknowledge)
+    source, destination = prepare(tmp_path)
+    # Rebuild staging with a genuine executable and startup handshake marker.
+    import shutil
+    shutil.rmtree(destination / standalone_update.PORTABLE_TRANSACTION_DIRECTORY)
+    (source / 'ScriptToolbox.exe').write_bytes(executable)
+    (source / 'standalone-build.json').write_text(json.dumps({'restart_handshake_version': 1}))
+    (source / 'standalone-manifest.json').write_text(json.dumps(standalone_update.package_manifest(str(source))))
+    standalone_update._prepare_apply_plan(str(source), str(destination), '1.0.2')
+    script = tmp_path / 'apply-with-restart.ps1'
+    script.write_text(standalone_update.render_apply_script(), encoding='utf-8')
+    result = subprocess.run(command(script, destination), capture_output=True, timeout=40)
+    status = json.loads((destination / 'standalone-update-status.json').read_text())
+    assert status['state'] == 'installed'
+    assert (destination / 'README.md').read_text() == 'new'
+    assert not (destination / standalone_update.PORTABLE_TRANSACTION_DIRECTORY).exists()
+    if acknowledge:
+        assert result.returncode == 0, result.stderr.decode(errors='replace')
+        assert status['restart'] == 'started'
+        assert status['restart_pid'] > 0
+    else:
+        assert result.returncode == 2
+        assert status['restart'] == 'failed'
+        assert 'code 7' in status['message']

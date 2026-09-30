@@ -18,8 +18,11 @@ jobs:
     if: github.ref == 'refs/heads/dev'
     uses: ./.github/workflows/python-checks.yml
 
-  publish:
-    name: Publish dev-latest
+  package:
+    name: Build development plugin
+    outputs:
+      version: ${{ steps.version.outputs.dev }}
+      short_sha: ${{ steps.version.outputs.short_sha }}
     if: github.ref == 'refs/heads/dev'
     needs:
       - checks
@@ -172,6 +175,10 @@ jobs:
                   os.environ["BUILD_NUMBER"]
               ),
               "commit": os.environ["BUILD_COMMIT"],
+              "packages": {
+                  "plugin": {"asset_name": "script-toolbox-{0}.zip".format(os.environ["DEV_VERSION"])},
+                  "standalone": {"asset_name": "script-toolbox-{0}-standalone-windows-x64.zip".format(os.environ["DEV_VERSION"])},
+              },
               "published_at": datetime.now(
                   timezone.utc
               ).isoformat(),
@@ -189,59 +196,19 @@ jobs:
           )
           PY
 
-      - name: Move dev-latest tag
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git tag -f dev-latest "$GITHUB_SHA"
-          git push origin refs/tags/dev-latest --force
-
-      - name: Publish development prerelease
-        env:
-          GH_TOKEN: ${{ github.token }}
-          DEV_VERSION: ${{ steps.version.outputs.dev }}
-          SHORT_SHA: ${{ steps.version.outputs.short_sha }}
-        run: |
-          TITLE="Script Toolbox Development $DEV_VERSION"
-          NOTES="Automated Development build from dev (${SHORT_SHA})."
-
-          if gh release view dev-latest >/dev/null 2>&1; then
-            gh release upload dev-latest \
-              dist-dev/script-toolbox-dev.zip \
-              dist-dev/script-toolbox-dev.zip.sha256 \
-              dist-dev/dev-manifest.json \
-              --clobber
-
-            gh release edit dev-latest \
-              --prerelease \
-              --title "$TITLE" \
-              --notes "$NOTES"
-          else
-            gh release create dev-latest \
-              dist-dev/script-toolbox-dev.zip \
-              dist-dev/script-toolbox-dev.zip.sha256 \
-              dist-dev/dev-manifest.json \
-              --prerelease \
-              --title "$TITLE" \
-              --notes "$NOTES"
-          fi
-
-      - name: Development build summary
-        run: |
-          echo "### Script Toolbox Development" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Version: \`${{ steps.version.outputs.dev }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Commit: \`${{ steps.version.outputs.short_sha }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Release tag: \`dev-latest\`" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: development-plugin
+          path: dist-dev/*
+          if-no-files-found: error
+          retention-days: 14
 
 
   portable:
-    name: Publish standalone portable
+    name: Build standalone portable
     if: github.ref == 'refs/heads/dev'
     needs:
-      - publish
+      - checks
     runs-on: windows-latest
 
     steps:
@@ -473,15 +440,12 @@ jobs:
           }
           Stop-Process -Id $process.Id -Force
 
-      - name: Attach portable standalone to dev-latest
+      - name: Smoke native update and automatic restart
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload dev-latest `
-            dist-standalone/script-toolbox-standalone-dev.zip `
-            dist-standalone/script-toolbox-standalone-dev.zip.sha256 `
-            --clobber
+          $package = Get-ChildItem -Path "dist-standalone" -Directory | Select-Object -First 1
+          python tools/smoke_standalone_update.py $package.FullName
+          if ($LASTEXITCODE -ne 0) { throw "Native portable update/restart smoke failed." }
 
       - name: Upload standalone workflow artifact
         uses: actions/upload-artifact@v4
@@ -492,3 +456,59 @@ jobs:
             dist-standalone/script-toolbox-standalone-dev.zip.sha256
           if-no-files-found: error
           retention-days: 14
+
+
+  publish:
+    name: Publish complete development build
+    if: github.ref == 'refs/heads/dev'
+    needs: [package, portable]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: development-plugin
+          path: dist-publish
+      - uses: actions/download-artifact@v4
+        with:
+          name: script-toolbox-standalone-dev
+          path: dist-publish
+      - name: Prepare immutable package assets
+        env:
+          DEV_VERSION: ${{ needs.package.outputs.version }}
+        run: |
+          python tools/prepare_dev_publication.py dist-publish "$DEV_VERSION"
+      - name: Publish packages before announcing the version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEV_VERSION: ${{ needs.package.outputs.version }}
+          SHORT_SHA: ${{ needs.package.outputs.short_sha }}
+        run: |
+          TITLE="Script Toolbox Development $DEV_VERSION"
+          NOTES="Automated Development build from dev (${SHORT_SHA})."
+          if ! gh release view dev-latest >/dev/null 2>&1; then
+            gh release create dev-latest --prerelease --title "$TITLE" --notes "$NOTES"
+          fi
+          # Versioned assets must never be overwritten. A rerun that collides
+          # fails before changing the manifest or legacy aliases.
+          gh release upload dev-latest \
+            "dist-publish/script-toolbox-$DEV_VERSION.zip" \
+            "dist-publish/script-toolbox-$DEV_VERSION.zip.sha256" \
+            "dist-publish/script-toolbox-$DEV_VERSION-standalone-windows-x64.zip" \
+            "dist-publish/script-toolbox-$DEV_VERSION-standalone-windows-x64.zip.sha256"
+          gh release upload dev-latest \
+            dist-publish/script-toolbox-dev.zip \
+            dist-publish/script-toolbox-dev.zip.sha256 \
+            dist-publish/script-toolbox-standalone-dev.zip \
+            dist-publish/script-toolbox-standalone-dev.zip.sha256 --clobber
+          # The manifest is the final publication point for new clients.
+          gh release upload dev-latest dist-publish/dev-manifest.json --clobber
+          gh release edit dev-latest --prerelease --title "$TITLE" --notes "$NOTES"
+      - name: Move dev-latest tag after complete publication
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f dev-latest "$GITHUB_SHA"
+          git push origin refs/tags/dev-latest --force

@@ -196,3 +196,44 @@ pump(0.5)
 assert not app._script_toolbox_update_jobs.jobs
 w.close()
 ''', tmp_path)
+
+
+def test_bounded_discovery_cancels_when_settings_page_is_deleted(tmp_path):
+    run_qt('''
+from script_toolbox.ui.dcc_integrations import DccIntegrationsPage
+from script_toolbox.integrations.discovery_process import scan_in_process
+from pathlib import Path
+import sys
+root = Path(os.path.expanduser("~"))
+worker = root / "blocked-scan.py"
+worker.write_text("import time; time.sleep(30)")
+class Manager:
+    def scan_details_bounded(self, cancel_event):
+        return scan_in_process({}, cancel_event=cancel_event, timeout=10,
+                               command=[sys.executable], worker_path=str(worker))
+    def adapters(self):
+        return []
+page = DccIntegrationsPage(manager=Manager())
+pump(0.1)
+assert page._scan_job.isRunning()
+page.deleteLater()
+pump(0.4)
+assert not app._script_toolbox_update_jobs.jobs
+w.close()
+''', tmp_path)
+
+
+def test_standalone_acknowledges_restart_after_showing_window(tmp_path):
+    run_qt('''
+from pathlib import Path
+from script_toolbox.core import updater
+from script_toolbox import standalone
+root = Path(os.path.expanduser("~"))
+updater.repository_root = lambda: str(root)
+os.environ["SCRIPT_TOOLBOX_RESTART_TOKEN"] = "b" * 32
+assert standalone.main() == 0
+assert (root / ".script_toolbox_restart_ack").read_text() == "b" * 32
+from script_toolbox.ui.debounced_main_window import close_toolbox
+close_toolbox()
+pump()
+''', tmp_path)

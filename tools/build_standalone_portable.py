@@ -184,6 +184,7 @@ def _build_metadata(root, version):
     return {
         "package_kind": "standalone",
         "portable_transaction_version": 1,
+        "restart_handshake_version": 1,
         "version": version,
         "channel": channel,
         "build_number": build_number,

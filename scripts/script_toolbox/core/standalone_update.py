@@ -149,7 +149,7 @@ function Write-JsonAtomic($path, $value) {
     $bytes = [Text.Encoding]::UTF8.GetBytes(($value | ConvertTo-Json -Depth 12))
     $stream = [IO.FileStream]::new($temporary, [IO.FileMode]::Create, [IO.FileAccess]::Write, [IO.FileShare]::None)
     try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
-    if ([IO.File]::Exists($path)) { [IO.File]::Replace($temporary, $path, $null) }
+    if ([IO.File]::Exists($path)) { [IO.File]::Replace($temporary, $path, [NullString]::Value) }
     else { [IO.File]::Move($temporary, $path) }
 }
 function Safe-Path($root, $relative) {
@@ -173,7 +173,7 @@ function Copy-Atomic($sourcePath, $targetPath) {
     [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($targetPath)) | Out-Null
     $temporary = $targetPath + ".stb-update-tmp"
     [IO.File]::Copy($sourcePath, $temporary, $true)
-    if ([IO.File]::Exists($targetPath)) { [IO.File]::Replace($temporary, $targetPath, $null) }
+    if ([IO.File]::Exists($targetPath)) { [IO.File]::Replace($temporary, $targetPath, [NullString]::Value) }
     else { [IO.File]::Move($temporary, $targetPath) }
 }
 function File-Sha256($path) {

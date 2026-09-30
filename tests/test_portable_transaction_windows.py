@@ -41,9 +41,11 @@ def script_path(tmp_path, injection=None):
     # Suppress only the external relaunch of a native EXE in this test fixture.
     script = "\n".join(line for line in script.splitlines() if not line.strip().startswith("if (-not (Restart-Portable "))
     if injection:
-        marker = '    Write-JsonAtomic $journalPath @{phase="applying"}\n    foreach ($entry in $plan.entries) {\n        $target = Safe-Path $Destination $entry.path'
-        assert script.count(marker) == 1
-        script = script.replace(marker, marker + "\n" + injection, 1)
+        marker = '        $target = Safe-Path $Destination $entry.path'
+        applying = script.index('    Write-JsonAtomic $journalPath @{phase="applying"}')
+        prefix, tail = script[:applying], script[applying:]
+        assert tail.count(marker) == 1
+        script = prefix + tail.replace(marker, marker + "\n" + injection, 1)
     path = tmp_path / "apply.ps1"
     path.write_text(script, encoding="utf-8")
     return path
@@ -173,3 +175,20 @@ def test_actual_restart_is_confirmed_or_reported_without_rollback(tmp_path, ackn
         assert result.returncode == 2
         assert status['restart'] == 'failed'
         assert 'code 7' in status['message']
+
+
+def test_junction_target_is_rejected_before_any_replacement(tmp_path):
+    _, destination = prepare(tmp_path)
+    outside = tmp_path / 'outside-runtime'
+    (destination / 'runtime').rename(outside)
+    result = subprocess.run(['cmd.exe', '/c', 'mklink', '/J', str(destination / 'runtime'), str(outside)],
+                            capture_output=True, timeout=10)
+    assert result.returncode == 0, result.stderr
+    try:
+        result = subprocess.run(command(script_path(tmp_path), destination), capture_output=True, timeout=30)
+        assert result.returncode == 1
+        assert b'Reparse point' in result.stderr
+        assert (destination / 'README.md').read_text() == 'old'
+        assert (outside / 'python311.dll').read_bytes() == b'old dll'
+    finally:
+        os.rmdir(str(destination / 'runtime'))

@@ -156,14 +156,18 @@ function Safe-Path($root, $relative) {
     if ([IO.Path]::IsPathRooted($relative) -or $relative -match '(^|[\\/])\.\.([\\/]|$)') {
         throw "Unsafe package path: $relative"
     }
-    $full = [IO.Path]::GetFullPath((Join-Path $root $relative))
+    $full = [IO.Path]::GetFullPath([IO.Path]::Combine($root, $relative))
     $prefix = [IO.Path]::GetFullPath($root).TrimEnd('\') + '\'
     if (-not $full.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { throw "Path escapes root" }
     # Reject junctions/symlinks in both existing and future target paths.
     $cursor = $full
     while ($cursor.Length -ge $prefix.Length) {
-        if (Test-Path -LiteralPath $cursor) {
-            if ((Get-Item -LiteralPath $cursor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw "Reparse point: $cursor" }
+        try {
+            $attributes = [IO.File]::GetAttributes($cursor)
+            if ($attributes -band [IO.FileAttributes]::ReparsePoint) { throw "Reparse point: $cursor" }
+        } catch [IO.FileNotFoundException] {
+            # Future target paths are allowed; still check every parent.
+        } catch [IO.DirectoryNotFoundException] {
         }
         $cursor = [IO.Path]::GetDirectoryName($cursor)
     }
@@ -274,7 +278,10 @@ try {
     $Source = $plan.source
     [Console]::WriteLine("Portable update: backing up and validating staged files")
     # Copy every previous file before journalling or touching the installation.
+    $progress = 0
     foreach ($entry in $plan.entries) {
+        $progress++
+        if ($progress % 100 -eq 0) { [Console]::WriteLine("Portable backup: $progress / " + $plan.entries.Count) }
         if ($entry.existed) {
             Copy-Atomic (Safe-Path $Destination $entry.path) (Safe-Path (Join-Path $transaction "backup") $entry.path)
         }
@@ -285,11 +292,15 @@ try {
     }
     [Console]::WriteLine("Portable update: applying files")
     Write-JsonAtomic $journalPath @{phase="applying"}
+    $progress = 0
     foreach ($entry in $plan.entries) {
+        $progress++
+        if ($progress % 100 -eq 0) { [Console]::WriteLine("Portable apply: $progress / " + $plan.entries.Count) }
         $target = Safe-Path $Destination $entry.path
         if ($entry.sha256) { Copy-Atomic (Safe-Path $Source $entry.path) $target }
         elseif ([IO.File]::Exists($target)) { [IO.File]::Delete($target) }
     }
+    [Console]::WriteLine("Portable update: verifying installed files")
     foreach ($entry in $plan.entries) {
         if ($entry.sha256) {
             if ((File-Sha256 (Safe-Path $Destination $entry.path)) -ne $entry.sha256) { throw "Installed checksum mismatch" }

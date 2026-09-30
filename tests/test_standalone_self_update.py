@@ -94,3 +94,24 @@ def test_main_window_exits_for_external_standalone_update():
     assert '"external_restart_scheduled"' in source
     assert "def exit_for_standalone_update" in source
     assert "application.quit()" in source
+
+
+
+def test_standalone_update_uses_short_windows_staging_paths():
+    root = os.path.dirname(
+        os.path.dirname(
+            os.path.abspath(__file__)
+        )
+    )
+    path = os.path.join(
+        root,
+        "scripts",
+        "script_toolbox",
+        "core",
+        "standalone_update.py"
+    )
+    source = open(path, "r").read()
+
+    assert 'prefix="sbt_u_"' in source
+    assert '"x"' in source
+    assert "script_toolbox_standalone_update_" not in source

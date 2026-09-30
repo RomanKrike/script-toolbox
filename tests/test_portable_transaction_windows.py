@@ -235,6 +235,9 @@ def test_portable_helper_blocks_public_plugin_installer(tmp_path, monkeypatch):
         assert process.returncode == 0, (output, error)
         assert (destination / "runtime" / "python311.dll").read_bytes() == b"new dll"
         assert not journal.parent.exists()
+        # The failed acquisition must also release the process-local guard.
+        with standalone_update.installation_lock(str(destination)):
+            pass
     finally:
         if process.poll() is None:
             process.kill()

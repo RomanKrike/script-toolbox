@@ -243,6 +243,7 @@ try {
     exit 0
 } catch {
     $failure = $_.Exception.Message
+    [Console]::Error.WriteLine($failure)
     if ($ownsLock -and (Test-Path -LiteralPath $journalPath)) {
         try {
             $journal = Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json

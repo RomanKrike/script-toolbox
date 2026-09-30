@@ -32,10 +32,11 @@ class FileLock(object):
                 except OSError:
                     if not os.path.isdir(folder):
                         raise
-            self.handle = open(self.path, "a+b")
-            if os.path.getsize(self.path) == 0:
-                self.handle.write(b"0")
-                self.handle.flush()
+            # Windows byte-range locks may extend past EOF. Do not write a
+            # sentinel before locking: a native helper can own byte zero of
+            # an empty file already. Unbuffered I/O also prevents a failed
+            # pre-lock write from being retried during close.
+            self.handle = open(self.path, "a+b", 0)
             self.handle.seek(0)
             if os.name == "nt":
                 import msvcrt
@@ -50,8 +51,12 @@ class FileLock(object):
             return self
         except Exception as exc:
             if self.handle is not None:
-                self.handle.close()
-                self.handle = None
+                try:
+                    self.handle.close()
+                except (IOError, OSError):
+                    pass
+                finally:
+                    self.handle = None
             self.local.release()
             raise FileLockError("Cannot acquire {0}: {1}".format(self.path, exc))
 

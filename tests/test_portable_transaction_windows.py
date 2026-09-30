@@ -192,3 +192,53 @@ def test_junction_target_is_rejected_before_any_replacement(tmp_path):
         assert (outside / 'python311.dll').read_bytes() == b'old dll'
     finally:
         os.rmdir(str(destination / 'runtime'))
+
+
+def test_portable_helper_blocks_public_plugin_installer(tmp_path, monkeypatch):
+    from script_toolbox.core import update_transaction
+
+    _, destination = prepare(tmp_path)
+    paused, resume = tmp_path / "portable-paused", tmp_path / "portable-resume"
+    quoted_paused = "'" + str(paused).replace("'", "''") + "'"
+    quoted_resume = "'" + str(resume).replace("'", "''") + "'"
+    injection = (
+        '        if ($entry.path -eq "runtime/python311.dll") { '
+        '[IO.File]::WriteAllText(%s, "paused"); '
+        'while (-not [IO.File]::Exists(%s)) { [Threading.Thread]::Sleep(20) } }'
+    ) % (quoted_paused, quoted_resume)
+    process = subprocess.Popen(command(script_path(tmp_path, injection), destination),
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    monkeypatch.setattr(update_transaction, "repository_root", lambda: str(destination))
+
+    def unexpected_download(*args, **kwargs):
+        pytest.fail("Competing installer reached download while native helper owns the lock")
+
+    monkeypatch.setattr(update_transaction, "_download_file", unexpected_download)
+    try:
+        deadline = time.monotonic() + 30
+        while not paused.exists() and process.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert paused.exists(), "Native helper did not reach the applying barrier"
+        journal = destination / standalone_update.PORTABLE_TRANSACTION_DIRECTORY / "journal.json"
+        before = journal.read_bytes()
+        with pytest.raises(update_transaction.UpdateError, match="already running"):
+            update_transaction.install_release({
+                "version": "2.0.0",
+                "asset_name": "script-toolbox-2.0.0.zip",
+                "download_url": "http://127.0.0.1/release.zip",
+                "checksum_url": "http://127.0.0.1/release.zip.sha256",
+            })
+        assert journal.read_bytes() == before
+        assert (destination / "runtime" / "python311.dll").read_bytes() == b"old dll"
+        resume.write_text("continue")
+        output, error = process.communicate(timeout=30)
+        assert process.returncode == 0, (output, error)
+        assert (destination / "runtime" / "python311.dll").read_bytes() == b"new dll"
+        assert not journal.parent.exists()
+        # The failed acquisition must also release the process-local guard.
+        with standalone_update.installation_lock(str(destination)):
+            pass
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.communicate(timeout=10)

@@ -9,6 +9,10 @@ from .standalone_host import StandaloneHost
 
 
 def _detect_host():
+    import os
+    if os.environ.get("SCRIPT_TOOLBOX_DISCOVERY_WORKER") == "1":
+        # The read-only discovery subprocess must never import a host API.
+        return StandaloneHost()
     import importlib
     for host_module, adapter_module, class_name in (
         ("maya.cmds", ".maya_host", "MayaHost"),

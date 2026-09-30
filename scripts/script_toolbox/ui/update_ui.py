@@ -26,6 +26,10 @@ class UpdateJobs(QtCore.QObject):
         # Network operations have transport timeouts. Never terminate a worker
         # during a filesystem commit. No UI event processing during shutdown.
         for job in list(self.jobs):
+            cancel = getattr(job, "cancel", None)
+            if callable(cancel):
+                cancel()
+        for job in list(self.jobs):
             job.wait()
 
 

@@ -156,14 +156,18 @@ function Safe-Path($root, $relative) {
     if ([IO.Path]::IsPathRooted($relative) -or $relative -match '(^|[\\/])\.\.([\\/]|$)') {
         throw "Unsafe package path: $relative"
     }
-    $full = [IO.Path]::GetFullPath((Join-Path $root $relative))
+    $full = [IO.Path]::GetFullPath([IO.Path]::Combine($root, $relative))
     $prefix = [IO.Path]::GetFullPath($root).TrimEnd('\') + '\'
     if (-not $full.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { throw "Path escapes root" }
     # Reject junctions/symlinks in both existing and future target paths.
     $cursor = $full
     while ($cursor.Length -ge $prefix.Length) {
-        if (Test-Path -LiteralPath $cursor) {
-            if ((Get-Item -LiteralPath $cursor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw "Reparse point: $cursor" }
+        try {
+            $attributes = [IO.File]::GetAttributes($cursor)
+            if ($attributes -band [IO.FileAttributes]::ReparsePoint) { throw "Reparse point: $cursor" }
+        } catch [IO.FileNotFoundException] {
+            # Future target paths are allowed; still check every parent.
+        } catch [IO.DirectoryNotFoundException] {
         }
         $cursor = [IO.Path]::GetDirectoryName($cursor)
     }
@@ -193,6 +197,60 @@ function Restore-Previous($plan, $journal) {
         if ([IO.File]::Exists($temporary)) { [IO.File]::Delete($temporary) }
     }
 }
+function Restart-Portable($state, $version) {
+    $exe = Join-Path $Destination "ScriptToolbox.exe"
+    $ackPath = Join-Path $Destination ".script_toolbox_restart_ack"
+    try {
+        $marker = Get-Content -LiteralPath (Join-Path $Destination "standalone-build.json") -Raw | ConvertFrom-Json
+        $handshake = ($marker.restart_handshake_version -eq 1)
+    } catch {
+        Write-JsonAtomic $statusPath @{state=$state; version=$version; restart="failed"; message=$_.Exception.Message}
+        return $false
+    }
+    $failure = "Restart did not complete."
+    for ($attempt = 0; $attempt -lt 3; $attempt++) {
+        $process = $null
+        try {
+            if ([IO.File]::Exists($ackPath)) { [IO.File]::Delete($ackPath) }
+            $token = [Guid]::NewGuid().ToString("N")
+            $start = [Diagnostics.ProcessStartInfo]::new()
+            $start.FileName = $exe
+            $start.WorkingDirectory = $Destination
+            $start.UseShellExecute = $false
+            $start.EnvironmentVariables["SCRIPT_TOOLBOX_RESTART_TOKEN"] = $token
+            $start.EnvironmentVariables.Remove("PYTHONHOME")
+            $start.EnvironmentVariables.Remove("PYTHONPATH")
+            $process = [Diagnostics.Process]::Start($start)
+            $deadline = [DateTime]::UtcNow.AddSeconds(30)
+            $legacyReady = [DateTime]::UtcNow.AddSeconds(2)
+            while (-not $process.HasExited -and [DateTime]::UtcNow -lt $deadline) {
+                $ready = $false
+                if ($handshake -and [IO.File]::Exists($ackPath)) {
+                    $ready = ([IO.File]::ReadAllText($ackPath) -eq $token)
+                } elseif (-not $handshake -and [DateTime]::UtcNow -gt $legacyReady) { $ready = $true }
+                if ($ready) {
+                    Write-JsonAtomic $statusPath @{state=$state; version=$version; restart="started"; restart_pid=$process.Id}
+                    return $true
+                }
+                [Threading.Thread]::Sleep(100)
+            }
+            if (-not $process.HasExited) {
+                # Avoid launching a duplicate when startup is merely slow.
+                $failure = "Application startup acknowledgement timed out. Check the running process or start ScriptToolbox.exe manually."
+                break
+            }
+            $failure = "Restarted application exited with code " + $process.ExitCode
+        } catch {
+            $failure = $_.Exception.Message
+            if ($process -and -not $process.HasExited) { break }
+        }
+        [Threading.Thread]::Sleep(500)
+    }
+    # Restart failure is separate from the already committed installation.
+    Write-JsonAtomic $statusPath @{state=$state; version=$version; restart="failed"; message=$failure}
+    [Console]::Error.WriteLine($failure)
+    return $false
+}
 try {
     $lockPath = Join-Path $Destination ".script_toolbox_update.lock"
     $lock = [IO.FileStream]::new($lockPath, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::ReadWrite)
@@ -214,12 +272,16 @@ try {
         }
         Remove-Item -LiteralPath $transaction -Recurse -Force
         $lock.Dispose(); $lock = $null
-        Start-Process -FilePath (Join-Path $Destination "ScriptToolbox.exe") -WorkingDirectory $Destination
+        if (-not (Restart-Portable "recovered" $plan.version)) { exit 2 }
         exit 0
     }
     $Source = $plan.source
+    [Console]::WriteLine("Portable update: backing up and validating staged files")
     # Copy every previous file before journalling or touching the installation.
+    $progress = 0
     foreach ($entry in $plan.entries) {
+        $progress++
+        if ($progress % 100 -eq 0) { [Console]::WriteLine("Portable backup: $progress / " + $plan.entries.Count) }
         if ($entry.existed) {
             Copy-Atomic (Safe-Path $Destination $entry.path) (Safe-Path (Join-Path $transaction "backup") $entry.path)
         }
@@ -228,23 +290,28 @@ try {
             if ($actual -ne $entry.sha256) { throw "Staged checksum mismatch: $($entry.path)" }
         }
     }
+    [Console]::WriteLine("Portable update: applying files")
     Write-JsonAtomic $journalPath @{phase="applying"}
+    $progress = 0
     foreach ($entry in $plan.entries) {
+        $progress++
+        if ($progress % 100 -eq 0) { [Console]::WriteLine("Portable apply: $progress / " + $plan.entries.Count) }
         $target = Safe-Path $Destination $entry.path
         if ($entry.sha256) { Copy-Atomic (Safe-Path $Source $entry.path) $target }
         elseif ([IO.File]::Exists($target)) { [IO.File]::Delete($target) }
     }
+    [Console]::WriteLine("Portable update: verifying installed files")
     foreach ($entry in $plan.entries) {
         if ($entry.sha256) {
             if ((File-Sha256 (Safe-Path $Destination $entry.path)) -ne $entry.sha256) { throw "Installed checksum mismatch" }
         }
     }
+    [Console]::WriteLine("Portable update: installed files verified")
     Write-JsonAtomic $journalPath @{phase="committed"}
     Write-JsonAtomic $statusPath @{state="installed"; version=$plan.version}
     Remove-Item -LiteralPath $transaction -Recurse -Force
     $lock.Dispose(); $lock = $null
-    $exe = Join-Path $Destination "ScriptToolbox.exe"
-    Start-Process -FilePath $exe -WorkingDirectory $Destination
+    if (-not (Restart-Portable "installed" $plan.version)) { exit 2 }
     Remove-Item -LiteralPath $CleanupRoot -Recurse -Force -ErrorAction SilentlyContinue
     exit 0
 } catch {

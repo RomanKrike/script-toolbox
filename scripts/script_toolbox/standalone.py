@@ -98,7 +98,10 @@ def main(argv=None):
         # Keep UI imports behind QApplication creation. The toolbox itself is
         # still the exact same bootstrap and widget tree used by DCC hosts.
         from .bootstrap import show
-        return show()
+        window = show()
+        from .core.restart_ack import acknowledge_restart
+        acknowledge_restart()
+        return window
 
     return run_standalone(
         QtGui.QApplication,

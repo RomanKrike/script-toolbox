@@ -47,6 +47,11 @@ def expected_package_asset_name(release):
     ).strip().lower()
 
     if channel == "development":
+        version = text_type(release.get("version", "")).strip()
+        versioned = "script-toolbox-{0}{1}.zip".format(
+            version, "-standalone-windows-x64" if package_kind == "standalone" else "")
+        if version and release.get("asset_name") == versioned:
+            return versioned
         if package_kind == "standalone":
             return "script-toolbox-standalone-dev.zip"
         return "script-toolbox-dev.zip"

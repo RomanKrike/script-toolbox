@@ -112,6 +112,14 @@ jobs:
           python:2.7.18-slim-buster
           python -m compileall -q scripts/script_toolbox
 
+      - name: Host detection failures with Python 2.7
+        run: >
+          docker run --rm
+          -v "$PWD:/work"
+          -w /work
+          python:2.7.18-slim-buster
+          python tests/test_host_detection.py
+
       - name: Full UI import smoke with Python 2.7
         run: >
           docker run --rm

@@ -8,6 +8,20 @@ from .callbacks import HostCallbackHandle
 from .standalone_host import StandaloneHost
 
 
+def _import_host_module(name):
+    """Skip only an absent top-level host, never an import failure inside it."""
+    import importlib
+    import pkgutil
+    import sys
+
+    root = name.split(".", 1)[0]
+    # get_loader is available on Python 2.7. Looking up a top-level module
+    # does not execute its initializer; importing a present host is separate.
+    if root not in sys.modules and pkgutil.get_loader(root) is None:
+        return None
+    return importlib.import_module(name)
+
+
 def _detect_host():
     import os
     if os.environ.get("SCRIPT_TOOLBOX_DISCOVERY_WORKER") == "1":
@@ -19,11 +33,10 @@ def _detect_host():
         ("nuke", ".nuke_host", "NukeHost"),
         ("hou", ".houdini_host", "HoudiniHost"),
     ):
-        try:
-            module = importlib.import_module(host_module)
-            if host_module == "nuke" and not hasattr(module, "selectedNodes"):
-                continue
-        except ImportError:
+        module = _import_host_module(host_module)
+        if module is None:
+            continue
+        if host_module == "nuke" and not hasattr(module, "selectedNodes"):
             continue
         # A present host with a broken adapter is a startup error; propagating
         # it keeps the real traceback instead of selecting standalone paths.

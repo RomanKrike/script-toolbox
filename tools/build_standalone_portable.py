@@ -3,6 +3,7 @@ from __future__ import print_function
 
 import argparse
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -115,6 +116,71 @@ def sha256_file(path):
     return digest.hexdigest()
 
 
+def _build_metadata(root, version):
+    constants_path = os.path.join(
+        root,
+        "scripts",
+        "script_toolbox",
+        "constants.py"
+    )
+    channel = "stable"
+    build_number = 0
+    commit = ""
+
+    try:
+        with open(constants_path, "r") as handle:
+            source = handle.read()
+
+        channel_match = re.search(
+            r'^BUILD_CHANNEL\s*=\s*"([^"]*)"',
+            source,
+            re.M
+        )
+        number_match = re.search(
+            r"^BUILD_NUMBER\s*=\s*(\d+)",
+            source,
+            re.M
+        )
+        commit_match = re.search(
+            r'^BUILD_COMMIT\s*=\s*"([^"]*)"',
+            source,
+            re.M
+        )
+
+        if channel_match:
+            channel = channel_match.group(1) or "stable"
+        if number_match:
+            build_number = int(number_match.group(1))
+        if commit_match:
+            commit = commit_match.group(1)
+    except Exception:
+        pass
+
+    return {
+        "package_kind": "standalone",
+        "version": version,
+        "channel": channel,
+        "build_number": build_number,
+        "commit": commit,
+    }
+
+
+def _write_build_marker(root, metadata):
+    path = os.path.join(
+        root,
+        "standalone-build.json"
+    )
+    with open(path, "w") as handle:
+        handle.write(
+            json.dumps(
+                metadata,
+                indent=2,
+                sort_keys=True
+            ) + "\n"
+        )
+    return path
+
+
 def _versioned_python_dlls(runtime_root):
     if not os.path.isdir(runtime_root):
         return []
@@ -133,6 +199,7 @@ def _versioned_python_dlls(runtime_root):
 def validate_portable_root(root):
     required = [
         "ScriptToolbox.exe",
+        "standalone-build.json",
         os.path.join("standalone", "bootstrap.py"),
         os.path.join("scripts", "script_toolbox", "__init__.py"),
         os.path.join("scripts", "script_toolbox", "standalone.py"),
@@ -307,6 +374,13 @@ def build_portable(
         os.path.join(
             staging_root,
             "scripts"
+        )
+    )
+    _write_build_marker(
+        staging_root,
+        _build_metadata(
+            root,
+            version
         )
     )
     validate_portable_root(

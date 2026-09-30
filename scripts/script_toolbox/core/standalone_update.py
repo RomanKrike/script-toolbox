@@ -262,7 +262,7 @@ def install_release(
     )
 
     work_directory = tempfile.mkdtemp(
-        prefix="script_toolbox_standalone_update_"
+        prefix="sbt_u_"
     )
     archive_path = os.path.join(
         work_directory,
@@ -274,7 +274,7 @@ def install_release(
     )
     extracted_path = os.path.join(
         work_directory,
-        "extracted"
+        "x"
     )
 
     scheduled = False

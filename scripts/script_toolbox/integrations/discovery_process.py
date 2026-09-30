@@ -10,6 +10,7 @@ import sys
 import tempfile
 import time
 
+from ..pycompat import text_type
 from .base import DccInstallation, IntegrationStatus
 from .discovery import distribution_root
 
@@ -42,7 +43,7 @@ def interpreter_command():
         if os.name == "nt":
             import ctypes
             drive = os.path.splitdrive(os.path.abspath(candidate))[0]
-            if drive and ctypes.windll.kernel32.GetDriveTypeW(drive + "\\") == 4:
+            if drive and ctypes.windll.kernel32.GetDriveTypeW(text_type(drive) + u"\\") == 4:
                 continue
         if os.path.isfile(candidate):
             return [candidate]

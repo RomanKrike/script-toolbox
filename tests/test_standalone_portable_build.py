@@ -33,6 +33,9 @@ def test_portable_build_keeps_one_shared_script_toolbox_source(tmp_path):
     )
 
     staging_root = result["staging_root"]
+    assert os.path.basename(
+        staging_root
+    ) == "ScriptToolbox"
     assert validate_portable_root(
         staging_root
     ) is True
@@ -100,6 +103,14 @@ def test_portable_build_keeps_one_shared_script_toolbox_source(tmp_path):
         "r"
     ) as archive:
         names = archive.namelist()
+
+    assert names
+    assert all(
+        name.startswith(
+            "ScriptToolbox/"
+        )
+        for name in names
+    )
 
     source_roots = [
         name

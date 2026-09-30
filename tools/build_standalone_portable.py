@@ -296,7 +296,7 @@ def build_portable(
     )
     staging_root = os.path.join(
         output_dir,
-        package_name
+        "ScriptToolbox"
     )
 
     if os.path.isdir(output_dir):

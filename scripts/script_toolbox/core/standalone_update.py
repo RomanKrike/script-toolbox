@@ -176,6 +176,12 @@ function Copy-Atomic($sourcePath, $targetPath) {
     if ([IO.File]::Exists($targetPath)) { [IO.File]::Replace($temporary, $targetPath, $null) }
     else { [IO.File]::Move($temporary, $targetPath) }
 }
+function File-Sha256($path) {
+    $stream = [IO.File]::OpenRead($path)
+    $hash = [Security.Cryptography.SHA256]::Create()
+    try { return [BitConverter]::ToString($hash.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
+    finally { $hash.Dispose(); $stream.Dispose() }
+}
 function Restore-Previous($plan, $journal) {
     foreach ($entry in $plan.entries) {
         $target = Safe-Path $Destination $entry.path
@@ -218,7 +224,7 @@ try {
             Copy-Atomic (Safe-Path $Destination $entry.path) (Safe-Path (Join-Path $transaction "backup") $entry.path)
         }
         if ($entry.sha256) {
-            $actual = (Get-FileHash -LiteralPath (Safe-Path $Source $entry.path) -Algorithm SHA256).Hash
+            $actual = File-Sha256 (Safe-Path $Source $entry.path)
             if ($actual -ne $entry.sha256) { throw "Staged checksum mismatch: $($entry.path)" }
         }
     }
@@ -230,7 +236,7 @@ try {
     }
     foreach ($entry in $plan.entries) {
         if ($entry.sha256) {
-            if ((Get-FileHash -LiteralPath (Safe-Path $Destination $entry.path) -Algorithm SHA256).Hash -ne $entry.sha256) { throw "Installed checksum mismatch" }
+            if ((File-Sha256 (Safe-Path $Destination $entry.path)) -ne $entry.sha256) { throw "Installed checksum mismatch" }
         }
     }
     Write-JsonAtomic $journalPath @{phase="committed"}

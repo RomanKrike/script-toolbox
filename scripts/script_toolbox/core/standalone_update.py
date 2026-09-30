@@ -20,7 +20,6 @@ from .updater import repository_root
 
 _REQUIRED_PORTABLE_PATHS = (
     "ScriptToolbox.exe",
-    "standalone-build.json",
     os.path.join(
         "standalone",
         "bootstrap.py"
@@ -33,12 +32,23 @@ _REQUIRED_PORTABLE_PATHS = (
 )
 
 
-def _validate_portable_root(root):
+def _validate_portable_root(
+    root,
+    require_marker=True
+):
     root = os.path.abspath(
         root
     )
 
-    for relative_path in _REQUIRED_PORTABLE_PATHS:
+    required_paths = list(
+        _REQUIRED_PORTABLE_PATHS
+    )
+    if require_marker:
+        required_paths.append(
+            "standalone-build.json"
+        )
+
+    for relative_path in required_paths:
         path = os.path.join(
             root,
             relative_path
@@ -213,7 +223,8 @@ def install_release(
 
     destination_root = repository_root()
     _validate_portable_root(
-        destination_root
+        destination_root,
+        require_marker=False
     )
 
     work_directory = tempfile.mkdtemp(

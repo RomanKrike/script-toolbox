@@ -159,7 +159,7 @@ def test_existing_filter_is_reapplied_after_tree_rebuild():
     assert "search.text()" in search_source
 
     populate_source = adapter_source.split(
-        "        def populate_tree(self):",
+        "    def populate_tree(self):",
         1
     )[1].split(
         "        # --------------------------------------------------------------\n"
@@ -167,7 +167,7 @@ def test_existing_filter_is_reapplied_after_tree_rebuild():
         1
     )[0]
 
-    assert "base_class.populate_tree(" in populate_source
+    assert "super(ControllerEditorMixin, self).populate_tree()" in populate_source
     assert "reapply_existing_filter(self)" in populate_source
 
 

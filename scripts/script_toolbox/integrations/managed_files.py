@@ -74,6 +74,34 @@ def backup_once(path):
     return backup
 
 
+class ManagedBlockError(ValueError):
+    """Refuse ambiguous markers rather than remove unrelated user code."""
+
+
+def _marked_spans(content, begin_marker, end_marker):
+    if not begin_marker or not end_marker or begin_marker == end_marker:
+        raise ManagedBlockError("Managed block markers must be distinct and nonempty.")
+    spans = []
+    cursor = 0
+    while True:
+        begin = content.find(begin_marker, cursor)
+        end = content.find(end_marker, cursor)
+        if begin < 0 and end < 0:
+            return spans
+        if begin < 0 or (end >= 0 and end < begin):
+            raise ManagedBlockError("Managed block has an unmatched end marker.")
+        if end < 0:
+            raise ManagedBlockError("Managed block has an unmatched begin marker.")
+        nested = content.find(begin_marker, begin + len(begin_marker))
+        if nested >= 0 and nested < end:
+            raise ManagedBlockError("Managed block has nested begin markers.")
+        stop = end + len(end_marker)
+        while stop < len(content) and content[stop] in "\r\n":
+            stop += 1
+        spans.append((begin, stop))
+        cursor = stop
+
+
 def replace_marked_block(
     content,
     begin_marker,
@@ -81,20 +109,8 @@ def replace_marked_block(
     replacement=None
 ):
     content = text_type(content or "")
-    begin_index = content.find(begin_marker)
-    end_index = content.find(end_marker)
-
-    if begin_index >= 0 and end_index >= begin_index:
-        end_index += len(end_marker)
-        while (
-            end_index < len(content) and
-            content[end_index] in "\r\n"
-        ):
-            end_index += 1
-        content = (
-            content[:begin_index] +
-            content[end_index:]
-        )
+    for begin, end in reversed(_marked_spans(content, begin_marker, end_marker)):
+        content = content[:begin] + content[end:]
 
     content = content.rstrip()
     if replacement:
@@ -112,9 +128,9 @@ def contains_marked_block(path, begin_marker, end_marker):
         return False
     try:
         content = read_text(path)
+        return bool(_marked_spans(content, begin_marker, end_marker))
     except Exception:
         return False
-    return begin_marker in content and end_marker in content
 
 
 def marked_block_state(
@@ -131,7 +147,11 @@ def marked_block_state(
     except Exception:
         return "broken"
 
-    if begin_marker not in content or end_marker not in content:
+    try:
+        spans = _marked_spans(content, begin_marker, end_marker)
+    except ManagedBlockError:
+        return "broken"
+    if not spans:
         return "missing"
 
     normalized = replace_marked_block(
@@ -187,6 +207,7 @@ def remove_marked_block(path, begin_marker, end_marker):
 
 
 __all__ = [
+    "ManagedBlockError",
     "atomic_write",
     "backup_once",
     "contains_marked_block",

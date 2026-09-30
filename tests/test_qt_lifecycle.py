@@ -142,3 +142,57 @@ assert w.config["sections"][0]["props"]["collapsed"] == section.collapsed
 w.flush_pending_save()
 w.close()
 ''', tmp_path)
+
+
+def test_declared_editor_structural_history(tmp_path):
+    run_qt('''
+from script_toolbox.model import create_item
+from script_toolbox.ui.composed_editor import InterfaceEditor
+from script_toolbox.ui.bootstrap import initialize_ui
+w.config["sections"][0]["items"] = [create_item("string", {
+    "id": "history_value", "name": "history_value", "props": {"value": "old"}})]
+w.open_interface_editor()
+e = w.editor_window
+assert type(e) is InterfaceEditor is initialize_ui().InterfaceEditor
+assert not hasattr(e, "_history_current")
+assert [c.__name__ for c in type(e).__mro__[:6]] == [
+    "InterfaceEditor", "TelemetryEditorMixin", "TemplateTransferEditorMixin",
+    "PresetEditorMixin", "ReferenceWarningEditorMixin", "ControllerEditorMixin"]
+e.tree.setCurrentItem(e.tree_item_by_id("history_value"))
+e.duplicate_selected()
+assert len(e.working["sections"][0]["items"]) == 2
+e.undo()
+assert len(e.working["sections"][0]["items"]) == 1
+e.redo()
+assert len(e.working["sections"][0]["items"]) == 2
+assert e.apply_changes()
+assert len(w.config["sections"][0]["items"]) == 2
+e.close()
+w.close()
+''', tmp_path)
+
+
+def test_profile_changes_do_not_block_or_own_settings_page(tmp_path):
+    run_qt('''
+from script_toolbox.ui.dcc_integrations import DccIntegrationsPage
+class Manager:
+    def scan_details(self):
+        return {"installations": {}, "roots": {}}
+    def adapters(self):
+        return []
+page = DccIntegrationsPage(manager=Manager())
+pump()
+calls = []
+def slow():
+    calls.append("start")
+    time.sleep(0.3)
+page._start_profile_change(slow, "test")
+page._start_profile_change(slow, "test")
+pump(0.05)
+assert page._operation_job.isRunning()
+assert calls == ["start"]
+page.deleteLater()
+pump(0.5)
+assert not app._script_toolbox_update_jobs.jobs
+w.close()
+''', tmp_path)

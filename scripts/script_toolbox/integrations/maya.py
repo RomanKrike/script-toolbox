@@ -1,15 +1,19 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-import io
 import os
-import re
-import shutil
-import tempfile
 
 from ..constants import PLUGIN_VERSION
 from ..core.logging_utils import get_logger
 from ..pycompat import text_type
+from .managed_files import atomic_write as _atomic_write
+from .managed_files import backup_once as _backup_once
+from .managed_files import read_text as _read_text
+from .managed_files import contains_marked_block
+from .managed_files import replace_marked_block
+from .managed_files import marked_block_state
+from .managed_files import write_marked_block
+from .managed_files import remove_marked_block
 from .base import DccAdapter
 from .base import DccInstallation
 from .base import IntegrationStatus
@@ -47,70 +51,6 @@ class MayaIntegrationError(RuntimeError):
     pass
 
 
-def _read_text(path):
-    with io.open(path, "r", encoding="utf-8") as handle:
-        return handle.read()
-
-
-def _replace_file_windows(source, destination):
-    import ctypes
-
-    move_file_ex = ctypes.windll.kernel32.MoveFileExW
-    flags = 0x00000001 | 0x00000008
-    result = move_file_ex(
-        text_type(os.path.abspath(source)),
-        text_type(os.path.abspath(destination)),
-        flags
-    )
-    if not result:
-        raise ctypes.WinError()
-
-
-def _replace_file(source, destination):
-    replace = getattr(os, "replace", None)
-    if replace is not None:
-        replace(source, destination)
-        return
-    if os.name == "nt":
-        _replace_file_windows(source, destination)
-        return
-    os.rename(source, destination)
-
-
-def _atomic_write(path, content):
-    folder = os.path.dirname(path)
-    if folder and not os.path.isdir(folder):
-        os.makedirs(folder)
-
-    descriptor, temp_path = tempfile.mkstemp(
-        prefix=".script_toolbox_dcc_",
-        suffix=".tmp",
-        dir=(folder or ".")
-    )
-    os.close(descriptor)
-    try:
-        with io.open(temp_path, "w", encoding="utf-8") as handle:
-            handle.write(text_type(content))
-            handle.flush()
-            os.fsync(handle.fileno())
-        _replace_file(temp_path, path)
-    finally:
-        if os.path.exists(temp_path):
-            try:
-                os.remove(temp_path)
-            except OSError:
-                pass
-
-
-def _backup_once(path):
-    if not os.path.isfile(path):
-        return None
-    backup = path + ".script_toolbox.bak"
-    if not os.path.exists(backup):
-        shutil.copy2(path, backup)
-    return backup
-
-
 def _managed_block():
     return "\n".join([
         _USER_SETUP_BEGIN,
@@ -125,38 +65,11 @@ def _managed_block():
 
 
 def _replace_marked_block(content, replacement=None):
-    content = text_type(content or "")
-    pattern = re.compile(
-        re.escape(_USER_SETUP_BEGIN) +
-        r".*?" +
-        re.escape(_USER_SETUP_END) +
-        r"(?:\r?\n)?",
-        re.S
-    )
-    cleaned = pattern.sub("", content)
-    cleaned = cleaned.rstrip()
-
-    if replacement:
-        if cleaned:
-            cleaned += "\n\n"
-        cleaned += text_type(replacement).rstrip()
-
-    if cleaned:
-        cleaned += "\n"
-    return cleaned
+    return replace_marked_block(content, _USER_SETUP_BEGIN, _USER_SETUP_END, replacement)
 
 
 def _contains_managed_block(path):
-    if not os.path.isfile(path):
-        return False
-    try:
-        content = _read_text(path)
-    except Exception:
-        return False
-    return (
-        _USER_SETUP_BEGIN in content and
-        _USER_SETUP_END in content
-    )
+    return contains_marked_block(path, _USER_SETUP_BEGIN, _USER_SETUP_END)
 
 
 def _shelf_content():
@@ -568,7 +481,10 @@ class MayaAdapter(DccAdapter):
         )
         user_setup = self._user_setup_path(installation)
         shelf_path = self._shelf_path(installation)
-        setup_present = _contains_managed_block(user_setup)
+        setup_state = marked_block_state(user_setup, _USER_SETUP_BEGIN, _USER_SETUP_END, _managed_block())
+        setup_present = setup_state in ("ok", "stale")
+        if setup_state == "broken":
+            return IntegrationStatus(STATUS_BROKEN, message="Maya userSetup.py has malformed integration markers.")
         shelf_present = False
         if os.path.isfile(shelf_path):
             try:
@@ -659,30 +575,9 @@ class MayaAdapter(DccAdapter):
 
     def _set_startup_block(self, installation, enabled):
         path = self._user_setup_path(installation)
-        exists = os.path.isfile(path)
-        content = _read_text(path) if exists else u""
-        present = (
-            _USER_SETUP_BEGIN in content and
-            _USER_SETUP_END in content
-        )
-        if enabled and present:
-            normalized = _replace_marked_block(content, _managed_block())
-            if normalized == content:
-                return path
-        elif not enabled and not present:
-            return path
-
-        if exists:
-            _backup_once(path)
-        updated = _replace_marked_block(
-            content,
-            _managed_block() if enabled else None
-        )
-        if updated:
-            _atomic_write(path, updated)
-        elif exists:
-            _atomic_write(path, u"")
-        return path
+        if enabled:
+            return write_marked_block(path, _USER_SETUP_BEGIN, _USER_SETUP_END, _managed_block())
+        return remove_marked_block(path, _USER_SETUP_BEGIN, _USER_SETUP_END)
 
     def _set_shelf_file(self, installation, enabled):
         path = self._shelf_path(installation)

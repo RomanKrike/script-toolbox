@@ -176,135 +176,117 @@ def install_telemetry_share_controller(editor):
     return controller
 
 
-def build_telemetry_interface_editor_class(base_class):
-    """Wrap the final Interface Editor with sparse semantic product events."""
-    if getattr(
-        base_class,
-        _EDITOR_MARKER,
-        False
+class TelemetryEditorMixin(object):
+
+    def create_from_palette(
+        self,
+        palette_item,
+        column=0
     ):
+        kind = self.palette_item_kind(
+            palette_item
+        )
+        result = super(TelemetryEditorMixin, self).create_from_palette(palette_item,
+            column
+        )
+        if kind:
+            track_product_event(
+                "item_created",
+                {
+                    "item_type": kind,
+                }
+            )
+        return result
+
+    def duplicate_selected(
+        self,
+        target_item=None
+    ):
+        current = target_item or self.tree.currentItem()
+        kind = _tree_item_kind(
+            self,
+            current
+        )
+        valid = False
+        if current is not None:
+            try:
+                item_id = self.item_data(
+                    current,
+                    QtCore.Qt.UserRole + 1
+                )
+                valid = self.item_cache.get(
+                    item_id
+                ) is not None
+            except Exception:
+                valid = False
+
+        result = super(TelemetryEditorMixin, self).duplicate_selected(target_item
+        )
+        if valid and kind:
+            track_product_event(
+                "item_duplicated",
+                {
+                    "item_type": kind,
+                }
+            )
+        return result
+
+    def export_settings(self):
+        before = _status_text(
+            self
+        )
+        result = super(TelemetryEditorMixin, self).export_settings()
+        after = _status_text(
+            self
+        )
+        if (
+            after != before and
+            after.startswith("Exported:")
+        ):
+            track_product_event(
+                "config_exported"
+            )
+        return result
+
+    def import_settings(self):
+        before = _status_text(
+            self
+        )
+        result = super(TelemetryEditorMixin, self).import_settings()
+        after = _status_text(
+            self
+        )
+
+        if (
+            after == before or
+            not after.startswith("Imported ")
+        ):
+            return result
+
+        for label, mode in _IMPORT_MODE_KEYS:
+            marker = "({0})".format(
+                label
+            )
+            if marker in after:
+                track_product_event(
+                    "config_imported",
+                    {
+                        "mode": mode,
+                    }
+                )
+                break
+
+        return result
+
+
+def build_telemetry_interface_editor_class(base_class):
+    if getattr(base_class, _EDITOR_MARKER, False):
         return base_class
-
-    class TelemetryInterfaceEditor(base_class):
-
-        def create_from_palette(
-            self,
-            palette_item,
-            column=0
-        ):
-            kind = self.palette_item_kind(
-                palette_item
-            )
-            result = base_class.create_from_palette(
-                self,
-                palette_item,
-                column
-            )
-            if kind:
-                track_product_event(
-                    "item_created",
-                    {
-                        "item_type": kind,
-                    }
-                )
-            return result
-
-        def duplicate_selected(
-            self,
-            target_item=None
-        ):
-            current = target_item or self.tree.currentItem()
-            kind = _tree_item_kind(
-                self,
-                current
-            )
-            valid = False
-            if current is not None:
-                try:
-                    item_id = self.item_data(
-                        current,
-                        QtCore.Qt.UserRole + 1
-                    )
-                    valid = self.item_cache.get(
-                        item_id
-                    ) is not None
-                except Exception:
-                    valid = False
-
-            result = base_class.duplicate_selected(
-                self,
-                target_item
-            )
-            if valid and kind:
-                track_product_event(
-                    "item_duplicated",
-                    {
-                        "item_type": kind,
-                    }
-                )
-            return result
-
-        def export_settings(self):
-            before = _status_text(
-                self
-            )
-            result = base_class.export_settings(
-                self
-            )
-            after = _status_text(
-                self
-            )
-            if (
-                after != before and
-                after.startswith("Exported:")
-            ):
-                track_product_event(
-                    "config_exported"
-                )
-            return result
-
-        def import_settings(self):
-            before = _status_text(
-                self
-            )
-            result = base_class.import_settings(
-                self
-            )
-            after = _status_text(
-                self
-            )
-
-            if (
-                after == before or
-                not after.startswith("Imported ")
-            ):
-                return result
-
-            for label, mode in _IMPORT_MODE_KEYS:
-                marker = "({0})".format(
-                    label
-                )
-                if marker in after:
-                    track_product_event(
-                        "config_imported",
-                        {
-                            "mode": mode,
-                        }
-                    )
-                    break
-
-            return result
-
-    TelemetryInterfaceEditor.__name__ = "InterfaceEditor"
-    setattr(
-        TelemetryInterfaceEditor,
-        _EDITOR_MARKER,
-        True
-    )
-    return TelemetryInterfaceEditor
+    return type("InterfaceEditor", (TelemetryEditorMixin, base_class), {_EDITOR_MARKER: True})
 
 
 __all__ = [
+    "TelemetryEditorMixin",
     "TelemetryShareController",
     "build_telemetry_interface_editor_class",
     "install_telemetry_share_controller",

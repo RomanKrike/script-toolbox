@@ -102,9 +102,6 @@ class InterfaceEditor(QtGui.QDialog):
         self.clipboard_item = _EDITOR_CLIPBOARD
         self.undo_stack = []
         self.redo_stack = []
-        self._history_current = copy.deepcopy(
-            self.working
-        )
         self._history_restoring = False
         self.history_timer = QtCore.QTimer(
             self
@@ -767,102 +764,18 @@ class InterfaceEditor(QtGui.QDialog):
     # History / clipboard
     # ------------------------------------------------------------------
 
-    def schedule_history(self):
-        if self._history_restoring:
-            return
-        self.history_timer.start()
+    def schedule_history(self, *args, **kwargs):
+        raise NotImplementedError("Editor document behavior requires ControllerEditorMixin.")
 
-    def commit_history(
-        self,
-        sync_tree=True
-    ):
-        if self._history_restoring:
-            return
+    def commit_history(self, *args, **kwargs):
+        raise NotImplementedError("Editor document behavior requires ControllerEditorMixin.")
 
-        if self.history_timer.isActive():
-            self.history_timer.stop()
 
-        if sync_tree:
-            self.sync_working_from_tree()
+    def undo(self, *args, **kwargs):
+        raise NotImplementedError("Editor document behavior requires ControllerEditorMixin.")
 
-        if self.working == self._history_current:
-            return
-
-        self.undo_stack.append(
-            copy.deepcopy(self._history_current)
-        )
-        if len(self.undo_stack) > 100:
-            self.undo_stack = self.undo_stack[-100:]
-
-        self._history_current = copy.deepcopy(
-            self.working
-        )
-        self.redo_stack = []
-
-    def _restore_history(
-        self,
-        document,
-        label
-    ):
-        current_id = self.current_item_id
-        self._history_restoring = True
-        try:
-            self.working = copy.deepcopy(document)
-            self.populate_tree()
-
-            if current_id:
-                tree_item = self.tree_item_by_id(
-                    current_id
-                )
-                if tree_item is not None:
-                    self.tree.setCurrentItem(
-                        tree_item
-                    )
-
-            self._history_current = copy.deepcopy(
-                self.working
-            )
-            self.status.setText(
-                "{0} — Apply or Accept to save.".format(
-                    label
-                )
-            )
-        finally:
-            self._history_restoring = False
-
-    def undo(self):
-        if self.history_timer.isActive():
-            self.commit_history()
-
-        if not self.undo_stack:
-            return
-
-        current = copy.deepcopy(
-            self._history_current
-        )
-        previous = self.undo_stack.pop()
-        self.redo_stack.append(current)
-        self._restore_history(
-            previous,
-            "Undo"
-        )
-
-    def redo(self):
-        if self.history_timer.isActive():
-            self.commit_history()
-
-        if not self.redo_stack:
-            return
-
-        current = copy.deepcopy(
-            self._history_current
-        )
-        next_state = self.redo_stack.pop()
-        self.undo_stack.append(current)
-        self._restore_history(
-            next_state,
-            "Redo"
-        )
+    def redo(self, *args, **kwargs):
+        raise NotImplementedError("Editor document behavior requires ControllerEditorMixin.")
 
     def _used_names(self):
         return set(
@@ -1667,33 +1580,8 @@ class InterfaceEditor(QtGui.QDialog):
 
         return True
 
-    def apply_changes(self):
-        self.fix_tree_structure()
-        self.sync_working_from_tree()
-
-        if not self.validate_internal_names():
-            return False
-
-        self.toolbox.config = normalize_document(
-            copy.deepcopy(
-                self.working
-            )
-        )
-        self.toolbox.save()
-        self.toolbox.rebuild()
-
-        self.working = copy.deepcopy(
-            self.toolbox.config
-        )
-        self.populate_tree()
-        self._history_current = copy.deepcopy(
-            self.working
-        )
-
-        self.status.setText(
-            "Applied."
-        )
-        return True
+    def apply_changes(self, *args, **kwargs):
+        raise NotImplementedError("Editor document behavior requires ControllerEditorMixin.")
 
     def accept_changes(self):
         if self.apply_changes():

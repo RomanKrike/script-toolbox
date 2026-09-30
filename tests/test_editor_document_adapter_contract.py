@@ -19,12 +19,12 @@ def _read(relative_path):
 def test_composition_root_routes_interface_editor_through_base_controller():
     source = _read("scripts/script_toolbox/ui/bootstrap.py")
 
-    assert "from ..core.editor_document import EditorDocumentController" in source
-    assert "from .editor_document_adapter import build_interface_editor_class" in source
-    assert "editor_class = build_interface_editor_class(" in source
-    assert "controller_class=EditorDocumentController" in source
-    assert "layout_support=False" in source
-    assert "LayoutEditorDocumentController" not in source
+    composition = _read("scripts/script_toolbox/ui/composed_editor.py")
+    assert "from .composed_editor import InterfaceEditor" in source
+    assert "return InterfaceEditor" in source
+    assert "ControllerEditorMixin" in composition
+    assert "class InterfaceEditor(" in composition
+    assert "build_interface_editor_class(" not in source
 
 
 def test_adapter_owns_working_document_and_cache_through_controller():
@@ -32,7 +32,7 @@ def test_adapter_owns_working_document_and_cache_through_controller():
 
     assert "EditorDocumentController" in source
     assert "controller_class=None" in source
-    assert "self.document_controller = controller_class(" in source
+    assert "self.document_controller = self.controller_class(" in source
     assert "def working(self):" in source
     assert "self.document_controller.adopt(document)" in source
     assert "def item_cache(self):" in source
@@ -76,7 +76,7 @@ def test_layout_behavior_is_composed_inside_document_adapter():
         assert "def {0}(".format(helper) in layout_source
 
     assert "layout_support=False" in source
-    assert "if not layout_support:" in source
+    assert "if not self.layout_support:" in source
     assert "apply_layout_property_context(" in source
     assert "build_layout_editor_class" not in layout_source
     assert "unwrap_layout_editor_base" not in layout_source
@@ -93,7 +93,7 @@ def test_apply_preserves_editor_view_state_without_forwarding_wrapper():
     assert not os.path.exists(os.path.join(ui_dir, "editor_view_state.py"))
 
     apply_source = source.split(
-        "        def apply_changes(self):",
+        "    def apply_changes(self):",
         1
     )[1].split("    setattr(", 1)[0]
 

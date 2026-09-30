@@ -390,19 +390,11 @@ class DccIntegrationsPage(QtGui.QWidget):
             ).strip() or
             suggested
         )
-        try:
-            self.manager.add_profile_root(
-                dcc_key,
-                normalized,
-                label=label
-            )
-        except Exception as exc:
-            self._show_error(
-                "Add Profile Path Failed",
-                exc
-            )
-            return
-        self.scan()
+        manager = self.manager
+        self._start_profile_change(
+            lambda: manager.add_profile_root(dcc_key, normalized, label=label),
+            "Add Profile Path Failed"
+        )
 
     def _remove_profile_path(
         self,
@@ -426,17 +418,27 @@ class DccIntegrationsPage(QtGui.QWidget):
         if answer != QtGui.QMessageBox.Yes:
             return
 
-        try:
-            self.manager.remove_profile_root(
-                dcc_key,
-                profile_id
-            )
-        except Exception as exc:
-            self._show_error(
-                "Remove Profile Path Failed",
-                exc
-            )
+        manager = self.manager
+        self._start_profile_change(
+            lambda: manager.remove_profile_root(dcc_key, profile_id),
+            "Remove Profile Path Failed"
+        )
+
+    def _start_profile_change(self, callback, error_title):
+        if self._operation_job is not None and self._operation_job.isRunning():
             return
+        self._profile_error_title = error_title
+        self.container.setEnabled(False)
+        self.scan_button.setEnabled(False)
+        self._operation_job = IntegrationJob(callback)
+        self._operation_job.completed.connect(self._profile_change_finished)
+        self._operation_job.start()
+
+    @QtCore.Slot(object)
+    def _profile_change_finished(self, result):
+        self.container.setEnabled(True)
+        if result.get("error"):
+            self._show_error(self._profile_error_title, result["error"])
         self.scan()
 
     def _add_install_all_row(self, layout, parent):

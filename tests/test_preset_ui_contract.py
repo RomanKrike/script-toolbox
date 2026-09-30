@@ -81,7 +81,7 @@ def test_preset_insertion_goes_through_reference_safe_controller_clone():
 
     assert "clone = editor._clone_data(" in source
     assert "editor._used_names()" in source
-    assert "build_preset_interface_editor_class(" in bootstrap
+    assert "from .composed_editor import InterfaceEditor" in bootstrap
     assert "def clone_subtree(self, data, used_names=None):" in controller
     assert "rewrite_subtree_references(" in controller
 

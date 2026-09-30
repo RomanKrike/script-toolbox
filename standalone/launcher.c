@@ -237,7 +237,7 @@ int WINAPI wWinMain(
 
     /*
      * Keep ScriptToolbox.exe as the actual process image. The previous
-     * launcher spawned runtime\\pythonw.exe, which made Python the Windows
+     * launcher spawned a separate Python GUI process, which made Python the
      * application identity and pin target. Loading the embeddable runtime DLL
      * in-process preserves the portable source/runtime layout while making the
      * native executable the owner of the Qt window and taskbar identity.

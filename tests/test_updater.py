@@ -311,3 +311,44 @@ def test_install_release_forwards_to_transaction_v2(monkeypatch):
     assert captured["release"] is release
     assert captured["token"] == "token"
     assert captured["timeout"] == 17
+
+
+
+def test_latest_release_selects_standalone_asset(monkeypatch):
+    version = "1.2.3"
+    package = (
+        "script-toolbox-{0}-standalone-windows-x64.zip"
+    ).format(version)
+
+    monkeypatch.setattr(
+        updater,
+        "_read_json",
+        lambda *args, **kwargs: {
+            "tag_name": "v{0}".format(version),
+            "assets": [
+                {
+                    "name": package,
+                    "browser_download_url": (
+                        "https://example.invalid/standalone.zip"
+                    ),
+                },
+                {
+                    "name": package + ".sha256",
+                    "browser_download_url": (
+                        "https://example.invalid/standalone.zip.sha256"
+                    ),
+                },
+            ],
+        }
+    )
+
+    release = latest_release(
+        repository="RomanKrike/script-toolbox",
+        package_kind="standalone"
+    )
+
+    assert release["package_kind"] == "standalone"
+    assert release["asset_name"] == package
+    assert release["download_url"].endswith(
+        "/standalone.zip"
+    )

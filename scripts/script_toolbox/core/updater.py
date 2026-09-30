@@ -145,7 +145,13 @@ def _expected_package_asset_name(release):
     channel = text_type(
         release.get("channel", "")
     ).strip().lower()
+    package_kind = text_type(
+        release.get("package_kind", "plugin")
+    ).strip().lower()
+
     if channel == "development":
+        if package_kind == "standalone":
+            return "script-toolbox-standalone-dev.zip"
         return "script-toolbox-dev.zip"
 
     version = text_type(
@@ -155,6 +161,12 @@ def _expected_package_asset_name(release):
         version = version[1:]
     if not version:
         return ""
+
+    if package_kind == "standalone":
+        return "script-toolbox-{0}-standalone-windows-x64.zip".format(
+            version
+        )
+
     return "script-toolbox-{0}.zip".format(version)
 
 
@@ -198,13 +210,17 @@ def _validate_installable_release(release):
         "version": text_type(
             release.get("version", "")
         ).strip(),
+        "package_kind": text_type(
+            release.get("package_kind", "plugin")
+        ).strip().lower() or "plugin",
     }
 
 
 def latest_release(
     repository=GITHUB_REPOSITORY,
     token=None,
-    timeout=8
+    timeout=8,
+    package_kind="plugin"
 ):
     url = (
         "https://api.github.com/repos/"
@@ -221,7 +237,16 @@ def latest_release(
         raise UpdateError("Latest GitHub release has no tag.")
 
     version = tag[1:] if tag.lower().startswith("v") else tag
-    package_asset_name = "script-toolbox-{0}.zip".format(version)
+    package_kind = text_type(
+        package_kind or "plugin"
+    ).strip().lower()
+
+    if package_kind == "standalone":
+        package_asset_name = (
+            "script-toolbox-{0}-standalone-windows-x64.zip"
+        ).format(version)
+    else:
+        package_asset_name = "script-toolbox-{0}.zip".format(version)
     checksum_asset_name = package_asset_name + ".sha256"
     package_asset = None
     checksum_asset = None
@@ -261,6 +286,7 @@ def latest_release(
         ).strip(),
         "published_at": text_type(data.get("published_at", "")),
         "body": text_type(data.get("body", "")),
+        "package_kind": package_kind,
     }
 
 
@@ -268,7 +294,8 @@ def check_for_update(
     current_version=PLUGIN_VERSION,
     repository=GITHUB_REPOSITORY,
     token=None,
-    timeout=8
+    timeout=8,
+    package_kind="plugin"
 ):
     result = {
         "available": False,
@@ -282,7 +309,8 @@ def check_for_update(
         release = latest_release(
             repository=repository,
             token=token,
-            timeout=timeout
+            timeout=timeout,
+            package_kind=package_kind
         )
         result["release"] = release
         result["latest_version"] = release["version"]

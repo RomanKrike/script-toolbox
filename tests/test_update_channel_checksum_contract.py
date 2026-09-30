@@ -7,6 +7,11 @@ from script_toolbox.core.updater import UpdateError
 
 
 def test_development_release_requires_checksum_asset(monkeypatch):
+    monkeypatch.setattr(
+        update_channels,
+        "_is_standalone",
+        lambda: False
+    )
     manifest_url = "https://example.invalid/dev-manifest.json"
 
     def fake_read_json(url, token=None, timeout=8):

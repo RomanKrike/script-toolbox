@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import json
 import os
 import zipfile
 
@@ -67,6 +68,18 @@ def test_portable_build_keeps_one_shared_script_toolbox_source(tmp_path):
             "ScriptToolbox.exe"
         )
     )
+
+    marker_path = os.path.join(
+        staging_root,
+        "standalone-build.json"
+    )
+    assert os.path.isfile(
+        marker_path
+    )
+    with open(marker_path, "r") as handle:
+        marker = json.load(handle)
+    assert marker["package_kind"] == "standalone"
+    assert marker["version"] == "9.9.9"
     assert os.path.isfile(
         os.path.join(
             staging_root,

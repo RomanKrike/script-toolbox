@@ -898,15 +898,23 @@ class ScriptToolbox(QtGui.QMainWindow):
             return
 
         latest = self.update_info.get("latest_version", "")
+        lifecycle = (
+            "restart"
+            if HOST.key == "standalone"
+            else "reload"
+        )
         answer = QtGui.QMessageBox.question(
             self,
             "Update Script Toolbox",
             (
                 "Install Script Toolbox {0}?\n\n"
                 "Your toolbox configuration is stored separately and "
-                "will not be replaced. Script Toolbox will reload "
+                "will not be replaced. Script Toolbox will {1} "
                 "automatically after the update."
-            ).format(latest),
+            ).format(
+                latest,
+                lifecycle
+            ),
             QtGui.QMessageBox.Yes | QtGui.QMessageBox.No,
             QtGui.QMessageBox.Yes
         )
@@ -939,9 +947,6 @@ class ScriptToolbox(QtGui.QMainWindow):
             return
 
         version = result.get("version", "")
-        self.statusBar().showMessage(
-            "Script Toolbox {0} installed. Reloading...".format(version)
-        )
 
         try:
             if self.update_install_thread is not None:
@@ -949,7 +954,47 @@ class ScriptToolbox(QtGui.QMainWindow):
         except Exception:
             pass
 
+        if result.get("restart_required", False):
+            self.statusBar().showMessage(
+                "Script Toolbox {0} staged. Restarting...".format(
+                    version
+                )
+            )
+
+            if result.get(
+                "external_restart_scheduled",
+                False
+            ):
+                QtCore.QTimer.singleShot(
+                    150,
+                    self.exit_for_standalone_update
+                )
+                return
+
+            QtGui.QMessageBox.warning(
+                self,
+                "Update Installed",
+                (
+                    "Script Toolbox {0} was installed, but an automatic "
+                    "restart could not be scheduled. Restart Standalone "
+                    "manually to finish the update."
+                ).format(version)
+            )
+            return
+
+        self.statusBar().showMessage(
+            "Script Toolbox {0} installed. Reloading...".format(version)
+        )
         QtCore.QTimer.singleShot(150, self.hot_reload_after_update)
+
+    def exit_for_standalone_update(self):
+        application = QtGui.QApplication.instance()
+
+        if application is not None:
+            application.quit()
+            return
+
+        self.close()
 
     def hot_reload_after_update(self):
         try:

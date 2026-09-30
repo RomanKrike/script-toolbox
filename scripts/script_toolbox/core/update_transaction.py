@@ -785,7 +785,22 @@ def install_release(
     token=None,
     timeout=30
 ):
-    """Install a verified release with the transaction-v2 pipeline."""
+    """Install a verified release with the appropriate package pipeline."""
+    package_kind = text_type(
+        (release or {}).get(
+            "package_kind",
+            "plugin"
+        )
+    ).strip().lower()
+
+    if package_kind == "standalone":
+        from .standalone_update import install_release as install_standalone
+        return install_standalone(
+            release,
+            token=token,
+            timeout=timeout
+        )
+
     install_metadata = _validate_installable_release(
         release
     )

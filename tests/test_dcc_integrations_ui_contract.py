@@ -125,8 +125,8 @@ def test_dcc_page_exposes_generic_custom_profile_root_controls():
     assert "def _supports_profile_locations(adapter):" in source
     assert "QtGui.QFileDialog.getExistingDirectory(" in source
     assert "QtGui.QInputDialog.getText(" in source
-    assert 'self.manager.add_profile_root(' in source
-    assert 'self.manager.remove_profile_root(' in source
+    assert 'manager.add_profile_root(' in source
+    assert 'manager.remove_profile_root(' in source
     assert "def add_profile_root(self, dcc, profile_path, label=" in manager
     assert "def remove_profile_root(self, dcc, profile_id):" in manager
 

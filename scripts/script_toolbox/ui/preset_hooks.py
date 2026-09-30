@@ -233,206 +233,201 @@ def _insert_preset(
     return tree_item
 
 
-def build_preset_interface_editor_class(base_class):
-    """Add Items/Presets tabs to the existing Create Parameters pane."""
+class PresetEditorMixin(object):
 
-    class PresetInterfaceEditor(base_class):
+    def build_ui(self):
+        super(PresetEditorMixin, self).build_ui()
+        self._install_preset_palette()
 
-        def build_ui(self):
-            base_class.build_ui(
-                self
-            )
-            self._install_preset_palette()
-
-        def _install_preset_palette(self):
-            items_surface = getattr(
-                self,
-                "palette_scroll_frame",
-                None
-            )
-            if items_surface is None:
-                items_surface = self.palette
-
-            left = items_surface.parentWidget()
-            if left is None:
-                return
-
-            left_layout = left.layout()
-            if left_layout is None:
-                return
-
-            palette_index = left_layout.indexOf(
-                items_surface
-            )
-            if palette_index < 0:
-                palette_index = 1
-
-            self.palette_tabs = QtGui.QTabWidget(
-                left
-            )
-            self.palette_tabs.setObjectName(
-                "CreatePaletteTabs"
-            )
-
-            items_page = QtGui.QWidget(
-                self.palette_tabs
-            )
-            items_layout = QtGui.QVBoxLayout(
-                items_page
-            )
-            items_layout.setContentsMargins(
-                0,
-                0,
-                0,
-                0
-            )
-            items_layout.setSpacing(
-                0
-            )
-
-            left_layout.removeWidget(
-                items_surface
-            )
-            items_surface.setParent(
-                items_page
-            )
-            items_layout.addWidget(
-                items_surface
-            )
-
-            presets_page = QtGui.QWidget(
-                self.palette_tabs
-            )
-            presets_layout = QtGui.QVBoxLayout(
-                presets_page
-            )
-            presets_layout.setContentsMargins(
-                0,
-                0,
-                0,
-                0
-            )
-            presets_layout.setSpacing(
-                0
-            )
-
-            self.preset_palette = QtGui.QTreeWidget(
-                presets_page
-            )
-            _configure_palette_tree(
-                self.preset_palette
-            )
-            try:
-                self.preset_palette.setIndentation(
-                    self.palette.indentation()
-                )
-            except Exception:
-                pass
-            _populate_preset_tree(
-                self.preset_palette
-            )
-            self.preset_palette.itemDoubleClicked.connect(
-                self.create_from_preset
-            )
-            presets_layout.addWidget(
-                self.preset_palette
-            )
-            self.preset_scroll_frame = wrap_scroll_widget(
-                self.preset_palette,
-                background=LIST_BG,
-                border=BORDER_PRESSED
-            )
-
-            self.palette_tabs.addTab(
-                items_page,
-                "Items"
-            )
-            self.palette_tabs.addTab(
-                presets_page,
-                "Presets"
-            )
-
-            left_layout.insertWidget(
-                palette_index,
-                self.palette_tabs,
-                1
-            )
-
-            self.palette_tabs.currentChanged.connect(
-                self._palette_tab_changed
-            )
-            self._palette_tab_changed(
-                self.palette_tabs.currentIndex()
-            )
-
-        def _palette_tab_changed(self, index):
-            placeholder = (
-                "Filter presets..."
-                if index == 1
-                else "Filter items..."
-            )
-            try:
-                self.palette_filter.setPlaceholderText(
-                    placeholder
-                )
-            except Exception:
-                pass
-
-            self.filter_palette(
-                text_type(
-                    self.palette_filter.text()
-                )
-            )
-
-        def filter_palette(self, value):
-            tabs = getattr(
-                self,
-                "palette_tabs",
-                None
-            )
-            if (
-                tabs is None or
-                tabs.currentIndex() == 0
-            ):
-                return base_class.filter_palette(
-                    self,
-                    value
-                )
-
-            return _filter_preset_tree(
-                self.preset_palette,
-                value
-            )
-
-        def create_from_preset(
+    def _install_preset_palette(self):
+        items_surface = getattr(
             self,
-            preset_item,
-            column=0
-        ):
-            callback = getattr(
-                self,
-                "_call_tree_action",
-                None
-            )
-            if callback is not None:
-                return callback(
-                    "Insert Preset",
-                    _insert_preset,
-                    preset_item,
-                    column
-                )
+            "palette_scroll_frame",
+            None
+        )
+        if items_surface is None:
+            items_surface = self.palette
 
-            return _insert_preset(
-                self,
+        left = items_surface.parentWidget()
+        if left is None:
+            return
+
+        left_layout = left.layout()
+        if left_layout is None:
+            return
+
+        palette_index = left_layout.indexOf(
+            items_surface
+        )
+        if palette_index < 0:
+            palette_index = 1
+
+        self.palette_tabs = QtGui.QTabWidget(
+            left
+        )
+        self.palette_tabs.setObjectName(
+            "CreatePaletteTabs"
+        )
+
+        items_page = QtGui.QWidget(
+            self.palette_tabs
+        )
+        items_layout = QtGui.QVBoxLayout(
+            items_page
+        )
+        items_layout.setContentsMargins(
+            0,
+            0,
+            0,
+            0
+        )
+        items_layout.setSpacing(
+            0
+        )
+
+        left_layout.removeWidget(
+            items_surface
+        )
+        items_surface.setParent(
+            items_page
+        )
+        items_layout.addWidget(
+            items_surface
+        )
+
+        presets_page = QtGui.QWidget(
+            self.palette_tabs
+        )
+        presets_layout = QtGui.QVBoxLayout(
+            presets_page
+        )
+        presets_layout.setContentsMargins(
+            0,
+            0,
+            0,
+            0
+        )
+        presets_layout.setSpacing(
+            0
+        )
+
+        self.preset_palette = QtGui.QTreeWidget(
+            presets_page
+        )
+        _configure_palette_tree(
+            self.preset_palette
+        )
+        try:
+            self.preset_palette.setIndentation(
+                self.palette.indentation()
+            )
+        except Exception:
+            pass
+        _populate_preset_tree(
+            self.preset_palette
+        )
+        self.preset_palette.itemDoubleClicked.connect(
+            self.create_from_preset
+        )
+        presets_layout.addWidget(
+            self.preset_palette
+        )
+        self.preset_scroll_frame = wrap_scroll_widget(
+            self.preset_palette,
+            background=LIST_BG,
+            border=BORDER_PRESSED
+        )
+
+        self.palette_tabs.addTab(
+            items_page,
+            "Items"
+        )
+        self.palette_tabs.addTab(
+            presets_page,
+            "Presets"
+        )
+
+        left_layout.insertWidget(
+            palette_index,
+            self.palette_tabs,
+            1
+        )
+
+        self.palette_tabs.currentChanged.connect(
+            self._palette_tab_changed
+        )
+        self._palette_tab_changed(
+            self.palette_tabs.currentIndex()
+        )
+
+    def _palette_tab_changed(self, index):
+        placeholder = (
+            "Filter presets..."
+            if index == 1
+            else "Filter items..."
+        )
+        try:
+            self.palette_filter.setPlaceholderText(
+                placeholder
+            )
+        except Exception:
+            pass
+
+        self.filter_palette(
+            text_type(
+                self.palette_filter.text()
+            )
+        )
+
+    def filter_palette(self, value):
+        tabs = getattr(
+            self,
+            "palette_tabs",
+            None
+        )
+        if (
+            tabs is None or
+            tabs.currentIndex() == 0
+        ):
+            return super(PresetEditorMixin, self).filter_palette(value
+            )
+
+        return _filter_preset_tree(
+            self.preset_palette,
+            value
+        )
+
+    def create_from_preset(
+        self,
+        preset_item,
+        column=0
+    ):
+        callback = getattr(
+            self,
+            "_call_tree_action",
+            None
+        )
+        if callback is not None:
+            return callback(
+                "Insert Preset",
+                _insert_preset,
                 preset_item,
                 column
             )
 
-    PresetInterfaceEditor.__name__ = "InterfaceEditor"
-    return PresetInterfaceEditor
+        return _insert_preset(
+            self,
+            preset_item,
+            column
+        )
+
+
+def build_preset_interface_editor_class(base_class):
+    return type("InterfaceEditor", (PresetEditorMixin, base_class), {})
 
 
 __all__ = [
+    "PresetEditorMixin",
     "ROLE_PRESET_ID",
     "build_preset_interface_editor_class",
 ]

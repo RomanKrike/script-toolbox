@@ -1,27 +1,19 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-from ..core.editor_document import EditorDocumentController
 from ..core.logging_utils import get_logger
 from . import debounced_main_window as _debounced_main_window_module
-from . import interface_editor as _interface_editor_module
 from . import runtime as _runtime_module
 from . import runtime_renderers as _runtime_renderers_module
-from .editor_document_adapter import build_interface_editor_class
+from .composed_editor import InterfaceEditor
 from .editor_polish_hooks import install_icon_only_button_centering
 from .editor_polish_hooks import install_runtime_icon_feedback
-from .editor_selection_state import EditorSelectionStateMixin
 from .item_ui_bootstrap import ensure_builtin_item_ui_bindings
-from .preset_hooks import build_preset_interface_editor_class
-from .reference_warning_hooks import build_reference_warning_editor_class
 from .runtime_renderers import _decorate_runtime_renderer_registry
 from .runtime_renderers import get_runtime_renderer_registry
 from .runtime_renderers import initialize_runtime_renderer_registry
 from .runtime_value_sync import synchronize_runtime_value_renderers
 from .scroll_surface_frames import install_runtime_scroll_frames
-from .telemetry_hooks import build_telemetry_interface_editor_class
-from .telemetry_hooks import install_telemetry_share_controller
-from .template_transfer_hooks import build_template_transfer_interface_editor_class
 
 
 _LOGGER = get_logger()
@@ -43,28 +35,9 @@ class UIComposition(object):
         self.runtime_module = _runtime_module
 
 
-class _SelectableInterfaceEditor(EditorSelectionStateMixin,
-                                 _interface_editor_module.InterfaceEditor):
-    pass
-
-
 def _compose_interface_editor():
     ensure_builtin_item_ui_bindings()
-    base_editor = _SelectableInterfaceEditor
-
-    editor_class = build_interface_editor_class(
-        base_editor,
-        controller_class=EditorDocumentController,
-        layout_support=False,
-        share_controller_factory=install_telemetry_share_controller
-    )
-    editor_class = build_reference_warning_editor_class(editor_class)
-    editor_class = build_preset_interface_editor_class(editor_class)
-    editor_class = build_template_transfer_interface_editor_class(editor_class)
-    editor_class = build_telemetry_interface_editor_class(editor_class)
-
-
-    return editor_class
+    return InterfaceEditor
 
 
 def _runtime_registry():

@@ -93,15 +93,6 @@ def test_clipboard_item_transfer_uses_normal_editor_insert_path():
     assert "create_item(" in config_source
 
 
-def test_transfer_wrapper_is_inside_existing_telemetry_wrapper():
-    source = _read(
-        "scripts/script_toolbox/ui/bootstrap.py"
-    )
-
-    transfer = source.index(
-        "build_template_transfer_interface_editor_class(editor_class)"
-    )
-    telemetry = source.index(
-        "build_telemetry_interface_editor_class(editor_class)"
-    )
-    assert transfer < telemetry
+def test_transfer_and_telemetry_order_is_declared():
+    source = _read("scripts/script_toolbox/ui/composed_editor.py")
+    assert "class InterfaceEditor(TelemetryEditorMixin, TemplateTransferEditorMixin," in source

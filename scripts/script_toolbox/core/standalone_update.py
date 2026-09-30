@@ -13,12 +13,12 @@ from ..pycompat import text_type
 from .file_lock import installation_lock, FileLockError
 from .config import _replace_file
 from . import http_transport
-from .updater import UpdateError
-from .updater import _download_file
-from .updater import _find_release_root
-from .updater import _safe_extract
-from .updater import _validate_installable_release
-from .updater import _verify_checksum
+from .update_package import UpdateError
+from .update_package import download_file as _download_file
+from .update_package import find_release_root as _find_release_root
+from .update_package import safe_extract as _safe_extract
+from .update_package import validate_installable_release as _validate_installable_release
+from .update_package import verify_checksum as _verify_checksum
 from .updater import repository_root
 
 

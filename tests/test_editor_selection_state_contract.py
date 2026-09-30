@@ -47,16 +47,7 @@ def test_apply_preserves_selected_property_and_description_scroll_position():
     assert "_restore_property_scroll" in source
 
 
-def test_editor_selection_state_hook_is_installed_before_adapter_wrapping():
-    source = _read(
-        "scripts/script_toolbox/ui/bootstrap.py"
-    )
-
-    install_index = source.index(
-        "class _SelectableInterfaceEditor(EditorSelectionStateMixin,"
-    )
-    adapter_index = source.index(
-        "editor_class = build_interface_editor_class("
-    )
-
-    assert install_index < adapter_index
+def test_selection_state_is_declared_in_editor_mro():
+    source = _read("scripts/script_toolbox/ui/composed_editor.py")
+    assert "ControllerEditorMixin, EditorSelectionStateMixin," in source
+    assert "InterfaceEditorView):" in source

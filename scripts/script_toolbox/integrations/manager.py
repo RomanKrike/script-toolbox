@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 from ..core.logging_utils import get_logger
+from .config import get_integration_settings
 from .blender import BlenderAdapter
 from .houdini import HoudiniAdapter
 from .max import MaxAdapter
@@ -62,6 +63,32 @@ class DccIntegrationManager(object):
                     installation.version
                 )
         return result
+
+    def scan_details(self):
+        """Filesystem-only snapshot; building widgets never reopens paths."""
+        installations = self.scan()
+        roots = {}
+        for adapter in self.adapters():
+            callback = getattr(adapter, "profile_roots", None)
+            roots[adapter.key] = callback() if callable(callback) else []
+            for target in installations.get(adapter.key, []):
+                target.scanned_status = self.status(target)
+                target.scanned_options = adapter.normalize_options(
+                    get_integration_settings(target.dcc, target.version,
+                        profile_id=target.profile_id) or {})
+        return {"installations": installations, "roots": roots}
+
+    def files_operation(self, operation, installation, options=None):
+        adapter = self.adapter(installation.dcc)
+        callback = getattr(adapter, operation)
+        if operation == "install":
+            return callback(installation, options=options, sync_live=False)
+        return callback(installation, sync_live=False)
+
+    def sync_live(self, installation):
+        adapter = self.adapter(installation.dcc)
+        callback = getattr(adapter, "_sync_live_" + installation.dcc, None)
+        return callback(installation) if callable(callback) else False
 
     def profile_roots(self, dcc):
         adapter = self.adapter(dcc)

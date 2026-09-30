@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 import os
+import json
 import sys
 import traceback
 
@@ -48,6 +49,16 @@ def show_startup_error(message):
 
 
 def main():
+    status_path = os.path.join(repository_root(), "standalone-update-status.json")
+    if os.path.isfile(status_path):
+        try:
+            with open(status_path, "r") as handle:
+                status = json.load(handle)
+            if status.get("state") in ("failed", "recovered", "recovery_required", "cancelled"):
+                show_startup_error(u"Portable update: {0}\n\n{1}\n\nDetails: {2}".format(
+                    status.get("state"), status.get("message", ""), status_path))
+        except Exception:
+            pass
     install_source_path()
 
     try:

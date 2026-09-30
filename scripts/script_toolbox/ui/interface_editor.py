@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..qt_compat import qt_exec
+
 import copy
 import os
 
@@ -1060,7 +1062,7 @@ class InterfaceEditor(QtGui.QDialog):
         menu.addSeparator()
         delete_action = menu.addAction("Delete")
 
-        action = menu.exec_(
+        action = qt_exec(menu,
             self.tree.viewport().mapToGlobal(point)
         )
 

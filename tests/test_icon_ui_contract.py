@@ -140,7 +140,7 @@ def test_share_actions_use_stable_references_and_final_icons():
     assert "_install_share_buttons" not in share_source
 
     assert "from .share_hooks import install_share_controller" in adapter_source
-    assert "install_share_controller(self)" in adapter_source
+    assert "share_controller_factory(self)" in adapter_source
     assert "self.share_controller.icon_button(" in adapter_source
     assert "self.share_controller.show_tree_context_menu(" in adapter_source
     assert "build_share_interface_editor_class(" not in ui_source

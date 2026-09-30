@@ -119,7 +119,7 @@ def test_adapter_composes_search_and_share_directly():
     assert "from .editor_search import apply_editor_presentation" in source
     assert "from .editor_search import reapply_existing_filter" in source
     assert "from .share_hooks import install_share_controller" in source
-    assert "install_share_controller(self)" in source
+    assert "share_controller_factory(self)" in source
     assert "apply_editor_presentation(self)" in source
     assert "reapply_existing_filter(self)" in source
 

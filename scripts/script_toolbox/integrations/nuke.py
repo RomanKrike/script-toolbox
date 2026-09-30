@@ -337,7 +337,7 @@ class NukeAdapter(DetectionOnlyAdapter):
             ),
             (
                 "    _stb_nuke_integration.apply_current_integration("
-                "profile_id={0!r})"
+                "profile_id={0!r}, activate_profile=True)"
             ).format(
                 installation.profile_id
             ),
@@ -425,10 +425,11 @@ class NukeAdapter(DetectionOnlyAdapter):
             if current != installation.version:
                 return False
             from .. import nuke_integration
-            nuke_integration.apply_current_integration(
+            if nuke_integration.active_profile_id() != installation.profile_id:
+                return False
+            return nuke_integration.apply_current_integration(
                 profile_id=installation.profile_id
             )
-            return True
         except Exception:
             _LOGGER.debug(
                 "[DCC] Live Nuke UI sync skipped.",
@@ -436,7 +437,7 @@ class NukeAdapter(DetectionOnlyAdapter):
             )
             return False
 
-    def install(self, installation, options=None):
+    def install(self, installation, options=None, sync_live=True):
         options = self.normalize_options(
             options
         )
@@ -467,9 +468,8 @@ class NukeAdapter(DetectionOnlyAdapter):
             path=self.config_path,
             profile_id=installation.profile_id
         )
-        self._sync_live_nuke(
-            installation
-        )
+        if sync_live:
+            self._sync_live_nuke(installation)
 
         result = self.status(
             installation
@@ -483,7 +483,7 @@ class NukeAdapter(DetectionOnlyAdapter):
             )
         return result
 
-    def repair(self, installation):
+    def repair(self, installation, sync_live=True):
         settings = get_integration_settings(
             self.key,
             installation.version,
@@ -494,10 +494,11 @@ class NukeAdapter(DetectionOnlyAdapter):
             settings = self.normalize_options()
         return self.install(
             installation,
-            settings
+            settings,
+            sync_live=sync_live
         )
 
-    def uninstall(self, installation):
+    def uninstall(self, installation, sync_live=True):
         remove_integration_settings(
             self.key,
             installation.version,
@@ -518,9 +519,8 @@ class NukeAdapter(DetectionOnlyAdapter):
                 _MENU_END
             )
 
-        self._sync_live_nuke(
-            installation
-        )
+        if sync_live:
+            self._sync_live_nuke(installation)
         return self.status(
             installation
         )

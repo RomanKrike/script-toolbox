@@ -6,7 +6,6 @@ from ...compat import QtGui
 from ...pycompat import text_type
 from ...style.builtin_icons import builtin_icon
 from ..painted_icon_button import PaintedIconButton
-from . import base as base_module
 from . import bindings as bindings_module
 
 
@@ -425,13 +424,5 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
         )
 
 
-def install_integrated_trigger_tabs():
-    """Route PropertyEditorBase to the integrated trigger-tab panel."""
-    bindings_module.BindingPanel = TriggerTabBindingPanel
-    base_module.BindingPanel = TriggerTabBindingPanel
 
-
-__all__ = [
-    "TriggerTabBindingPanel",
-    "install_integrated_trigger_tabs",
-]
+__all__ = ["TriggerTabBindingPanel"]

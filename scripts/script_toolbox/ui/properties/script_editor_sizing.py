@@ -2,11 +2,8 @@
 
 from ...compat import QtCore
 from ...compat import QtGui
-from . import base as base_module
-from . import bindings as bindings_module
 
 
-_INSTALLED = False
 _DEFAULT_SCRIPT_EDITOR_HEIGHT = 480
 _MIN_SCRIPT_EDITOR_HEIGHT = 240
 _MAX_SCRIPT_EDITOR_HEIGHT = 1600
@@ -29,14 +26,13 @@ def _set_panel_script_editor_height(panel, value):
     value = _clamp_script_editor_height(value)
     _preferred_script_editor_height = value
 
-    for page in getattr(panel, "pages", []):
-        editor = getattr(page, "script_editor", None)
+    callback = getattr(panel, "script_editor_widgets", None)
+    editors = (callback() if callback else
+               [getattr(page, "script_editor", None) for page in getattr(panel, "pages", [])])
+    for editor in editors:
         if editor is not None:
             editor.setMinimumHeight(value)
-            try:
-                editor.updateGeometry()
-            except Exception:
-                pass
+            editor.updateGeometry()
 
     try:
         panel.updateGeometry()
@@ -126,124 +122,25 @@ class ScriptEditorResizeHandle(QtGui.QLabel):
             pass
 
 
-def install_expanding_script_editors():
-    """Give property script editors a large default and manual resizing.
-
-    Property editors live in a resizable QScrollArea. Keep property fields
-    compact, give trigger scripts a useful default height, and expose a visible
-    vertical drag handle so the editor can be resized without resizing the
-    entire Interface Editor window. The active Inspector now nests the binding
-    panel in the stable TRIGGERS section, so that section receives the old
-    stretch behavior instead of the panel directly.
-    """
-    global _INSTALLED
-    if _INSTALLED:
-        return
-    _INSTALLED = True
-
-    original_page_init = bindings_module.BindingPage.__init__
-
-    def binding_page_init(self, *args, **kwargs):
-        original_page_init(self, *args, **kwargs)
-
-        if self.script_editor is None:
-            return
-
-        self.script_editor.setMinimumHeight(
-            _preferred_script_editor_height
-        )
-        try:
-            self.script_editor.setSizePolicy(
-                QtGui.QSizePolicy.Expanding,
-                QtGui.QSizePolicy.Expanding
-            )
-        except Exception:
-            pass
-
-    bindings_module.BindingPage.__init__ = binding_page_init
-
-    panel_class = bindings_module.BindingPanel
-    original_panel_init = panel_class.__init__
-    original_refresh_empty = panel_class._refresh_empty
-
-    def binding_panel_init(self, *args, **kwargs):
-        original_panel_init(self, *args, **kwargs)
-
-        self.script_resize_handle = ScriptEditorResizeHandle(
-            self,
-            self
-        )
-        self.script_resize_handle.setVisible(
-            bool(getattr(self, "pages", []))
-        )
-
-        try:
-            layout = self.layout()
-            insert_index = max(
-                0,
-                layout.count() - 1
-            )
-            layout.insertWidget(
-                insert_index,
-                self.script_resize_handle
-            )
-        except Exception:
-            pass
-
-    def refresh_empty(self):
-        original_refresh_empty(self)
-        try:
-            self.script_resize_handle.setVisible(
-                bool(self.pages)
-            )
-        except Exception:
-            pass
-
-    panel_class.__init__ = binding_panel_init
-    panel_class._refresh_empty = refresh_empty
-
-    original_property_init = base_module.PropertyEditorBase.__init__
-
-    def property_editor_init(self, *args, **kwargs):
-        original_property_init(self, *args, **kwargs)
-
-        try:
-            self.setSizePolicy(
-                QtGui.QSizePolicy.Expanding,
-                QtGui.QSizePolicy.Expanding
-            )
-        except Exception:
-            pass
-
-        try:
-            stretch_widget = getattr(
-                self,
-                "trigger_section",
-                self.binding_panel
-            )
-            index = self.root_layout.indexOf(
-                stretch_widget
-            )
-            if index >= 0:
-                self.root_layout.setStretch(
-                    index,
-                    1
-                )
-        except Exception:
-            pass
-
-        try:
-            self.binding_panel.setSizePolicy(
-                QtGui.QSizePolicy.Expanding,
-                QtGui.QSizePolicy.Expanding
-            )
-        except Exception:
-            pass
-
-    base_module.PropertyEditorBase.__init__ = property_editor_init
+def configure_script_editor(editor):
+    editor.setMinimumHeight(_preferred_script_editor_height)
+    editor.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
 
 
-__all__ = [
-    "ScriptEditorResizeHandle",
-    "install_expanding_script_editors",
-]
+def configure_binding_panel(panel):
+    panel.script_resize_handle = ScriptEditorResizeHandle(panel, panel)
+    panel.script_resize_handle.setVisible(bool(panel.pages))
+    panel.layout().insertWidget(max(0, panel.layout().count() - 1),
+                                panel.script_resize_handle)
+
+
+def configure_property_editor(editor):
+    editor.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
+    editor.binding_panel.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
+    index = editor.root_layout.indexOf(editor.trigger_section)
+    if index >= 0:
+        editor.root_layout.setStretch(index, 1)
+
+
+__all__ = ["ScriptEditorResizeHandle", "configure_script_editor",
+           "configure_binding_panel", "configure_property_editor"]

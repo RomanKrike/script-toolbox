@@ -752,7 +752,7 @@ class MayaAdapter(DccAdapter):
             )
             return False
 
-    def install(self, installation, options=None):
+    def install(self, installation, options=None, sync_live=True):
         options = _normalize_options(options)
         _LOGGER.info(
             "[DCC] Installing Maya %s integration",
@@ -790,7 +790,8 @@ class MayaAdapter(DccAdapter):
             path=self.config_path,
             profile_id=installation.profile_id
         )
-        self._sync_live_maya(installation)
+        if sync_live:
+            self._sync_live_maya(installation)
 
         result = self.status(installation)
         if result.state != STATUS_INSTALLED:
@@ -803,7 +804,7 @@ class MayaAdapter(DccAdapter):
         _LOGGER.info("[DCC] Maya %s integration verified", installation.version)
         return result
 
-    def repair(self, installation):
+    def repair(self, installation, sync_live=True):
         settings = get_integration_settings(
             self.key,
             installation.version,
@@ -822,10 +823,11 @@ class MayaAdapter(DccAdapter):
         )
         return self.install(
             installation,
-            settings
+            settings,
+            sync_live=sync_live
         )
 
-    def uninstall(self, installation):
+    def uninstall(self, installation, sync_live=True):
         _LOGGER.info(
             "[DCC] Uninstalling Maya %s integration",
             installation.version
@@ -838,7 +840,8 @@ class MayaAdapter(DccAdapter):
             path=self.config_path,
             profile_id=installation.profile_id
         )
-        self._sync_live_maya(installation)
+        if sync_live:
+            self._sync_live_maya(installation)
 
         module_path = self._module_path(installation)
         if os.path.isfile(module_path):

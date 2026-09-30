@@ -163,15 +163,15 @@ def test_houdini_and_nuke_are_managed_integrations_not_detection_only():
 
     assert "integration_available = True" in houdini
     assert "supported = True" in houdini
-    assert "def install(self, installation, options=None):" in houdini
-    assert "def repair(self, installation):" in houdini
-    assert "def uninstall(self, installation):" in houdini
+    assert "def install(self, installation, options=None, sync_live=True):" in houdini
+    assert "def repair(self, installation, sync_live=True):" in houdini
+    assert "def uninstall(self, installation, sync_live=True):" in houdini
 
     assert "integration_available = True" in nuke
     assert "supported = True" in nuke
-    assert "def install(self, installation, options=None):" in nuke
-    assert "def repair(self, installation):" in nuke
-    assert "def uninstall(self, installation):" in nuke
+    assert "def install(self, installation, options=None, sync_live=True):" in nuke
+    assert "def repair(self, installation, sync_live=True):" in nuke
+    assert "def uninstall(self, installation, sync_live=True):" in nuke
 
 
 def test_houdini_and_nuke_custom_profiles_are_profile_aware_at_runtime():
@@ -183,7 +183,7 @@ def test_houdini_and_nuke_custom_profiles_are_profile_aware_at_runtime():
     assert "profile_id=installation.profile_id" in houdini
     assert "profile_id=installation.profile_id" in nuke
     assert "def apply_current_integration(profile_id=None):" in houdini_runtime
-    assert "def apply_current_integration(profile_id=None):" in nuke_runtime
+    assert "def apply_current_integration(profile_id=None, activate_profile=False):" in nuke_runtime
     assert "profile_id=profile_id" in houdini_runtime
     assert "profile_id=profile_id" in nuke_runtime
 

@@ -18,14 +18,14 @@ def test_duplicate_trigger_signature_is_handler_agnostic():
         "script_toolbox",
         "ui",
         "properties",
-        "trigger_validation.py"
+        "bindings.py"
     )
 
     block = source.split(
         "def _duplicate_signature(",
         1
     )[1].split(
-        "def install_trigger_signature_validation():",
+        "def add_binding(self):",
         1
     )[0]
 
@@ -43,11 +43,6 @@ def test_trigger_signature_validation_installs_after_toggle_tab_hooks():
         "__init__.py"
     )
 
-    state_pos = source.index("install_integrated_toggle_state_tabs()")
-    validation_pos = source.index("install_trigger_signature_validation()")
-
-    assert state_pos < validation_pos
-    assert (
-        "from .trigger_validation import install_trigger_signature_validation"
-        in source
-    )
+    assert "install_trigger_signature_validation()" not in source
+    binding = _source("scripts", "script_toolbox", "ui", "properties", "bindings.py")
+    assert "def _duplicate_signature(self, candidate, ignore_page=None):" in binding

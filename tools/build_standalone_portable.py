@@ -183,6 +183,7 @@ def _build_metadata(root, version):
 
     return {
         "package_kind": "standalone",
+        "portable_transaction_version": 1,
         "version": version,
         "channel": channel,
         "build_number": build_number,
@@ -414,6 +415,19 @@ def build_portable(
             version
         )
     )
+    # Explicit ownership makes package removals safe in shared installations.
+    with open(os.path.join(staging_root, "standalone-manifest.json"), "w") as handle:
+        manifest = {}
+        for folder, directories, files in os.walk(staging_root):
+            directories[:] = [name for name in directories if name != "__pycache__"]
+            for filename in files:
+                relative = os.path.relpath(os.path.join(folder, filename), staging_root).replace(os.sep, "/")
+                if relative == "standalone-manifest.json" or relative.endswith((".pyc", ".pyo")):
+                    continue
+                with open(os.path.join(folder, filename), "rb") as source:
+                    manifest[relative] = hashlib.sha256(source.read()).hexdigest()
+        json.dump(manifest, handle, indent=2, sort_keys=True)
+
     validate_portable_root(
         staging_root
     )

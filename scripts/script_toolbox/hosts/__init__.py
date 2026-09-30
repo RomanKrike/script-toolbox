@@ -9,24 +9,22 @@ from .standalone_host import StandaloneHost
 
 
 def _detect_host():
-    try:
-        from .maya_host import MayaHost
-        return MayaHost()
-    except Exception:
-        pass
-
-    try:
-        from .nuke_host import NukeHost
-        return NukeHost()
-    except Exception:
-        pass
-
-    try:
-        from .houdini_host import HoudiniHost
-        return HoudiniHost()
-    except Exception:
-        pass
-
+    import importlib
+    for host_module, adapter_module, class_name in (
+        ("maya.cmds", ".maya_host", "MayaHost"),
+        ("nuke", ".nuke_host", "NukeHost"),
+        ("hou", ".houdini_host", "HoudiniHost"),
+    ):
+        try:
+            module = importlib.import_module(host_module)
+            if host_module == "nuke" and not hasattr(module, "selectedNodes"):
+                continue
+        except ImportError:
+            continue
+        # A present host with a broken adapter is a startup error; propagating
+        # it keeps the real traceback instead of selecting standalone paths.
+        adapter = importlib.import_module(adapter_module, __name__)
+        return getattr(adapter, class_name)()
     return StandaloneHost()
 
 

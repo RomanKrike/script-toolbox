@@ -159,9 +159,9 @@ def binding_candidates(
             if name != preferred
         ]
 
-    # If the DCC already loaded one binding, prefer it over probing another Qt
-    # major into the same process. This is particularly important for optional
-    # Houdini 20.5 Qt6 builds and custom studio bootstrap environments.
+    # Houdini supports optional Qt generations; standalone can reuse a loaded
+    # binding. Known Maya/Nuke versions must keep their required generation
+    # even when another plugin has imported a different PySide package.
     loaded = []
     for name in (
         PYSIDE6,
@@ -176,16 +176,16 @@ def binding_candidates(
                 name
             )
 
-    if loaded:
+    if loaded and (host_key not in ("maya", "nuke") or not major):
         ordered = loaded + [
             name
             for name in ordered
             if name not in loaded
         ]
 
-    return tuple(
-        ordered
-    )
+    if host_key in ("maya", "nuke", "houdini") and (major or preferred or loaded):
+        return (ordered[0],)
+    return tuple(ordered)
 
 
 def _import_module(name):
@@ -207,36 +207,28 @@ def _optional_import(name):
         return None
 
 
-def mirror_widgets_onto_qtgui(
-    qt_gui,
-    qt_widgets
-):
-    """Expose Qt5/Qt6 widgets through the legacy QtGui namespace."""
-    if qt_widgets is None:
-        return qt_gui
+class QtNamespace(object):
+    """Private facade; never add attributes to shared PySide modules/classes."""
+    def __init__(self, module):
+        self._module = module
 
-    for name in dir(
-        qt_widgets
-    ):
-        if hasattr(
-            qt_gui,
-            name
-        ):
-            continue
+    def __getattr__(self, name):
+        return getattr(self._module, name)
 
-        try:
-            setattr(
-                qt_gui,
-                name,
-                getattr(
-                    qt_widgets,
-                    name
-                )
-            )
-        except Exception:
-            pass
 
-    return qt_gui
+def mirror_widgets_onto_qtgui(qt_gui, qt_widgets):
+    facade = QtNamespace(qt_gui)
+    if qt_widgets is not None:
+        for name in dir(qt_widgets):
+            if not hasattr(qt_gui, name):
+                setattr(facade, name, getattr(qt_widgets, name))
+    return facade
+
+
+def qt_exec(instance, *args, **kwargs):
+    """Run a modal/event loop across Qt4, Qt5 and Qt6 without class patches."""
+    callback = getattr(instance, "exec_", None) or getattr(instance, "exec")
+    return callback(*args, **kwargs)
 
 
 def _install_qregexp_compat(qt_core):
@@ -306,86 +298,11 @@ def _install_qregexp_compat(qt_core):
     qt_core.QRegExp = QRegExpCompat
 
 
-def _install_method_alias(
-    owner,
-    legacy_name,
-    modern_name
-):
-    if owner is None:
-        return
-    if hasattr(
-        owner,
-        legacy_name
-    ):
-        return
-    if not hasattr(
-        owner,
-        modern_name
-    ):
-        return
-
-    try:
-        setattr(
-            owner,
-            legacy_name,
-            getattr(
-                owner,
-                modern_name
-            )
-        )
-    except Exception:
-        pass
-
-
-def _install_qt6_method_aliases(qt_gui):
-    """Keep the legacy Qt4/Qt5 call sites valid under PySide6 where possible."""
-    for class_name in (
-        "QApplication",
-        "QDialog",
-        "QMenu",
-        "QMessageBox",
-        "QFileDialog",
-        "QInputDialog",
-        "QColorDialog",
-        "QFontDialog",
-    ):
-        _install_method_alias(
-            getattr(
-                qt_gui,
-                class_name,
-                None
-            ),
-            "exec_",
-            "exec"
-        )
-
-    _install_method_alias(
-        getattr(
-            qt_gui,
-            "QFontMetrics",
-            None
-        ),
-        "width",
-        "horizontalAdvance"
-    )
-
-
-def install_legacy_api(
-    qt_core,
-    qt_gui,
-    qt_widgets=None
-):
-    mirror_widgets_onto_qtgui(
-        qt_gui,
-        qt_widgets
-    )
-    _install_qregexp_compat(
-        qt_core
-    )
-    _install_qt6_method_aliases(
-        qt_gui
-    )
-    return qt_core, qt_gui
+def install_legacy_api(qt_core, qt_gui, qt_widgets=None):
+    core_facade = QtNamespace(qt_core)
+    gui_facade = mirror_widgets_onto_qtgui(qt_gui, qt_widgets)
+    _install_qregexp_compat(core_facade)
+    return core_facade, gui_facade
 
 
 def load_qt_binding(
@@ -429,7 +346,7 @@ def load_qt_binding(
                     "shiboken6"
                 )
 
-            install_legacy_api(
+            qt_core, qt_gui = install_legacy_api(
                 qt_core,
                 qt_gui,
                 qt_widgets

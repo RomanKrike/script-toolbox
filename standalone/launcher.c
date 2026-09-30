@@ -29,6 +29,32 @@ static int show_error(const wchar_t *message)
     return 1;
 }
 
+/* Recovery runs outside the installation and before Python/Qt DLLs load.
+ * Exit this process so the helper can also restore ScriptToolbox.exe. */
+static int start_pending_recovery(const wchar_t *root)
+{
+    wchar_t plan[SCRIPT_TOOLBOX_PATH_CAPACITY];
+    wchar_t command[SCRIPT_TOOLBOX_PATH_CAPACITY];
+    wchar_t system_directory[MAX_PATH];
+    STARTUPINFOW startup = {0};
+    PROCESS_INFORMATION process = {0};
+    swprintf_s(plan, SCRIPT_TOOLBOX_PATH_CAPACITY,
+        L"%ls\\.script_toolbox_portable_update\\plan.json", root);
+    if (GetFileAttributesW(plan) == INVALID_FILE_ATTRIBUTES) { return 0; }
+    if (!GetSystemDirectoryW(system_directory, MAX_PATH)) { return -1; }
+    if (swprintf_s(command, SCRIPT_TOOLBOX_PATH_CAPACITY,
+        L"\"%ls\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive "
+        L"-ExecutionPolicy Bypass -File \"%ls\\.script_toolbox_recover.ps1\" "
+        L"-RecoverOnly -Destination \"%ls\" -ParentProcessId %lu",
+        system_directory, root, root, GetCurrentProcessId()) < 0) { return -1; }
+    startup.cb = sizeof(startup);
+    if (!CreateProcessW(NULL, command, NULL, NULL, FALSE, CREATE_NO_WINDOW,
+                        NULL, root, &startup, &process)) { return -1; }
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+    return 1;
+}
+
 static int parent_directory(wchar_t *path)
 {
     wchar_t *slash = wcsrchr(path, L'\\');
@@ -193,6 +219,14 @@ int WINAPI wWinMain(
         return show_error(
             L"Could not resolve the Script Toolbox root directory."
         );
+    }
+
+    {
+        int recovery = start_pending_recovery(root);
+        if (recovery > 0) { return 0; }
+        if (recovery < 0) {
+            return show_error(L"Pending update needs recovery. Could not start the recovery helper.");
+        }
     }
 
     if (swprintf_s(

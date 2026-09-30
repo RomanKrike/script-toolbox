@@ -30,8 +30,8 @@ def test_editor_tree_selection_keeps_branch_decoration_visible():
     assert "show-decoration-selected: 0" in source
     assert "selection-background-color: %s" in source
     assert "QTreeWidget::branch:selected" not in source
-    assert "_apply_selection_palette(\n            self.palette" in source
-    assert "_apply_selection_palette(\n            self.tree" in source
+    assert "_apply_selection_palette(self.palette)" in source
+    assert "_apply_selection_palette(self.tree)" in source
 
 
 def test_apply_preserves_selected_property_and_description_scroll_position():
@@ -53,7 +53,7 @@ def test_editor_selection_state_hook_is_installed_before_adapter_wrapping():
     )
 
     install_index = source.index(
-        "install_editor_selection_state(base_editor)"
+        "class _SelectableInterfaceEditor(EditorSelectionStateMixin,"
     )
     adapter_index = source.index(
         "editor_class = build_interface_editor_class("

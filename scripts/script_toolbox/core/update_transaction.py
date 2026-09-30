@@ -10,6 +10,7 @@ import zipfile
 
 from ..hosts import HOST
 from ..pycompat import text_type
+from .file_lock import installation_lock, FileLockError
 from .updater import UpdateError
 from .updater import _download_file
 from .updater import _find_release_root
@@ -780,7 +781,22 @@ class UpdateTransaction(object):
         return True
 
 
-def install_release(
+def install_release(release, token=None, timeout=30):
+    """One install per shared root, including recovery and portable staging."""
+    # Portable hands ownership to its external helper before returning.
+    if text_type((release or {}).get("package_kind", "plugin")).lower() == "standalone":
+        from .standalone_update import install_release as install_standalone
+        return install_standalone(release, token=token, timeout=timeout)
+    try:
+        with installation_lock(repository_root()):
+            if os.path.exists(os.path.join(repository_root(), ".script_toolbox_portable_update")):
+                raise UpdateError("A portable update is pending. Restart Standalone before updating.")
+            return _install_release_locked(release, token=token, timeout=timeout)
+    except FileLockError as exc:
+        raise UpdateError("An update is already running for this installation: {0}".format(exc))
+
+
+def _install_release_locked(
     release,
     token=None,
     timeout=30

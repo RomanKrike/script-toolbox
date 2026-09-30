@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ...qt_compat import qt_exec
+
 import copy
 
 from ...compat import QtCore
@@ -24,6 +26,7 @@ from ...style.metrics import TRIGGER_PAGE_SPACING
 from ...style.metrics import TRIGGER_PANEL_MARGINS
 from ...style.metrics import TRIGGER_PANEL_SPACING
 from ..language_script_editor import LanguageScriptEditor
+from .script_editor_sizing import configure_script_editor, configure_binding_panel
 from ..layout_helpers import configure_inline_layout
 from ..layout_helpers import configure_layout
 from .inspector_tabs import style_binding_panel
@@ -251,6 +254,7 @@ class BindingPage(QtGui.QWidget):
                 pass
             self.script_editor.textChanged.connect(self._script_changed)
             self.script_editor.languageChanged.connect(self._script_changed)
+            configure_script_editor(self.script_editor)
             root.addWidget(self.script_editor, 1)
 
     def _script_changed(self):
@@ -362,6 +366,8 @@ class BindingPanel(QtGui.QWidget):
         self.tabs.tabCloseRequested.connect(self._close_tab_requested)
         self.tabs.tabBar().installEventFilter(self)
         self.setVisible(False)
+
+        configure_binding_panel(self)
 
     def setTitle(self, title):
         # Compatibility with PropertyEditorBase's historical Events title.
@@ -516,6 +522,9 @@ class BindingPanel(QtGui.QWidget):
             self.tabs.setMinimumHeight(0)
             self.tabs.setMaximumHeight(16777215)
 
+        if hasattr(self, "script_resize_handle"):
+            self.script_resize_handle.setVisible(bool(self.pages))
+
     def _page_changed(self):
         if self.loading:
             return
@@ -524,16 +533,11 @@ class BindingPanel(QtGui.QWidget):
 
     def _duplicate_signature(self, candidate, ignore_page=None):
         signature = binding_signature(candidate)
-        handler = candidate.get("handler", "script")
 
         for page in self.pages:
             if page is ignore_page:
                 continue
-            current = page.write()
-            if (
-                binding_signature(current) == signature and
-                current.get("handler", "script") == handler
-            ):
+            if binding_signature(page.write()) == signature:
                 return True
         return False
 
@@ -542,7 +546,7 @@ class BindingPanel(QtGui.QWidget):
             return
 
         dialog = AddBindingDialog(self.item, parent=self)
-        if dialog.exec_() != QtGui.QDialog.Accepted:
+        if qt_exec(dialog) != QtGui.QDialog.Accepted:
             return
 
         binding = dialog.value()
@@ -572,7 +576,7 @@ class BindingPanel(QtGui.QWidget):
             binding=current,
             parent=self
         )
-        if dialog.exec_() != QtGui.QDialog.Accepted:
+        if qt_exec(dialog) != QtGui.QDialog.Accepted:
             return
 
         binding = dialog.value()

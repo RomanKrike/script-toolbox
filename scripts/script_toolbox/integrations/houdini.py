@@ -766,7 +766,7 @@ script_toolbox.show()]]></script>
             )
             return False
 
-    def install(self, installation, options=None):
+    def install(self, installation, options=None, sync_live=True):
         options = self.normalize_options(
             options
         )
@@ -791,9 +791,8 @@ script_toolbox.show()]]></script>
             path=self.config_path,
             profile_id=installation.profile_id
         )
-        self._sync_live_houdini(
-            installation
-        )
+        if sync_live:
+            self._sync_live_houdini(installation)
 
         result = self.status(
             installation
@@ -807,7 +806,7 @@ script_toolbox.show()]]></script>
             )
         return result
 
-    def repair(self, installation):
+    def repair(self, installation, sync_live=True):
         settings = get_integration_settings(
             self.key,
             installation.version,
@@ -818,19 +817,19 @@ script_toolbox.show()]]></script>
             settings = self.normalize_options()
         return self.install(
             installation,
-            settings
+            settings,
+            sync_live=sync_live
         )
 
-    def uninstall(self, installation):
+    def uninstall(self, installation, sync_live=True):
         remove_integration_settings(
             self.key,
             installation.version,
             path=self.config_path,
             profile_id=installation.profile_id
         )
-        self._sync_live_houdini(
-            installation
-        )
+        if sync_live:
+            self._sync_live_houdini(installation)
 
         if not user_config_has_integration_settings(
             self.key,

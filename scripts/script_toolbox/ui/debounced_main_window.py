@@ -12,8 +12,8 @@ from ..hosts.callbacks import EVENT_SELECTION_CHANGED
 from ..hosts.callbacks import HostCallbackGroup
 from ..pycompat import text_type
 from . import main_window as base_main_window
-from .settings_ui import build_settings_toolbox_class
-from .update_channels_ui import build_update_channel_toolbox_class
+from .settings_ui import SettingsToolboxMixin
+from .update_channels_ui import UpdateChannelToolboxMixin
 
 
 SAVE_DEBOUNCE_MS = 500
@@ -203,6 +203,7 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
             )
             self.request_state_refresh()
 
+        self.sync_runtime_value(key)
         return True
 
     # ------------------------------------------------------------------
@@ -337,6 +338,10 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         )
 
     def closeEvent(self, event):
+        if self.update_install_thread is not None and self.update_install_thread.isRunning():
+            self.statusBar().showMessage("Please wait for the update to finish before closing.")
+            event.ignore()
+            return
         try:
             self.flush_pending_save()
         except Exception as exc:
@@ -353,6 +358,18 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
             event.ignore()
             return
 
+        for name, callback in (("update_check_thread", self.update_check_finished),
+                               ("update_install_thread", self.update_install_finished)):
+            job = getattr(self, name, None)
+            if job is not None:
+                try:
+                    job.completed.disconnect(callback)
+                except (RuntimeError, TypeError):
+                    pass
+        self.update_check_timer.stop()
+        prompt_timer = getattr(self, "telemetry_prompt_timer", None)
+        if prompt_timer is not None:
+            prompt_timer.stop()
         self.cancel_scheduled_state_refresh()
         self.clear_host_callbacks()
 
@@ -366,18 +383,22 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
 
 
 _DebouncedScriptToolbox = ScriptToolbox
-_UpdateChannelScriptToolbox = build_update_channel_toolbox_class(
-    _DebouncedScriptToolbox
-)
-ScriptToolbox = build_settings_toolbox_class(
-    _UpdateChannelScriptToolbox
-)
+class ScriptToolbox(SettingsToolboxMixin, UpdateChannelToolboxMixin,
+                    _DebouncedScriptToolbox):
+    """The single public window used by DCC and standalone entry points."""
+    pass
 
 
 def close_toolbox():
     toolbox = base_main_window._TOOLBOX
 
     if toolbox is None:
+        return True
+    try:
+        toolbox.objectName()
+    except RuntimeError:
+        # An embedding host can delete the QObject independently of close().
+        base_main_window._TOOLBOX = None
         return True
 
     if hasattr(
@@ -386,10 +407,16 @@ def close_toolbox():
     ):
         toolbox.flush_pending_save()
 
-    toolbox.close()
+    if not toolbox.close():
+        raise RuntimeError("Script Toolbox cannot close while an update or unsaved changes are pending.")
     toolbox.deleteLater()
     base_main_window._TOOLBOX = None
     return True
+
+
+def _toolbox_destroyed(identity):
+    if id(base_main_window._TOOLBOX) == identity:
+        base_main_window._TOOLBOX = None
 
 
 def show():
@@ -399,15 +426,17 @@ def show():
         parent=main_window()
     )
     base_main_window._TOOLBOX = toolbox
+    toolbox.destroyed.connect(
+        lambda obj=None, identity=id(toolbox): _toolbox_destroyed(identity))
 
     toolbox.show()
     toolbox.raise_()
     toolbox.activateWindow()
 
-    QtCore.QTimer.singleShot(
-        100,
-        toolbox.prompt_telemetry_consent
-    )
+    toolbox.telemetry_prompt_timer = QtCore.QTimer(toolbox)
+    toolbox.telemetry_prompt_timer.setSingleShot(True)
+    toolbox.telemetry_prompt_timer.timeout.connect(toolbox.prompt_telemetry_consent)
+    toolbox.telemetry_prompt_timer.start(100)
 
     return toolbox
 

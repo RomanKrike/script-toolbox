@@ -2,12 +2,19 @@
 from __future__ import print_function
 
 import io
+import copy
+import shutil
+import tempfile
+import warnings
 import json
 import os
 
 from ..constants import BUILD_CHANNEL
 from ..pycompat import text_type
 from .user_paths import settings_path
+from .file_lock import FileLock
+from .config import _replace_file
+from .logging_utils import get_logger
 
 
 UPDATE_CHANNEL_STABLE = "stable"
@@ -92,7 +99,7 @@ def default_preferences():
     }
 
 
-def load_preferences(
+def _load_preferences_unlocked(
     path=None
 ):
     path = os.path.normpath(
@@ -110,11 +117,27 @@ def load_preferences(
             encoding="utf-8"
         ) as handle:
             data = json.load(handle)
-    except Exception:
-        return result
+    except Exception as exc:
+        get_logger().warning("Preferences unreadable at %r: %s", path, exc)
+        backup = path + ".bak"
+        if os.path.isfile(backup):
+            with io.open(backup, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+            if not isinstance(data, dict):
+                raise ValueError("Invalid preferences backup: " + backup)
+            descriptor, corrupt_path = tempfile.mkstemp(
+                prefix=os.path.basename(path) + ".corrupt-",
+                dir=os.path.dirname(os.path.abspath(path)))
+            os.close(descriptor)
+            shutil.copy2(path, corrupt_path)
+            _atomic_preferences_write(data, path)
+            warnings.warn("Preferences recovered; damaged file: " + corrupt_path,
+                          RuntimeWarning)
+        else:
+            raise RuntimeError("Preferences cannot be read; original preserved at " + path)
 
     if not isinstance(data, dict):
-        return result
+        raise ValueError("Preferences must contain an object: " + path)
 
     result.update(data)
     result["update_channel"] = normalize_update_channel(
@@ -132,7 +155,75 @@ def load_preferences(
     return result
 
 
-def save_preferences(
+class PreferencesSnapshot(dict):
+    pass
+
+
+def load_preferences(path=None):
+    path = os.path.normpath(path or settings_path())
+    if not os.path.exists(path):
+        result = PreferencesSnapshot(default_preferences())
+    else:
+        with FileLock(path + ".lock", blocking=True):
+            result = PreferencesSnapshot(_load_preferences_unlocked(path))
+    result.original = copy.deepcopy(dict(result))
+    result.source_path = os.path.normcase(os.path.realpath(path))
+    return result
+
+
+def _atomic_preferences_write(payload, path):
+    serialized = json.dumps(payload, indent=2, sort_keys=True)
+    if not isinstance(serialized, text_type):
+        serialized = serialized.decode("utf-8")
+    descriptor, temp_path = tempfile.mkstemp(
+        prefix=".script_toolbox_preferences_", suffix=".tmp",
+        dir=os.path.dirname(os.path.abspath(path)))
+    try:
+        with io.open(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(serialized + u"\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        _replace_file(temp_path, path)
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+
+def _merge_changes(original, changed, current):
+    result = dict(current)
+    for key in set(original) | set(changed):
+        if key not in changed:
+            result.pop(key, None)
+        elif key not in original or changed[key] != original[key]:
+            if all(isinstance(value, dict) for value in
+                   (original.get(key), changed[key], current.get(key))):
+                result[key] = _merge_changes(original[key], changed[key], current[key])
+            else:
+                result[key] = copy.deepcopy(changed[key])
+    return result
+
+
+def save_preferences(preferences, path=None):
+    path = os.path.normpath(path or settings_path())
+    with FileLock(path + ".lock", blocking=True):
+        current = _load_preferences_unlocked(path)
+        if (isinstance(preferences, PreferencesSnapshot) and
+                preferences.source_path == os.path.normcase(os.path.realpath(path))):
+            payload = _merge_changes(preferences.original, preferences, current)
+        else:
+            payload = dict(current)
+            payload.update(preferences or {})
+        if os.path.isfile(path):
+            _atomic_preferences_write(current, path + ".bak")
+        result = _save_preferences_unlocked(payload, path)
+        if isinstance(preferences, PreferencesSnapshot):
+            preferences.clear()
+            preferences.update(payload)
+            preferences.original = copy.deepcopy(payload)
+        return result
+
+
+def _save_preferences_unlocked(
     preferences,
     path=None
 ):
@@ -158,22 +249,7 @@ def save_preferences(
         )
     )
 
-    serialized = json.dumps(
-        payload,
-        indent=2,
-        sort_keys=True
-    )
-
-    if not isinstance(serialized, text_type):
-        serialized = serialized.decode("utf-8")
-
-    with io.open(
-        path,
-        "w",
-        encoding="utf-8"
-    ) as handle:
-        handle.write(serialized)
-        handle.write(u"\n")
+    _atomic_preferences_write(payload, path)
 
     return path
 

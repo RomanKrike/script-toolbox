@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+      - dev
+      - fix/**
       - refactor/**
       - feature/**
       - maintenance/**
@@ -73,6 +75,24 @@ jobs:
           name: coverage-xml
           path: coverage.xml
           if-no-files-found: error
+
+  runtime-regressions:
+    name: Real Qt and portable transaction regressions
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install pytest PySide6-Essentials
+      - name: Run real Qt and Windows fault injection tests
+        run: python -m pytest -q tests/test_qt_lifecycle.py tests/test_portable_transaction_windows.py tests/test_review_reliability.py
 
   maya-2015-python2-syntax:
     name: Maya 2015 / Python 2.7 syntax
@@ -176,6 +196,7 @@ jobs:
       - unit-tests
       - maya-2015-python2-syntax
       - release-contract
+      - runtime-regressions
     runs-on: ubuntu-latest
 
     steps:

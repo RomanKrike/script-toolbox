@@ -5,14 +5,11 @@ from ...compat import QtCore
 from ...compat import QtGui
 from ...model.bindings import binding_display_name
 from ...pycompat import text_type
-from . import bindings as bindings_module
 from . import script_editor_sizing as sizing_module
-from . import toggle_button as toggle_button_module
-from . import toggle_icon as toggle_icon_module
+from . import bindings as bindings_module
 from . import trigger_tabs as trigger_tabs_module
 
 
-_INSTALLED = False
 _AUXILIARY_TABS_ATTR = "_script_toolbox_auxiliary_tabs"
 
 
@@ -334,30 +331,8 @@ def _state_source_refresh(self):
         pass
 
 
-def _install_editor_class(editor_class):
-    original_init = editor_class.__init__
 
-    def editor_init(self, *args, **kwargs):
-        original_init(self, *args, **kwargs)
-        _integrate_editor_state_tabs(self)
-
-    editor_class._refresh_state_source = _state_source_refresh
-    editor_class.__init__ = editor_init
-
-
-def install_integrated_toggle_state_tabs():
-    """Put toggle state scripts on the same tab strip as event bindings."""
-    global _INSTALLED
-    if _INSTALLED:
-        return
-    _INSTALLED = True
-
-    panel_class = bindings_module.BindingPanel
-    original_refresh_empty = panel_class._refresh_empty
-    original_set_panel_height = (
-        sizing_module._set_panel_script_editor_height
-    )
-
+class IntegratedBindingPanel(trigger_tabs_module.TriggerTabBindingPanel):
     def add_auxiliary_tab(
         self,
         key,
@@ -461,7 +436,7 @@ def install_integrated_toggle_state_tabs():
         self._ensure_add_tab()
         self._refresh_empty()
 
-    def add_page(self, binding):
+    def _add_page(self, binding):
         self._remove_add_tab()
         page = None
         try:
@@ -486,7 +461,7 @@ def install_integrated_toggle_state_tabs():
             self._install_trigger_close_button(page)
         return page
 
-    def refresh_tabs(self):
+    def _refresh_tabs(self):
         for page in self.pages:
             binding = page.write()
             index = self.tabs.indexOf(page)
@@ -539,8 +514,8 @@ def install_integrated_toggle_state_tabs():
         self._refresh_tabs()
         self.changed.emit()
 
-    def refresh_empty(self):
-        original_refresh_empty(self)
+    def _refresh_empty(self):
+        trigger_tabs_module.TriggerTabBindingPanel._refresh_empty(self)
         has_auxiliary = bool(_auxiliary_tabs(self))
         if has_auxiliary:
             self.tabs.setVisible(True)
@@ -555,7 +530,7 @@ def install_integrated_toggle_state_tabs():
         except Exception:
             pass
 
-    def event_filter(self, watched, event):
+    def eventFilter(self, watched, event):
         if watched is self.tabs.tabBar():
             event_type = event.type()
 
@@ -594,39 +569,6 @@ def install_integrated_toggle_state_tabs():
             event
         )
 
-    def set_panel_script_editor_height(panel, value):
-        value = original_set_panel_height(panel, value)
-        for editor in _script_auxiliary_editors(panel):
-            try:
-                editor.setMinimumHeight(value)
-                editor.updateGeometry()
-            except Exception:
-                pass
-        return value
-
-    panel_class.add_auxiliary_tab = add_auxiliary_tab
-    panel_class.set_auxiliary_tab_enabled = set_auxiliary_tab_enabled
-    panel_class.script_editor_widgets = script_editor_widgets
-    panel_class.clear = clear
-    panel_class._add_page = add_page
-    panel_class._refresh_tabs = refresh_tabs
-    panel_class.remove_binding = remove_binding
-    panel_class._refresh_empty = refresh_empty
-    panel_class.eventFilter = event_filter
-    panel_class._script_toolbox_integrated_state_tabs = True
-
-    sizing_module._set_panel_script_editor_height = (
-        set_panel_script_editor_height
-    )
-
-    _install_editor_class(
-        toggle_button_module.ToggleButtonPropertyEditor
-    )
-    _install_editor_class(
-        toggle_icon_module.ToggleIconPropertyEditor
-    )
 
 
-__all__ = [
-    "install_integrated_toggle_state_tabs",
-]
+__all__ = ["IntegratedBindingPanel"]

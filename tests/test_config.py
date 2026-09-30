@@ -94,7 +94,7 @@ def test_save_config_leaves_no_temp_file_behind(tmp_path):
     leftovers = [
         name
         for name in os.listdir(str(tmp_path))
-        if name != os.path.basename(path)
+        if name not in (os.path.basename(path), os.path.basename(path) + ".lock")
     ]
     assert leftovers == []
 

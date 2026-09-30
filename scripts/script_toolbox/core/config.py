@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 import io
+import hashlib
 import json
 import os
 import shutil
@@ -13,6 +14,7 @@ from ..model import create_item
 from ..model import normalize_document
 from .config_schema import ConfigSchemaError
 from .config_schema import validate_document_schema
+from .file_lock import FileLock
 from .logging_utils import get_logger
 from .user_paths import config_path
 
@@ -201,7 +203,40 @@ def valid_backup_paths(
     return result
 
 
+class ConfigDocument(dict):
+    """A loaded snapshot; revision metadata is never part of the JSON schema."""
+    pass
+
+
+class ConfigConflictError(RuntimeError):
+    def __init__(self, path, copy_path):
+        self.path = path
+        self.copy_path = copy_path
+        RuntimeError.__init__(self,
+            "Configuration changed in another instance. Reload it before saving. "
+            "Your changes were saved separately at {0}".format(copy_path))
+
+
+def file_revision(path):
+    try:
+        with open(path, "rb") as handle:
+            return hashlib.sha256(handle.read()).hexdigest()
+    except IOError:
+        if not os.path.exists(path):
+            return None
+        raise
+
+
 def load_config(path=None):
+    path = path or config_path()
+    with FileLock(path + ".lock", blocking=True):
+        document = ConfigDocument(_load_config_unlocked(path))
+        document.source_path = os.path.normcase(os.path.realpath(path))
+        document.source_revision = file_revision(path)
+        return document
+
+
+def _load_config_unlocked(path=None):
     path = path or config_path()
 
     if not os.path.isfile(path):
@@ -229,7 +264,7 @@ def load_config(path=None):
         )
 
         if backups:
-            recovery = restore_config_backup(
+            recovery = _restore_config_backup_unlocked(
                 path,
                 source_backup=backups[0]
             )
@@ -397,7 +432,12 @@ def _corrupt_copy_path(path):
         index += 1
 
 
-def restore_config_backup(
+def restore_config_backup(path, source_backup=None):
+    with FileLock(path + ".lock", blocking=True):
+        return _restore_config_backup_unlocked(path, source_backup=source_backup)
+
+
+def _restore_config_backup_unlocked(
     path,
     source_backup=None
 ):
@@ -500,7 +540,35 @@ def restore_config_backup(
     }
 
 
-def save_config(document, path=None):
+_UNCHECKED_REVISION = object()
+
+
+def save_config(document, path=None, expected_revision=_UNCHECKED_REVISION, return_revision=False):
+    path = path or config_path()
+    canonical = os.path.normcase(os.path.realpath(path))
+    if expected_revision is _UNCHECKED_REVISION:
+        if getattr(document, "source_path", None) == canonical:
+            expected_revision = document.source_revision
+    with FileLock(path + ".lock", blocking=True):
+        if (expected_revision is not _UNCHECKED_REVISION and
+                file_revision(path) != expected_revision):
+            descriptor, copy_path = tempfile.mkstemp(
+                prefix=os.path.basename(path) + ".conflict-", suffix=".json",
+                dir=os.path.dirname(os.path.abspath(path)))
+            os.close(descriptor)
+            os.remove(copy_path)
+            _save_config_unlocked(document, copy_path)
+            raise ConfigConflictError(path, copy_path)
+        result = _save_config_unlocked(document, path)
+        if isinstance(document, ConfigDocument):
+            document.source_path = canonical
+            document.source_revision = file_revision(path)
+        if return_revision:
+            return result, file_revision(path)
+        return result
+
+
+def _save_config_unlocked(document, path=None):
     path = path or config_path()
     serialized = serialize_config(
         document

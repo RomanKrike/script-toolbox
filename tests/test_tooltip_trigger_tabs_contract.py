@@ -67,7 +67,7 @@ def test_trigger_tabs_use_compact_centered_solar_controls():
     assert '"Add trigger"' in source
     assert "self.add_button.hide()" in source
     assert "self.tabs.setCornerWidget(" in source
-    assert "install_integrated_trigger_tabs()" in package_source
+    assert "install_integrated_trigger_tabs()" not in package_source
 
 
 def test_trigger_add_tab_stays_after_real_binding_pages():
@@ -106,6 +106,6 @@ def test_property_script_editor_is_large_expanding_and_resizable():
     assert "event.globalY()" in source
     assert "_set_panel_script_editor_height(" in source
     assert "QtGui.QSizePolicy.Expanding" in source
-    assert "self.root_layout.setStretch(" in source
-    assert "self.binding_panel" in source
-    assert "install_expanding_script_editors()" in package_source
+    assert "editor.root_layout.setStretch(" in source
+    assert "editor.binding_panel" in source
+    assert "install_expanding_script_editors()" not in package_source

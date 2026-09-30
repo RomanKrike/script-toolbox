@@ -74,6 +74,31 @@ def _copy_optional_file(source, destination):
         )
 
 
+def _remove_portable_runtime_build_junk(runtime_root):
+    """Remove packaging-only PySide6 build artifacts that are not runtime data."""
+    assetdownloader_root = os.path.join(
+        runtime_root,
+        "Lib",
+        "site-packages",
+        "PySide6",
+        "qml",
+        "Qt",
+        "labs",
+        "assetdownloader"
+    )
+
+    for directory in (
+        "objects-Debug",
+        "objects-RelWithDebInfo",
+    ):
+        path = os.path.join(
+            assetdownloader_root,
+            directory
+        )
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+
+
 def _remove_runtime_junk(root):
     for current_root, directories, files in os.walk(
         root,
@@ -296,7 +321,7 @@ def build_portable(
     )
     staging_root = os.path.join(
         output_dir,
-        "ScriptToolbox"
+        "S"
     )
 
     if os.path.isdir(output_dir):
@@ -374,6 +399,12 @@ def build_portable(
         os.path.join(
             staging_root,
             "scripts"
+        )
+    )
+    _remove_portable_runtime_build_junk(
+        os.path.join(
+            staging_root,
+            "runtime"
         )
     )
     _write_build_marker(

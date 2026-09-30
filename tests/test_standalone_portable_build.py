@@ -35,7 +35,7 @@ def test_portable_build_keeps_one_shared_script_toolbox_source(tmp_path):
     staging_root = result["staging_root"]
     assert os.path.basename(
         staging_root
-    ) == "ScriptToolbox"
+    ) == "S"
     assert validate_portable_root(
         staging_root
     ) is True
@@ -107,8 +107,20 @@ def test_portable_build_keeps_one_shared_script_toolbox_source(tmp_path):
     assert names
     assert all(
         name.startswith(
-            "ScriptToolbox/"
+            "S/"
         )
+        for name in names
+    )
+    assert max(
+        len(name)
+        for name in names
+    ) <= 150
+    assert not any(
+        "/objects-Debug/" in name
+        for name in names
+    )
+    assert not any(
+        "/objects-RelWithDebInfo/" in name
         for name in names
     )
 

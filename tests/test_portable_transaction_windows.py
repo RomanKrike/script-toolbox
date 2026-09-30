@@ -41,7 +41,8 @@ def script_path(tmp_path, injection=None):
     # Suppress only the external relaunch of a native EXE in this test fixture.
     script = "\n".join(line for line in script.splitlines() if "Start-Process -FilePath" not in line)
     if injection:
-        marker = '    foreach ($entry in $plan.entries) {\n        $target = Safe-Path $Destination $entry.path'
+        marker = '    Write-JsonAtomic $journalPath @{phase="applying"}\n    foreach ($entry in $plan.entries) {\n        $target = Safe-Path $Destination $entry.path'
+        assert script.count(marker) == 1
         script = script.replace(marker, marker + "\n" + injection, 1)
     path = tmp_path / "apply.ps1"
     path.write_text(script, encoding="utf-8")

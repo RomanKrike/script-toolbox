@@ -54,7 +54,18 @@ def small_volume(tmp_path):
         yield mount
     finally:
         if image.exists():
-            diskpart(tmp_path, ['select vdisk file="{0}"'.format(image), "detach vdisk"])
+            try:
+                # Detaching a VHD leaves its directory mount point behind.
+                # Remove only the mount point created by this fixture first.
+                if os.path.ismount(str(mount)):
+                    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+                    remove_mount = kernel32.DeleteVolumeMountPointW
+                    remove_mount.argtypes = [ctypes.c_wchar_p]
+                    remove_mount.restype = ctypes.c_int
+                    if not remove_mount(str(mount) + "\\"):
+                        raise ctypes.WinError(ctypes.get_last_error())
+            finally:
+                diskpart(tmp_path, ['select vdisk file="{0}"'.format(image), "detach vdisk"])
             assert not os.path.ismount(str(mount)), "Test virtual disk remained mounted"
 
 

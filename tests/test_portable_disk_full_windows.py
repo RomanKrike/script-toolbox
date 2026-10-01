@@ -48,19 +48,19 @@ def small_volume(tmp_path):
         ])
         # DiskPart can return zero after a command error. Never fill a normal
         # directory on the runner's system disk if attach/format/assign failed.
-        assert mount.is_mount(), output
+        assert os.path.ismount(str(mount)), output
         size = shutil.disk_usage(str(mount)).total
         assert 32 * 1024**2 < size <= 128 * 1024**2, (size, output)
         yield mount
     finally:
         if image.exists():
             diskpart(tmp_path, ['select vdisk file="{0}"'.format(image), "detach vdisk"])
-            assert not mount.is_mount(), "Test virtual disk remained mounted"
+            assert not os.path.ismount(str(mount)), "Test virtual disk remained mounted"
 
 
 def exhaust_volume(mount):
     """Get a real disk-full error, then retain room only for status metadata."""
-    assert mount.is_mount()
+    assert os.path.ismount(str(mount))
     size = shutil.disk_usage(str(mount)).total
     assert 32 * 1024**2 < size <= 128 * 1024**2
     reserve = mount / "diagnostic-reserve.bin"

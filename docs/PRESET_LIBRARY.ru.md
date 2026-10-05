@@ -24,9 +24,8 @@ references. В контекстном меню это Create References. Рас�
 клонировании и переименовании переписываются значения scope; адреса source,
 preset и parameter неизменны. Одиночные references без scope работают как прежде.
 
-Чтобы создать пресет, выбрать item или папку в Existing Parameters, перейти
-в Presets и нажать Save Selected as Preset либо вызвать этот же пункт через
-ПКМ по выбранному item в Existing Parameters. Выбрать библиотеку, название,
+Чтобы создать пресет, вызвать Save Selected as Preset через ПКМ по параметру
+или папке в Existing Parameters. Выбрать библиотеку, название,
 категорию и host. Весь выбранный subtree сохраняется одним пресетом. References
 перед публикацией явно превращаются в определения из закреплённого snapshot;
 broken references блокируют сохранение. Используются текущие локальные значения.

@@ -128,7 +128,7 @@ QtGui.QInputDialog.getText = lambda *a, **k: next(texts)
 QtGui.QInputDialog.getItem = lambda *a, **k: (a[3][0], True)
 editor.save_selected_preset()
 pump(0.7)
-assert editor.save_preset_button.isEnabled()
+assert editor._preset_save_job is None
 resolver = PresetResolver(registry)
 source_id = registry.sources()[0]["id"]
 assert resolver.packages[source_id]["presets"][0]["category"] == "Project Pipeline"

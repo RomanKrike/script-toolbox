@@ -221,6 +221,7 @@ def _insert_preset(
 class PresetEditorMixin(object):
 
     def __init__(self, *args, **kwargs):
+        self._preset_save_job = None
         # Catalog updates are visible when the editor is opened. Runtime
         # changes only when the user explicitly applies this staged document.
         self.preset_resolver = PresetResolver(SourceRegistry())
@@ -265,7 +266,7 @@ class PresetEditorMixin(object):
         actions = super(PresetEditorMixin, self).extend_tree_context_menu(menu, item)
         menu.addSeparator()
         save = menu.addAction("Save Selected as Preset...")
-        save.setEnabled(item is not None and self.save_preset_button.isEnabled())
+        save.setEnabled(item is not None and self._preset_save_job is None)
         actions.append((save, self.save_selected_preset))
         return actions
 
@@ -420,9 +421,6 @@ class PresetEditorMixin(object):
         presets_layout.addWidget(
             self.preset_palette
         )
-        self.save_preset_button = QtGui.QPushButton("Save Selected as Preset...")
-        self.save_preset_button.clicked.connect(self.save_selected_preset)
-        presets_layout.addWidget(self.save_preset_button)
         self.preset_scroll_frame = wrap_scroll_widget(
             self.preset_palette,
             background=LIST_BG,
@@ -452,6 +450,8 @@ class PresetEditorMixin(object):
         )
 
     def save_selected_preset(self):
+        if self._preset_save_job is not None:
+            return
         self.sync_working_from_tree()
         item = self.item_cache.get(self.current_item_id)
         if item is None:
@@ -496,7 +496,6 @@ class PresetEditorMixin(object):
             from ..core.preset_sync import SyncService
             publish_presets([preset], source["remote_path"], source["id"], source["name"], merge=True)
             return SyncService(registry).check(source["id"], download=True)
-        self.save_preset_button.setEnabled(False)
         self._preset_save_job = BackgroundJob(publish)
         self._preset_save_timer = QtCore.QTimer(self)
         def poll():
@@ -505,7 +504,7 @@ class PresetEditorMixin(object):
                 return
             self._preset_save_timer.stop()
             self._preset_save_timer.deleteLater()
-            self.save_preset_button.setEnabled(True)
+            self._preset_save_job = None
             if not result["ok"]:
                 QtGui.QMessageBox.warning(self, "Save Preset", result["error"])
                 return

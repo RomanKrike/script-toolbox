@@ -3,6 +3,8 @@
 from __future__ import print_function
 
 import threading
+import os
+import uuid
 import time
 try:
     import queue
@@ -10,7 +12,8 @@ except ImportError:
     import Queue as queue
 
 from ..compat import HOST, QtCore, QtGui
-from ..core.preset_references import iter_targets
+from ..core.preset_references import iter_targets, linked_preset
+from ..core.presets import default_library_path
 from ..core.preset_sources import SourceRegistry, POLICIES
 from ..core.preset_sync import SyncService, MANIFEST, read_json, validate_manifest
 from ..pycompat import text_type
@@ -19,6 +22,7 @@ from ..style.metrics import SETTINGS_PAGE_MARGINS, SETTINGS_PAGE_SPACING
 from .settings_components import build_page_header, build_section_form
 
 ROLE_TARGET = QtCore.Qt.UserRole + 51
+ROLE_LIBRARY_PRESET = QtCore.Qt.UserRole + 52
 
 
 class ReferenceInfoLabel(QtGui.QLabel):
@@ -41,23 +45,68 @@ def populate_managed_presets(editor, tree):
             continue
         group = QtGui.QTreeWidgetItem([source["name"]])
         group.setFlags(group.flags() & ~QtCore.Qt.ItemIsSelectable)
+        categories = {}
         package = resolver.packages.get(source_id)
         if package is not None:
             for preset in package["presets"]:
-                dcc = preset.get("dcc", "all")
-                if dcc not in ("all", getattr(HOST, "key", "")):
+                if preset.get("dcc", "all") not in ("all", getattr(HOST, "key", "")):
                     continue
-                for target in iter_targets(preset["root"]):
-                    item = QtGui.QTreeWidgetItem([target["ui"]["label"]])
-                    item.setData(0, ROLE_TARGET, "{0}/{1}/{2}".format(
-                        source_id, preset["id"], target["id"]))
-                    item.setToolTip(0, "{0} / {1} / {2}\nRead-only definition".format(
-                        source["name"], preset.get("label", preset["id"]), target["name"]))
-                    group.addChild(item)
+                category = text_type(preset.get("category") or "General")
+                if category not in categories:
+                    category_item = QtGui.QTreeWidgetItem([category])
+                    category_item.setFlags(category_item.flags() & ~QtCore.Qt.ItemIsSelectable)
+                    group.addChild(category_item)
+                    categories[category] = category_item
+                item = QtGui.QTreeWidgetItem([preset.get("label", preset["id"])])
+                item.setData(0, ROLE_LIBRARY_PRESET, source_id + "/" + preset["id"])
+                item.setToolTip(0, preset.get("description", "Add the complete linked preset."))
+                targets = list(iter_targets(preset["root"]))
+                if len(targets) == 1 and targets[0] is preset["root"]:
+                    item.setData(0, ROLE_TARGET, source_id + "/" + preset["id"] + "/" + targets[0]["id"])
+                else:
+                    for target in targets:
+                        child = QtGui.QTreeWidgetItem([target["ui"]["label"]])
+                        child.setData(0, ROLE_TARGET, source_id + "/" + preset["id"] + "/" + target["id"])
+                        child.setToolTip(0, "Read-only definition: " + target["name"])
+                        item.addChild(child)
+                categories[category].addChild(item)
+                categories[category].setExpanded(True)
         else:
-            group.setToolTip(0, "Not installed. Synchronize this source in Settings.")
+            group.setToolTip(0, "Not installed. Synchronize this library in Settings.")
         tree.addTopLevelItem(group)
         group.setExpanded(True)
+        for category_item in categories.values():
+            category_item.setExpanded(True)
+
+
+def library_address(item):
+    if item is None:
+        return None
+    value = item.data(0, ROLE_LIBRARY_PRESET)
+    try:
+        value = value.toString()
+    except AttributeError:
+        pass
+    value = text_type(value or "")
+    return value.split("/", 1) if value else None
+
+
+def insert_library_preset(editor, palette_item, column=0):
+    address = library_address(palette_item)
+    if address is None:
+        return None
+    source_id, preset_id = address
+    package = editor.preset_resolver.packages[source_id]
+    preset = next(p for p in package["presets"] if p["id"] == preset_id)
+    editor.sync_working_from_tree()
+    clone = editor.document_controller.clone_subtree(preset["root"], editor._used_names())
+    clone = linked_preset(preset["root"], clone, source_id, preset_id, editor.preset_resolver)
+    tree_item = editor._insert_cloned_tree_item(clone, sibling=False)
+    editor.tree.setCurrentItem(tree_item)
+    tree_item.setExpanded(True)
+    editor.fix_tree_structure()
+    editor.tree_changed()
+    return tree_item
 
 
 def target_address(item):
@@ -160,7 +209,7 @@ class SourceScheduler(QtCore.QObject):
 class SourceEditDialog(QtGui.QDialog):
     def __init__(self, source=None, parent=None):
         QtGui.QDialog.__init__(self, parent)
-        self.setWindowTitle("Preset Source")
+        self.setWindowTitle("Preset Library")
         self.source = source or {}
         layout = QtGui.QVBoxLayout(self)
         form = build_section_form()
@@ -188,7 +237,7 @@ class SourceEditDialog(QtGui.QDialog):
         form.addRow("Updates", self.policy)
         form.addRow("Check interval", self.interval)
         layout.addLayout(form)
-        note = QtGui.QLabel("The source ID is read from toolbox-source.json.\n"
+        note = QtGui.QLabel("The library ID is read from toolbox-source.json.\n"
                             "Published presets may contain executable scripts.")
         note.setWordWrap(True)
         layout.addWidget(note)
@@ -198,7 +247,7 @@ class SourceEditDialog(QtGui.QDialog):
         layout.addWidget(buttons)
 
     def browse(self):
-        path = QtGui.QFileDialog.getExistingDirectory(self, "Preset Source", self.path_edit.text())
+        path = QtGui.QFileDialog.getExistingDirectory(self, "Preset Library", self.path_edit.text())
         if path:
             self.path_edit.setText(path)
 
@@ -210,7 +259,7 @@ class SourceEditDialog(QtGui.QDialog):
                 "interval_minutes": self.interval.value()}
 
 
-class PresetSourcesPage(QtGui.QWidget):
+class PresetLibraryPage(QtGui.QWidget):
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent)
         self.registry = SourceRegistry()
@@ -220,8 +269,8 @@ class PresetSourcesPage(QtGui.QWidget):
         layout = QtGui.QVBoxLayout(self)
         layout.setContentsMargins(*SETTINGS_PAGE_MARGINS)
         layout.setSpacing(SETTINGS_PAGE_SPACING)
-        layout.addWidget(build_page_header("Preset Sources",
-            "Read-only studio presets cached locally. Source changes are saved immediately.", parent=self))
+        layout.addWidget(build_page_header("Preset Library",
+            "Default presets ship with the plugin. Add custom libraries by folder.", parent=self))
         self.list = QtGui.QListWidget()
         self.list.currentRowChanged.connect(self.selected)
         layout.addWidget(self.list, 1)
@@ -231,7 +280,7 @@ class PresetSourcesPage(QtGui.QWidget):
         layout.addWidget(self.detail)
         row = QtGui.QHBoxLayout()
         self.buttons = []
-        for label, callback in (("Add Source", self.add), ("Edit", self.edit),
+        for label, callback in (("Add Library", self.add), ("New Library", self.create_library), ("Edit", self.edit),
                                 ("Remove", self.remove), ("Check now", self.check),
                                 ("Sync now", self.sync)):
             button = QtGui.QPushButton(label)
@@ -251,23 +300,21 @@ class PresetSourcesPage(QtGui.QWidget):
         row = self.list.currentRow()
         self.sources = self.registry.sources()
         self.list.clear()
+        self.list.addItem("Default (included with plugin)")
         for source in self.sources:
             self.list.addItem(source["name"] + ("" if source["enabled"] else " (disabled)"))
-        if self.sources:
-            self.list.setCurrentRow(max(0, min(row, len(self.sources) - 1)))
-        else:
-            self.selected(-1)
+        self.list.setCurrentRow(max(0, min(row, len(self.sources))))
 
     def source(self):
         row = self.list.currentRow()
-        return self.sources[row] if 0 <= row < len(self.sources) else None
+        return self.sources[row - 1] if 1 <= row <= len(self.sources) else None
 
     def selected(self, row):
         source = self.source()
-        for button in self.buttons[1:]:
+        for button in self.buttons[2:]:
             button.setEnabled(source is not None and self.job is None)
         if source is None:
-            self.detail.setText("No source selected.")
+            self.detail.setText("Default\n{0}\nIncluded with the plugin. Definitions are read only; inserted copies are editable.".format(default_library_path()))
             return
         status = self.service.status(source["id"])
         last_sync = status.get("last_sync")
@@ -294,6 +341,7 @@ class PresetSourcesPage(QtGui.QWidget):
         self.timer.stop()
         self.job = None
         self.buttons[0].setEnabled(True)
+        self.buttons[1].setEnabled(True)
         self.refresh()
         if not result["ok"]:
             self.detail.setText(result["error"])
@@ -320,6 +368,25 @@ class PresetSourcesPage(QtGui.QWidget):
 
     def add(self):
         self.edit_source()
+
+    def create_library(self):
+        folder = QtGui.QFileDialog.getExistingDirectory(self, "New Preset Library")
+        if not folder:
+            return
+        name, accepted = QtGui.QInputDialog.getText(self, "New Preset Library", "Library name")
+        if not accepted or not text_type(name).strip():
+            return
+        folder, name = text_type(folder), text_type(name).strip()
+        registry, service = self.registry, self.service
+        def create():
+            from ..core.preset_library import publish_presets
+            if os.path.exists(os.path.join(folder, MANIFEST)):
+                raise ValueError("This folder already contains a library. Use Add Library.")
+            source_id = "library-" + uuid.uuid4().hex
+            publish_presets([], folder, source_id, name)
+            registry.put({"id": source_id, "name": name, "remote_path": folder})
+            return service.check(source_id, download=True)
+        self.start(create)
 
     def edit(self):
         if self.source() is not None:

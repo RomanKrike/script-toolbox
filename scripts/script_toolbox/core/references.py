@@ -459,6 +459,13 @@ def rewrite_item_references_result(item, replacements):
     if not isinstance(props, dict):
         props = {}
 
+    if item.get("kind") == "reference":
+        scope = props.get("scope", {})
+        for key, value in list(scope.items()):
+            if value in replacements and replacements[value] != value:
+                scope[key] = replacements[value]
+                changed = True
+
     for key in python_prop_script_keys(item):
         source = text_type(props.get(key) or "")
         result = rewrite_python_references_result(

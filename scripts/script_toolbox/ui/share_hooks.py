@@ -187,6 +187,7 @@ class ShareController(object):
 
         menu.addSeparator()
         delete_action = menu.addAction("Delete")
+        extra_actions = editor.extend_tree_context_menu(menu, item)
 
         action = qt_exec(menu,
             editor.tree.viewport().mapToGlobal(point)
@@ -208,6 +209,11 @@ class ShareController(object):
             self.paste_shared_selected()
         elif action == delete_action:
             editor.delete_selected()
+        else:
+            for extra_action, callback in extra_actions:
+                if action == extra_action:
+                    callback()
+                    break
 
     # ------------------------------------------------------------------
     # Worker helpers

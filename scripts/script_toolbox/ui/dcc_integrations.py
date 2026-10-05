@@ -15,6 +15,7 @@ from ..style import metrics
 from .collapsible_folder import CollapsibleSection
 from .update_ui import update_jobs
 from .settings_components import build_page_header
+from .settings_components import build_simple_section
 from .settings_components import configure_settings_scroll_area
 from .settings_components import mark_secondary_text
 
@@ -68,17 +69,21 @@ class DccIntegrationsPage(QtGui.QWidget):
             )
         )
 
+        discovery_section, discovery_layout = build_simple_section("Discovery", parent=self)
         actions = QtGui.QHBoxLayout()
         actions.setSpacing(metrics.SETTINGS_ACTION_SPACING)
         self.scan_button = QtGui.QPushButton("Scan DCCs")
         self.scan_button.clicked.connect(self.scan)
         actions.addWidget(self.scan_button)
         actions.addStretch(1)
-        root.addLayout(actions)
+        discovery_layout.addLayout(actions)
+        root.addWidget(discovery_section)
 
+        applications_section, applications_layout = build_simple_section("Applications", parent=self)
         self.scroll = QtGui.QScrollArea(self)
         configure_settings_scroll_area(self.scroll)
-        root.addWidget(self.scroll, 1)
+        applications_layout.addWidget(self.scroll, 1)
+        root.addWidget(applications_section, 1)
 
         self.container = QtGui.QWidget()
         self.container.setObjectName("SettingsScrollContent")

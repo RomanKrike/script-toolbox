@@ -52,7 +52,7 @@ def test_dcc_page_uses_shared_settings_style_primitives_and_metrics():
     assert "metrics.SETTINGS_SECTION_SPACING" in source
     assert "metrics.SETTINGS_ACTION_SPACING" in source
     assert "QtGui.QGroupBox(" not in source
-    assert "build_simple_section" not in source
+    assert "build_simple_section" in source
     assert "setContentsMargins(4, 0, 0, 0)" not in source
     assert "setSpacing(12)" not in source
 

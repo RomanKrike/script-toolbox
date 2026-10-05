@@ -19,7 +19,9 @@ from ..core.preset_sync import SyncService, MANIFEST, read_json, validate_manife
 from ..pycompat import text_type
 from ..qt_compat import qt_exec
 from ..style.metrics import SETTINGS_PAGE_MARGINS, SETTINGS_PAGE_SPACING
-from .settings_components import build_page_header, build_section_form
+from ..style import metrics
+from .settings_components import (build_page_header, build_section_form, build_simple_section,
+                                  configure_settings_scroll_area, mark_secondary_text, mark_status_text)
 
 ROLE_TARGET = QtCore.Qt.UserRole + 51
 ROLE_LIBRARY_PRESET = QtCore.Qt.UserRole + 52
@@ -212,6 +214,8 @@ class SourceEditDialog(QtGui.QDialog):
         self.setWindowTitle("Preset Library")
         self.source = source or {}
         layout = QtGui.QVBoxLayout(self)
+        layout.setSpacing(SETTINGS_PAGE_SPACING)
+        location_section, location_layout = build_simple_section("Library", parent=self)
         form = build_section_form()
         self.name_edit = QtGui.QLineEdit(self.source.get("name", ""))
         self.path_edit = QtGui.QLineEdit(self.source.get("remote_path", ""))
@@ -234,11 +238,15 @@ class SourceEditDialog(QtGui.QDialog):
         form.addRow("Name", self.name_edit)
         form.addRow("Folder", path_row)
         form.addRow("", self.enabled)
-        form.addRow("Updates", self.policy)
-        form.addRow("Check interval", self.interval)
-        layout.addLayout(form)
-        note = QtGui.QLabel("The library ID is read from toolbox-source.json.\n"
-                            "Published presets may contain executable scripts.")
+        location_layout.addLayout(form)
+        layout.addWidget(location_section)
+        updates_section, updates_layout = build_simple_section("Updates", parent=self)
+        updates_form = build_section_form()
+        updates_form.addRow("Updates", self.policy)
+        updates_form.addRow("Check interval", self.interval)
+        updates_layout.addLayout(updates_form)
+        layout.addWidget(updates_section)
+        note = mark_secondary_text(QtGui.QLabel("Choose a trusted library folder. Changes are saved immediately."))
         note.setWordWrap(True)
         layout.addWidget(note)
         buttons = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Save | QtGui.QDialogButtonBox.Cancel)
@@ -271,26 +279,49 @@ class PresetLibraryPage(QtGui.QWidget):
         layout.setSpacing(SETTINGS_PAGE_SPACING)
         layout.addWidget(build_page_header("Preset Library",
             "Default presets ship with the plugin. Add custom libraries by folder.", parent=self))
+        scroll = QtGui.QScrollArea(self)
+        configure_settings_scroll_area(scroll)
+        content = QtGui.QWidget(scroll)
+        content.setObjectName("SettingsScrollContent")
+        content_layout = QtGui.QVBoxLayout(content)
+        content_layout.setContentsMargins(*metrics.MARGINS_NONE)
+        content_layout.setSpacing(metrics.SETTINGS_SECTION_SPACING)
+        scroll.setWidget(content)
+        layout.addWidget(scroll, 1)
+        libraries_section, libraries_layout = build_simple_section("Libraries", parent=content)
         self.list = QtGui.QListWidget()
+        self.list.setMinimumHeight(metrics.LIST_ITEM_MIN_HEIGHT * 4)
+        self.list.setMaximumHeight(metrics.LIST_ITEM_MIN_HEIGHT * 8)
         self.list.currentRowChanged.connect(self.selected)
-        layout.addWidget(self.list, 1)
-        self.detail = QtGui.QLabel()
+        libraries_layout.addWidget(self.list)
+        detail_section, detail_layout = build_simple_section("Selected Library", parent=content)
+        self.detail = mark_status_text(QtGui.QLabel())
         self.detail.setWordWrap(True)
         self.detail.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
-        layout.addWidget(self.detail)
-        row = QtGui.QHBoxLayout()
+        detail_layout.addWidget(self.detail)
+        management_row = QtGui.QHBoxLayout()
+        management_row.setSpacing(metrics.SETTINGS_ACTION_SPACING)
+        sync_row = QtGui.QHBoxLayout()
+        sync_row.setSpacing(metrics.SETTINGS_ACTION_SPACING)
         self.buttons = []
         for label, callback in (("Add Library", self.add), ("New Library", self.create_library), ("Edit", self.edit),
                                 ("Remove", self.remove), ("Check now", self.check),
                                 ("Sync now", self.sync)):
             button = QtGui.QPushButton(label)
             button.clicked.connect(callback)
+            row = management_row if len(self.buttons) < 4 else sync_row
             row.addWidget(button)
             self.buttons.append(button)
-        layout.addLayout(row)
-        note = QtGui.QLabel("Updates apply on the next Toolbox open, Reload Config or editor Apply.")
+        management_row.addStretch(1)
+        sync_row.addStretch(1)
+        libraries_layout.addLayout(management_row)
+        detail_layout.addLayout(sync_row)
+        note = mark_secondary_text(QtGui.QLabel("Updates apply on the next Toolbox open, Reload Config or editor Apply."))
         note.setWordWrap(True)
-        layout.addWidget(note)
+        detail_layout.addWidget(note)
+        content_layout.addWidget(libraries_section)
+        content_layout.addWidget(detail_section)
+        content_layout.addStretch(1)
         self.timer = QtCore.QTimer(self)
         self.timer.setInterval(100)
         self.timer.timeout.connect(self.poll)

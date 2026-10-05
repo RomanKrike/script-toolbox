@@ -495,6 +495,9 @@ def builtin_item_definitions():
                         "preset": TextField(default=""),
                         "parameter": TextField(default=""),
                         "target_kind": TextField(default=""),
+                        "scope": AnyField(default={}, validator=lambda value: isinstance(value, dict)
+                                          and all(isinstance(k, text_type) and isinstance(v, text_type)
+                                                  for k, v in value.items())),
                         "state": AnyField(default={}, validator=lambda value: isinstance(value, dict))},
                 renderer_path=".managed_presets:render_broken_reference",
             ),)

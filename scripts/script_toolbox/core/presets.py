@@ -2,6 +2,9 @@
 from __future__ import print_function
 
 import copy
+import io
+import json
+import os
 
 from ..model import create_item
 from ..pycompat import text_type
@@ -16,120 +19,22 @@ _SUPPORTED_DCCS = (
 )
 
 
-_BUILTIN_PRESETS = (
-    {
-        "id": "selection_set",
-        "dcc": _DCC_ALL,
-        "category": "SELECTION",
-        "label": "Selection Set",
-        "description": (
-            "Object list with Add Selected, Remove, Select and Clear actions."
-        ),
-        "root": {
-            "kind": "folder",
-            "id": "preset_selection_set_root",
-            "name": "selection_set",
-            "label": "Selection Set",
-            "folder_type": "collapsible",
-            "collapsed": False,
-            "items": [
-                {
-                    "kind": "field",
-                    "id": "preset_selection_set_objects",
-                    "name": "selection_set_objects",
-                    "label": "Objects",
-                    "source": "value",
-                    "multiple": True,
-                    "long_names": True,
-                    "display_mode": "list",
-                    "visible_rows": 5,
-                    "placeholder": "Add scene objects...",
-                },
-                {
-                    "kind": "row",
-                    "id": "preset_selection_set_actions",
-                    "name": "selection_set_actions",
-                    "label": "Actions",
-                    "items": [
-                        {
-                            "kind": "button",
-                            "id": "preset_selection_set_add",
-                            "name": "selection_set_add",
-                            "label": "Add Selected",
-                            "bindings": [
-                                {
-                                    "event": "click",
-                                    "handler": "script",
-                                    "language": "python",
-                                    "script": (
-                                        "toolbox.add_to_field("
-                                        "\"selection_set_objects\", "
-                                        "host.current_selection(long_names=True)"
-                                        ")"
-                                    ),
-                                }
-                            ],
-                        },
-                        {
-                            "kind": "button",
-                            "id": "preset_selection_set_remove",
-                            "name": "selection_set_remove",
-                            "label": "Remove",
-                            "bindings": [
-                                {
-                                    "event": "click",
-                                    "handler": "script",
-                                    "language": "python",
-                                    "script": (
-                                        "toolbox.remove_from_field("
-                                        "\"selection_set_objects\""
-                                        ")"
-                                    ),
-                                }
-                            ],
-                        },
-                        {
-                            "kind": "button",
-                            "id": "preset_selection_set_select",
-                            "name": "selection_set_select",
-                            "label": "Select",
-                            "bindings": [
-                                {
-                                    "event": "click",
-                                    "handler": "script",
-                                    "language": "python",
-                                    "script": (
-                                        "toolbox.select_field_objects("
-                                        "\"selection_set_objects\""
-                                        ")"
-                                    ),
-                                }
-                            ],
-                        },
-                        {
-                            "kind": "button",
-                            "id": "preset_selection_set_clear",
-                            "name": "selection_set_clear",
-                            "label": "Clear",
-                            "bindings": [
-                                {
-                                    "event": "click",
-                                    "handler": "script",
-                                    "language": "python",
-                                    "script": (
-                                        "toolbox.clear_field("
-                                        "\"selection_set_objects\""
-                                        ")"
-                                    ),
-                                }
-                            ],
-                        },
-                    ],
-                },
-            ],
-        },
-    },
-)
+def default_library_path():
+    return os.path.join(os.path.dirname(os.path.dirname(__file__)), "resources", "presets")
+
+
+def _load_default_presets():
+    result = []
+    root = default_library_path()
+    for filename in sorted(os.listdir(root)):
+        if filename.lower().endswith(".json"):
+            with io.open(os.path.join(root, filename), encoding="utf-8") as handle:
+                result.append(json.load(handle))
+    return tuple(result)
+
+
+_BUILTIN_PRESETS = _load_default_presets()
+
 
 
 def _normalize_dcc(dcc):

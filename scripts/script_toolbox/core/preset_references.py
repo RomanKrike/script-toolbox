@@ -14,6 +14,33 @@ RUNTIME_LINK = "_preset_reference"
 REFERENCE_CONFIG_VERSION = 22
 
 
+def linked_preset(root, clone, source_id, preset_id, resolver):
+    """Keep layout local and link controls with one shared dependency scope."""
+    pairs = []
+    def collect(source, local):
+        pairs.append((source, local))
+        for child, local_child in zip(source.get("items", []), local.get("items", [])):
+            collect(child, local_child)
+    collect(root, clone)
+    scope = {}
+    for source, local in pairs:
+        scope[source["id"]] = local["id"]
+        scope[source["name"]] = local["name"]
+    def convert(source, local):
+        definition = ITEM_TYPES.get(source["kind"])
+        if definition.is_container:
+            local["items"] = [convert(child, local_child) for child, local_child in
+                              zip(source.get("items", []), local.get("items", []))]
+            return local
+        reference = resolver.create_reference(source_id, preset_id, source["id"], local["name"])
+        reference["id"] = local["id"]
+        reference["props"]["scope"] = copy.deepcopy(scope)
+        if definition.has_capability("has_value") and "value" in local.get("props", {}):
+            reference["props"]["state"]["value"] = copy.deepcopy(local["props"]["value"])
+        return reference
+    return convert(root, clone)
+
+
 def has_references(document):
     def visit(children):
         if not isinstance(children, (list, tuple)):
@@ -82,7 +109,8 @@ class PresetResolver(object):
         old_name, old_id = target["name"], target["id"]
         target["id"] = reference["id"]
         target["name"] = reference["name"]
-        replacements = {old_id: target["id"]}
+        replacements = dict(props.get("scope", {}))
+        replacements[old_id] = target["id"]
         if old_name != target["name"]:
             replacements[old_name] = target["name"]
         rewrite_subtree_references(target, replacements)

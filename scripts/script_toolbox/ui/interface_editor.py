@@ -956,6 +956,10 @@ class InterfaceEditor(QtGui.QDialog):
         except Exception:
             pass
 
+    def extend_tree_context_menu(self, menu, item):
+        """Return additional (action, callback) pairs for the selected item."""
+        return []
+
     def show_tree_context_menu(self, point):
         item = self.tree.itemAt(point)
         if item is not None:
@@ -973,6 +977,7 @@ class InterfaceEditor(QtGui.QDialog):
         paste_action.setEnabled(self.clipboard_item is not None)
         menu.addSeparator()
         delete_action = menu.addAction("Delete")
+        extra_actions = self.extend_tree_context_menu(menu, item)
 
         action = qt_exec(menu,
             self.tree.viewport().mapToGlobal(point)
@@ -992,6 +997,11 @@ class InterfaceEditor(QtGui.QDialog):
             )
         elif action == delete_action:
             self.delete_selected()
+        else:
+            for extra_action, callback in extra_actions:
+                if action == extra_action:
+                    callback()
+                    break
 
     # ------------------------------------------------------------------
     # Create / move / delete

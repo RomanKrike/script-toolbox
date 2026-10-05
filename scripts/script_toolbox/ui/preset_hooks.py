@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+import copy
+import uuid
+
 from ..compat import HOST
 from ..compat import QtCore
 from ..compat import QtGui
@@ -12,7 +15,7 @@ from ..style.palette import LIST_BG
 from ..style.palette import TEXT_PALETTE_GROUP
 from .scroll_surface_frames import wrap_scroll_widget
 from .managed_presets import (populate_managed_presets, target_address,
-                              insert_reference, reference_tooltip)
+                              insert_reference, reference_tooltip, library_address, insert_library_preset, BackgroundJob)
 from ..core.preset_references import local_copy
 from ..core.preset_references import PresetResolver
 from ..core.preset_sources import SourceRegistry
@@ -58,6 +61,8 @@ def _configure_palette_tree(tree):
 
 
 def _populate_preset_tree(tree):
+    default_group = QtGui.QTreeWidgetItem(["Default"])
+    default_group.setFlags(default_group.flags() & ~QtCore.Qt.ItemIsSelectable)
     groups = {}
     group_order = []
 
@@ -75,7 +80,7 @@ def _populate_preset_tree(tree):
 
         if group is None:
             group = QtGui.QTreeWidgetItem([
-                category
+                category.title()
             ])
             group.setData(
                 0,
@@ -137,12 +142,14 @@ def _populate_preset_tree(tree):
 
     for category in group_order:
         group = groups[category]
-        tree.addTopLevelItem(
-            group
-        )
+        default_group.addChild(group)
         group.setExpanded(
             True
         )
+    tree.addTopLevelItem(default_group)
+    default_group.setExpanded(True)
+    for group in groups.values():
+        group.setExpanded(True)
 
 
 def _filter_preset_tree(tree, value):
@@ -150,52 +157,22 @@ def _filter_preset_tree(tree, value):
         value or ""
     ).strip().lower()
 
-    for group_index in range(
-        tree.topLevelItemCount()
-    ):
-        group = tree.topLevelItem(
-            group_index
-        )
-        visible_children = 0
-
-        for child_index in range(
-            group.childCount()
-        ):
-            child = group.child(
-                child_index
-            )
-            label = text_type(
-                child.text(0)
-            ).lower()
-            tooltip = text_type(
-                child.toolTip(0)
-            ).lower()
-            preset_id = _role_text(
-                child,
-                ROLE_PRESET_ID
-            ).lower()
-
-            visible = (
-                not query or
-                query in label or
-                query in tooltip or
-                query in preset_id
-            )
-            child.setHidden(
-                not visible
-            )
-
-            if visible:
-                visible_children += 1
-
-        group.setHidden(
-            visible_children == 0
-        )
-
+    def visit(item, inherited=False):
+        label = text_type(item.text(0)).lower()
+        tooltip = text_type(item.toolTip(0)).lower()
+        preset_id = _role_text(item, ROLE_PRESET_ID).lower()
+        own = not query or query in label or query in tooltip or query in preset_id
+        matched = own or inherited
+        visible_children = False
+        for index in range(item.childCount()):
+            visible_children = visit(item.child(index), matched) or visible_children
+        visible = matched or visible_children
+        item.setHidden(not visible)
         if query and visible_children:
-            group.setExpanded(
-                True
-            )
+            item.setExpanded(True)
+        return visible
+    for index in range(tree.topLevelItemCount()):
+        visit(tree.topLevelItem(index))
 
 
 def _insert_preset(
@@ -271,12 +248,26 @@ class PresetEditorMixin(object):
 
     def show_preset_context_menu(self, point):
         item = self.preset_palette.itemAt(point)
+        if library_address(item) is not None and target_address(item) is None:
+            menu = QtGui.QMenu(self.preset_palette)
+            action = menu.addAction("Create References")
+            if qt_exec(menu, self.preset_palette.viewport().mapToGlobal(point)) == action:
+                self._call_tree_action("Create References", insert_library_preset, item)
+            return
         if target_address(item) is None:
             return
         menu = QtGui.QMenu(self.preset_palette)
         reference_action = menu.addAction("Create Reference")
         if qt_exec(menu, self.preset_palette.viewport().mapToGlobal(point)) == reference_action:
             self._call_tree_action("Create Reference", insert_reference, item)
+
+    def extend_tree_context_menu(self, menu, item):
+        actions = super(PresetEditorMixin, self).extend_tree_context_menu(menu, item)
+        menu.addSeparator()
+        save = menu.addAction("Save Selected as Preset...")
+        save.setEnabled(item is not None and self.save_preset_button.isEnabled())
+        actions.append((save, self.save_selected_preset))
+        return actions
 
     def show_tree_context_menu(self, point):
         tree_item = self.tree.itemAt(point)
@@ -292,6 +283,7 @@ class PresetEditorMixin(object):
         convert.setEnabled(not broken)
         menu.addSeparator()
         remove = menu.addAction("Remove Reference")
+        extra_actions = self.extend_tree_context_menu(menu, tree_item)
         action = qt_exec(menu, self.tree.viewport().mapToGlobal(point))
         if action == remove:
             self.delete_selected()
@@ -299,19 +291,34 @@ class PresetEditorMixin(object):
             self.selection_changed(tree_item, tree_item)
         elif action == convert:
             self._call_tree_action("Convert Reference", _convert_reference, data["id"])
+        elif any(action == extra_action for extra_action, callback in extra_actions):
+            for extra_action, callback in extra_actions:
+                if action == extra_action:
+                    callback()
+                    break
         elif action == reveal:
             target = data["props"]
             address = [target["source"], target["preset"], target["parameter"]]
             self.palette_tabs.setCurrentIndex(1)
             self.palette_filter.clear()
+            def reveal_item(item):
+                if target_address(item) == address:
+                    return item
+                for i in range(item.childCount()):
+                    found = reveal_item(item.child(i))
+                    if found is not None:
+                        return found
+                return None
             for index in range(self.preset_palette.topLevelItemCount()):
-                group = self.preset_palette.topLevelItem(index)
-                for child_index in range(group.childCount()):
-                    item = group.child(child_index)
-                    if target_address(item) == address:
-                        self.preset_palette.setCurrentItem(item)
-                        self.preset_palette.scrollToItem(item)
-                        return
+                found = reveal_item(self.preset_palette.topLevelItem(index))
+                if found is not None:
+                    parent = found.parent()
+                    while parent is not None:
+                        parent.setExpanded(True)
+                        parent = parent.parent()
+                    self.preset_palette.setCurrentItem(found)
+                    self.preset_palette.scrollToItem(found)
+                    return
 
     def build_ui(self):
         super(PresetEditorMixin, self).build_ui()
@@ -413,6 +420,9 @@ class PresetEditorMixin(object):
         presets_layout.addWidget(
             self.preset_palette
         )
+        self.save_preset_button = QtGui.QPushButton("Save Selected as Preset...")
+        self.save_preset_button.clicked.connect(self.save_selected_preset)
+        presets_layout.addWidget(self.save_preset_button)
         self.preset_scroll_frame = wrap_scroll_widget(
             self.preset_palette,
             background=LIST_BG,
@@ -440,6 +450,70 @@ class PresetEditorMixin(object):
         self._palette_tab_changed(
             self.palette_tabs.currentIndex()
         )
+
+    def save_selected_preset(self):
+        self.sync_working_from_tree()
+        item = self.item_cache.get(self.current_item_id)
+        if item is None:
+            QtGui.QMessageBox.information(self, "Save Preset", "Select an item in Existing Parameters first.")
+            return
+        sources = [s for s in self.preset_resolver.sources.values() if s["enabled"]]
+        if not sources:
+            QtGui.QMessageBox.information(self, "Save Preset", "Create or connect a custom library in Settings > Preset Library first.")
+            return
+        names = [s["name"] + " (" + s["id"] + ")" for s in sources]
+        selected, ok = QtGui.QInputDialog.getItem(self, "Save Preset", "Library", names, 0, False)
+        if not ok:
+            return
+        source = sources[names.index(text_type(selected))]
+        label, ok = QtGui.QInputDialog.getText(self, "Save Preset", "Preset name", text=item["ui"]["label"])
+        if not ok or not text_type(label).strip():
+            return
+        category, ok = QtGui.QInputDialog.getText(self, "Save Preset", "Category", text="General")
+        if not ok or not text_type(category).strip():
+            return
+        dcc, ok = QtGui.QInputDialog.getItem(self, "Save Preset", "Host",
+            ["all", "maya", "nuke", "houdini", "blender"], 0, False)
+        if not ok:
+            return
+        root = copy.deepcopy(item)
+        def materialize(node):
+            if node["kind"] == "reference":
+                return local_copy(node, self.preset_resolver)
+            if "items" in node:
+                node["items"] = [materialize(child) for child in node["items"]]
+            return node
+        try:
+            root = materialize(root)
+        except (ValueError, TypeError, KeyError) as exc:
+            QtGui.QMessageBox.warning(self, "Save Preset", text_type(exc))
+            return
+        preset = {"id": "preset-" + uuid.uuid4().hex, "label": text_type(label).strip(),
+                  "category": text_type(category).strip(), "dcc": text_type(dcc), "root": root}
+        registry = self.preset_resolver.registry
+        def publish():
+            from ..core.preset_library import publish_presets
+            from ..core.preset_sync import SyncService
+            publish_presets([preset], source["remote_path"], source["id"], source["name"], merge=True)
+            return SyncService(registry).check(source["id"], download=True)
+        self.save_preset_button.setEnabled(False)
+        self._preset_save_job = BackgroundJob(publish)
+        self._preset_save_timer = QtCore.QTimer(self)
+        def poll():
+            result = self._preset_save_job.poll()
+            if result is None:
+                return
+            self._preset_save_timer.stop()
+            self._preset_save_timer.deleteLater()
+            self.save_preset_button.setEnabled(True)
+            if not result["ok"]:
+                QtGui.QMessageBox.warning(self, "Save Preset", result["error"])
+                return
+            # Preserve this editor's pinned definitions; the catalog refreshes
+            # when reopened, so saving never changes the active runtime.
+            self.status.setText("Preset saved. Reopen the editor to refresh the library.")
+        self._preset_save_timer.timeout.connect(poll)
+        self._preset_save_timer.start(100)
 
     def _palette_tab_changed(self, index):
         placeholder = (
@@ -483,6 +557,8 @@ class PresetEditorMixin(object):
         preset_item,
         column=0
     ):
+        if library_address(preset_item) is not None and target_address(preset_item) is None:
+            return self._call_tree_action("Create References", insert_library_preset, preset_item, column)
         if target_address(preset_item) is not None:
             return self._call_tree_action("Create Reference", insert_reference, preset_item, column)
         callback = getattr(

@@ -15,6 +15,7 @@ from ..core.config import export_config
 from ..core.config import import_config
 from ..model import create_item
 from ..model import normalize_document
+from ..core.preset_references import authored_document
 from ..model import walk_items
 from ..model.item_builtins import register_builtin_items
 from ..model.item_registry import ITEM_TYPES
@@ -91,9 +92,7 @@ class InterfaceEditor(QtGui.QDialog):
         )
 
         self.toolbox = toolbox
-        self.working = copy.deepcopy(
-            toolbox.config
-        )
+        self.working = authored_document(toolbox.config)
         self.item_cache = {}
 
         self.current_property_editor = None
@@ -1252,6 +1251,17 @@ class InterfaceEditor(QtGui.QDialog):
             return
 
         self.clear_property_editor()
+
+        if data.get("kind") == "reference":
+            from .managed_presets import reference_tooltip, ReferenceInfoLabel
+            message, broken = reference_tooltip(data, self.preset_resolver)
+            label = ReferenceInfoLabel(message, self.property_host)
+            label.setWordWrap(True)
+            label.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+            self.property_layout.addWidget(label)
+            self.current_property_editor = label
+            self.current_item_id = item_id
+            return
 
         editor = create_editor(
             kind,

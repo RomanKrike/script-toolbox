@@ -16,3 +16,6 @@ License: Creative Commons Attribution 4.0 (CC BY 4.0)
 https://creativecommons.org/licenses/by/4.0/
 
 For ScriptToolbox's dark UI, the monochrome Linear SVG variants are stored locally with #d9d9d9 as their stroke/fill color. Geometry is sourced from the Iconify Solar collection; only the display color is normalized for the plugin UI.
+
+Exception: reference.svg is original Script Toolbox artwork, drawn to match
+the surrounding linear icons. It is not sourced from the Solar collection.

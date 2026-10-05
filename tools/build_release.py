@@ -279,6 +279,16 @@ def build_release(
             )
         )
 
+    publisher = os.path.join(root, "tools", "publish_preset_source.py")
+    if os.path.isfile(publisher):
+        tools_destination = os.path.join(staging_root, "tools")
+        os.makedirs(tools_destination)
+        shutil.copy2(publisher, os.path.join(tools_destination, "publish_preset_source.py"))
+
+    examples_path = os.path.join(root, "examples")
+    if os.path.isdir(examples_path):
+        _copy_tree(examples_path, os.path.join(staging_root, "examples"))
+
     module_path = os.path.join(
         staging_root,
         "MayaScriptToolbox.mod"

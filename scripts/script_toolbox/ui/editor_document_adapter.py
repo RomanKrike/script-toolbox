@@ -9,6 +9,7 @@ from ..core.editor_commands import ItemStateCommand
 from ..core.editor_commands import ItemsStateCommand
 from ..core.editor_commands import build_document_delta
 from ..core.editor_document import EditorDocumentController
+from ..core.preset_references import authored_document
 from ..model import normalize_document
 from ..pycompat import text_type
 from .editor_search import apply_editor_presentation
@@ -189,7 +190,7 @@ class ControllerEditorMixin(object):
 
     def __init__(self, toolbox, parent=None):
         self.document_controller = self.controller_class(
-            toolbox.config
+            authored_document(toolbox.config)
         )
         self._command_ready = False
         self._pending_property_id = None
@@ -750,7 +751,7 @@ class ControllerEditorMixin(object):
         # without creating a history snapshot. Existing command objects
         # remain valid because item IDs are stable across Apply.
         self.document_controller.replace(
-            self.toolbox.config
+            authored_document(self.toolbox.config)
         )
         self.populate_tree()
         self.status.setText(

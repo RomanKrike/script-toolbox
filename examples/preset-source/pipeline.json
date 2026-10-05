@@ -1,0 +1,13 @@
+{
+  "id": "pipeline",
+  "dcc": "all",
+  "label": "Demo Pipeline",
+  "root": {
+    "kind": "menu",
+    "id": "demo_shot",
+    "name": "demo_shot",
+    "ui": {"label": "Demo Shot"},
+    "props": {"items": ["sh001", "sh002", "sh003"], "value": "sh001"},
+    "bindings": []
+  }
+}

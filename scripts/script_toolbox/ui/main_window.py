@@ -203,6 +203,9 @@ class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWind
         self.build_ui()
         self.rebuild()
 
+        from .managed_presets import SourceScheduler
+        self.preset_source_scheduler = SourceScheduler(self)
+
         self.selection_timer = QtCore.QTimer(self)
         self.selection_timer.setInterval(300)
         self.selection_timer.timeout.connect(self.refresh_selection_fields)
@@ -783,6 +786,11 @@ class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWind
     # ------------------------------------------------------------------
 
     def rebuild(self):
+        from ..core.preset_references import PresetResolver
+        from ..core.preset_sources import SourceRegistry
+        if not hasattr(self, "preset_resolver"):
+            self.preset_resolver = PresetResolver(SourceRegistry())
+        self.preset_resolver.resolve_document(self.config)
         self.value_widgets = {}
         self.field_widgets = {}
         self.state_button_widgets = {}
@@ -1059,6 +1067,9 @@ class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWind
         self.editor_window.activateWindow()
 
     def reload_config(self):
+        from ..core.preset_references import PresetResolver
+        from ..core.preset_sources import SourceRegistry
+        self.preset_resolver = PresetResolver(SourceRegistry())
         self.config = load_config()
         self.rebuild()
         self.statusBar().showMessage("Config reloaded.", 2500)

@@ -21,6 +21,7 @@ _RESOURCE_ROOT = os.path.normpath(
 )
 
 _ICON_ENTRIES = (
+    ("reference", "Preset Reference", "reference.svg"),
     ("undo", "Undo", "undo-left-round.svg"),
     ("redo", "Redo", "undo-right-round.svg"),
     ("cut", "Cut", "scissors.svg"),

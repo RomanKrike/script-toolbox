@@ -10,6 +10,7 @@ import tempfile
 import warnings
 
 from ..pycompat import text_type
+from ..constants import CONFIG_VERSION
 from ..model import create_item
 from ..model import normalize_document
 from .config_schema import ConfigSchemaError
@@ -66,9 +67,15 @@ def backup_path(
 
 
 def _prepare_document(document):
+    from .preset_references import authored_document, has_references, REFERENCE_CONFIG_VERSION
+    document = authored_document(document)
+    expected_version = CONFIG_VERSION
+    if (isinstance(document, dict) and document.get("version") == REFERENCE_CONFIG_VERSION
+            and has_references(document)):
+        expected_version = REFERENCE_CONFIG_VERSION
     return normalize_document(
         validate_document_schema(
-            document
+            document, expected_version=expected_version
         )
     )
 
@@ -78,6 +85,11 @@ def serialize_config(document):
     document = _prepare_document(
         document
     )
+    from .preset_references import has_references, REFERENCE_CONFIG_VERSION
+    if has_references(document):
+        # Older builds reject this version before their damaged-file recovery
+        # path can mistake a new Item kind for corrupt user data.
+        document["version"] = REFERENCE_CONFIG_VERSION
     return text_type(
         json.dumps(
             document,

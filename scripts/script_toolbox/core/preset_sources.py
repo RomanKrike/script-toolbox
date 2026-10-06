@@ -42,7 +42,10 @@ def normalize_source(source):
 
 class SourceRegistry(object):
     def __init__(self, preferences_path=None, cache_root=None):
-        self.preferences_path = preferences_path
+        # Host APIs (e.g. Maya internalVar) must run on the creating thread.
+        # Background publishing/sync must use this same preferences file,
+        # rather than resolving the host path again and falling back to home.
+        self.preferences_path = preferences_path or settings_path()
         self.cache_root = cache_root or os.path.join(
             user_config_dir(), "presets", "managed")
 
@@ -63,7 +66,7 @@ class SourceRegistry(object):
 
     def put(self, source):
         source = normalize_source(source)
-        with FileLock((self.preferences_path or settings_path()) + ".sources.lock", blocking=True):
+        with FileLock(self.preferences_path + ".sources.lock", blocking=True):
             return self._put_unlocked(source)
 
     def _put_unlocked(self, source):
@@ -80,7 +83,7 @@ class SourceRegistry(object):
         return copy.deepcopy(source)
 
     def remove(self, source_id):
-        with FileLock((self.preferences_path or settings_path()) + ".sources.lock", blocking=True):
+        with FileLock(self.preferences_path + ".sources.lock", blocking=True):
             self._remove_unlocked(source_id)
 
     def _remove_unlocked(self, source_id):

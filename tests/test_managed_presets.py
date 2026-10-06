@@ -61,6 +61,48 @@ def test_registry_edits_preserve_identity_and_unrelated_preferences(setup):
     assert remote.exists()
 
 
+def test_registry_pins_host_paths_before_background_connection(tmp_path, monkeypatch):
+    import threading
+    import script_toolbox.core.preset_sources as sources
+    import script_toolbox.core.preferences as preferences
+    main_thread = threading.current_thread()
+    maya_preferences = str(tmp_path / "maya-settings.json")
+    standalone_preferences = str(tmp_path / "standalone-settings.json")
+    calls = []
+    def host_path():
+        calls.append(threading.current_thread())
+        return maya_preferences if threading.current_thread() is main_thread else standalone_preferences
+    monkeypatch.setattr(sources, "settings_path", host_path)
+    monkeypatch.setattr(preferences, "settings_path", host_path)
+    monkeypatch.setattr(sources, "user_config_dir", lambda: str(tmp_path / "maya"))
+    source = {"id": "studio", "name": "Studio", "remote_path": str(tmp_path / "remote")}
+    standalone = SourceRegistry(standalone_preferences, str(tmp_path / "standalone-cache"))
+    standalone.put(source)
+    original = (tmp_path / "standalone-settings.json").read_bytes()
+    registry = SourceRegistry()
+    assert registry.preferences_path == maya_preferences
+    assert registry.sources() == []
+    results = []
+    def connect():
+        try:
+            results.append(registry.get("studio"))
+            registry.put(source)
+            results.append(registry.get("studio"))
+            results.append(registry.cache_path("studio"))
+        except Exception as error:
+            results.append(error)
+    worker = threading.Thread(target=connect)
+    worker.start()
+    worker.join(timeout=5)
+    assert not worker.is_alive()
+    assert results[0] is None
+    assert results[1]["id"] == "studio"
+    assert results[2] == str(tmp_path / "maya" / "presets" / "managed" / "studio")
+    assert len(registry.sources()) == 1
+    assert (tmp_path / "standalone-settings.json").read_bytes() == original
+    assert calls and all(thread is main_thread for thread in calls)
+
+
 def test_first_sync_offline_and_update(setup):
     remote, registry, service = setup
     assert service.status("studio")["state"] == "not_installed"

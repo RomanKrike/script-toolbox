@@ -7,7 +7,7 @@ pytestmark = pytest.mark.skipif(not QT_AVAILABLE, reason="Requires real Qt")
 
 def test_reference_ui_create_apply_undo_reload_and_convert(tmp_path):
     run_qt('''
-import json, hashlib
+import json
 from script_toolbox.core.preset_sources import SourceRegistry
 from script_toolbox.core.preset_sync import SyncService, MANIFEST
 from script_toolbox.core.config import config_path
@@ -20,11 +20,10 @@ target = create_item("menu", {"id": "shots", "name": "shots", "ui": {"label": "S
                               "props": {"items": ["sh001", "sh002"]}})
 preset = {"id": "pipeline", "dcc": "all", "root": target}
 payload = json.dumps(preset).encode("utf-8")
-with open(os.path.join(remote, "pipeline.json"), "wb") as handle:
+os.makedirs(os.path.join(remote, "All", "General"))
+with open(os.path.join(remote, "All", "General", "pipeline.json"), "wb") as handle:
     handle.write(payload)
-manifest = {"schema": 1, "id": "studio", "name": "Studio", "revision": 1,
-            "presets": [{"id": "pipeline", "file": "pipeline.json",
-                         "sha256": hashlib.sha256(payload).hexdigest()}]}
+manifest = {"schema": 1, "id": "studio", "name": "Studio"}
 with open(os.path.join(remote, MANIFEST), "w") as handle:
     json.dump(manifest, handle)
 registry = SourceRegistry()
@@ -140,7 +139,7 @@ def fill_save():
     form.name_edit.setText(" ")
     assert not form.buttons.button(QtGui.QDialogButtonBox.Save).isEnabled()
     form.name_edit.setText("Leo")
-    form.category_edit.setText("Project Pipeline")
+    form.category_edit.setText("Project Pipeline/Animation")
     assert form.buttons.button(QtGui.QDialogButtonBox.Save).isEnabled()
     form.accept()
 original_resolver = editor.preset_resolver
@@ -157,14 +156,15 @@ assert editor.palette_filter.text() == ""
 assert editor.palette_tabs.currentIndex() == 1
 resolver = PresetResolver(registry)
 source_id = registry.sources()[0]["id"]
-assert resolver.packages[source_id]["presets"][0]["category"] == "Project Pipeline"
+assert resolver.packages[source_id]["presets"][0]["category"] == "Project Pipeline/Animation"
 assert original_resolver.packages[source_id]["presets"] == []
 default = editor.preset_palette.topLevelItem(0)
 assert default.text(0) == "Default"
 assert default.child(0).text(0) == "Selection"
 assert default.child(0).child(0).text(0) == "Selection Set"
 studio = editor.preset_palette.topLevelItem(1)
-preset_item = studio.child(0).child(0)
+assert studio.child(0).child(0).text(0) == "Animation"
+preset_item = studio.child(0).child(0).child(0)
 assert studio.text(0) == "0+Media"
 assert studio.child(0).text(0) == "Project Pipeline"
 assert preset_item.text(0) == "Leo"

@@ -1,5 +1,4 @@
 import copy
-import hashlib
 import json
 import shutil
 
@@ -20,12 +19,12 @@ def publish(folder, source_id="studio", revision=1, label="Shots", kind="menu", 
                                "ui": {"label": label},
                                "props": {"items": ["sh001", "sh002"]} if kind == "menu" else {}})
     preset = {"id": "pipeline", "dcc": "all", "label": "Pipeline",
+              "description": "fixture generation {0}".format(revision),
               "root": create_item("folder", {"id": "root", "items": [] if missing else [target]})}
     payload = json.dumps(preset).encode("utf-8")
-    (folder / "pipeline.json").write_bytes(payload)
-    manifest = {"schema": 1, "id": source_id, "name": "Studio", "revision": revision,
-                "presets": [{"id": "pipeline", "file": "pipeline.json",
-                             "sha256": hashlib.sha256(payload).hexdigest()}]}
+    (folder / "All" / "General").mkdir(parents=True, exist_ok=True)
+    (folder / "All" / "General" / "pipeline.json").write_bytes(payload)
+    manifest = {"schema": 1, "id": source_id, "name": "Studio"}
     (folder / MANIFEST).write_text(json.dumps(manifest), encoding="utf-8")
     return manifest
 
@@ -66,15 +65,17 @@ def test_first_sync_offline_and_update(setup):
     remote, registry, service = setup
     assert service.status("studio")["state"] == "not_installed"
     assert service.check("studio")["state"] == "update_available"
-    assert service.check("studio", True)["local_revision"] == 1
+    one = service.check("studio", True)["local_revision"]
+    assert one
     assert service.check("studio")["state"] == "up_to_date"
     publish(remote, revision=2)
     assert service.check("studio")["state"] == "update_available"
-    assert service.check("studio", True)["local_revision"] == 2
+    two = service.check("studio", True)["local_revision"]
+    assert two != one
     shutil.rmtree(str(remote))
     status = service.check("studio", True)
     assert status["state"] == "offline"
-    assert status["using_cache"] and status["local_revision"] == 2
+    assert status["using_cache"] and status["local_revision"] == two
 
 
 def test_offline_first_connection_and_disabled_do_not_fetch(setup, monkeypatch):
@@ -101,17 +102,15 @@ def test_failed_sync_keeps_current_and_user_files(setup, tmp_path, monkeypatch, 
     user.write_bytes(b"user content")
     manifest = publish(remote, revision=2)
     if failure == "checksum":
-        (remote / "pipeline.json").write_text("{}")
+        (remote / "All" / "General" / "pipeline.json").write_text("{}")
     elif failure == "json":
         payload = b"broken json"
-        (remote / "pipeline.json").write_bytes(payload)
-        manifest["presets"][0]["sha256"] = hashlib.sha256(payload).hexdigest()
+        (remote / "All" / "General" / "pipeline.json").write_bytes(payload)
     elif failure == "target_ids":
-        data = json.loads((remote / "pipeline.json").read_text())
+        data = json.loads((remote / "All" / "General" / "pipeline.json").read_text())
         data["root"]["items"].append(copy.deepcopy(data["root"]["items"][0]))
         payload = json.dumps(data).encode("utf-8")
-        (remote / "pipeline.json").write_bytes(payload)
-        manifest["presets"][0]["sha256"] = hashlib.sha256(payload).hexdigest()
+        (remote / "All" / "General" / "pipeline.json").write_bytes(payload)
     elif failure == "source_id":
         manifest["id"] = "other"
     elif failure == "schema":
@@ -123,7 +122,7 @@ def test_failed_sync_keeps_current_and_user_files(setup, tmp_path, monkeypatch, 
     (remote / MANIFEST).write_text(json.dumps(manifest))
     assert service.check("studio", True)["state"] in ("invalid_source", "sync_failed")
     assert (tmp_path / "cache" / "studio" / "active.json").read_bytes() == pointer
-    assert service.installed("studio")["manifest"]["revision"] == 1
+    assert service.installed("studio")["presets"][0]["description"] == "fixture generation 1"
     assert user.read_bytes() == b"user content"
     assert not list((tmp_path / "cache" / "studio").glob(".staging-*"))
 
@@ -139,7 +138,7 @@ def test_manifest_changes_during_copy_rejects_activation(setup, monkeypatch):
         return result
     monkeypatch.setattr("script_toolbox.core.preset_sync.shutil.copyfile", changing_copy)
     assert service.check("studio", True)["state"] == "invalid_source"
-    assert service.installed("studio")["manifest"]["revision"] == 1
+    assert service.installed("studio")["presets"][0]["description"] == "fixture generation 1"
 
 
 @pytest.mark.parametrize("path", ["../escape.json", "/absolute.json", "C:\\outside.json",
@@ -242,8 +241,8 @@ def test_corrupt_current_uses_previous_generation(setup, tmp_path):
     service.check("studio", True)
     root = tmp_path / "cache" / "studio"
     pointer = json.loads((root / "active.json").read_text())
-    (root / pointer["current"] / "pipeline.json").write_text("corrupt")
-    assert service.installed("studio")["manifest"]["revision"] == 1
+    (root / pointer["current"] / "All" / "General" / "pipeline.json").write_text("corrupt")
+    assert service.installed("studio")["presets"][0]["description"] == "fixture generation 1"
 
 
 def test_legacy_document_is_unchanged_by_resolver_and_serialization(setup):
@@ -260,21 +259,21 @@ def test_publication_is_complete_and_revision_is_automatic(tmp_path):
     publish(inputs)
     (inputs / MANIFEST).unlink()
     one = publish_source(str(inputs), str(output), "studio", "Studio")
-    assert one["revision"] == 1
+    assert one["revision"]
     two = publish_source(str(inputs), str(output), "studio", "Studio")
-    assert two["revision"] == 2
-    assert one["presets"][0]["file"] != two["presets"][0]["file"]
-    (inputs / "pipeline.json").write_text("broken")
+    assert one == two
+    assert one["presets"][0]["file"] == "All/General/Pipeline.json"
+    (inputs / "All" / "General" / "pipeline.json").write_text("broken")
     with pytest.raises(ValueError):
         publish_source(str(inputs), str(output), "studio", "Studio")
-    assert json.loads((output / MANIFEST).read_text()) == two
+    assert json.loads((output / MANIFEST).read_text()) == {"schema": 1, "id": "studio", "name": "Studio"}
 
 
-def test_revision_reuse_is_rejected_and_local_cache_is_bounded(setup, tmp_path):
+def test_manual_edits_are_detected_and_local_cache_is_bounded(setup, tmp_path):
     remote, registry, service = setup
     service.check("studio", True)
     publish(remote, revision=1, label="Changed without revision")
-    assert service.check("studio", True)["state"] == "invalid_source"
+    assert service.check("studio", True)["state"] == "up_to_date"
     for revision in (2, 3, 4):
         publish(remote, revision=revision)
         assert service.check("studio", True)["state"] == "up_to_date"
@@ -293,7 +292,7 @@ def test_failed_atomic_activation_preserves_working_generation(setup, monkeypatc
         return original(path, data)
     monkeypatch.setattr(sync, "atomic_json", fail_activation)
     assert service.check("studio", True)["state"] == "sync_failed"
-    assert service.installed("studio")["manifest"]["revision"] == 1
+    assert service.installed("studio")["presets"][0]["description"] == "fixture generation 1"
 
 
 def test_reference_schema_protects_old_loader_and_only_changes_opt_in_documents(setup):
@@ -315,15 +314,14 @@ def test_reference_schema_protects_old_loader_and_only_changes_opt_in_documents(
 
 def test_reference_rewrites_self_id_and_name_in_bindings(setup):
     remote, registry, service = setup
-    data = json.loads((remote / "pipeline.json").read_text())
+    data = json.loads((remote / "All" / "General" / "pipeline.json").read_text())
     target = data["root"]["items"][0]
     target["id"] = "source-shot-id"
     target["bindings"] = [{"event": "value_changed", "handler": "script", "language": "python",
                            "script": 'a = toolbox.get_value("source-shot-id")\nb = toolbox.get_value("shots")'}]
     payload = json.dumps(data).encode("utf-8")
-    (remote / "pipeline.json").write_bytes(payload)
+    (remote / "All" / "General" / "pipeline.json").write_bytes(payload)
     manifest = json.loads((remote / MANIFEST).read_text())
-    manifest["presets"][0]["sha256"] = hashlib.sha256(payload).hexdigest()
     (remote / MANIFEST).write_text(json.dumps(manifest))
     service.check("studio", True)
     resolver = PresetResolver(registry)
@@ -335,12 +333,11 @@ def test_reference_rewrites_self_id_and_name_in_bindings(setup):
 
 def test_nonstring_published_ids_are_rejected(setup):
     remote, registry, service = setup
-    data = json.loads((remote / "pipeline.json").read_text())
+    data = json.loads((remote / "All" / "General" / "pipeline.json").read_text())
     data["root"]["items"][0]["id"] = 123
     payload = json.dumps(data).encode("utf-8")
-    (remote / "pipeline.json").write_bytes(payload)
+    (remote / "All" / "General" / "pipeline.json").write_bytes(payload)
     manifest = json.loads((remote / MANIFEST).read_text())
-    manifest["presets"][0]["sha256"] = hashlib.sha256(payload).hexdigest()
     (remote / MANIFEST).write_text(json.dumps(manifest))
     assert service.check("studio", True)["state"] == "invalid_source"
 

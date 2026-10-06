@@ -54,11 +54,17 @@ def populate_managed_presets(editor, tree):
                 if preset.get("dcc", "all") not in ("all", getattr(HOST, "key", "")):
                     continue
                 category = text_type(preset.get("category") or "General")
-                if category not in categories:
-                    category_item = QtGui.QTreeWidgetItem([category])
-                    category_item.setFlags(category_item.flags() & ~QtCore.Qt.ItemIsSelectable)
-                    group.addChild(category_item)
-                    categories[category] = category_item
+                parent = group
+                path = []
+                for part in category.split("/"):
+                    path.append(part)
+                    key = "/".join(path)
+                    if key not in categories:
+                        category_item = QtGui.QTreeWidgetItem([part])
+                        category_item.setFlags(category_item.flags() & ~QtCore.Qt.ItemIsSelectable)
+                        parent.addChild(category_item)
+                        categories[key] = category_item
+                    parent = categories[key]
                 item = QtGui.QTreeWidgetItem([preset.get("label", preset["id"])])
                 item.setData(0, ROLE_LIBRARY_PRESET, source_id + "/" + preset["id"])
                 item.setToolTip(0, preset.get("description", "Add the complete linked preset."))
@@ -401,9 +407,9 @@ class PresetLibraryPage(QtGui.QWidget):
         status = self.service.status(source["id"])
         last_sync = status.get("last_sync")
         last_sync = time.strftime("%Y-%m-%d %H:%M", time.localtime(last_sync)) if last_sync else "Never"
-        self.detail.setText("{0}\nID: {1}\nStatus: {2}\nLocal / remote revision: {3} / {4}\nLast sync: {5}\n{6}{7}".format(
+        self.detail.setText("{0}\nID: {1}\nStatus: {2}\nLocal / remote snapshot: {3} / {4}\nLast sync: {5}\n{6}{7}".format(
             source["remote_path"], source["id"], status["state"].replace("_", " "),
-            status.get("local_revision"), status.get("remote_revision", "Unknown"), last_sync,
+            (status.get("local_revision") or "None")[:12], (status.get("remote_revision") or "Unknown")[:12], last_sync,
             "Using local cache.\n" if status["using_cache"] else "Not installed.\n",
             status.get("error", "")))
 

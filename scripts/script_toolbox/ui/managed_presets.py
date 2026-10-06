@@ -208,6 +208,57 @@ class SourceScheduler(QtCore.QObject):
         self.job = BackgroundJob(update)
 
 
+class SavePresetDialog(QtGui.QDialog):
+    """Collect all publishing options in one validated form."""
+    def __init__(self, sources, label, parent=None):
+        QtGui.QDialog.__init__(self, parent)
+        self.sources = sources
+        self.setWindowTitle("Save Selected as Preset")
+        layout = QtGui.QVBoxLayout(self)
+        layout.setSpacing(SETTINGS_PAGE_SPACING)
+        section, section_layout = build_simple_section("Preset", parent=self)
+        form = build_section_form()
+        self.library = QtGui.QComboBox()
+        self.library.addItems([s["name"] + " (" + s["id"] + ")" for s in sources])
+        self.name_edit = QtGui.QLineEdit(label)
+        self.category_edit = QtGui.QLineEdit("General")
+        self.host = QtGui.QComboBox()
+        self.host.addItems(["all", "maya", "nuke", "houdini", "blender"])
+        form.addRow("Library", self.library)
+        form.addRow("Preset name", self.name_edit)
+        form.addRow("Category", self.category_edit)
+        form.addRow("Host", self.host)
+        section_layout.addLayout(form)
+        layout.addWidget(section)
+        self.location = mark_secondary_text(QtGui.QLabel())
+        self.location.setWordWrap(True)
+        layout.addWidget(self.location)
+        self.buttons = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Save | QtGui.QDialogButtonBox.Cancel)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
+        self.library.currentIndexChanged.connect(self.update_form)
+        self.name_edit.textChanged.connect(self.update_form)
+        self.category_edit.textChanged.connect(self.update_form)
+        self.update_form()
+
+    def update_form(self, *args):
+        index = self.library.currentIndex()
+        self.location.setText(self.sources[index]["remote_path"] if index >= 0 else "")
+        valid = index >= 0 and bool(text_type(self.name_edit.text()).strip()) and bool(text_type(self.category_edit.text()).strip())
+        self.buttons.button(QtGui.QDialogButtonBox.Save).setEnabled(valid)
+
+    def accept(self):
+        if self.buttons.button(QtGui.QDialogButtonBox.Save).isEnabled():
+            QtGui.QDialog.accept(self)
+
+    def values(self):
+        return {"source": self.sources[self.library.currentIndex()],
+                "label": text_type(self.name_edit.text()).strip(),
+                "category": text_type(self.category_edit.text()).strip(),
+                "dcc": text_type(self.host.currentText())}
+
+
 class SourceEditDialog(QtGui.QDialog):
     def __init__(self, source=None, parent=None):
         QtGui.QDialog.__init__(self, parent)

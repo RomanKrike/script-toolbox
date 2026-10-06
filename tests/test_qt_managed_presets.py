@@ -123,18 +123,42 @@ selected = editor._insert_cloned_tree_item(root, sibling=False)
 editor.tree.setCurrentItem(selected)
 editor.tree_changed()
 assert editor.current_item_id == "fixture-leo"
-texts = iter([("Leo", True), ("Project Pipeline", True)])
-QtGui.QInputDialog.getText = lambda *a, **k: next(texts)
-QtGui.QInputDialog.getItem = lambda *a, **k: (a[3][0], True)
+from script_toolbox.ui.managed_presets import SavePresetDialog
+from script_toolbox.compat import QtCore
+def cancel_save():
+    form = app.activeModalWidget()
+    assert isinstance(form, SavePresetDialog)
+    form.reject()
+QtCore.QTimer.singleShot(0, cancel_save)
+editor.save_selected_preset()
+assert editor._preset_save_job is None
+assert PresetResolver(registry).packages[registry.sources()[0]["id"]]["presets"] == []
+def fill_save():
+    form = app.activeModalWidget()
+    assert isinstance(form, SavePresetDialog)
+    assert form.name_edit.text() == "Leo"
+    form.name_edit.setText(" ")
+    assert not form.buttons.button(QtGui.QDialogButtonBox.Save).isEnabled()
+    form.name_edit.setText("Leo")
+    form.category_edit.setText("Project Pipeline")
+    assert form.buttons.button(QtGui.QDialogButtonBox.Save).isEnabled()
+    form.accept()
+original_resolver = editor.preset_resolver
+assert editor.apply_changes()
+assert w.preset_resolver is original_resolver
+editor.palette_filter.setText("unrelated")
+QtCore.QTimer.singleShot(0, fill_save)
 editor.save_selected_preset()
 pump(0.7)
 assert editor._preset_save_job is None
+assert w.preset_resolver is original_resolver
+assert editor.preset_resolver is not original_resolver
+assert editor.palette_filter.text() == ""
+assert editor.palette_tabs.currentIndex() == 1
 resolver = PresetResolver(registry)
 source_id = registry.sources()[0]["id"]
 assert resolver.packages[source_id]["presets"][0]["category"] == "Project Pipeline"
-editor.close()
-w.open_interface_editor()
-editor = w.editor_window
+assert original_resolver.packages[source_id]["presets"] == []
 default = editor.preset_palette.topLevelItem(0)
 assert default.text(0) == "Default"
 assert default.child(0).text(0) == "Selection"
@@ -145,9 +169,25 @@ assert studio.text(0) == "0+Media"
 assert studio.child(0).text(0) == "Project Pipeline"
 assert preset_item.text(0) == "Leo"
 assert library_address(preset_item)[0] == source_id
+assert editor.preset_palette.currentItem() is preset_item
 _filter_preset_tree(editor.preset_palette, "Leo")
 assert default.isHidden() and not studio.isHidden()
 _filter_preset_tree(editor.preset_palette, "")
+import script_toolbox.core.preset_library as publisher
+publish = publisher.publish_presets
+warnings = []
+def fail_publish(*args, **kwargs):
+    raise IOError("fixture: library is read-only")
+publisher.publish_presets = fail_publish
+QtGui.QMessageBox.warning = lambda *args: warnings.append(args[2])
+QtCore.QTimer.singleShot(0, fill_save)
+editor.save_selected_preset()
+pump(0.7)
+assert editor._preset_save_job is None
+assert warnings == ["fixture: library is read-only"]
+assert editor.preset_palette.currentItem() is preset_item
+assert len(PresetResolver(registry).packages[source_id]["presets"]) == 1
+publisher.publish_presets = publish
 editor.create_from_preset(preset_item)
 linked_id = editor.current_item_id
 assert editor.item_cache[linked_id]["items"][0]["kind"] == "reference"

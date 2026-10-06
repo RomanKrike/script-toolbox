@@ -15,7 +15,8 @@ from ..style.palette import LIST_BG
 from ..style.palette import TEXT_PALETTE_GROUP
 from .scroll_surface_frames import wrap_scroll_widget
 from .managed_presets import (populate_managed_presets, target_address,
-                              insert_reference, reference_tooltip, library_address, insert_library_preset, BackgroundJob)
+                              insert_reference, reference_tooltip, library_address, insert_library_preset,
+                              BackgroundJob, SavePresetDialog)
 from ..core.preset_references import local_copy
 from ..core.preset_references import PresetResolver
 from ..core.preset_sources import SourceRegistry
@@ -461,21 +462,13 @@ class PresetEditorMixin(object):
         if not sources:
             QtGui.QMessageBox.information(self, "Save Preset", "Create or connect a custom library in Settings > Preset Library first.")
             return
-        names = [s["name"] + " (" + s["id"] + ")" for s in sources]
-        selected, ok = QtGui.QInputDialog.getItem(self, "Save Preset", "Library", names, 0, False)
-        if not ok:
+        dialog = SavePresetDialog(sources, item["ui"]["label"], self)
+        accepted = qt_exec(dialog) == QtGui.QDialog.Accepted
+        options = dialog.values() if accepted else None
+        dialog.deleteLater()
+        if not accepted:
             return
-        source = sources[names.index(text_type(selected))]
-        label, ok = QtGui.QInputDialog.getText(self, "Save Preset", "Preset name", text=item["ui"]["label"])
-        if not ok or not text_type(label).strip():
-            return
-        category, ok = QtGui.QInputDialog.getText(self, "Save Preset", "Category", text="General")
-        if not ok or not text_type(category).strip():
-            return
-        dcc, ok = QtGui.QInputDialog.getItem(self, "Save Preset", "Host",
-            ["all", "maya", "nuke", "houdini", "blender"], 0, False)
-        if not ok:
-            return
+        source = options["source"]
         root = copy.deepcopy(item)
         def materialize(node):
             if node["kind"] == "reference":
@@ -488,14 +481,19 @@ class PresetEditorMixin(object):
         except (ValueError, TypeError, KeyError) as exc:
             QtGui.QMessageBox.warning(self, "Save Preset", text_type(exc))
             return
-        preset = {"id": "preset-" + uuid.uuid4().hex, "label": text_type(label).strip(),
-                  "category": text_type(category).strip(), "dcc": text_type(dcc), "root": root}
+        preset = {"id": "preset-" + uuid.uuid4().hex, "label": options["label"],
+                  "category": options["category"], "dcc": options["dcc"], "root": root}
         registry = self.preset_resolver.registry
         def publish():
             from ..core.preset_library import publish_presets
             from ..core.preset_sync import SyncService
             publish_presets([preset], source["remote_path"], source["id"], source["name"], merge=True)
-            return SyncService(registry).check(source["id"], download=True)
+            service = SyncService(registry)
+            status = service.check(source["id"], download=True)
+            if status["state"] != "up_to_date":
+                raise ValueError("Preset published, but local sync failed: " + status.get("error", status["state"]))
+            package = service.installed(source["id"])
+            return next(p for p in package["presets"] if p["id"] == preset["id"])
         self._preset_save_job = BackgroundJob(publish)
         self._preset_save_timer = QtCore.QTimer(self)
         def poll():
@@ -508,11 +506,40 @@ class PresetEditorMixin(object):
             if not result["ok"]:
                 QtGui.QMessageBox.warning(self, "Save Preset", result["error"])
                 return
-            # Preserve this editor's pinned definitions; the catalog refreshes
-            # when reopened, so saving never changes the active runtime.
-            self.status.setText("Preset saved. Reopen the editor to refresh the library.")
+            self._reveal_saved_preset(source["id"], result["value"])
         self._preset_save_timer.timeout.connect(poll)
         self._preset_save_timer.start(100)
+
+    def _reveal_saved_preset(self, source_id, preset):
+        # Add only the newly published definition. Existing references retain
+        # their snapshots, including when Apply has shared this resolver.
+        resolver = copy.copy(self.preset_resolver)
+        resolver.packages = dict(resolver.packages)
+        package = dict(resolver.packages.get(source_id, {}))
+        package["presets"] = list(package.get("presets", [])) + [preset]
+        resolver.packages[source_id] = package
+        self.preset_resolver = resolver
+        self.preset_palette.clear()
+        _populate_preset_tree(self.preset_palette)
+        populate_managed_presets(self, self.preset_palette)
+        self.palette_tabs.setCurrentIndex(1)
+        self.palette_filter.clear()
+        def find(item):
+            if library_address(item) == [source_id, preset["id"]]:
+                return item
+            for index in range(item.childCount()):
+                match = find(item.child(index))
+                if match is not None:
+                    return match
+            return None
+        for index in range(self.preset_palette.topLevelItemCount()):
+            match = find(self.preset_palette.topLevelItem(index))
+            if match is not None:
+                self.preset_palette.setCurrentItem(match)
+                self.preset_palette.scrollToItem(match)
+                self.status.setText("Preset saved.")
+                return
+        self.status.setText("Preset saved for host: " + preset.get("dcc", "all"))
 
     def _palette_tab_changed(self, index):
         placeholder = (

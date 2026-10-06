@@ -15,6 +15,7 @@ _VALID_DCCS = (
     "houdini",
     "nuke",
     "blender",
+    "standalone",
 )
 
 
@@ -133,6 +134,7 @@ def test_unknown_host_receives_only_universal_presets(monkeypatch):
         _registry_preset("universal", "all"),
         _registry_preset("maya_only", "maya"),
         _registry_preset("houdini_only", "houdini"),
+        _registry_preset("standalone_only", "standalone"),
         _registry_preset("invalid", "broken"),
     )
     monkeypatch.setattr(
@@ -143,7 +145,9 @@ def test_unknown_host_receives_only_universal_presets(monkeypatch):
 
     assert _preset_ids(iter_presets("standalone")) == [
         "universal",
+        "standalone_only",
     ]
+    assert _preset_ids(iter_presets("maya")) == ["universal", "maya_only"]
     assert _preset_ids(iter_presets("unknown-host")) == [
         "universal",
     ]

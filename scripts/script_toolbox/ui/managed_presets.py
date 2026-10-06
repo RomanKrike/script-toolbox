@@ -229,7 +229,7 @@ class SavePresetDialog(QtGui.QDialog):
         self.name_edit = QtGui.QLineEdit(label)
         self.category_edit = QtGui.QLineEdit("General")
         self.host = QtGui.QComboBox()
-        self.host.addItems(["all", "maya", "nuke", "houdini", "blender"])
+        self.host.addItems(["all", "maya", "nuke", "houdini", "blender", "standalone"])
         form.addRow("Library", self.library)
         form.addRow("Preset name", self.name_edit)
         form.addRow("Category", self.category_edit)

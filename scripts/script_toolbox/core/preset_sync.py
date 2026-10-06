@@ -20,7 +20,7 @@ from .preset_sources import technical_id
 
 MANIFEST = "library.json"
 SNAPSHOT = ".snapshot.json"
-HOST_FOLDERS = {"All": "all", "Maya": "maya", "Houdini": "houdini", "Nuke": "nuke", "Blender": "blender"}
+HOST_FOLDERS = {"All": "all", "Maya": "maya", "Houdini": "houdini", "Nuke": "nuke", "Blender": "blender", "Standalone": "standalone"}
 
 
 class InvalidSource(ValueError):
@@ -96,7 +96,7 @@ def load_package(root, expected_id=None):
                 continue
             parts = relative.split("/")
             if len(parts) < 2 or parts[0] not in HOST_FOLDERS:
-                raise InvalidSource("Place presets inside All, Maya, Houdini, Nuke or Blender: " + relative)
+                raise InvalidSource("Place presets inside All, Maya, Houdini, Nuke, Blender or Standalone: " + relative)
             portable = relative.lower()
             if portable in portable_paths:
                 raise InvalidSource("Duplicate portable preset path: " + relative)
@@ -134,7 +134,7 @@ def load_package(root, expected_id=None):
 
         validate_item(root_item)
         preset["root"] = create_item(root_item.get("kind"), root_item)
-        if preset.get("dcc", "all") not in ("all", "maya", "nuke", "houdini", "blender"):
+        if preset.get("dcc", "all") not in tuple(HOST_FOLDERS.values()):
             raise InvalidSource("Unknown preset DCC.")
     entries.sort(key=lambda entry: entry["file"])
     fingerprint = hashlib.sha256(json.dumps({"library": manifest, "presets": entries},

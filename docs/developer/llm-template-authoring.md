@@ -126,7 +126,7 @@ Metadata fields:
 | Field | Contract |
 | --- | --- |
 | id | Stable preset identifier. Must be unique in the preset registry. |
-| dcc | One of all, maya, houdini, nuke, blender. Use all only when the entire preset is genuinely host-independent. |
+| dcc | One of all, maya, houdini, nuke, blender, standalone. Use all only when the entire preset is genuinely host-independent. |
 | category | UI grouping label in the Presets tab. Prefer a short uppercase category such as RENDER, SELECTION, CACHE, LOOKDEV, PIPELINE. |
 | label | Human-readable preset name. |
 | description | Short searchable description / tooltip. |

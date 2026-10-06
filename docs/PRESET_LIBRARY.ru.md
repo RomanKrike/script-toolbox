@@ -22,8 +22,10 @@ New Library создаёт `library.json` в выбранной папке. Add 
 | `Houdini/Simulation/Cloth/Normal Push.json` | houdini | Simulation → Cloth |
 | `Nuke/Review/Preview.json` | nuke | Review |
 | `Blender/Modeling/Cleanup.json` | blender | Modeling |
+| `Standalone/Utilities/Start Watch.json` | standalone | Utilities |
 
-Имена папок хостов фиксированы: All, Maya, Houdini, Nuke, Blender.
+Имена папок хостов фиксированы: All, Maya, Houdini, Nuke, Blender, Standalone.
+Standalone отображает пресеты из Standalone и All; DCC отображают свои пресеты и All.
 Категории допускают произвольную глубину. Файл пресета содержит стабильный
 `id`, отображаемый `label` и `root` с обычным Item subtree. Host и категория
 определяются путём, а не полями JSON. Каждый Item имеет стабильный строковый ID;

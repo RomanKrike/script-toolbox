@@ -16,6 +16,7 @@ _SUPPORTED_DCCS = (
     "houdini",
     "nuke",
     "blender",
+    "standalone",
 )
 
 

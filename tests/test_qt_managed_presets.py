@@ -201,3 +201,45 @@ assert w.close()
 w.deleteLater()
 pump()
 ''', tmp_path)
+
+
+def test_standalone_library_host_choice_and_catalog_filter(tmp_path):
+    run_qt('''
+from script_toolbox.core.preset_sources import SourceRegistry
+from script_toolbox.core.preset_library import publish_presets
+from script_toolbox.core.preset_sync import SyncService
+from script_toolbox.core.preset_references import PresetResolver
+from script_toolbox.model import create_item
+from script_toolbox.ui import managed_presets as managed
+registry = SourceRegistry()
+remote = os.path.join(os.path.dirname(registry.cache_root), "host-library")
+root = create_item("button", {"id": "button", "name": "button"})
+definitions = [{"id": key, "label": key, "category": "Utilities", "dcc": key, "root": root}
+               for key in ("all", "standalone", "maya")]
+publish_presets(definitions, remote, "hosts", "Hosts")
+registry.put({"id": "hosts", "name": "Hosts", "remote_path": remote})
+assert os.path.isfile(os.path.join(remote, "Standalone", "Utilities", "standalone.json"))
+assert SyncService(registry).check("hosts", True)["state"] == "up_to_date"
+form = managed.SavePresetDialog(registry.sources(), "Watch", w)
+index = form.host.findText("standalone")
+assert index >= 0
+form.host.setCurrentIndex(index)
+assert form.values()["dcc"] == "standalone"
+form.close()
+form.deleteLater()
+owner = type("Owner", (object,), {})()
+owner.preset_resolver = PresetResolver(registry)
+tree = QtGui.QTreeWidget()
+managed.populate_managed_presets(owner, tree)
+category = tree.topLevelItem(0).child(0)
+assert [category.child(i).text(0) for i in range(category.childCount())] == ["all", "standalone"]
+managed.HOST = type("MayaHost", (object,), {"key": "maya"})()
+tree.clear()
+managed.populate_managed_presets(owner, tree)
+category = tree.topLevelItem(0).child(0)
+assert [category.child(i).text(0) for i in range(category.childCount())] == ["all", "maya"]
+tree.deleteLater()
+assert w.close()
+w.deleteLater()
+pump()
+''', tmp_path)

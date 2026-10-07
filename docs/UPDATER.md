@@ -1,120 +1,66 @@
 # Updater
 
-Script Toolbox uses two GitHub-backed update channels:
+Script Toolbox has two update channels: **Stable** reads the latest normal GitHub Release from `main`; **Development** reads the moving `dev-latest` prerelease from `dev`. Stable is the default. The updater chooses the plugin or Windows standalone package for the running installation.
 
-- `Stable` reads the latest normal GitHub Release produced from `main`.
-- `Development` reads the moving `dev-latest` prerelease produced from `dev`.
+## Update controls
 
-Stable remains the default.
+- **Settings → Check for Updates** starts a manual check.
+- **Settings → Update Channel → Stable / Development** changes the channel and checks it immediately.
+- **Settings → Open Settings → General → Update channel** offers the same preference.
 
-## Runtime behavior
+Checks run in a background QThread. An available update is shown as `UPDATE <version>` in the top bar; installation requires confirmation. Check/install failures are reported in the status bar or a dialog.
 
-1. The main window starts an update check in a background QThread.
-2. The selected update channel is loaded from `script_toolbox_settings.json`.
-3. If an update is available, the top bar shows `UPDATE <version>`.
-4. The user explicitly confirms installation.
-5. The updater requires the official packaged ZIP and its matching `.sha256` asset for the selected channel.
-6. Both assets are downloaded through the shared `core.http_transport` layer. On modern Windows it tries Python `urllib` first and falls back to hidden PowerShell/.NET TLS 1.2 on transport failure; on legacy Windows/Python 2 it prefers PowerShell first and falls back to `urllib`. Non-Windows hosts use `urllib` only.
-7. The ZIP SHA-256 must match the downloaded checksum before recovery, extraction, staging, or activation can touch live update state.
-8. The verified update is staged and validated before the live package is replaced.
-9. If activation fails, the transaction restores the previous package.
-10. The existing Toolbox UI is closed, all `script_toolbox.*` child modules are unloaded, the package root is reloaded in place, and the Toolbox reopens from the new files.
-11. A DCC restart is only required as a fallback if hot reload fails or a future release introduces native binaries that cannot be unloaded safely.
+## Verified installation
 
-The toolbox configuration is outside the package and is not replaced. Update-channel preferences are stored separately from `maya_script_toolbox.json`.
+The updater downloads the official ZIP and its matching `.sha256` through `core.http_transport`. The SHA-256 must match before recovery, extraction, staging or activation touches the installation. Missing package/checksum metadata or a failed verification stops installation. GitHub's generated **Source code** archives are not an installation fallback.
 
-GitHub's generated source zipball is retained only as release metadata where useful; it is not an installation fallback. If the official package, checksum asset, checksum download, or checksum verification is missing/fails, installation stops without replacing the live package.
+The installation path depends on the package:
 
-## Installation architecture
+| Package | Activation |
+| --- | --- |
+| DCC plugin | Stage and validate the shared package, activate it, then unload/reload Script Toolbox modules and reopen its UI. Restart the DCC if hot reload fails. |
+| Windows standalone | Stage the portable package, close the application, and run an external helper that activates the update and restarts `ScriptToolbox.exe`. If an automatic restart cannot be scheduled, the UI requests a manual restart. |
 
-`core.update_transaction.install_release()` is the production installation pipeline. It owns verified download handoff, transaction recovery, staging, validation, activation, rollback, and cleanup.
+Activation failures use transaction rollback/recovery. Portable updates track restart acknowledgement; they do not attempt to hot reload the active native Python/Qt runtime. User configuration and update-channel settings are preserved. See [Standalone](STANDALONE.md).
 
-`core.updater` owns release metadata, SHA-256 and archive utilities. Network request/download execution is owned by `core.http_transport`, which is also used by sharing. Updater-specific transport compatibility names remain only as forwarding wrappers; they no longer contain an independent PowerShell implementation.
+`core.update_transaction.install_release()` is the public production installation entry point; it routes portable work through `core.standalone_update`. `core.updater.install_release()` delegates to that entry point. Release metadata/archive utilities belong to `core.updater`; network execution belongs to `core.http_transport`.
 
-`core.updater.install_release()` remains as a compatibility wrapper that delegates to the transaction installer; it no longer contains a second filesystem installation implementation.
+## Stable release assets
 
-## Transport details
+For version 1.1.0, the stable release publishes:
 
-The shared transport keeps the network policy consistent between updater and sharing:
+| Package | Archive |
+| --- | --- |
+| DCC plugin | `script-toolbox-1.1.0.zip` |
+| Windows standalone | `script-toolbox-1.1.0-standalone-windows-x64.zip` |
 
-- legacy Windows/Python 2: PowerShell/.NET first, `urllib` fallback;
-- modern Windows/Python: `urllib` first, PowerShell/.NET fallback;
-- non-Windows: `urllib` only.
+Each ZIP has its own `.zip.sha256` file. `release-build.json` records the source commit, version and hashes of both archives.
 
-PowerShell uses .NET `HttpWebRequest`, TLS 1.2, explicit request/read-write timeouts and hidden startup flags. GitHub Authorization is passed to the child process through an environment variable rather than embedded in the command line. Transport failures are normalized as `TransportError` and translated by updater into `UpdateError`.
+After successful push checks on `main`, `.github/workflows/release.yml` builds both packages from the checked commit. It verifies versions, checksums and matching shared source, creates the version tag, uploads all assets to a draft, then publishes the complete release. Pull request checks do not start automatic publication. An explicit workflow dispatch on `main` is also supported. Published versions are skipped rather than overwritten; prerelease versions such as `-dev` are skipped by this stable workflow.
 
+## Development publication
 
-## Proxy configuration
+Every push to `dev` runs `.github/workflows/dev-build.yml`. After Python checks pass, it builds both packages with the same development version and stamps build channel, run number and commit metadata. Both artifacts are verified before publication.
 
-Updater and sharing use the shared proxy policy from `core.network_proxy`. Settings support System, No proxy, and Manual modes. Manual mode accepts HTTP, HTTPS, and SOCKS5 proxies with optional authentication. The same resolved proxy configuration is passed to both urllib and the Windows PowerShell/.NET fallback so changing transport backend does not bypass the selected proxy policy.
+The `dev-latest` prerelease contains:
 
-Saved proxy credentials are never written in clear text. Windows protects the password with the current user's DPAPI key; when a platform has no supported secure built-in credential backend, the password is intentionally not persisted.
+- immutable versioned plugin and standalone ZIPs, each with its checksum;
+- plugin aliases `script-toolbox-dev.zip` and `script-toolbox-dev.zip.sha256`;
+- standalone aliases `script-toolbox-standalone-dev.zip` and `script-toolbox-standalone-dev.zip.sha256`;
+- `dev-manifest.json`, published last, which maps package kinds to the versioned assets and hashes.
 
-## Update channel UI
+The moving `dev-latest` tag is updated after complete publication. Stable uses GitHub's latest normal release endpoint, so this prerelease does not become a Stable update.
 
-The Check for Updates tool button has a menu arrow.
+## Version comparison
 
-The menu contains:
+Development build numbers increase with the workflow run number. An installed Development build receives an update when the published build number is higher. Switching from Stable to Development offers the current development build. Switching back to Stable uses semantic version comparison; a stable version ranks above its development prerelease with the same numeric version.
 
-- `Stable`
-- `Development`
+Both channels share the host's user configuration. Export a backup before testing changes to configuration schemas. Ordinary configs use schema 21; linked preset configs use schema 22 and require 1.1.0 or later. Older configs are not automatically migrated.
 
-Changing the channel persists the selection and immediately checks the newly selected channel.
+## Transport and proxy settings
 
-## Stable releases
+Updater and encrypted sharing use the same network transport and **Settings → Open Settings → Network** preferences: System, No proxy or Manual (HTTP, HTTPS or SOCKS5, optional authentication).
 
-`scripts/script_toolbox/constants.py` contains the current semantic version, for example:
+On modern Windows, `urllib` is tried first, with hidden PowerShell/.NET fallback. Legacy Windows/Python 2 prefers PowerShell and falls back to `urllib`. Non-Windows uses `urllib`. PowerShell uses TLS 1.2 and explicit timeouts. Transport failures are normalized as `TransportError`/`UpdateError`.
 
-```python
-PLUGIN_VERSION = "1.0.1"
-```
-
-After the stable version reaches `main`, the `Python checks` workflow runs first. If it succeeds, `.github/workflows/release.yml` builds and validates the package, creates the matching `v<version>` tag when needed, and publishes the GitHub Release.
-
-Versions containing a prerelease suffix such as `-dev` are skipped by the stable release workflow.
-
-## Development builds
-
-Every push to `dev` runs `.github/workflows/dev-build.yml`.
-
-The workflow calls the normal Python checks as a reusable workflow. Only after those checks succeed does it:
-
-1. derive a development version such as `0.8.5-dev.42`;
-2. stamp the package with `BUILD_CHANNEL = "development"`, the workflow build number, and the commit SHA;
-3. build and checksum the package;
-4. move the `dev-latest` tag to the tested commit;
-5. create or update a single GitHub prerelease named `dev-latest`.
-
-The prerelease always exposes the same three assets:
-
-- `script-toolbox-dev.zip`
-- `script-toolbox-dev.zip.sha256`
-- `dev-manifest.json`
-
-Old Development releases are not accumulated. The single `dev-latest` prerelease is updated in place.
-
-The Stable updater uses GitHub's latest normal release endpoint, so the `dev-latest` prerelease does not become a Stable update.
-
-## Development freshness
-
-Development builds use the GitHub Actions run number as a monotonically increasing build number.
-
-If the installed package is already a Development build, the updater offers a Development update only when the `dev-latest` build number is greater than the installed `BUILD_NUMBER`.
-
-Switching from Stable to Development always offers the current `dev-latest` build. Switching from a Development build back to Stable uses the normal semantic-version comparison; a stable release with the same numeric version ranks above its development prerelease.
-
-## Public repository
-
-The repository is public, so update checks and release downloads do not require a GitHub token.
-
-The updater still supports `SCRIPT_TOOLBOX_GITHUB_TOKEN` for compatibility with private forks. Tokens are read from the process environment only and are never written into the toolbox configuration or update settings.
-
-## Manual update check
-
-The top bar contains a manual Check for Updates button. Check failures are shown in the Toolbox status bar instead of being silently ignored.
-
-## Failure behavior
-
-Missing official package/checksum metadata and checksum verification failures are reported and stop installation before the live package is replaced. Later staging/activation failures are shown to the user and use the transaction rollback/recovery mechanism to preserve the previous package.
-
-If installation succeeds but hot reload fails, the new files remain installed and Script Toolbox asks the user to restart the host application.
+Proxy passwords are protected with the user's DPAPI key on Windows. When no secure credential backend is available, passwords are not persisted. The public repository does not require a GitHub token. Private forks may use `SCRIPT_TOOLBOX_GITHUB_TOKEN`; it is read from the environment and is not stored in user settings or embedded in PowerShell command lines.

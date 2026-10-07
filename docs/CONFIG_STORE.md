@@ -16,7 +16,7 @@ Before STEP 04, every changed value called `save_config()` immediately. Because 
 
 `ConfigStore` intentionally owns no worker thread and no Qt object.
 
-The active Maya/Nuke runtime uses a single-shot `QTimer` on the DCC main thread with a 500 ms interval. Runtime `store_value()` changes mark the store dirty and restart that timer. A burst of value events therefore collapses into one config write after interaction settles.
+The active runtime uses a single-shot `QTimer` on the application main thread with a 500 ms interval. Runtime `store_value()` changes mark the store dirty and restart that timer. A burst of value events therefore collapses into one config write after interaction settles.
 
 ## Immediate saves
 
@@ -44,17 +44,12 @@ Do not move config persistence to a background Python thread merely to reduce UI
 
 The current design reduces write frequency while keeping persistence on the DCC main thread. A later split between toolbox definition and per-user runtime state can reduce serialization size further without changing this debounce contract.
 
-## Config schema migrations
+## Configuration schema validation
 
-`core.config_schema` now owns a sequential migration registry in addition to current-schema validation. Production migration functions are registered by their source version and must advance exactly one step (`N -> N+1`). `CONFIG_VERSION` remains `20`; no artificial schema bump was introduced for the framework itself.
+`CONFIG_VERSION` is **21** for ordinary documents. Documents containing linked preset references are saved as **22** (`REFERENCE_CONFIG_VERSION`) and loaded through the explicit reference-aware path in `core.config`.
 
-Load behavior is intentionally strict:
+`core.config_schema` validates declared versions; it has no migration registry. Older schemas are rejected rather than converted. Non-empty versionless documents and unsupported newer versions are also rejected. An empty mapping is accepted internally when creating a new configuration.
 
-- current-schema documents are validated and copied without migration;
-- older documents are migrated only when every required step is registered;
-- a missing step aborts with an explicit schema error;
-- documents newer than the running build are rejected and never downgraded;
-- migration functions receive a copy, must return a dictionary with exactly the next version, and remain independent of Qt/DCC APIs;
-- migrated output is validated again as the current schema before normalization.
+`core.config` serializes an authored reference document rather than persisting the resolved runtime copy. Linked values remain local; library definitions are resolved from the verified local preset cache. See [Preset libraries](guide/preset-libraries.md).
 
-Migration during `load_config()` is in-memory only. The source file is not overwritten merely because it was migrated successfully. If the migrated document is later saved through the normal `save_config()` path, the existing atomic-write/backup machinery validates the source, rotates the raw pre-save file into `.bak1`, and only then replaces the primary config. No second migration-specific backup system is maintained.
+Config recovery from a valid backup is separate from schema migration. Atomic writes, backup rotation and recovery do not convert an incompatible old document into the current schema.

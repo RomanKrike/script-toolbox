@@ -1,5 +1,5 @@
 site_name: Script Toolbox
-site_description: Configurable script toolbox for Maya, Nuke, and Houdini
+site_description: Configurable script toolbox for Maya, Nuke, Houdini, and Windows standalone
 site_url: https://romankrike.github.io/script-toolbox/
 repo_name: RomanKrike/script-toolbox
 repo_url: https://github.com/RomanKrike/script-toolbox
@@ -37,7 +37,7 @@ plugins:
         - locale: ru
           name: Русский
           build: true
-          site_description: Настраиваемый набор скриптов и конструктор интерфейсов для Maya, Nuke и Houdini
+          site_description: Настраиваемый набор скриптов и конструктор интерфейсов для Maya, Nuke, Houdini и Windows standalone
           nav_translations:
             Home: Главная
             Getting started: Начало работы
@@ -74,6 +74,7 @@ nav:
       - DCC integrations: guide/dcc-integrations.md
       - Preset libraries: guide/preset-libraries.md
   - Hosts:
+      - Standalone: STANDALONE.md
       - Nuke: NUKE.md
       - Houdini: HOUDINI.md
   - Developer:

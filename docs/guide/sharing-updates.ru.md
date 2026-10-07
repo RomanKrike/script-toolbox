@@ -41,7 +41,7 @@ Stable-релизы создаются из `main` после совместно
 
 ## Сеть и proxy settings
 
-Updater и encrypted sharing используют общий HTTP transport и одну конфигурацию прокси. Она находится в **Settings → Network**:
+Updater и encrypted sharing используют общий HTTP transport и одну конфигурацию прокси. Она находится в **Settings → Open Settings → Network**:
 
 - **System** использует proxy configuration, предоставленную ОС/окружением;
 - **No proxy** подключается напрямую;
@@ -53,7 +53,9 @@ Updater и encrypted sharing используют общий HTTP transport и �
 
 Updater устанавливает только официальный package asset Script Toolbox, для которого опубликован соответствующий `.sha256`. Оба файла скачиваются, и SHA-256 архива проверяется до того, как transaction recovery, extraction, staging или activation могут затронуть live package. Отсутствующий или неправильный checksum останавливает установку; GitHub source zipball больше не используется как install fallback.
 
-После проверки transaction заменяет установленный package и сохраняет пользовательскую конфигурацию, которая находится вне пакета. Затем выполняется попытка hot reload; перезапуск DCC используется только как fallback, если безопасный reload невозможен.
+Updater выбирает ZIP плагина или standalone в зависимости от запущенного пакета. В DCC после замены общего пакета выполняется hot reload; если он не удался, требуется перезапуск хоста. В Windows standalone обновление подготавливается, приложение закрывается, а внешний helper активирует пакет и перезапускает `ScriptToolbox.exe`. Пользовательская конфигурация сохраняется. При ошибке активации выполняется откат к предыдущему пакету.
+
+Ручная проверка: **Settings → Check for Updates**. Канал выбирается через **Settings → Update Channel → Stable / Development** либо поле **Update channel** в **Settings → Open Settings → General**.
 
 Подробности реализации: [Updater internals](../UPDATER.md).
 

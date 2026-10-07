@@ -1,108 +1,66 @@
-# Updater
+# Обновления
 
-Script Toolbox использует два GitHub-backed канала обновления:
+У Script Toolbox два канала: **Stable** читает последний обычный GitHub Release из `main`, **Development** — перемещаемый prerelease `dev-latest` из `dev`. По умолчанию выбран Stable. Updater выбирает пакет плагина или Windows standalone в зависимости от запущенной установки.
 
-- `Stable` читает последний обычный GitHub Release, опубликованный из `main`.
-- `Development` читает перемещаемый prerelease `dev-latest`, публикуемый из `dev`.
+## Управление обновлениями
 
-Stable остаётся каналом по умолчанию.
+- **Settings → Check for Updates** запускает ручную проверку.
+- **Settings → Update Channel → Stable / Development** меняет канал и сразу проверяет обновления.
+- **Settings → Open Settings → General → Update channel** позволяет изменить ту же настройку.
 
-## Поведение Runtime
+Проверка выполняется в background QThread. Доступное обновление отображается как `UPDATE <version>` в верхней панели; установка требует подтверждения. Ошибки показываются в status bar или диалоге.
 
-1. Главное окно запускает проверку обновлений в background QThread.
-2. Выбранный update channel загружается из `script_toolbox_settings.json`.
-3. Если обновление доступно, top bar показывает `UPDATE <version>`.
-4. Пользователь явно подтверждает установку.
-5. Updater требует официальный packaged ZIP выбранного канала и соответствующий asset `.sha256`.
-6. Оба asset скачиваются. Если HTTPS stack Python 2.7 в Maya 2015 на Windows не может обратиться к GitHub, updater прозрачно переключается на PowerShell/.NET TLS 1.2 без открытия console window.
-7. SHA-256 ZIP должен совпасть со скачанным checksum до того, как recovery, extraction, staging или activation смогут затронуть live update state.
-8. Проверенный update сначала проходит staging и validation, затем заменяется live package.
-9. Если activation завершается ошибкой, transaction восстанавливает предыдущий package.
-10. Существующий Toolbox UI закрывается, все дочерние модули `script_toolbox.*` выгружаются, package root перезагружается на месте, и Toolbox снова открывается уже из новых файлов.
-11. Перезапуск DCC требуется только как fallback, если hot reload не удался или будущий release добавит native binaries, которые нельзя безопасно выгрузить.
+## Проверенная установка
 
-Конфигурация toolbox находится вне package и не заменяется. Preferences канала обновления хранятся отдельно от `maya_script_toolbox.json`.
+Updater скачивает официальный ZIP и соответствующий `.sha256` через `core.http_transport`. Контрольная сумма проверяется до recovery, распаковки, staging и активации. Если пакет или checksum отсутствует либо проверка не прошла, установка останавливается. Архивы GitHub **Source code** не используются как запасной вариант установки.
 
-GitHub source zipball сохраняется только как release metadata там, где это полезно, но больше не используется как install fallback. Если отсутствует официальный package или checksum asset, checksum не скачался либо SHA-256 не совпал, installation останавливается без замены live package.
+Активация зависит от пакета:
 
-## Архитектура установки
+| Пакет | Активация |
+| --- | --- |
+| Плагин DCC | Общий пакет подготавливается, проверяется и активируется; модули Script Toolbox перезагружаются, окно открывается снова. При ошибке hot reload требуется перезапуск DCC. |
+| Windows standalone | Portable-пакет подготавливается, приложение закрывается, внешний helper активирует обновление и перезапускает `ScriptToolbox.exe`. Если автоматический перезапуск нельзя запланировать, UI просит выполнить его вручную. |
 
-`core.update_transaction.install_release()` — единственный production installation pipeline. Он отвечает за verified download handoff, transaction recovery, staging, validation, activation, rollback и cleanup.
+При ошибке активации используются rollback/recovery. Portable-обновление отслеживает подтверждение перезапуска и не перезагружает работающий native Python/Qt runtime на месте. Пользовательская конфигурация и настройка канала сохраняются. См. [Standalone](STANDALONE.md).
 
-`core.updater` отвечает за release metadata, network/download, SHA-256 и archive utilities. Публичное имя `install_release()` сохранено там только как compatibility wrapper, делегирующий transaction installer; второй независимый filesystem installer удалён.
+`core.update_transaction.install_release()` — публичная точка установки; portable-процесс передаётся в `core.standalone_update`. `core.updater.install_release()` делегирует ей вызов. Metadata релиза и работа с архивами находятся в `core.updater`, сетевое выполнение — в `core.http_transport`.
 
+## Файлы стабильного релиза
 
-## Настройка прокси
+Для версии 1.1.0 публикуются:
 
-Updater и sharing используют общую proxy policy из `core.network_proxy`. Настройки поддерживают режимы System, No proxy и Manual. В Manual доступны HTTP, HTTPS и SOCKS5 с опциональной авторизацией. Одна и та же итоговая proxy configuration передаётся и в `urllib`, и в Windows PowerShell/.NET fallback, поэтому смена transport backend не обходит выбранную proxy policy.
+| Пакет | Архив |
+| --- | --- |
+| Плагин DCC | `script-toolbox-1.1.0.zip` |
+| Windows standalone | `script-toolbox-1.1.0-standalone-windows-x64.zip` |
 
-Сохранённые proxy credentials никогда не записываются открытым текстом. В Windows пароль защищается ключом DPAPI текущего пользователя; если на платформе нет поддерживаемого безопасного встроенного credential backend, пароль намеренно не сохраняется.
+У каждого ZIP есть файл `.zip.sha256`. `release-build.json` содержит версию, исходный коммит и хеши обоих архивов.
 
-## UI канала обновления
+После успешных push-проверок `main` workflow `.github/workflows/release.yml` собирает оба пакета из проверенного коммита. Проверяются версии, контрольные суммы и совпадение общего исходного кода. Затем создаётся тег версии, файлы загружаются в draft и полный релиз публикуется. Проверки pull request не запускают автоматическую публикацию. Также поддерживается явный workflow dispatch на `main`. Опубликованные версии пропускаются без перезаписи; версии с prerelease-суффиксом вроде `-dev` не публикуются этим stable workflow.
 
-Tool button Check for Updates имеет стрелку меню.
+## Публикация Development
 
-Меню содержит:
+Каждый push в `dev` запускает `.github/workflows/dev-build.yml`. После Python checks собираются оба пакета с одинаковой development-версией и metadata канала, номера запуска и коммита. Оба пакета проверяются до публикации.
 
-- `Stable`
-- `Development`
+Prerelease `dev-latest` содержит:
 
-Смена канала сохраняет выбор и сразу проверяет вновь выбранный канал.
+- неизменяемые версионированные ZIP плагина и standalone с отдельными checksum;
+- aliases плагина `script-toolbox-dev.zip` и `script-toolbox-dev.zip.sha256`;
+- aliases standalone `script-toolbox-standalone-dev.zip` и `script-toolbox-standalone-dev.zip.sha256`;
+- `dev-manifest.json`, публикуемый последним: он связывает типы пакетов с версионированными файлами и их хешами.
 
-## Stable releases
+Тег `dev-latest` перемещается после полной публикации. Stable читает последний обычный релиз, поэтому development prerelease не становится обновлением Stable.
 
-`scripts/script_toolbox/constants.py` содержит текущую semantic version, например:
+## Сравнение версий
 
-```python
-PLUGIN_VERSION = "1.0.1"
-```
+Development build number растёт с номером workflow run. Для установленной Development-сборки предлагается версия с большим build number. При переходе Stable → Development предлагается текущая dev-сборка. Обратный переход использует semantic version comparison: стабильная версия выше development prerelease с тем же числовым номером.
 
-Когда stable version попадает в `main`, сначала выполняется workflow `Python checks`. После успешного завершения `.github/workflows/release.yml` собирает и проверяет package, при необходимости создаёт tag `v<version>` и публикует GitHub Release.
+Оба канала используют одну пользовательскую конфигурацию хоста. Перед проверкой изменений схемы экспортируйте backup. Обычные configs используют schema 21, configs со связанными пресетами — schema 22 и требуют 1.1.0 или новее. Старые configs автоматически не мигрируют.
 
-Версии с prerelease suffix вроде `-dev` пропускаются stable release workflow.
+## Сеть и прокси
 
-## Development builds
+Updater и encrypted sharing используют общий transport и настройки **Settings → Open Settings → Network**: System, No proxy или Manual (HTTP, HTTPS, SOCKS5; опциональная авторизация).
 
-Каждый push в `dev` запускает `.github/workflows/dev-build.yml`.
+В современном Windows сначала используется `urllib`, затем скрытый PowerShell/.NET fallback. В legacy Windows/Python 2 порядок обратный. На других платформах используется `urllib`. PowerShell использует TLS 1.2 и явные timeouts. Ошибки приводятся к `TransportError`/`UpdateError`.
 
-Workflow вызывает обычные Python checks как reusable workflow. Только после их успеха он:
-
-1. формирует development version вроде `0.8.5-dev.42`;
-2. stamps package значениями `BUILD_CHANNEL = "development"`, workflow build number и commit SHA;
-3. собирает package и checksum;
-4. перемещает tag `dev-latest` на протестированный commit;
-5. создаёт или обновляет один GitHub prerelease `dev-latest`.
-
-Prerelease всегда содержит три asset:
-
-- `script-toolbox-dev.zip`
-- `script-toolbox-dev.zip.sha256`
-- `dev-manifest.json`
-
-Старые Development releases не накапливаются. Единственный prerelease `dev-latest` обновляется на месте.
-
-Stable updater использует endpoint последнего обычного GitHub Release, поэтому prerelease `dev-latest` не становится Stable update.
-
-## Свежесть Development
-
-Development builds используют GitHub Actions run number как монотонно возрастающий build number.
-
-Если установленный package уже является Development build, updater предлагает Development update только когда build number у `dev-latest` больше установленного `BUILD_NUMBER`.
-
-Переход со Stable на Development всегда предлагает текущий `dev-latest`. Переход с Development build обратно на Stable использует обычное semantic-version comparison; stable release с той же numeric version выше его development prerelease.
-
-## Публичный репозиторий
-
-Репозиторий публичный, поэтому проверки обновлений и скачивание release не требуют GitHub token.
-
-Updater сохраняет поддержку `SCRIPT_TOOLBOX_GITHUB_TOKEN` для совместимости с private forks. Tokens читаются только из process environment и никогда не записываются в toolbox configuration или update settings.
-
-## Ручная проверка обновлений
-
-Top bar содержит кнопку Check for Updates. Ошибки проверки показываются в status bar Toolbox вместо молчаливого игнорирования.
-
-## Поведение при ошибках
-
-Отсутствующий официальный package/checksum metadata и ошибки checksum verification показываются пользователю и останавливают installation до замены live package. Более поздние ошибки staging/activation используют transaction rollback/recovery mechanism, чтобы сохранить предыдущий package.
-
-Если installation успешна, но hot reload завершается ошибкой, новые файлы остаются установленными и Script Toolbox просит перезапустить host application.
+В Windows пароль прокси защищён ключом DPAPI пользователя. Без безопасного credential backend пароль не сохраняется. Для публичного репозитория GitHub token не нужен. Private forks могут использовать `SCRIPT_TOOLBOX_GITHUB_TOKEN` из окружения; токен не сохраняется в настройках и не вставляется в командную строку PowerShell.

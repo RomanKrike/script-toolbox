@@ -197,7 +197,9 @@ def test_nuke_dock_panel_is_not_exposed():
     assert '"dock_panel"' not in adapter
     assert '"Register Dock Panel"' not in runtime
     assert "def register_panel(" not in runtime
-    assert "register_nuke_panel" not in package
+    # The deprecated startup entry point remains safe, without a dock option.
+    assert "def register_nuke_panel():" in package
+    assert "return register_nuke_menu()" in package
 
 
 def test_houdini_shelf_runtime_uses_shelfdock_without_mutating_shelf_sets():

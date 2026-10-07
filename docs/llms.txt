@@ -2,7 +2,7 @@
 
 > Configurable script toolbox and UI builder for Maya, Nuke, and Houdini.
 
-This file is the LLM-oriented entry point for the current stable Script Toolbox contract on `main`. The current configuration schema is 21.
+This file is the LLM-oriented entry point for the current stable Script Toolbox contract on `main`. Ordinary configs use schema 21; linked preset reference configs use schema 22.
 
 For requests to create a Script Toolbox template, preset, reusable UI block, or importable configuration, read the authoring specification first.
 

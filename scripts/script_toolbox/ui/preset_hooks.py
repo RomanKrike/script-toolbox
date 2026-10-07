@@ -229,16 +229,47 @@ class PresetEditorMixin(object):
         super(PresetEditorMixin, self).__init__(*args, **kwargs)
 
     def apply_changes(self):
+        # Apply is an explicit snapshot activation boundary. Re-read only the
+        # verified local cache; never access the library's network folder here.
+        # A long-lived editor must not restore an old snapshot after Reload.
         old = self.toolbox.preset_resolver
-        self.toolbox.preset_resolver = self.preset_resolver
+        old_editor = self.preset_resolver
+        resolver = PresetResolver(old_editor.registry)
+        self.preset_resolver = resolver
+        self.toolbox.preset_resolver = resolver
         try:
             result = super(PresetEditorMixin, self).apply_changes()
         except Exception:
             self.toolbox.preset_resolver = old
+            self.preset_resolver = old_editor
             raise
         if result is False:
             self.toolbox.preset_resolver = old
+            self.preset_resolver = old_editor
+        else:
+            self._refresh_preset_catalog()
         return result
+
+    def _refresh_preset_catalog(self):
+        selected = library_address(self.preset_palette.currentItem())
+        self.preset_palette.clear()
+        _populate_preset_tree(self.preset_palette)
+        populate_managed_presets(self, self.preset_palette)
+        self.filter_palette(text_type(self.palette_filter.text()))
+        if selected is not None:
+            def find(item):
+                if library_address(item) == selected:
+                    return item
+                for index in range(item.childCount()):
+                    match = find(item.child(index))
+                    if match is not None:
+                        return match
+                return None
+            for index in range(self.preset_palette.topLevelItemCount()):
+                match = find(self.preset_palette.topLevelItem(index))
+                if match is not None:
+                    self.preset_palette.setCurrentItem(match)
+                    break
 
     def make_tree_item(self, data):
         item = super(PresetEditorMixin, self).make_tree_item(data)
@@ -519,9 +550,7 @@ class PresetEditorMixin(object):
         package["presets"] = list(package.get("presets", [])) + [preset]
         resolver.packages[source_id] = package
         self.preset_resolver = resolver
-        self.preset_palette.clear()
-        _populate_preset_tree(self.preset_palette)
-        populate_managed_presets(self, self.preset_palette)
+        self._refresh_preset_catalog()
         self.palette_tabs.setCurrentIndex(1)
         self.palette_filter.clear()
         def find(item):

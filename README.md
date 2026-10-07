@@ -4,6 +4,8 @@ Configurable script toolbox for Maya, Nuke, and Houdini.
 
 **Documentation:** https://romankrike.github.io/script-toolbox/
 
+**Preset library manual:** [English](docs/guide/preset-libraries.md) · [Русский](docs/guide/preset-libraries.ru.md)
+
 Current host targets:
 
 - Maya 2015+ — PySide / Qt 4 on Maya 2015–2016, PySide2 / Qt 5 on Maya 2017–2024, and PySide6 / Qt 6 on Maya 2025+; Python + MEL

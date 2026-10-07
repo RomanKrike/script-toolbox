@@ -49,6 +49,7 @@ plugins:
             Scripting: Скрипты
             Sharing and updates: Обмен и обновления
             DCC integrations: Интеграции DCC
+            Preset libraries: Библиотеки пресетов
             Hosts: Хосты
             Developer: Разработчикам
             Overview: Обзор
@@ -71,6 +72,7 @@ nav:
       - Scripting: guide/scripting.md
       - Sharing and updates: guide/sharing-updates.md
       - DCC integrations: guide/dcc-integrations.md
+      - Preset libraries: guide/preset-libraries.md
   - Hosts:
       - Nuke: NUKE.md
       - Houdini: HOUDINI.md

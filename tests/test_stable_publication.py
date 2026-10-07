@@ -61,6 +61,10 @@ def test_bad_stable_package_never_prepares_publication(tmp_path, failure):
 
 def test_stable_workflow_waits_for_both_artifacts_and_publishes_draft_last():
     workflow = (Path(__file__).parents[1] / '.github/workflows/release.yml').read_text()
+    source = workflow.split('  source:', 1)[1].split('  plugin:', 1)[0]
+    assert "github.event.workflow_run.event == 'push'" in source
+    assert "github.event.workflow_run.head_branch == 'main'" in source
+    assert 'github.event.workflow_run.head_repository.full_name == github.repository' in source
     publish = workflow.split('  publish:', 1)[1]
     assert 'needs: [source, plugin, portable]' in publish
     assert "needs.portable.result == 'success'" in publish

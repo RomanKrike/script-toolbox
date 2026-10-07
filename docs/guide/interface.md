@@ -59,6 +59,6 @@ Use presets for repeatable tool patterns; use JSON Import/Export when you need t
 
 ## Configuration lifecycle
 
-The editor saves a JSON document. Script Toolbox currently uses a single active configuration schema while the project is under development; unsupported older or newer non-empty schemas are rejected rather than silently guessed or converted.
+The editor saves a JSON document. Ordinary configs use schema **21**; configs containing linked preset references use schema **22** and require Script Toolbox 1.1.0 or later. Other versions and non-empty versionless configs are rejected. Older configs are not migrated automatically. Built-in presets are inserted as local copies; managed library controls remain linked until converted to a local copy. See [Preset libraries](preset-libraries.md).
 
 The user configuration is stored outside the installed plugin package and is preserved by the updater.

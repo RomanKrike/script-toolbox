@@ -1,6 +1,6 @@
 # Script Toolbox
 
-**Script Toolbox** is a configurable script launcher and UI builder for **Autodesk Maya, Foundry Nuke, and SideFX Houdini**. Build reusable interfaces from buttons, fields, menus, layout containers, icons, images, labels, and other items, then attach Python or host-specific scripts to them.
+**Script Toolbox** is a configurable script launcher and UI builder for **Autodesk Maya, Foundry Nuke, SideFX Houdini, and Windows standalone**. Build reusable interfaces from buttons, fields, menus, layout containers, icons, images, labels, and other items, then attach Python or host-specific scripts to them.
 
 <div class="stx-grid" markdown>
 
@@ -27,6 +27,10 @@ Use Python, MEL, or HScript according to the active host. Items expose stable ID
 
 </div>
 
+## Stable 1.1.0
+
+Managed [preset libraries](guide/preset-libraries.md) and the portable [Windows standalone application](STANDALONE.md) are available in stable releases. Download the package matching your use case from [GitHub Releases](https://github.com/RomanKrike/script-toolbox/releases/latest).
+
 ## What you can build
 
 Script Toolbox supports nested folder containers, rows and columns, tabs, radio groups, buttons and toggle actions, icons, images, text and numeric controls, checkboxes, menus, colors, fields, labels, separators, and event bindings.
@@ -46,6 +50,7 @@ Common workflows include:
 | Maya | Maya 2015+ | PySide / Qt 4 on 2015–2016; PySide2 / Qt 5 on 2017–2024; PySide6 / Qt 6 on 2025+ | Python, MEL |
 | Nuke | Nuke 12+ | PySide2 / Qt 5 on 12–15; PySide6 / Qt 6 on 16+ | Python |
 | Houdini | Houdini 19+ | PySide2 / Qt 5 on 19–20.x; optional PySide6 / Qt 6 on Houdini 20.5 Qt 6 builds; Houdini 21 main builds use PySide6 / Qt 6 while separate Qt 5.15.2 builds use PySide2; Houdini 22+ uses PySide6 / Qt 6 | Python, HScript |
+| Windows standalone | Windows x64 portable | Bundled Python 3.11 / PySide6 | Python |
 
 Script Toolbox uses one shared UI implementation across all supported hosts. The runtime compatibility layer selects the host-appropriate Qt/PySide generation, prefers a binding already loaded or selected by the DCC, and keeps the legacy QtGui-style API used by the original Maya 2015 implementation.
 

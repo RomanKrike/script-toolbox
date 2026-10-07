@@ -41,7 +41,7 @@ Stable releases are created from `main` after accumulated changes in `dev` have 
 
 ## Network and proxy settings
 
-Updater and encrypted sharing use the same HTTP transport and proxy configuration. Configure it in **Settings → Network**:
+Updater and encrypted sharing use the same HTTP transport and proxy configuration. Configure it in **Settings → Open Settings → Network**:
 
 - **System** uses the proxy configuration exposed by the operating system/environment;
 - **No proxy** connects directly;
@@ -53,7 +53,9 @@ Use **Test connection** before saving when working behind a studio proxy. Proxy 
 
 The updater installs only the official Script Toolbox package asset paired with its `.sha256` asset. It downloads both files and verifies the archive SHA-256 before transaction recovery, extraction, staging, or activation can touch the live package. Missing or invalid checksums stop installation; GitHub source zipballs are not an installation fallback.
 
-After verification, the transaction replaces the installed package while preserving user configuration stored outside the package. It then attempts a hot reload; restarting the host is the fallback when a safe reload cannot complete.
+The updater selects the plugin or standalone asset for the running package. In a DCC it replaces the shared package and attempts a hot reload; restarting the host is the fallback if reload fails. Windows standalone stages the update, closes the application, and uses an external helper to activate it and restart `ScriptToolbox.exe`. User configuration is preserved. A failed activation rolls back to the previous package.
+
+Check manually with **Settings → Check for Updates**. Select **Settings → Update Channel → Stable / Development**, or change **Update channel** in **Settings → Open Settings → General**.
 
 For implementation details, see [Updater internals](../UPDATER.md).
 

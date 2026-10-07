@@ -1,12 +1,12 @@
 # Script Toolbox
 
-**Script Toolbox** — настраиваемый лаунчер скриптов и конструктор интерфейсов для **Autodesk Maya, Foundry Nuke и SideFX Houdini**. Создавайте многоразовые интерфейсы из кнопок, полей, меню, контейнеров, иконок, изображений, подписей и других элементов, а затем назначайте им Python-скрипты или команды конкретного DCC-хоста.
+**Script Toolbox** — настраиваемый лаунчер скриптов и конструктор интерфейсов для **Autodesk Maya, Foundry Nuke, SideFX Houdini и отдельного приложения Windows**. Создавайте многоразовые интерфейсы из кнопок, полей, меню, контейнеров, иконок, изображений, подписей и других элементов, а затем назначайте им Python-скрипты или команды конкретного DCC-хоста.
 
 <div class="stx-grid" markdown>
 
 <div class="stx-card" markdown>
 ### Установка
-Скачайте релиз, подключите Script Toolbox к вашему DCC и откройте toolbox.
+Скачайте релиз, запустите отдельное приложение или подключите Script Toolbox к вашему DCC.
 
 [Руководство по установке](getting-started/installation.md)
 </div>
@@ -27,6 +27,10 @@
 
 </div>
 
+## Стабильная версия 1.1.0
+
+[Библиотеки пресетов](guide/preset-libraries.md) и отдельное [portable-приложение Windows](STANDALONE.md) доступны в стабильных релизах. Выберите нужный пакет на странице [GitHub Releases](https://github.com/RomanKrike/script-toolbox/releases/latest).
+
 ## Что можно собрать
 
 Script Toolbox поддерживает вложенные Folder-контейнеры, Rows и Columns, Tabs, Radio-группы, обычные и toggle-кнопки, иконки, изображения, текстовые и числовые контролы, Checkbox, Menu, Color, Field, Label, Separator и событийные bindings.
@@ -46,6 +50,7 @@ Script Toolbox поддерживает вложенные Folder-контейн
 | Maya | Maya 2015+ | PySide / Qt 4 на 2015–2016; PySide2 / Qt 5 на 2017–2024; PySide6 / Qt 6 на 2025+ | Python, MEL |
 | Nuke | Nuke 12+ | PySide2 / Qt 5 на 12–15; PySide6 / Qt 6 на 16+ | Python |
 | Houdini | Houdini 19+ | PySide2 / Qt 5 на 19–20.x; опционально PySide6 / Qt 6 в Qt 6-сборках Houdini 20.5; основные сборки Houdini 21 используют PySide6 / Qt 6, отдельные Qt 5.15.2-сборки — PySide2; Houdini 22+ использует PySide6 / Qt 6 | Python, HScript |
+| Windows standalone | Windows x64 portable | Встроенные Python 3.11 / PySide6 | Python |
 
 Для всех поддерживаемых DCC используется одна реализация UI. Runtime compatibility layer выбирает подходящее поколение Qt/PySide, предпочитает binding, уже загруженный или выбранный самим DCC, и сохраняет legacy QtGui-style API исходной реализации для Maya 2015.
 

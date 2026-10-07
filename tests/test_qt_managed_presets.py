@@ -144,13 +144,15 @@ def fill_save():
     form.accept()
 original_resolver = editor.preset_resolver
 assert editor.apply_changes()
-assert w.preset_resolver is original_resolver
+applied_resolver = w.preset_resolver
+assert applied_resolver is editor.preset_resolver
+assert applied_resolver is not original_resolver
 editor.palette_filter.setText("unrelated")
 QtCore.QTimer.singleShot(0, fill_save)
 editor.save_selected_preset()
 pump(0.7)
 assert editor._preset_save_job is None
-assert w.preset_resolver is original_resolver
+assert w.preset_resolver is applied_resolver
 assert editor.preset_resolver is not original_resolver
 assert editor.palette_filter.text() == ""
 assert editor.palette_tabs.currentIndex() == 1
@@ -196,6 +198,60 @@ from script_toolbox.model import walk_items
 linked = next(i for i in walk_items(w.config, include_sections=True) if i["id"] == linked_id)
 assert linked["items"][0]["kind"] == "menu"
 assert 'get_value("{0}")'.format(linked["items"][0]["name"]) in linked["items"][1]["bindings"][0]["script"]
+editor.close()
+assert w.close()
+w.deleteLater()
+pump()
+''', tmp_path)
+
+
+def test_apply_activates_latest_library_without_losing_staged_values(tmp_path):
+    run_qt('''
+import copy
+from script_toolbox.core.preset_sources import SourceRegistry
+from script_toolbox.core.preset_library import publish_presets
+from script_toolbox.core.preset_sync import SyncService
+from script_toolbox.model import create_item
+registry = SourceRegistry()
+remote = os.path.join(os.path.dirname(registry.cache_root), "apply-library")
+target = create_item("menu", {"id":"shots", "name":"shots", "ui":{"label":"Before sync"},
+                              "props":{"items":["sh001","sh002"]}})
+preset = {"id":"shots-preset", "label":"Shots", "root":target}
+publish_presets([preset], remote, "studio", "Studio")
+registry.put({"id":"studio", "name":"Studio", "remote_path":remote})
+assert SyncService(registry).check("studio", True)["state"] == "up_to_date"
+w.reload_config()
+reference = w.preset_resolver.create_reference("studio", "shots-preset", "shots")
+reference["props"]["state"]["value"] = "sh002"
+w.config = {"version":21, "sections":[create_item("folder", {
+    "id":"root", "name":"root", "items":[reference]})]}
+w.save()
+w.rebuild()
+w.open_interface_editor()
+editor = w.editor_window
+old_snapshot = editor.preset_resolver
+# A staged edit must survive activation of the latest library snapshot.
+editor.item_cache["root"]["ui"]["label"] = "Local staged folder"
+editor.populate_tree()
+updated = copy.deepcopy(preset)
+updated["root"]["ui"]["label"] = "After sync"
+updated["root"]["props"]["items"].append("sh003")
+publish_presets([updated], remote, "studio", "Studio")
+assert SyncService(registry).check("studio", True)["state"] == "up_to_date"
+# Applying must only read local snapshots, including when the share is offline.
+import shutil
+shutil.rmtree(remote)
+assert editor.apply_changes()
+assert w.preset_resolver is not old_snapshot
+assert w.find_item(reference["id"])["ui"]["label"] == "After sync"
+assert w.get_value(reference["id"]) == "sh002"
+assert w.config["sections"][0]["ui"]["label"] == "Local staged folder"
+assert "sh003" in w.find_item(reference["id"])["props"]["items"]
+# Reload followed by Apply from the same editor cannot reactivate the old cache.
+w.reload_config()
+assert editor.apply_changes()
+assert w.find_item(reference["id"])["ui"]["label"] == "After sync"
+assert w.get_value(reference["id"]) == "sh002"
 editor.close()
 assert w.close()
 w.deleteLater()

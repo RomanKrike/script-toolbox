@@ -2,6 +2,8 @@
 
 import os
 
+import pytest
+
 from script_toolbox.model.fields import ColorField
 from script_toolbox.model.item_builtins import register_builtin_items
 from script_toolbox.model.item_registry import ITEM_TYPES
@@ -271,6 +273,8 @@ def _install(namespace, registry):
             return result
 
     _Toolbox, _DebouncedToolbox = Toolbox, DebouncedToolbox
+    for kind in registry.renderers:
+        ITEM_TYPES.get(kind).value_binding_factory = namespace["builtin_value_binding_factory"](kind)
     namespace["synchronize_runtime_value_renderers"](registry)
 
 
@@ -523,3 +527,20 @@ def test_ui_installs_sync_for_live_debounced_runtime_after_shared_decoration():
     for filename in ("main_window.py", "debounced_main_window.py"):
         window = _read("scripts/script_toolbox/ui/" + filename)
         assert "self.sync_runtime_value(key)" in window
+
+
+
+@pytest.fixture(autouse=True)
+def restore_binding_factories():
+    register_builtin_items()
+    before = [(definition, definition.value_binding_factory) for definition in ITEM_TYPES.all()]
+    yield
+    for definition, factory in before:
+        definition.value_binding_factory = factory
+
+
+def test_builtin_adapters_are_not_assigned_to_custom_declarative_renderers():
+    factory = _runtime_value_sync_namespace()['builtin_value_binding_factory']
+    assert factory('string', '.runtime_renderers:_render_string') is not None
+    assert factory('string', '.custom_plugin:render_string') is None
+    assert factory('custom', '.custom_plugin:render_custom') is None

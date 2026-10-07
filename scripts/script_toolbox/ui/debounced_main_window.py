@@ -390,6 +390,7 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         self.cancel_scheduled_state_refresh()
         self.clear_host_callbacks()
         self.preset_source_scheduler.stop()
+        self.clear_value_widgets()
 
         if self.selection_timer is not None:
             self.selection_timer.stop()

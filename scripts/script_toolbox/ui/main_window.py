@@ -793,7 +793,7 @@ class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWind
             self.preset_resolver = PresetResolver(SourceRegistry())
         self.preset_resolver.resolve_document(self.config)
         invalidate_document_index(self.config)
-        self.value_widgets = {}
+        self.clear_value_widgets()
         self.field_widgets = {}
         self.state_button_widgets = {}
         self.toggle_icon_widgets = {}

@@ -131,6 +131,8 @@ def _install_synthetic_ui_package(monkeypatch):
             registry.register(definition.kind, value_wrapper, replace=True)
         return registry
 
+    value_sync.builtin_value_binding_factory = lambda kind, renderer_path=None: None
+    value_sync.connect_value_signal = lambda root, signal, callback: signal.connect(callback)
     value_sync.synchronize_runtime_value_renderers = (
         synchronize_runtime_value_renderers
     )

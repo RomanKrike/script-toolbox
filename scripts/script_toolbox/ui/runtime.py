@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from .runtime_value_sync import connect_value_signal
+
 from .collapsible_folder import CollapsibleRuntimeMixin
 
 from ..compat import QtCore
@@ -401,7 +403,7 @@ class LegacyRuntimeFolder(QtGui.QFrame):
             checkbox = QtGui.QCheckBox()
             checkbox.setToolTip(self._tooltip(item))
             checkbox.setChecked(bool(props.get("value", False)))
-            checkbox.toggled.connect(
+            connect_value_signal(container, checkbox.toggled,
                 lambda value, item_id=item["id"]:
                 self.toolbox.store_value(item_id, bool(value))
             )
@@ -411,7 +413,7 @@ class LegacyRuntimeFolder(QtGui.QFrame):
         checkbox = QtGui.QCheckBox(self._label(item))
         checkbox.setToolTip(self._tooltip(item))
         checkbox.setChecked(bool(props.get("value", False)))
-        checkbox.toggled.connect(
+        connect_value_signal(checkbox, checkbox.toggled,
             lambda value, item_id=item["id"]:
             self.toolbox.store_value(item_id, bool(value))
         )
@@ -688,3 +690,4 @@ __all__ = [
     "RuntimeFolderRadio",
     "build_folder_widgets",
 ]
+

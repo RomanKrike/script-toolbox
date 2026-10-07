@@ -2,6 +2,10 @@
 
 **Script Toolbox** is a configurable script launcher and UI builder for **Autodesk Maya, Foundry Nuke, SideFX Houdini, and Windows standalone**. Build reusable interfaces from buttons, fields, menus, layout containers, icons, images, labels, and other items, then attach Python or host-specific scripts to them.
 
+![Example standalone toolbox interface](assets/images/interface/runtime.png){ width="620" }
+
+*Demo BEARS configuration. [Explore the interface and editor](guide/interface.md).*
+
 <div class="stx-grid" markdown>
 
 <div class="stx-card" markdown>

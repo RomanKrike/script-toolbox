@@ -2,11 +2,17 @@
 
 В Script Toolbox есть два взаимодополняющих режима: **Runtime**, где вы используете созданные контролы, и **Interface Editor**, где проектируете и настраиваете их.
 
+Ниже показан настоящий интерфейс **standalone 1.1.0** с демонстрационной конфигурацией **BEARS**. Оформление окон может отличаться в Windows и внутри DCC. Нажмите на скриншот, чтобы открыть его в полном размере.
+
 ## Runtime
 
 Runtime рендерит сохранённую конфигурацию как рабочий toolbox. Здесь выполняются обычные production-задачи: запуск действий, изменение значений, выбор объектов из Field, переключение вкладок и взаимодействие с контролами документа.
 
 Runtime и Interface Editor используют общую модель элементов и единые renderer-контракты, поэтому поведение элементов остаётся согласованным при редактировании и использовании.
+
+[![Главное окно Runtime с выбором шота и кнопками утилит](../assets/images/interface/runtime.png)](../assets/images/interface/runtime.png)
+
+*Runtime: демонстрационный выбор шота, проектные действия и параметры превью.*
 
 ## Interface Editor
 
@@ -19,6 +25,22 @@ Runtime и Interface Editor используют общую модель эле�
 - дублирование переиспользуемых блоков;
 - Copy/Paste элементов;
 - Undo/Redo изменений документа.
+
+[![Interface Editor с палитрой, иерархией и свойствами выбранного Menu](../assets/images/interface/editor.png)](../assets/images/interface/editor.png)
+
+*Слева — доступные типы элементов, в центре — редактируемая иерархия, справа — свойства выбранного меню Shot. Apply/Accept применяют изменения.*
+
+## Настройки
+
+Откройте **Settings → Open Settings**. Слева выбирается категория: General, Network, DCC Integrations, Preset Library, Privacy или About.
+
+[![Окно настроек с параметрами сетевого прокси](../assets/images/interface/settings.png)](../assets/images/interface/settings.png)
+
+*Network: режим подключения, поля ручного прокси и проверка соединения.*
+
+[![Настройки Preset Library с выбранной библиотекой BEARS](../assets/images/interface/libraries.png)](../assets/images/interface/libraries.png)
+
+*Preset Library: подключённые библиотеки, выбранная папка, режим обновлений, Check now и Sync now. Сетевой путь показан как пример.*
 
 ## Структура
 
@@ -56,6 +78,10 @@ Duplicate, Copy и Paste предназначены для переисполь�
 Встроенный preset содержит стабильные metadata (`id`, `dcc`, `category`, `label`, `description`) и обычный subtree Script Toolbox в поле `root`. При вставке subtree клонируется через тот же document controller, что используется для Duplicate и Paste: при необходимости создаются новые ID/name и переписываются поддерживаемые внутренние ссылки в скриптах.
 
 Используйте Presets для повторяемых шаблонов инструментов, а JSON Import/Export — для переноса или архивирования полной конфигурации.
+
+[![Каталог Presets с Default и BEARS рядом с иерархией элементов](../assets/images/interface/presets.png)](../assets/images/interface/presets.png)
+
+*Create Parameters → Presets: разверните библиотеку и категорию, затем вставьте пресет в Existing Parameters. Полная последовательность — в [руководстве по библиотекам](preset-libraries.md).*
 
 ## Жизненный цикл конфигурации
 

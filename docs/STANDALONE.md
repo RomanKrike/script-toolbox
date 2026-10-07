@@ -4,12 +4,22 @@ Script Toolbox can run as a normal host outside Maya, Nuke and Houdini. The stan
 
 No standalone-only item type, launcher binding, script API or config schema is introduced. Existing `button` and `icon` items continue to execute their normal bindings. A Python binding can therefore launch another application with standard Python, for example `subprocess.Popen(...)`.
 
+## Install and launch
+
+Available in stable **1.1.0 and later**. Download `script-toolbox-<version>-standalone-windows-x64.zip` and its matching `.sha256` from [GitHub Releases](https://github.com/RomanKrike/script-toolbox/releases/latest). Extract the complete archive and launch `S/ScriptToolbox.exe`. Keep the EXE, runtime, scripts and bootstrap together. No installer, administrator rights or system Python is required.
+
+Build your interface with **Editor → Open Editor**, or import a JSON configuration. Add project libraries through **Settings → Open Settings → Preset Library**; see [Preset libraries](guide/preset-libraries.md). Install DCC menus/shelves through **Settings → Open Settings → DCC Integrations**.
+
+## Updates
+
+Use **Settings → Check for Updates**. The updater selects the standalone asset for Stable or Development, verifies its checksum and stages the portable package. It closes the application; an external helper activates the new package and restarts `ScriptToolbox.exe`. If automatic restart cannot be scheduled, follow the UI's manual restart instruction. Activation failure rolls back the package. See [Updater](UPDATER.md).
+
 ## Source layout
 
 The portable package keeps one source tree:
 
 ```text
-ScriptToolbox/
+S/
 ├── ScriptToolbox.exe
 ├── runtime/
 ├── scripts/
@@ -48,13 +58,15 @@ The explicit `StandaloneHost` inherits the safe defaults from `BaseHost`: Python
 5. embeds `scripts/script_toolbox/resources/logo_sbt.ico` into the PE icon resources and verifies that the icon resource exists;
 6. runs `tools/build_standalone_portable.py` to stage the runtime and the repository's single shared Script Toolbox source tree;
 7. smoke-tests the shared UI lifecycle and starts the packaged `ScriptToolbox.exe` itself;
-8. uploads the ZIP and SHA-256 file as workflow artifacts.
+8. smoke-tests native update/automatic restart and uploads the ZIP and SHA-256 file as workflow artifacts.
+
+The stable release workflow calls this build and publishes the plugin and standalone archives together after verification.
 
 The resulting ZIP does not require an installer, administrator rights, a system Python installation, or a system Qt installation.
 
 ## User data
 
-Standalone uses the existing `core/user_paths.py` path mechanism. Its host-specific default config filename is `script_toolbox.json`; DCC hosts retain their current filenames and locations. Existing schema-21 configs can be imported/opened without conversion because standalone uses the same config loader and schema.
+Standalone uses the existing `core/user_paths.py` path mechanism. Its host-specific default config filename is `script_toolbox.json`; DCC hosts retain their current filenames and locations. Ordinary configs use schema 21; linked preset configs use schema 22 and require 1.1.0 or later. Standalone uses the same loader as DCC hosts. Older schemas are not migrated automatically.
 
 ## Limitations
 

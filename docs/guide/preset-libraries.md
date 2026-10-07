@@ -1,6 +1,6 @@
 # Adding a preset library
 
-**Version:** this guide describes Development (`dev`). This interface may not yet be available in the stable release.
+**Version:** available in stable Script Toolbox **1.1.0 and later**.
 
 Preset libraries store reusable presets in a local or shared network folder. This guide explains how to connect an existing library, create your own, and save your first preset using **BEARS** as an example.
 

@@ -14,11 +14,29 @@ Script Toolbox resolves the Qt/PySide binding at runtime and prefers the binding
 
 ## Download a stable release
 
-1. Open the repository **Releases** page.
-2. Download `script-toolbox-<version>.zip` from the latest stable release.
+1. Open the repository [**Releases** page](https://github.com/RomanKrike/script-toolbox/releases/latest).
+2. Choose the DCC plugin ZIP or the Windows standalone ZIP from the table below.
 3. Extract the archive to a permanent location. Do not run the plugin directly from inside the ZIP file.
 
 Stable releases are produced from `main`. Development builds are produced separately from `dev` and are intended for testing upcoming changes.
+
+## Choose a package
+
+| Use case | Release asset |
+| --- | --- |
+| Maya, Nuke or Houdini plugin | `script-toolbox-<version>.zip` |
+| Windows x64 standalone | `script-toolbox-<version>-standalone-windows-x64.zip` |
+
+Both archives have a matching `.zip.sha256` checksum. For 1.1.0, replace `<version>` with `1.1.0`. Use these packaged assets rather than GitHub's **Source code** archives.
+
+## Windows standalone
+
+1. Download and extract the standalone ZIP, keeping the entire extracted folder together.
+2. Open `ScriptToolbox.exe` inside the `S` folder. No installer, administrator rights or system Python is required.
+3. Open **Editor → Open Editor** to build your toolbox, or import an existing JSON configuration.
+4. To install a DCC integration, open **Settings → Open Settings → DCC Integrations**.
+
+See [Standalone](../STANDALONE.md) for updates, user data and taskbar pinning.
 
 ## Maya
 
@@ -88,7 +106,7 @@ Use Stable for normal production work. Use Development only when you intentional
 
 ## Network proxy
 
-Open **Settings → Network** when Script Toolbox must reach GitHub or sharing services through a proxy. Available modes are **System**, **No proxy**, and **Manual**. Manual configuration supports HTTP, HTTPS, and SOCKS5, with optional authentication and a built-in connection test.
+Open **Settings → Open Settings → Network** when Script Toolbox must reach GitHub or sharing services through a proxy. Available modes are **System**, **No proxy**, and **Manual**. Manual configuration supports HTTP, HTTPS, and SOCKS5, with optional authentication and a built-in connection test.
 
 On Windows, saved proxy passwords are protected with the current user's DPAPI key. On platforms without a secure built-in credential backend, the password is not stored in clear text and must be entered again after restart.
 

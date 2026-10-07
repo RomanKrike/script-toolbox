@@ -3,6 +3,9 @@
 from __future__ import print_function
 
 import copy
+import os
+
+from .config import file_revision
 
 from ..model import create_item, ITEM_TYPES
 from ..model.items import new_id
@@ -68,28 +71,32 @@ def iter_targets(root):
 class PresetResolver(object):
     """Pin verified local packages for the lifetime of an open Toolbox."""
 
-    def __init__(self, registry):
+    def __init__(self, registry, packages=None, sources=None):
         self.registry = registry
-        self.packages = {}
-        self.sources = dict((source["id"], source) for source in registry.sources())
-        service = SyncService(registry)
-        for source_id in self.sources:
-            package = service.installed(source_id)
-            if package is not None:
-                self.packages[source_id] = package
+        self.loading = False
+        self.sources = (dict((source["id"], source) for source in registry.sources())
+                        if sources is None else dict(sources))
+        if packages is None:
+            service = SyncService(registry)
+            packages = dict((source_id, service.installed(source_id)) for source_id in self.sources)
+        self.packages = dict((key, package) for key, package in packages.items() if package is not None)
+        self._targets = {}
+        for source_id, package in self.packages.items():
+            for preset in package["presets"]:
+                for target in iter_targets(preset["root"]):
+                    self._targets[(source_id, preset["id"], target["id"])] = target
 
     def target(self, source_id, preset_id, parameter_id):
+        if self.loading:
+            raise ValueError("Preset snapshot is still loading.")
         if source_id not in self.sources:
             raise ValueError("Source not configured.")
-        package = self.packages.get(source_id)
-        if package is None:
+        if source_id not in self.packages:
             raise ValueError("No valid local cache is installed.")
-        for preset in package["presets"]:
-            if preset["id"] == preset_id:
-                for target in iter_targets(preset["root"]):
-                    if target["id"] == parameter_id:
-                        return copy.deepcopy(target)
-        raise ValueError("Target parameter not found.")
+        target = self._targets.get((source_id, preset_id, parameter_id))
+        if target is None:
+            raise ValueError("Target parameter not found.")
+        return copy.deepcopy(target)
 
     def create_reference(self, source_id, preset_id, parameter_id, name=None):
         target = self.target(source_id, preset_id, parameter_id)
@@ -126,6 +133,8 @@ class PresetResolver(object):
 
     def resolve_document(self, document):
         """Resolve in place; keep the ConfigDocument revision and ownership."""
+        if self.loading:
+            return document
         def visit(children):
             for index, item in enumerate(children):
                 if item.get("kind") == "reference":
@@ -163,3 +172,27 @@ def local_copy(reference, resolver):
     result = resolver.resolve(reference)
     result.pop(RUNTIME_LINK, None)
     return result
+
+
+
+def load_preset_snapshot(registry, previous=None):
+    """Worker-only preparation; callers transfer the completed snapshot once."""
+    sources = dict((source['id'], source) for source in registry.sources())
+    service = SyncService(registry)
+    before = snapshot_cache_tokens(registry, sources)
+    packages = {}
+    for source_id, source in sources.items():
+        package = service.installed(source_id)
+        if package is None and previous is not None and previous.sources.get(source_id) == source:
+            package = previous.packages.get(source_id)
+        if package is not None:
+            packages[source_id] = package
+    resolver = PresetResolver(registry, packages=packages, sources=sources)
+    resolver.cache_tokens = snapshot_cache_tokens(registry, sources)
+    resolver.cache_changed = before != resolver.cache_tokens
+    return resolver
+
+
+def snapshot_cache_tokens(registry, sources):
+    return dict((source_id, file_revision(os.path.join(registry.cache_path(source_id), 'active.json')))
+                for source_id in sources)

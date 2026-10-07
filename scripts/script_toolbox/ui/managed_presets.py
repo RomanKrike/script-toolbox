@@ -34,6 +34,10 @@ class ReferenceInfoLabel(QtGui.QLabel):
 
 
 def render_broken_reference(owner, item, compact=False):
+    if getattr(owner.toolbox.preset_resolver, "loading", False):
+        label = QtGui.QLabel("{0} (loading preset...)".format(item["ui"]["label"]))
+        label.setEnabled(False)
+        return label
     label = QtGui.QLabel("{0} (broken reference)".format(item["ui"]["label"]))
     label.setToolTip(item["ui"].get("tooltip") or "Target is not available in the local cache.")
     label.setEnabled(False)

@@ -1,8 +1,31 @@
 """Real Qt integration: reference creation, staged editing and persistence."""
 import pytest
-from test_qt_lifecycle import run_qt, QT_AVAILABLE
+from test_qt_lifecycle import run_qt as _run_qt, QT_AVAILABLE
 
 pytestmark = pytest.mark.skipif(not QT_AVAILABLE, reason="Requires real Qt")
+
+
+WAIT = """
+def wait_snapshot(owner):
+    until = time.monotonic() + 5
+    while owner.preset_snapshot_loader.busy and time.monotonic() < until:
+        pump(0.03)
+    assert not owner.preset_snapshot_loader.busy
+
+def apply_and_wait(editor):
+    result = editor.apply_changes()
+    if result is None:
+        wait_snapshot(editor)
+        result = editor.last_apply_result
+    return result
+"""
+
+
+def run_qt(body, tmp_path):
+    body = body.replace('w.open_interface_editor()', 'w.open_interface_editor(); wait_snapshot(w.editor_window)')
+    body = body.replace('assert editor.apply_changes()', 'assert apply_and_wait(editor)')
+    body = body.replace('w.reload_config()', 'w.reload_config(); wait_snapshot(w)')
+    _run_qt(WAIT + body, tmp_path)
 
 
 def test_reference_ui_create_apply_undo_reload_and_convert(tmp_path):
@@ -299,3 +322,4 @@ assert w.close()
 w.deleteLater()
 pump()
 ''', tmp_path)
+

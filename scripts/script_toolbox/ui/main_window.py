@@ -789,7 +789,16 @@ class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWind
         from ..core.preset_references import PresetResolver
         from ..core.preset_sources import SourceRegistry
         if not hasattr(self, "preset_resolver"):
-            self.preset_resolver = PresetResolver(SourceRegistry())
+            registry = SourceRegistry()
+            sources = dict((source['id'], source) for source in registry.sources())
+            self.preset_resolver = PresetResolver(registry, packages={}, sources=sources)
+            self.preset_resolver.loading = bool(sources)
+            self._preset_snapshot_closed = False
+            self._preset_snapshot_loading = False
+            from .preset_snapshot_jobs import SnapshotLoader
+            self.preset_snapshot_loader = SnapshotLoader(self, registry)
+            if sources:
+                self.request_preset_snapshot()
         self.preset_resolver.resolve_document(self.config)
         invalidate_document_index(self.config)
         from .runtime_surface import RuntimeSurface, capture_view_state
@@ -1033,6 +1042,45 @@ class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWind
     # Editor / reload
     # ------------------------------------------------------------------
 
+    def request_preset_snapshot(self):
+        if getattr(self, '_preset_snapshot_closed', False):
+            return
+        self._preset_snapshot_loading = True
+        self.statusBar().showMessage("Loading local preset libraries...")
+        self.preset_snapshot_loader.request(self._preset_snapshot_ready, self.preset_resolver)
+
+    def _preset_snapshot_ready(self, result):
+        self._preset_snapshot_loading = False
+        if not result['ok']:
+            self.preset_resolver.loading = False
+            self.statusBar().showMessage("Preset libraries could not be loaded: " + result['error'])
+            return
+        from ..core.preset_references import authored_document
+        from .runtime_surface import RuntimeSurface, capture_view_state
+        resolver = result['value']
+        candidate = authored_document(self.config)
+        resolver.resolve_document(candidate)
+        state = capture_view_state(self)
+        try:
+            surface = RuntimeSurface(self, candidate, resolver).prepare(candidate)
+        except Exception as exc:
+            self.statusBar().showMessage("Preset interface could not be prepared: " + text_type(exc))
+            return
+        old_document, old_resolver = self.config, self.preset_resolver
+        self.config, self.preset_resolver = candidate, resolver
+        try:
+            surface.activate(self, state)
+        except Exception as exc:
+            self.config, self.preset_resolver = old_document, old_resolver
+            surface.dispose()
+            self.statusBar().showMessage("Preset interface could not be activated: " + text_type(exc))
+            return
+        if getattr(self, 'config_store', None) is not None:
+            self.config_store.replace_document(candidate, dirty=self.config_store.dirty)
+        self.refresh_selection_fields(force=True)
+        self.refresh_state_buttons()
+        self.statusBar().showMessage("Preset libraries loaded.", 2500)
+
     def open_interface_editor(self):
         from .bootstrap import initialize_ui
         InterfaceEditor = initialize_ui().InterfaceEditor
@@ -1054,12 +1102,10 @@ class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWind
         self.editor_window.activateWindow()
 
     def reload_config(self):
-        from ..core.preset_references import PresetResolver
-        from ..core.preset_sources import SourceRegistry
-        self.preset_resolver = PresetResolver(SourceRegistry())
         self.config = load_config()
         self.rebuild()
-        self.statusBar().showMessage("Config reloaded.", 2500)
+        self.request_preset_snapshot()
+        self.statusBar().showMessage("Config reloaded. Loading preset libraries...", 2500)
 
 
 def close_toolbox():

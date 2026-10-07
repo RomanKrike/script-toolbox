@@ -13,9 +13,10 @@ from .runtime_value_sync import RuntimeValueMixin
 class RuntimeSurfaceToolbox(RuntimeValueMixin):
     """Limited construction API; active callbacks forward to the live window."""
 
-    def __init__(self, window, document):
+    def __init__(self, window, document, resolver=None):
         self._window = window
         self.document = document
+        self._resolver = resolver if resolver is not None else window.preset_resolver
         self.active = False
         self.disposed = False
         self.value_widgets = {}
@@ -26,6 +27,10 @@ class RuntimeSurfaceToolbox(RuntimeValueMixin):
     @property
     def config(self):
         return self._window.config if self.active else self.document
+
+    @property
+    def preset_resolver(self):
+        return self._window.preset_resolver if self.active else self._resolver
 
     def find_item(self, key):
         return find_item(self.config, key) if not self.disposed else None
@@ -102,6 +107,7 @@ class RuntimeSurfaceToolbox(RuntimeValueMixin):
         self.state_button_widgets.clear()
         self.toggle_icon_widgets.clear()
         self.document = None
+        self._resolver = None
         self._window = None
 
 
@@ -141,9 +147,9 @@ def restore_view_state(window, state):
 
 
 class RuntimeSurface(object):
-    def __init__(self, window, document):
+    def __init__(self, window, document, resolver=None):
         self.disposed = False
-        self.context = RuntimeSurfaceToolbox(window, document)
+        self.context = RuntimeSurfaceToolbox(window, document, resolver)
         self.content = QtGui.QWidget()
         self.content.setObjectName("ToolboxContent")
         self.content.setEnabled(False)

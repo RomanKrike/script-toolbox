@@ -191,9 +191,7 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
     def _recover_saved_configuration(self):
         # Never roll back the file: another process may already have changed it.
         from ..core.config import load_config
-        from ..core.preset_references import PresetResolver
         document = load_config(path=self.config_store.path)
-        self.preset_resolver = PresetResolver(self.preset_resolver.registry)
         self.preset_resolver.resolve_document(document)
         self.config = document
         self.config_store.replace_document(document, dirty=False)
@@ -450,6 +448,11 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         self.cancel_scheduled_state_refresh()
         self.clear_host_callbacks()
         self.preset_source_scheduler.stop()
+        self._preset_snapshot_closed = True
+        self.preset_snapshot_loader.cancel()
+        editor = self.editor_window
+        if editor is not None and hasattr(editor, 'preset_snapshot_loader'):
+            editor._cancel_snapshot_jobs()
         self.clear_value_widgets()
         surface = getattr(self, "runtime_surface", None)
         if surface is not None:

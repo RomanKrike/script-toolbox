@@ -2,11 +2,17 @@
 
 Script Toolbox has two complementary working states: the **runtime toolbox**, where you use the controls you created, and the **Interface Editor**, where you design and configure those controls.
 
+Screenshots below show the actual **standalone 1.1.0** interface with a demo **BEARS** configuration. Window styling can differ in Windows and inside DCC hosts. Click a screenshot to open it at full size.
+
 ## Runtime
 
 Runtime renders the saved configuration as the working toolbox. Use it for normal production tasks: run actions, edit values, select objects from Fields, switch tabs, and interact with the controls defined in the document.
 
 Runtime and the Interface Editor use the same item model and renderer contracts, which keeps item behavior consistent between editing and use.
+
+[![Runtime toolbox with shot controls and utility buttons](../assets/images/interface/runtime.png)](../assets/images/interface/runtime.png)
+
+*Runtime: a demo shot selector, project actions and preview controls.*
 
 ## Interface Editor
 
@@ -19,6 +25,22 @@ The editor is where you build the toolbox hierarchy. Typical operations include:
 - duplicate reusable blocks;
 - copy and paste items;
 - undo and redo document edits.
+
+[![Interface Editor with item palette, hierarchy and selected Menu properties](../assets/images/interface/editor.png)](../assets/images/interface/editor.png)
+
+*Left: available item types. Center: the staged hierarchy. Right: properties of the selected Shot menu. Apply/Accept commits your changes.*
+
+## Settings
+
+Open **Settings → Open Settings**. Choose a category on the left: General, Network, DCC Integrations, Preset Library, Privacy or About.
+
+[![Settings window showing Network proxy preferences](../assets/images/interface/settings.png)](../assets/images/interface/settings.png)
+
+*Network settings: connection mode, manual proxy fields and connection test.*
+
+[![Preset Library settings with BEARS selected](../assets/images/interface/libraries.png)](../assets/images/interface/libraries.png)
+
+*Preset Library: connected libraries, selected folder, update policy, Check now and Sync now. The network folder shown is illustrative.*
 
 ## Structure
 
@@ -56,6 +78,10 @@ The **Presets** palette provides reusable Item subtrees that can be inserted int
 Built-in presets carry stable metadata (`id`, `dcc`, `category`, `label`, `description`) and an ordinary Script Toolbox Item subtree as `root`. Inserting a preset clones that subtree through the same document controller used by Duplicate and Paste, so IDs/names are regenerated as needed and supported internal script references are rewritten.
 
 Use presets for repeatable tool patterns; use JSON Import/Export when you need to transfer or archive a complete configuration.
+
+[![Presets catalog with Default and BEARS alongside the staged hierarchy](../assets/images/interface/presets.png)](../assets/images/interface/presets.png)
+
+*Create Parameters → Presets: expand a library/category and insert the preset into Existing Parameters. See [Preset libraries](preset-libraries.md) for the full workflow.*
 
 ## Configuration lifecycle
 

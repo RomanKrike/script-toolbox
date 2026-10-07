@@ -1,6 +1,17 @@
 name: Standalone portable build
 
 on:
+  workflow_call:
+    inputs:
+      source_sha:
+        required: true
+        type: string
+      artifact_name:
+        default: script-toolbox-standalone-windows-x64
+        type: string
+    secrets:
+      POSTHOG_PROJECT_TOKEN:
+        required: false
   workflow_dispatch:
   push:
     branches:
@@ -20,7 +31,7 @@ on:
       - ".github/workflows/standalone-build.yml"
 
 concurrency:
-  group: standalone-build-${{ github.ref }}
+  group: standalone-build-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -30,11 +41,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           architecture: "x64"
+
+      - name: Stamp telemetry client config
+        env:
+          POSTHOG_PROJECT_TOKEN: ${{ secrets.POSTHOG_PROJECT_TOKEN }}
+          POSTHOG_HOST: https://eu.i.posthog.com
+        run: python tools/stamp_telemetry_config.py
 
       - name: Run Windows identity contract tests
         shell: pwsh
@@ -184,7 +203,7 @@ jobs:
       - name: Upload portable artifact
         uses: actions/upload-artifact@v4
         with:
-          name: script-toolbox-standalone-windows-x64
+          name: ${{ inputs.artifact_name || 'script-toolbox-standalone-windows-x64' }}
           path: |
             dist-standalone/*.zip
             dist-standalone/*.sha256

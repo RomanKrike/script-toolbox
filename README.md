@@ -60,12 +60,7 @@ import script_toolbox
 script_toolbox.register_nuke_menu()
 ```
 
-Register the dockable Nuke panel:
-
-```python
-import script_toolbox
-script_toolbox.register_nuke_panel()
-```
+Dockable panels are no longer supported. Existing `register_nuke_panel()` calls remain compatible and register the normal application menu. Use `register_nuke_menu()` in new startup scripts.
 
 See [docs/NUKE.md](docs/NUKE.md) and `nuke/menu.py.example` for installation.
 

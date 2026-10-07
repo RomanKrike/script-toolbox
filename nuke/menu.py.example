@@ -23,5 +23,5 @@ import script_toolbox
 
 script_toolbox.register_nuke_menu()
 
-# Optional: register the dockable pane immediately.
-# script_toolbox.register_nuke_panel()
+# Legacy register_nuke_panel() calls now register the same normal menu.
+# New profiles should use register_nuke_menu() as above.

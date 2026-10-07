@@ -53,12 +53,7 @@ import script_toolbox
 script_toolbox.show()
 ```
 
-Регистрация dockable-панели Nuke:
-
-```python
-import script_toolbox
-script_toolbox.register_nuke_panel()
-```
+Dockable-панель больше не поддерживается. Старый вызов `register_nuke_panel()` сохраняет совместимость и регистрирует обычное меню приложения. Для новых startup-скриптов используйте `register_nuke_menu()`.
 
 После `register_nuke_menu()` эти действия также доступны из application menu Nuke.
 

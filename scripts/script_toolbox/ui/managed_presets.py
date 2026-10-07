@@ -162,7 +162,7 @@ class BackgroundJob(object):
     No QObject is owned by the worker, so closing a dialog/window does not
     destroy a running QThread or leave callbacks into deleted Qt widgets.
     """
-    def __init__(self, action):
+    def __init__(self, action, durable=False):
         self.results = queue.Queue()
         def run():
             try:
@@ -172,6 +172,8 @@ class BackgroundJob(object):
             self.results.put(result)
         self.thread = threading.Thread(target=run)
         self.thread.daemon = True
+        if durable:
+            publication_jobs().retain(self)
         self.thread.start()
 
     def poll(self):
@@ -181,12 +183,48 @@ class BackgroundJob(object):
             return None
 
 
+class PublicationJobs(QtCore.QObject):
+    """The application owns commits that must finish before normal shutdown."""
+    def __init__(self, application):
+        QtCore.QObject.__init__(self, application)
+        self.jobs = set()
+        application.aboutToQuit.connect(self.shutdown)
+        self.timer = QtCore.QTimer(self)
+        self.timer.setInterval(100)
+        self.timer.timeout.connect(self.release_finished)
+        self.timer.start()
+
+    def retain(self, job):
+        self.jobs.add(job)
+
+    def release_finished(self):
+        self.jobs = set(job for job in self.jobs if job.thread.is_alive())
+
+    def shutdown(self):
+        self.timer.stop()
+        for job in list(self.jobs):
+            job.thread.join()
+        self.jobs.clear()
+
+
+def publication_jobs():
+    application = QtCore.QCoreApplication.instance()
+    if application is None:
+        raise RuntimeError("Publication jobs require a running Qt application.")
+    owner = getattr(application, "_script_toolbox_publication_jobs", None)
+    if owner is None:
+        owner = PublicationJobs(application)
+        application._script_toolbox_publication_jobs = owner
+    return owner
+
+
 class SourceScheduler(QtCore.QObject):
     def __init__(self, parent):
         QtCore.QObject.__init__(self, parent)
         self.registry = SourceRegistry()
         self.service = SyncService(self.registry)
         self.job = None
+        self.active = True
         self.timer = QtCore.QTimer(self)
         self.timer.setInterval(60000)
         self.timer.timeout.connect(self.tick)
@@ -197,6 +235,8 @@ class SourceScheduler(QtCore.QObject):
         self.tick(startup=True)
 
     def tick(self, startup=False):
+        if not self.active:
+            return
         if self.job is not None:
             if self.job.poll() is None:
                 return
@@ -212,6 +252,10 @@ class SourceScheduler(QtCore.QObject):
                         # A concurrent DCC/manual sync owns the lock; retry later.
                         continue
         self.job = BackgroundJob(update)
+
+    def stop(self):
+        self.active = False
+        self.timer.stop()
 
 
 class SavePresetDialog(QtGui.QDialog):
@@ -330,6 +374,9 @@ class PresetLibraryPage(QtGui.QWidget):
         self.registry = SourceRegistry()
         self.service = SyncService(self.registry)
         self.job = None
+        self._status_job = None
+        self._status_source = None
+        self._status_request = 0
         self.sources = []
         layout = QtGui.QVBoxLayout(self)
         layout.setContentsMargins(*SETTINGS_PAGE_MARGINS)
@@ -382,6 +429,9 @@ class PresetLibraryPage(QtGui.QWidget):
         self.timer = QtCore.QTimer(self)
         self.timer.setInterval(100)
         self.timer.timeout.connect(self.poll)
+        self.status_timer = QtCore.QTimer(self)
+        self.status_timer.setInterval(100)
+        self.status_timer.timeout.connect(self.poll_status)
         self.refresh()
 
     def refresh(self):
@@ -399,12 +449,44 @@ class PresetLibraryPage(QtGui.QWidget):
 
     def selected(self, row):
         source = self.source()
+        self._status_source = source
+        self._status_request += 1
         for button in self.buttons[2:]:
             button.setEnabled(source is not None and self.job is None)
         if source is None:
             self.detail.setText("Default\n{0}\nIncluded with the plugin. Definitions are read only; inserted copies are editable.".format(default_library_path()))
             return
-        status = self.service.status(source["id"])
+        self.detail.setText("Loading library status...")
+        if self._status_job is None:
+            self._start_status()
+
+    def _start_status(self):
+        source = self._status_source
+        if source is None:
+            self.status_timer.stop()
+            return
+        source_id, service = source["id"], self.service
+        self._status_job = (self._status_request, BackgroundJob(lambda: service.status(source_id)))
+        self.status_timer.start()
+
+    def poll_status(self):
+        if self._status_job is None:
+            return
+        request, job = self._status_job
+        result = job.poll()
+        if result is None:
+            return
+        self._status_job = None
+        self.status_timer.stop()
+        if request != self._status_request:
+            self._start_status()
+            return
+        if result["ok"]:
+            self._display_status(self._status_source, result["value"])
+        else:
+            self.detail.setText(result["error"])
+
+    def _display_status(self, source, status):
         last_sync = status.get("last_sync")
         last_sync = time.strftime("%Y-%m-%d %H:%M", time.localtime(last_sync)) if last_sync else "Never"
         self.detail.setText("{0}\nID: {1}\nStatus: {2}\nLocal / remote snapshot: {3} / {4}\nLast sync: {5}\n{6}{7}".format(
@@ -413,10 +495,10 @@ class PresetLibraryPage(QtGui.QWidget):
             "Using local cache.\n" if status["using_cache"] else "Not installed.\n",
             status.get("error", "")))
 
-    def start(self, action):
+    def start(self, action, durable=False):
         if self.job is not None:
             return
-        self.job = BackgroundJob(action)
+        self.job = BackgroundJob(action, durable=durable)
         for button in self.buttons:
             button.setEnabled(False)
         self.detail.setText("Checking / synchronizing source...")
@@ -474,7 +556,7 @@ class PresetLibraryPage(QtGui.QWidget):
             publish_presets([], folder, source_id, name)
             registry.put({"id": source_id, "name": name, "remote_path": folder})
             return service.check(source_id, download=True)
-        self.start(create)
+        self.start(create, durable=True)
 
     def edit(self):
         if self.source() is not None:

@@ -154,3 +154,20 @@ def test_empty_code_contracts():
     assert script_result.value is None
     assert state_result.success is True
     assert state_result.value is False
+
+
+def test_errors_are_safe_without_a_gui_application_in_a_subprocess():
+    import importlib.util
+    import os
+    import subprocess
+    import sys
+    import pytest
+    if importlib.util.find_spec("PySide6") is None:
+        pytest.skip("Requires Qt for the headless regression")
+    scripts = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts")
+    for preamble in ("", "from PySide6.QtCore import QCoreApplication; app = QCoreApplication([])\n"):
+        code = preamble + "from script_toolbox.core.executor import execute_script\nassert execute_script(\"raise ValueError('fixture')\") is False"
+        result = subprocess.run([sys.executable, "-c", code],
+            env=dict(os.environ, PYTHONPATH=scripts, QT_QPA_PLATFORM="offscreen"),
+            capture_output=True, text=True, timeout=15)
+        assert result.returncode == 0, result.stdout + result.stderr

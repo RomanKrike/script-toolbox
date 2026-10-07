@@ -6,6 +6,7 @@ from ..compat import QtCore
 from ..compat import QtGui
 from ..compat import main_window
 from ..core.config_store import ConfigStore
+from ..core.document_commit import prepare_document_commit, DocumentSaveFailure
 from ..core.state_refresh import StateRefreshQueue
 from ..core.values import store_value as store_document_value
 from ..hosts.callbacks import EVENT_SELECTION_CHANGED
@@ -145,6 +146,22 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
             self.save_timer.start()
 
         return None
+
+    def commit_document(self, staged, base):
+        """Apply an editor delta without activating an unsaved candidate."""
+        try:
+            self.flush_pending_save()
+        except Exception as exc:
+            raise DocumentSaveFailure(text_type(exc))
+        candidate = prepare_document_commit(base, staged, self.config)
+        self.preset_resolver.resolve_document(candidate)
+        try:
+            self.config_store.commit_candidate(candidate)
+        except Exception as exc:
+            raise DocumentSaveFailure(text_type(exc))
+        self.config = candidate
+        self.rebuild()
+        return candidate
 
     def _flush_scheduled_save(self):
         try:
@@ -372,6 +389,7 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
             prompt_timer.stop()
         self.cancel_scheduled_state_refresh()
         self.clear_host_callbacks()
+        self.preset_source_scheduler.stop()
 
         if self.selection_timer is not None:
             self.selection_timer.stop()

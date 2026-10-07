@@ -525,7 +525,7 @@ class PresetEditorMixin(object):
                 raise ValueError("Preset published, but local sync failed: " + status.get("error", status["state"]))
             package = service.installed(source["id"])
             return next(p for p in package["presets"] if p["id"] == preset["id"])
-        self._preset_save_job = BackgroundJob(publish)
+        self._preset_save_job = BackgroundJob(publish, durable=True)
         self._preset_save_timer = QtCore.QTimer(self)
         def poll():
             result = self._preset_save_job.poll()

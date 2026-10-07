@@ -24,6 +24,7 @@ class DocumentIndex(object):
         self.items = []
         self.by_id = {}
         self.by_name = {}
+        self._locations = {}
 
         if document is not None:
             self.rebuild(
@@ -35,6 +36,14 @@ class DocumentIndex(object):
         self.items = []
         self.by_id = {}
         self.by_name = {}
+        self._locations = {}
+
+        def remember(owner, key, parent=None):
+            children = owner.get(key, []) or []
+            for position, item in enumerate(children):
+                self._locations[id(item)] = (owner, key, children, position, parent)
+                remember(item, "items", item)
+        remember(document, "sections")
 
         for item in walk_items(
             document,
@@ -91,7 +100,7 @@ class DocumentIndex(object):
             return None
 
         current = item.get(field)
-        if current is not None and text_type(current) == key_text:
+        if current is not None and text_type(current) == key_text and self._belongs(item):
             return item
 
         try:
@@ -100,6 +109,22 @@ class DocumentIndex(object):
             pass
 
         return None
+
+    def _belongs(self, item):
+        """Validate cached membership in O(tree depth), without scanning siblings."""
+        seen = set()
+        while item is not None:
+            identity = id(item)
+            location = self._locations.get(identity)
+            if location is None or identity in seen:
+                return False
+            seen.add(identity)
+            owner, key, children, position, parent = location
+            if (owner.get(key) is not children or position >= len(children)
+                    or children[position] is not item):
+                return False
+            item = parent
+        return True
 
     def _store_first(
         self,

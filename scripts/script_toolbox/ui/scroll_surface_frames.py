@@ -6,7 +6,7 @@ from ..style import metrics
 from ..style import palette
 
 
-_INSTALLED_RUNTIME = False
+_FIELD_FRAME_MARKER = "_script_toolbox_runtime_field_frame"
 
 # All ScrollSurfaceFrame border geometry is rendered from this one template.
 # Surface colors vary by caller; border width/radius are one explicit Qt4
@@ -419,12 +419,8 @@ def wrap_scroll_widget(
 
 def install_runtime_scroll_frames(registry, runtime_module):
     """Frame runtime list Fields without changing their public widget API."""
-    global _INSTALLED_RUNTIME
-    if _INSTALLED_RUNTIME:
-        return
-
     original = registry.renderer_for("field")
-    if original is None:
+    if original is None or getattr(original, _FIELD_FRAME_MARKER, False):
         return
 
     def render_field(owner, item, compact=False):
@@ -466,12 +462,12 @@ def install_runtime_scroll_frames(registry, runtime_module):
 
         return result
 
+    setattr(render_field, _FIELD_FRAME_MARKER, True)
     registry.register(
         "field",
         render_field,
         replace=True
     )
-    _INSTALLED_RUNTIME = True
 
 
 def configure_script_editor_scroll_frames(editor):

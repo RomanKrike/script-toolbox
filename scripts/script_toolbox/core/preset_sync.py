@@ -76,9 +76,10 @@ def validate_manifest(data, expected_id=None):
 
 
 def load_package(root, expected_id=None):
-    manifest = validate_manifest(read_json(source_file(root, MANIFEST)), expected_id)
     if any(name.startswith(".publish-") for name in os.listdir(root)):
-        raise InvalidSource("Library publication is in progress; retry shortly.")
+        from .preset_library import recover_publications
+        recover_publications(root)
+    manifest = validate_manifest(read_json(source_file(root, MANIFEST)), expected_id)
     entries, presets, preset_ids, portable_paths = [], [], set(), set()
     def fail_walk(error):
         raise error

@@ -71,7 +71,12 @@ def _notify_failure(
     title="Script Toolbox"
 ):
     try:
-        from ..compat import QtGui
+        from ..compat import QtCore, QtGui
+
+        application = QtGui.QApplication.instance()
+        if (not isinstance(application, QtGui.QApplication) or
+                QtCore.QThread.currentThread() != application.thread()):
+            return
 
         QtGui.QMessageBox.critical(
             parent,

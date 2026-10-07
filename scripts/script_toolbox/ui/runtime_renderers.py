@@ -452,12 +452,31 @@ def build_default_runtime_renderer_registry():
     return registry
 
 
-def _decorate_runtime_renderer_registry(registry):
+def _prepare_runtime_renderer(kind, renderer):
+    """The complete pipeline for initial, late and replacement registrations."""
     from .event_binding_hooks import install_event_binding_hooks
     from .runtime_value_sync import synchronize_runtime_value_renderers
 
+    registry = RuntimeRendererRegistry()
+    registry.register(kind, renderer)
+    if kind == "field" and _RUNTIME_MODULE is not None:
+        from .scroll_surface_frames import install_runtime_scroll_frames
+        install_runtime_scroll_frames(registry, _RUNTIME_MODULE)
+    if kind in ("button", "toggle_button"):
+        from .editor_polish_hooks import install_icon_only_button_centering
+        install_icon_only_button_centering(registry)
+    if kind in ("icon", "toggle_icon"):
+        from .editor_polish_hooks import install_runtime_icon_feedback
+        install_runtime_icon_feedback(registry)
     install_event_binding_hooks(registry)
     synchronize_runtime_value_renderers(registry)
+    prepared = registry.renderer_for(kind)
+    prepared._script_toolbox_raw_renderer = renderer
+    return prepared
+
+
+def _decorate_runtime_renderer_registry(registry):
+    registry.set_decorator(_prepare_runtime_renderer)
     return registry
 
 

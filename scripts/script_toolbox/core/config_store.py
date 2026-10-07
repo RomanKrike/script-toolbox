@@ -66,15 +66,7 @@ class ConfigStore(object):
 
         # Keep dirty=True until the writer succeeds. A disk/config recovery
         # failure therefore never makes unsaved in-memory changes look clean.
-        if self.writer is save_config:
-            result, self.revision = self.writer(
-                self.document, path=self.path, expected_revision=self.revision,
-                return_revision=True)
-        else:
-            result = self.writer(self.document, path=self.path)
-        self.dirty = False
-        self.write_count += 1
-        return result
+        return self.commit_candidate(self.document)
 
     def save(
         self,
@@ -84,6 +76,21 @@ class ConfigStore(object):
             document=document
         )
         return self.flush()
+
+    def commit_candidate(self, document):
+        """Persist a replacement before changing the active store snapshot."""
+        if self.writer is save_config:
+            result, revision = self.writer(
+                document, path=self.path, expected_revision=self.revision,
+                return_revision=True)
+        else:
+            result = self.writer(document, path=self.path)
+            revision = self.revision
+        self.document = document
+        self.revision = revision
+        self.dirty = False
+        self.write_count += 1
+        return result
 
 
 __all__ = [

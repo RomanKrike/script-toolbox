@@ -6,11 +6,82 @@ import os
 import re
 import shutil
 import tempfile
+import uuid
 from .config import _replace_file
 from .file_lock import FileLock
 from .preset_sources import technical_id
-from .preset_sync import MANIFEST, HOST_FOLDERS, atomic_json, load_package, source_file
+from .preset_sync import (MANIFEST, HOST_FOLDERS, InvalidSource, atomic_json,
+                          load_package, read_json, source_file)
+from .update_package import sha256_file
 from ..pycompat import text_type
+
+PUBLICATION_JOURNAL = '.transaction.json'
+
+
+def _recover_publication(root, stage):
+    """Rollback is restartable: never consume the only copy of a backup."""
+    journal = read_json(os.path.join(stage, PUBLICATION_JOURNAL))
+    if (not isinstance(journal, dict) or journal.get('schema') != 1 or
+            journal.get('phase') not in ('building', 'prepared', 'committed')):
+        raise InvalidSource('Invalid publication recovery journal: ' + stage)
+    if journal['phase'] == 'prepared':
+        entries = journal.get('entries')
+        if not isinstance(entries, list):
+            raise InvalidSource('Invalid publication recovery entries: ' + stage)
+        seen = set()
+        # Validate every recovery path and backup before changing any file.
+        for entry in entries:
+            relative = entry['file']
+            parts = relative.split('/')
+            if (relative in seen or type(entry.get('existed')) is not bool or
+                    (relative != MANIFEST and (len(parts) < 2 or
+                     parts[0] not in HOST_FOLDERS or not relative.endswith('.json')))):
+                raise InvalidSource('Invalid publication recovery path: ' + relative)
+            seen.add(relative)
+            source_file(root, relative)
+            if entry['existed']:
+                backup = source_file(os.path.join(stage, 'backup'), relative)
+                if sha256_file(backup) != entry['sha256']:
+                    raise InvalidSource('Publication backup checksum mismatch: ' + relative)
+        for entry in reversed(entries):
+            dest = source_file(root, entry['file'])
+            if entry['existed']:
+                backup = source_file(os.path.join(stage, 'backup'), entry['file'])
+                fd, temporary = tempfile.mkstemp(prefix='.restore-', dir=os.path.dirname(backup))
+                os.close(fd)
+                try:
+                    shutil.copyfile(backup, temporary)
+                    if not os.path.isdir(os.path.dirname(dest)):
+                        os.makedirs(os.path.dirname(dest))
+                    _replace_file(temporary, dest)
+                finally:
+                    if os.path.exists(temporary):
+                        os.unlink(temporary)
+            elif os.path.isfile(dest):
+                os.unlink(dest)
+    shutil.rmtree(stage)
+
+
+def _recover_publications_unlocked(root):
+    for name in sorted(os.listdir(root)):
+        if name.startswith('.publish-'):
+            stage = source_file(root, name)
+            if os.path.islink(os.path.join(root, name)):
+                raise InvalidSource('Publication recovery directories must not be symbolic links.')
+            try:
+                _recover_publication(root, stage)
+            except Exception as exc:
+                raise InvalidSource('Publication recovery failed; backups retained at {0}: {1}'.format(stage, exc))
+
+
+def recover_publications(root):
+    """A reader may recover a crashed writer, but must not interrupt a live one."""
+    from .file_lock import FileLockError
+    try:
+        with FileLock(os.path.join(root, '.publish.lock')):
+            _recover_publications_unlocked(root)
+    except FileLockError:
+        raise InvalidSource('Library publication is in progress; retry shortly.')
 
 
 def path_component(value):
@@ -40,6 +111,7 @@ def publish_presets(presets, output_folder, source_id, name, merge=False):
     if not os.path.isdir(output_folder):
         os.makedirs(output_folder)
     with FileLock(os.path.join(output_folder, '.publish.lock'), blocking=True):
+        _recover_publications_unlocked(output_folder)
         previous = load_package(output_folder, source_id) if os.path.isfile(os.path.join(output_folder, MANIFEST)) else None
         if previous is None and any(not entry.startswith('.') for entry in os.listdir(output_folder)):
             raise ValueError("Create a new library in an empty folder.")
@@ -53,9 +125,14 @@ def publish_presets(presets, output_folder, source_id, name, merge=False):
             definitions[preset_id] = copy.deepcopy(preset)
         metadata = {'schema': 1, 'id': source_id,
                     'name': previous['library']['name'] if merge and previous else name}
-        stage = tempfile.mkdtemp(prefix='.publish-', dir=output_folder)
+        # Only expose a publication marker after its recovery journal exists.
+        stage = tempfile.mkdtemp(prefix='.prepare-', dir=output_folder)
         cleanup_stage = True
         try:
+            atomic_json(os.path.join(stage, PUBLICATION_JOURNAL), {'schema': 1, 'phase': 'building'})
+            published_stage = os.path.join(output_folder, '.publish-' + uuid.uuid4().hex)
+            os.rename(stage, published_stage)
+            stage = published_stage
             candidate = os.path.join(stage, 'candidate')
             os.makedirs(candidate)
             atomic_json(os.path.join(candidate, MANIFEST), metadata)
@@ -81,7 +158,7 @@ def publish_presets(presets, output_folder, source_id, name, merge=False):
             affected = sorted(new_files | old_files | set([MANIFEST]))
             backup = os.path.join(stage, 'backup')
             os.makedirs(backup)
-            saved = set()
+            entries = []
             for relative in affected:
                 path = source_file(output_folder, relative)
                 if os.path.isfile(path):
@@ -89,26 +166,23 @@ def publish_presets(presets, output_folder, source_id, name, merge=False):
                     if not os.path.isdir(os.path.dirname(dest)):
                         os.makedirs(os.path.dirname(dest))
                     shutil.copyfile(path, dest)
-                    saved.add(relative)
-            changed = []
+                entries.append({'file': relative, 'existed': os.path.isfile(path),
+                                'sha256': sha256_file(path) if os.path.isfile(path) else None})
+            atomic_json(os.path.join(stage, PUBLICATION_JOURNAL),
+                        {'schema': 1, 'phase': 'prepared', 'entries': entries})
             try:
                 for relative in sorted(new_files) + [MANIFEST]:
                     dest = source_file(output_folder, relative)
                     if not os.path.isdir(os.path.dirname(dest)):
                         os.makedirs(os.path.dirname(dest))
                     _replace_file(source_file(candidate, relative), dest)
-                    changed.append(relative)
                 for relative in sorted(old_files - new_files):
                     os.unlink(source_file(output_folder, relative))
-                    changed.append(relative)
+                atomic_json(os.path.join(stage, PUBLICATION_JOURNAL),
+                            {'schema': 1, 'phase': 'committed'})
             except Exception:
                 try:
-                    for relative in reversed(changed):
-                        dest = source_file(output_folder, relative)
-                        if relative in saved:
-                            _replace_file(source_file(backup, relative), dest)
-                        elif os.path.exists(dest):
-                            os.unlink(dest)
+                    _recover_publication(output_folder, stage)
                 except Exception:
                     # Retain backups and the publication marker. A partial
                     # rollback must never be mistaken for a complete library.

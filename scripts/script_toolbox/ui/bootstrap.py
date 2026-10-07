@@ -6,14 +6,11 @@ from . import debounced_main_window as _debounced_main_window_module
 from . import runtime as _runtime_module
 from . import runtime_renderers as _runtime_renderers_module
 from .composed_editor import InterfaceEditor
-from .editor_polish_hooks import install_icon_only_button_centering
-from .editor_polish_hooks import install_runtime_icon_feedback
 from .item_ui_bootstrap import ensure_builtin_item_ui_bindings
 from .runtime_renderers import _decorate_runtime_renderer_registry
 from .runtime_renderers import get_runtime_renderer_registry
 from .runtime_renderers import initialize_runtime_renderer_registry
 from .runtime_value_sync import synchronize_runtime_value_renderers
-from .scroll_surface_frames import install_runtime_scroll_frames
 
 
 _LOGGER = get_logger()
@@ -58,15 +55,7 @@ def _compose_runtime_registry():
     ensure_builtin_item_ui_bindings()
     registry = _runtime_registry()
 
-    # Specialized startup wrappers are installed first. The shared generic
-    # pipeline then becomes the outermost decoration for both initial and late
-    # renderers, so event/value behavior is identical and marker-idempotent.
-    install_runtime_scroll_frames(
-        registry,
-        _runtime_module
-    )
-    install_icon_only_button_centering(registry)
-    install_runtime_icon_feedback(registry)
+    # Each raw renderer receives the same presentation/events/value pipeline.
     _decorate_runtime_renderer_registry(registry)
     return registry
 

@@ -786,11 +786,13 @@ class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWind
     # ------------------------------------------------------------------
 
     def rebuild(self):
+        from ..core.values import invalidate_document_index
         from ..core.preset_references import PresetResolver
         from ..core.preset_sources import SourceRegistry
         if not hasattr(self, "preset_resolver"):
             self.preset_resolver = PresetResolver(SourceRegistry())
         self.preset_resolver.resolve_document(self.config)
+        invalidate_document_index(self.config)
         self.value_widgets = {}
         self.field_widgets = {}
         self.state_button_widgets = {}

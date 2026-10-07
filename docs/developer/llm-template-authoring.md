@@ -18,7 +18,7 @@ The word **template** is ambiguous. Choose the output format from the user's int
 
 ## Current contract
 
-The current stable 1.0.x line uses configuration schema **21**.
+The current stable 1.1.x line uses configuration schema **21** for ordinary configs and **22** for linked preset reference configs. Emit schema 21 for standalone clipboard/config templates without managed library references.
 
 Source of truth:
 

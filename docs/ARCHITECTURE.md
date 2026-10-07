@@ -68,11 +68,11 @@ Callers that need temporary locations for tests or import/export pass an explici
 
 ## Current config schema
 
-Schema **21** is the single supported configuration contract.
+Schema **21** is the ordinary configuration contract. Linked preset reference configs use **22**; see `core/preset_references.py` and `core/config.py`.
 
 ```text
 JSON read
-  -> validate schema version 21
+  -> validate schema version 21 (ordinary) / 22 (linked references)
   -> normalize and validate current-schema Item envelopes/props
   -> runtime document
 ```
@@ -485,7 +485,7 @@ scripts/script_toolbox/
 - Runtime config/settings paths are owned only by `core/user_paths.py`.
 - Stable and Development builds share the same canonical user config files.
 - Only the current config schema is supported while the project remains in development.
-- Persist and operate on Items only through the schema 21 envelope; do not add type-specific root keys or a flat compatibility view.
+- Persist and operate on Items only through the universal schema 21/22 envelope; do not add type-specific root keys or a flat compatibility view.
 - Never silently convert an unknown item kind to another kind or preserve it as a placeholder.
 - Never use `ui.label` as item identity.
 - Persist event behavior only as `bindings`.

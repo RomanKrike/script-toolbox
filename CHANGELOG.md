@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.1.0 — 2026-10-07
+
+### Added
+
+- Managed preset libraries with verified local caches, background synchronization, linked parameters and library publishing.
+- Windows standalone portable packages with a native launcher, separate update assets and automatic restart after updates.
+- Screenshot guides for adding preset libraries in English and Russian.
+
+### Fixed
+
+- Publish stable plugin and standalone packages together, with checksums and a source commit manifest, only after both builds pass.
+- Preserve the legacy `register_nuke_panel()` startup entry point by registering the standard Nuke menu and emitting a deprecation warning. Nuke dock panels are no longer supported.
+- Activate the newest verified local preset cache on Apply; an already open editor cannot restore an older snapshot after Reload. Local edits and parameter values are retained.
+- Harden portable update rollback, runtime discovery, restart acknowledgement and Qt window/job lifetimes.
+
+### Configuration
+
+- Ordinary configs retain schema 21. Configs containing linked preset references use schema 22 and require Script Toolbox 1.1.0 or later. Older configs are not migrated automatically.
+
 ## 1.0.1 — 2026-09-23
 
 Documentation hotfix for LLM-generated clipboard templates.

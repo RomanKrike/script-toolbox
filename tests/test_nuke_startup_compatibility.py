@@ -2,7 +2,6 @@ import sys
 import types
 import warnings
 
-import script_toolbox
 
 
 def test_legacy_nuke_startup_registers_normal_menu(monkeypatch):

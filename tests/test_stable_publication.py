@@ -21,7 +21,7 @@ def packages(root, failure=None):
         version = '1.0.1' if kind == 'standalone' and failure == 'version' else VERSION
         with zipfile.ZipFile(path, 'w') as archive:
             archive.writestr('ScriptToolbox/scripts/script_toolbox/constants.py',
-                             'PLUGIN_VERSION = "' + version + '"\n')
+                             'PLUGIN_VERSION = "' + version + ('"\r\n' if kind == 'standalone' and failure == 'crlf' else '"\n'))
             archive.writestr('ScriptToolbox/scripts/script_toolbox/__init__.py',
                              '# different' if kind == 'standalone' and failure == 'source' else '# same')
             if kind == 'standalone':
@@ -68,3 +68,27 @@ def test_stable_workflow_waits_for_both_artifacts_and_publishes_draft_last():
     assert publish.index('standalone-windows-x64.zip.sha256') < publish.index('--draft=false')
     reusable = (Path(__file__).parents[1] / '.github/workflows/standalone-build.yml').read_text()
     assert 'workflow_call:' in reusable and 'inputs.source_sha || github.sha' in reusable
+
+
+def test_windows_checkout_line_endings_preserve_shared_source_identity(tmp_path):
+    packages(tmp_path, 'crlf')
+    assert prepare(tmp_path, VERSION, COMMIT)['version'] == VERSION
+
+
+def test_real_builders_produce_matching_shared_source(tmp_path):
+    from tools.build_release import build_release
+    from tools.build_standalone_portable import build_portable
+    root = str(Path(__file__).parents[1])
+    runtime = tmp_path / 'runtime'
+    runtime.mkdir()
+    (runtime / 'python311.dll').write_bytes(b'fixture-runtime')
+    launcher = tmp_path / 'ScriptToolbox.exe'
+    launcher.write_bytes(b'fixture-launcher')
+    output = tmp_path / 'dist'
+    build_release(root=root, output_dir=str(output), version=VERSION)
+    portable = build_portable(root=root, output_dir=str(tmp_path / 'portable'),
+                              runtime_dir=str(runtime), launcher_path=str(launcher), version=VERSION)
+    import shutil
+    for key in ('archive_path', 'checksum_path'):
+        shutil.copy2(portable[key], output)
+    assert len(prepare(output, VERSION, COMMIT)['packages']) == 2

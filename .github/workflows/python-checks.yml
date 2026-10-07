@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+      - dev
+      - fix/**
       - refactor/**
       - feature/**
       - maintenance/**
@@ -74,6 +76,32 @@ jobs:
           path: coverage.xml
           if-no-files-found: error
 
+  runtime-regressions:
+    name: Real Qt and portable transaction regressions
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Linux Qt runtime libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libgl1 libopengl0
+      - run: python -m pip install pytest PySide6-Essentials
+      - name: Run real Qt and Windows fault injection tests
+        run: python -m pytest -q tests/test_qt_lifecycle.py tests/test_qt_managed_presets.py tests/test_portable_transaction_windows.py tests/test_review_reliability.py tests/test_discovery_process.py tests/test_restart_ack.py tests/test_host_detection.py tests/test_update_concurrency.py
+      - name: Verify actual disk-full recovery on an isolated NTFS virtual disk
+        if: runner.os == 'Windows'
+        env:
+          SCRIPT_TOOLBOX_TEST_VHD: "1"
+        run: python -m pytest -q -s tests/test_portable_disk_full_windows.py
+
   maya-2015-python2-syntax:
     name: Maya 2015 / Python 2.7 syntax
     runs-on: ubuntu-latest
@@ -88,6 +116,14 @@ jobs:
           -w /work
           python:2.7.18-slim-buster
           python -m compileall -q scripts/script_toolbox
+
+      - name: Host detection failures with Python 2.7
+        run: >
+          docker run --rm
+          -v "$PWD:/work"
+          -w /work
+          python:2.7.18-slim-buster
+          python tests/test_host_detection.py
 
       - name: Full UI import smoke with Python 2.7
         run: >
@@ -120,6 +156,14 @@ jobs:
           -w /work
           python:2.7.18-slim-buster
           python tests/python2_config_smoke.py
+
+      - name: Managed preset sync and references with Python 2.7
+        run: >
+          docker run --rm
+          -v "$PWD:/work"
+          -w /work
+          python:2.7.18-slim-buster
+          python tests/python2_managed_presets_smoke.py
 
       - name: ExecutionResult smoke with Python 2.7
         run: >
@@ -176,6 +220,7 @@ jobs:
       - unit-tests
       - maya-2015-python2-syntax
       - release-contract
+      - runtime-regressions
     runs-on: ubuntu-latest
 
     steps:

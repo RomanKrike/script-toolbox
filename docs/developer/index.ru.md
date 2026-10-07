@@ -25,7 +25,7 @@
 - `description` — tooltip и текст, участвующий в поиске.
 - `root` — обычный subtree ScriptToolbox items, который клонируется в editor при вставке.
 
-Допустимые значения `dcc`: `maya`, `houdini`, `nuke`, `blender` и `all`. Значение `all` означает universal preset. `iter_presets()` сохраняет прежнее поведение и возвращает полный registry, а `iter_presets(dcc)` возвращает presets выбранного DCC вместе с universal presets. Для неизвестного или standalone host возвращаются только presets с `dcc == "all"`.
+Допустимые значения `dcc`: `maya`, `houdini`, `nuke`, `blender`, `standalone` и `all`. Значение `all` означает universal preset. `iter_presets()` сохраняет прежнее поведение и возвращает полный registry, а `iter_presets(dcc)` возвращает presets выбранного DCC вместе с universal presets. Для standalone возвращаются `standalone` и `all`. Для неизвестного host возвращаются только presets с `dcc == "all"`.
 
 UI Presets получает текущий DCC через существующую host abstraction и продолжает группировать уже отфильтрованные presets только по `category`; отдельный уровень DCC в дереве не добавляется.
 

@@ -35,6 +35,8 @@ def _bootstrap_namespace():
 
     namespace = {
         "__name__": "ui_bootstrap_test",
+        "EditorSelectionStateMixin": type("SelectionMixin", (), {}),
+        "_interface_editor_module": type("EditorModule", (), {"InterfaceEditor": type("Editor", (), {})}),
         "_COMPOSITION_STATE": None,
         "_LOGGER": _Logger(),
         "_runtime_module": object(),

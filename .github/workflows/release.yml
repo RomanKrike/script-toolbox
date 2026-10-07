@@ -2,13 +2,9 @@ name: Auto release
 
 on:
   workflow_run:
-    workflows:
-      - "Python checks"
-    types:
-      - completed
-    branches:
-      - main
-
+    workflows: ["Python checks"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -19,147 +15,152 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: Build and publish plugin release
+  source:
+    name: Resolve stable release source
     if: >
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
-
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      needed: ${{ steps.version.outputs.needed }}
     steps:
-      - name: Resolve source revision
+      - name: Resolve checked source revision
         id: source
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
-          fi
-
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: echo "sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
         with:
           ref: ${{ steps.source.outputs.sha }}
           fetch-depth: 0
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
-      - name: Resolve plugin version
+      - name: Resolve version and existing release
         id: version
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: bash
         run: |
-          VERSION=$(python - <<'PY'
-          import re
-          from pathlib import Path
-
-          text = Path("scripts/script_toolbox/constants.py").read_text(
-              encoding="utf-8"
-          )
-          match = re.search(
-              r'^PLUGIN_VERSION\s*=\s*"([^"]+)"',
-              text,
-              re.M,
-          )
-          if not match:
-              raise SystemExit("PLUGIN_VERSION not found")
-
-          print(match.group(1))
-          PY
-          )
-
+          VERSION=$(python -c "from tools.build_release import read_plugin_version, repository_root; print(read_plugin_version(repository_root()))")
           TAG="v$VERSION"
-
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-
           if [[ "$VERSION" == *-* ]]; then
-            echo "stable=false" >> "$GITHUB_OUTPUT"
-            echo "release_needed=false" >> "$GITHUB_OUTPUT"
-            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
-            echo "Development version $VERSION: release skipped."
+            echo "needed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-
-          echo "stable=true" >> "$GITHUB_OUTPUT"
-
+          if gh release view "$TAG" --json isDraft --jq '.isDraft' > existing-draft.txt 2>/dev/null; then
+            if [ "$(cat existing-draft.txt)" = "false" ]; then
+              echo "needed=false" >> "$GITHUB_OUTPUT"
+              echo "Release $TAG is already published."
+              exit 0
+            fi
+          fi
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-            echo "tag_exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
+            if [ "$(git rev-list -n 1 "$TAG")" != "${{ steps.source.outputs.sha }}" ]; then
+              echo "Existing $TAG points to a different source revision." >&2
+              exit 1
+            fi
           fi
+          echo "needed=true" >> "$GITHUB_OUTPUT"
 
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "release_needed=false" >> "$GITHUB_OUTPUT"
-            echo "Release $TAG already exists."
-          else
-            echo "release_needed=true" >> "$GITHUB_OUTPUT"
-            echo "Release $TAG will be created."
-          fi
-
+  plugin:
+    name: Build stable plugin package
+    needs: source
+    if: needs.source.outputs.needed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - name: Stamp telemetry client config
-        if: steps.version.outputs.release_needed == 'true'
         env:
           POSTHOG_PROJECT_TOKEN: ${{ secrets.POSTHOG_PROJECT_TOKEN }}
           POSTHOG_HOST: https://eu.i.posthog.com
         run: python tools/stamp_telemetry_config.py
-
       - name: Build and validate release package
-        if: steps.version.outputs.release_needed == 'true'
-        shell: bash
+        env:
+          VERSION: ${{ needs.source.outputs.version }}
+        run: python tools/build_release.py --output dist --version "$VERSION"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stable-plugin
+          path: |
+            dist/*.zip
+            dist/*.zip.sha256
+          if-no-files-found: error
+
+  portable:
+    name: Build stable standalone package
+    needs: source
+    if: needs.source.outputs.needed == 'true'
+    uses: ./.github/workflows/standalone-build.yml
+    with:
+      source_sha: ${{ needs.source.outputs.sha }}
+      artifact_name: stable-standalone
+    secrets: inherit
+
+  publish:
+    name: Publish complete stable release
+    needs: [source, plugin, portable]
+    if: >
+      always() && needs.source.outputs.needed == 'true' &&
+      needs.plugin.result == 'success' && needs.portable.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/download-artifact@v4
+        with:
+          name: stable-plugin
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: stable-standalone
+          path: dist
+      - name: Verify both packages before publication
+        env:
+          VERSION: ${{ needs.source.outputs.version }}
+          SOURCE_SHA: ${{ needs.source.outputs.sha }}
+        run: python tools/prepare_stable_publication.py dist "$VERSION" "$SOURCE_SHA"
+      - name: Create immutable version tag
+        env:
+          TAG: ${{ needs.source.outputs.tag }}
+          SOURCE_SHA: ${{ needs.source.outputs.sha }}
         run: |
-          python tools/build_release.py \
-            --output dist \
-            --version "${{ steps.version.outputs.version }}"
-
-          ls -lh dist/
-
-      - name: Create version tag
-        if: >
-          steps.version.outputs.release_needed == 'true' &&
-          steps.version.outputs.tag_exists != 'true'
-        shell: bash
-        run: |
-          TAG="${{ steps.version.outputs.tag }}"
-          SHA="${{ steps.source.outputs.sha }}"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git tag -a "$TAG" "$SHA" -m "Script Toolbox $TAG"
-          git push origin "$TAG"
-
-      - name: Publish GitHub release
-        if: steps.version.outputs.release_needed == 'true'
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            test "$(git rev-list -n 1 "$TAG")" = "$SOURCE_SHA"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" "$SOURCE_SHA" -m "Script Toolbox $TAG"
+            git push origin "$TAG"
+          fi
+      - name: Publish verified assets together
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: bash
+          VERSION: ${{ needs.source.outputs.version }}
+          TAG: ${{ needs.source.outputs.tag }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          TAG="${{ steps.version.outputs.tag }}"
-          PACKAGE="script-toolbox-$VERSION"
-
-          gh release create "$TAG" \
-            "dist/$PACKAGE.zip" \
-            "dist/$PACKAGE.zip.sha256" \
-            --generate-notes \
-            --title "Script Toolbox $VERSION"
-
-      - name: Release summary
-        shell: bash
-        run: |
-          echo "### Script Toolbox release" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Version: `${{ steps.version.outputs.version }}`" >> "$GITHUB_STEP_SUMMARY"
-
-          if [ "${{ steps.version.outputs.release_needed }}" = "true" ]; then
-            echo "- Result: release published" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Tag: `${{ steps.version.outputs.tag }}`" >> "$GITHUB_STEP_SUMMARY"
-          elif [ "${{ steps.version.outputs.stable }}" = "true" ]; then
-            echo "- Result: release already exists" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "- Result: development version, release skipped" >> "$GITHUB_STEP_SUMMARY"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --draft --verify-tag --generate-notes --title "Script Toolbox $VERSION"
           fi
+          test "$(gh release view "$TAG" --json isDraft --jq '.isDraft')" = "true"
+          gh release upload "$TAG" \
+            "dist/script-toolbox-$VERSION.zip" \
+            "dist/script-toolbox-$VERSION.zip.sha256" \
+            "dist/script-toolbox-$VERSION-standalone-windows-x64.zip" \
+            "dist/script-toolbox-$VERSION-standalone-windows-x64.zip.sha256" \
+            dist/release-build.json --clobber
+          gh release edit "$TAG" --draft=false --latest

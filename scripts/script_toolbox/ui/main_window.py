@@ -24,15 +24,16 @@ from ..model.item_registry import ITEM_TYPES
 from ..model.items import safe_color
 from ..pycompat import text_type
 from ..style import STYLE
+from ..style import apply_window_icon
 from ..style import metrics
 from ..style import toolbar_icon
 from ..style.palette import CONTENT_BG
-from .icon_button import ICON_BUTTON_HEADER
-from .icon_button import create_icon_button
 from .layout_helpers import configure_layout
 from .runtime import build_folder_widgets
 from .update_ui import UpdateCheckThread
 from .update_ui import UpdateInstallThread
+from .state_toggle_hooks import StateToggleBehaviorMixin
+from .runtime_value_sync import RuntimeValueMixin
 
 
 _TOOLBOX = None
@@ -60,7 +61,113 @@ def _has_capability(item, capability):
     return bool(definition and definition.has_capability(capability))
 
 
-class ScriptToolbox(QtGui.QMainWindow):
+class ToolboxStatusBar(QtGui.QStatusBar):
+    """Shared footer with a persistent Logs label and transient app status."""
+
+    def __init__(self, parent=None):
+        QtGui.QStatusBar.__init__(self, parent)
+        self.setObjectName("ToolboxStatusBar")
+
+        try:
+            self.setSizeGripEnabled(False)
+        except Exception:
+            pass
+
+        self._message = ""
+        self._status_callback = None
+        self._persistent_message = ""
+        self._persistent_callback = None
+        self._persistent_tooltip = ""
+
+        self.logs_icon = QtGui.QLabel(self)
+        self.logs_icon.setObjectName("StatusLogsIcon")
+        self.logs_icon.setAlignment(QtCore.Qt.AlignCenter)
+        self.logs_icon.setFixedWidth(28)
+        self.logs_icon.setToolTip("Logs")
+
+        icon = toolbar_icon("console")
+        if not icon.isNull():
+            self.logs_icon.setPixmap(
+                icon.pixmap(
+                    QtCore.QSize(
+                        16,
+                        16
+                    )
+                )
+            )
+
+        self.addWidget(self.logs_icon)
+
+        self.status_action = QtGui.QToolButton(self)
+        self.status_action.setObjectName("StatusAction")
+        self.status_action.setToolButtonStyle(QtCore.Qt.ToolButtonTextOnly)
+        self.status_action.setAutoRaise(True)
+        self.status_action.setVisible(False)
+        self.status_action.clicked.connect(self._trigger_status_action)
+        self.addPermanentWidget(self.status_action)
+
+        self._clear_timer = QtCore.QTimer(self)
+        self._clear_timer.setSingleShot(True)
+        self._clear_timer.timeout.connect(self.clearMessage)
+
+    def _trigger_status_action(self, checked=False):
+        callback = self._status_callback
+        if callback is not None:
+            callback()
+
+    def _display_status(self, message, callback=None, tooltip=""):
+        self._message = text_type(message or "")
+        self._status_callback = callback
+        self.status_action.setText(self._message)
+        self.status_action.setToolTip(text_type(tooltip or ""))
+        self.status_action.setVisible(bool(self._message))
+
+    def _restore_persistent_status(self):
+        self._display_status(
+            self._persistent_message,
+            callback=self._persistent_callback,
+            tooltip=self._persistent_tooltip
+        )
+
+    def show_status(self, message, timeout=0, callback=None, tooltip=""):
+        self._clear_timer.stop()
+        self._display_status(
+            message,
+            callback=callback,
+            tooltip=tooltip
+        )
+        if self._message and timeout:
+            self._clear_timer.start(int(timeout))
+
+    def show_action(self, message, callback, tooltip=""):
+        self._persistent_message = text_type(message or "")
+        self._persistent_callback = callback
+        self._persistent_tooltip = text_type(tooltip or "")
+        self.show_status(
+            self._persistent_message,
+            callback=self._persistent_callback,
+            tooltip=self._persistent_tooltip
+        )
+
+    def clear_action(self):
+        self._persistent_message = ""
+        self._persistent_callback = None
+        self._persistent_tooltip = ""
+        self._clear_timer.stop()
+        self._display_status("")
+
+    def showMessage(self, message, timeout=0):
+        self.show_status(message, timeout=timeout)
+
+    def clearMessage(self):
+        self._clear_timer.stop()
+        self._restore_persistent_status()
+
+    def currentMessage(self):
+        return self._message
+
+
+class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWindow):
 
     def __init__(self, parent=None):
         QtGui.QMainWindow.__init__(self, parent or main_window())
@@ -71,6 +178,9 @@ class ScriptToolbox(QtGui.QMainWindow):
                 PLUGIN_VERSION,
                 HOST.display_name
             )
+        )
+        apply_window_icon(
+            self
         )
         self.resize(420, 700)
         self.setMinimumWidth(310)
@@ -93,12 +203,18 @@ class ScriptToolbox(QtGui.QMainWindow):
         self.build_ui()
         self.rebuild()
 
+        from .managed_presets import SourceScheduler
+        self.preset_source_scheduler = SourceScheduler(self)
+
         self.selection_timer = QtCore.QTimer(self)
         self.selection_timer.setInterval(300)
         self.selection_timer.timeout.connect(self.refresh_selection_fields)
         self.selection_timer.start()
 
-        QtCore.QTimer.singleShot(1200, self.check_for_updates)
+        self.update_check_timer = QtCore.QTimer(self)
+        self.update_check_timer.setSingleShot(True)
+        self.update_check_timer.timeout.connect(self.check_for_updates)
+        self.update_check_timer.start(1200)
 
     # ------------------------------------------------------------------
     # UI
@@ -116,72 +232,7 @@ class ScriptToolbox(QtGui.QMainWindow):
             spacing=0
         )
 
-        topbar = QtGui.QFrame()
-        topbar.setObjectName("TopBar")
-        top_layout = QtGui.QHBoxLayout(topbar)
-        configure_layout(
-            top_layout,
-            margins=metrics.TOOLBOX_TOPBAR_MARGINS,
-            spacing=metrics.TOOLBOX_TOPBAR_SPACING
-        )
-
-        title = QtGui.QLabel(
-            "SCRIPT TOOLBOX  v{0}  |  {1}".format(
-                PLUGIN_VERSION,
-                HOST.display_name.upper()
-            )
-        )
-        title.setObjectName("ToolboxTitle")
-        title.setToolTip(
-            "Script Toolbox {0} - {1}".format(
-                PLUGIN_VERSION,
-                HOST.display_name
-            )
-        )
-        top_layout.addWidget(title)
-        top_layout.addStretch(1)
-
-        self.update_button = QtGui.QToolButton()
-        self.update_button.setObjectName("UpdateButton")
-        self.update_button.setIcon(toolbar_icon("update"))
-        self.update_button.setIconSize(QtCore.QSize(16, 16))
-        self.update_button.setToolButtonStyle(
-            QtCore.Qt.ToolButtonTextBesideIcon
-        )
-        self.update_button.setText("UPDATE")
-        self.update_button.setToolTip(
-            "Install the latest Script Toolbox release"
-        )
-        self.update_button.setVisible(False)
-        self.update_button.clicked.connect(self.install_available_update)
-
-        self.check_updates_button = create_icon_button(
-            "update",
-            "Check for Script Toolbox updates",
-            self.manual_check_for_updates,
-            parent=self,
-            preset=ICON_BUTTON_HEADER
-        )
-        self.reload_button = create_icon_button(
-            "reload",
-            "Reload toolbox config",
-            self.reload_config,
-            parent=self,
-            preset=ICON_BUTTON_HEADER
-        )
-        self.interface_editor_button = create_icon_button(
-            "gear",
-            "Edit Interface",
-            self.open_interface_editor,
-            parent=self,
-            preset=ICON_BUTTON_HEADER
-        )
-
-        top_layout.addWidget(self.update_button)
-        top_layout.addWidget(self.check_updates_button)
-        top_layout.addWidget(self.reload_button)
-        top_layout.addWidget(self.interface_editor_button)
-        root.addWidget(topbar)
+        self._build_menu_bar(root)
 
         self.scroll = QtGui.QScrollArea()
         self.scroll.setObjectName("ToolboxScroll")
@@ -202,11 +253,70 @@ class ScriptToolbox(QtGui.QMainWindow):
 
         self.scroll.setWidget(self.content)
         root.addWidget(self.scroll, 1)
-        self.statusBar().showMessage(
-            "{0} | Event bindings | ID/name = script identity".format(
-                HOST.display_name
-            )
+        self.setStatusBar(ToolboxStatusBar(self))
+
+    def _styled_menu(self, title):
+        menu = self.menu_bar.addMenu(title)
+        menu.setStyleSheet(STYLE)
+        return menu
+
+    def _build_menu_bar(self, root):
+        self.menu_bar = QtGui.QMenuBar(self.centralWidget())
+        self.menu_bar.setObjectName("ToolboxMenuBar")
+
+        set_native = getattr(self.menu_bar, "setNativeMenuBar", None)
+        if set_native is not None:
+            set_native(False)
+
+        self.editor_menu = self._styled_menu("Editor")
+        self.open_editor_action = self.editor_menu.addAction("Open Editor")
+        self.open_editor_action.triggered.connect(
+            self._open_editor_from_menu
         )
+
+        self.settings_menu = self._styled_menu("Settings")
+        self.settings_action = self.settings_menu.addAction("Open Settings")
+        settings_handler = getattr(self, "open_settings_dialog", None)
+        self.settings_action.setEnabled(settings_handler is not None)
+        self.settings_action.triggered.connect(
+            self._open_settings_from_menu
+        )
+
+        self.settings_menu.addSeparator()
+        self.reload_action = self.settings_menu.addAction("Reload Config")
+        self.reload_action.triggered.connect(
+            self._reload_config_from_menu
+        )
+
+        self.check_updates_action = self.settings_menu.addAction(
+            "Check for Updates"
+        )
+        self.check_updates_action.triggered.connect(
+            self._check_updates_from_menu
+        )
+
+        self.help_menu = self._styled_menu("Help")
+
+        root.addWidget(self.menu_bar)
+
+    def _open_editor_from_menu(self, checked=False):
+        return self.open_interface_editor()
+
+    def _open_settings_from_menu(self, checked=False):
+        callback = getattr(
+            self,
+            "open_settings_dialog",
+            None
+        )
+        if callback is not None:
+            return callback()
+        return None
+
+    def _reload_config_from_menu(self, checked=False):
+        return self.reload_config()
+
+    def _check_updates_from_menu(self, checked=False):
+        return self.manual_check_for_updates()
 
     # ------------------------------------------------------------------
     # Config / value API
@@ -296,6 +406,7 @@ class ScriptToolbox(QtGui.QMainWindow):
             self.save()
             self._run_on_change(item, old_value, new_value)
             self.refresh_state_buttons()
+        self.sync_runtime_value(key)
         return True
 
     def set_value(self, key, value):
@@ -675,6 +786,12 @@ class ScriptToolbox(QtGui.QMainWindow):
     # ------------------------------------------------------------------
 
     def rebuild(self):
+        from ..core.preset_references import PresetResolver
+        from ..core.preset_sources import SourceRegistry
+        if not hasattr(self, "preset_resolver"):
+            self.preset_resolver = PresetResolver(SourceRegistry())
+        self.preset_resolver.resolve_document(self.config)
+        self.value_widgets = {}
         self.field_widgets = {}
         self.state_button_widgets = {}
         self.toggle_icon_widgets = {}
@@ -738,9 +855,7 @@ class ScriptToolbox(QtGui.QMainWindow):
 
         self._manual_update_check = bool(manual)
         if manual:
-            self.statusBar().showMessage(
-                "Checking for Script Toolbox updates..."
-            )
+            self.statusBar().showMessage("Checking for updates...")
 
         self.update_check_thread = UpdateCheckThread(self)
         self.update_check_thread.completed.connect(
@@ -748,47 +863,52 @@ class ScriptToolbox(QtGui.QMainWindow):
         )
         self.update_check_thread.start()
 
+    @QtCore.Slot(object)
     def update_check_finished(self, result):
         self.update_info = result
         error = result.get("error")
 
         if error:
-            self.update_button.setVisible(False)
-            self.statusBar().showMessage(
-                "Update check failed: {0}".format(error),
-                12000
+            self.statusBar().show_status(
+                "Update check failed",
+                timeout=12000,
+                tooltip=text_type(error)
             )
             self._manual_update_check = False
             return
 
         if not result.get("available", False):
-            self.update_button.setVisible(False)
+            self.statusBar().clear_action()
             if self._manual_update_check:
-                self.statusBar().showMessage(
-                    "Script Toolbox {0} is up to date.".format(
-                        PLUGIN_VERSION
-                    ),
-                    5000
-                )
+                self.statusBar().showMessage("You're up to date", 5000)
             self._manual_update_check = False
             return
 
         latest = result.get("latest_version") or ""
-        self.update_button.setText("UPDATE {0}".format(latest))
-        self.update_button.setToolTip(
+        label = (
+            "Update {0} available >".format(latest)
+            if latest
+            else "Update available >"
+        )
+        tooltip = (
             "Script Toolbox {0} is available. Current version: {1}".format(
                 latest,
                 PLUGIN_VERSION
             )
+            if latest
+            else "A Script Toolbox update is available."
         )
-        self.update_button.setVisible(True)
-        self.statusBar().showMessage(
-            "Script Toolbox {0} is available.".format(latest),
-            7000
+        self.statusBar().show_action(
+            label,
+            self.install_available_update,
+            tooltip=tooltip
         )
         self._manual_update_check = False
 
     def install_available_update(self):
+        if self.update_install_thread is not None and self.update_install_thread.isRunning():
+            self.statusBar().showMessage("An update is already running.")
+            return
         if not self.update_info:
             return
 
@@ -797,23 +917,33 @@ class ScriptToolbox(QtGui.QMainWindow):
             return
 
         latest = self.update_info.get("latest_version", "")
+        lifecycle = (
+            "restart"
+            if HOST.key == "standalone"
+            else "reload"
+        )
         answer = QtGui.QMessageBox.question(
             self,
             "Update Script Toolbox",
             (
                 "Install Script Toolbox {0}?\n\n"
                 "Your toolbox configuration is stored separately and "
-                "will not be replaced. Script Toolbox will reload "
+                "will not be replaced. Script Toolbox will {1} "
                 "automatically after the update."
-            ).format(latest),
+            ).format(
+                latest,
+                lifecycle
+            ),
             QtGui.QMessageBox.Yes | QtGui.QMessageBox.No,
             QtGui.QMessageBox.Yes
         )
         if answer != QtGui.QMessageBox.Yes:
             return
+        # The confirmation dialog runs a nested Qt event loop. Another action
+        # may have started an install while this dialog was open.
+        if self.update_install_thread is not None and self.update_install_thread.isRunning():
+            return
 
-        self.update_button.setEnabled(False)
-        self.update_button.setText("UPDATING...")
         self.statusBar().showMessage(
             "Installing Script Toolbox {0}...".format(latest)
         )
@@ -824,30 +954,23 @@ class ScriptToolbox(QtGui.QMainWindow):
         )
         self.update_install_thread.start()
 
+    @QtCore.Slot(object)
     def update_install_finished(self, result):
-        if not result.get("installed", False):
-            self.update_button.setEnabled(True)
-            latest = (
-                self.update_info.get("latest_version", "")
-                if self.update_info
-                else ""
-            )
-            self.update_button.setText(
-                "UPDATE {0}".format(latest).strip()
+        if not (result.get("installed", False) or result.get("staged", False)):
+            error = result.get("error", "Unknown update error.")
+            self.statusBar().show_status(
+                "Update failed",
+                timeout=12000,
+                tooltip=text_type(error)
             )
             QtGui.QMessageBox.critical(
                 self,
                 "Update Failed",
-                result.get("error", "Unknown update error.")
+                error
             )
             return
 
         version = result.get("version", "")
-        self.update_button.setText("RELOADING...")
-        self.update_button.setEnabled(False)
-        self.statusBar().showMessage(
-            "Script Toolbox {0} installed. Reloading...".format(version)
-        )
 
         try:
             if self.update_install_thread is not None:
@@ -855,17 +978,59 @@ class ScriptToolbox(QtGui.QMainWindow):
         except Exception:
             pass
 
+        if result.get("restart_required", False):
+            self.statusBar().showMessage(
+                "Script Toolbox {0} staged. Restarting...".format(
+                    version
+                )
+            )
+
+            if result.get(
+                "external_restart_scheduled",
+                False
+            ):
+                QtCore.QTimer.singleShot(
+                    150,
+                    self.exit_for_standalone_update
+                )
+                return
+
+            QtGui.QMessageBox.warning(
+                self,
+                "Update Installed",
+                (
+                    "Script Toolbox {0} was installed, but an automatic "
+                    "restart could not be scheduled. Restart Standalone "
+                    "manually to finish the update."
+                ).format(version)
+            )
+            return
+
+        self.statusBar().showMessage(
+            "Script Toolbox {0} installed. Reloading...".format(version)
+        )
         QtCore.QTimer.singleShot(150, self.hot_reload_after_update)
+
+    def exit_for_standalone_update(self):
+        application = QtGui.QApplication.instance()
+
+        if application is not None:
+            application.quit()
+            return
+
+        self.close()
 
     def hot_reload_after_update(self):
         try:
             from ..bootstrap import hot_reload_toolbox
             hot_reload_toolbox()
         except Exception as exc:
-            self.update_button.setText(
-                "RESTART {0}".format(HOST.display_name.upper())
+            self.statusBar().show_status(
+                "Restart required",
+                tooltip=(
+                    "Restart {0} to load the installed update. {1}"
+                ).format(HOST.display_name, text_type(exc))
             )
-            self.update_button.setEnabled(False)
             QtGui.QMessageBox.warning(
                 self,
                 "Update Installed",
@@ -882,7 +1047,8 @@ class ScriptToolbox(QtGui.QMainWindow):
     # ------------------------------------------------------------------
 
     def open_interface_editor(self):
-        from .interface_editor import InterfaceEditor
+        from .bootstrap import initialize_ui
+        InterfaceEditor = initialize_ui().InterfaceEditor
 
         try:
             if (
@@ -901,30 +1067,22 @@ class ScriptToolbox(QtGui.QMainWindow):
         self.editor_window.activateWindow()
 
     def reload_config(self):
+        from ..core.preset_references import PresetResolver
+        from ..core.preset_sources import SourceRegistry
+        self.preset_resolver = PresetResolver(SourceRegistry())
         self.config = load_config()
         self.rebuild()
         self.statusBar().showMessage("Config reloaded.", 2500)
 
 
 def close_toolbox():
-    global _TOOLBOX
-    try:
-        if _TOOLBOX is not None:
-            _TOOLBOX.close()
-            _TOOLBOX.deleteLater()
-    except Exception:
-        pass
-    _TOOLBOX = None
+    from .debounced_main_window import close_toolbox as close_final_window
+    return close_final_window()
 
 
 def show():
-    global _TOOLBOX
-    close_toolbox()
-    _TOOLBOX = ScriptToolbox(parent=main_window())
-    _TOOLBOX.show()
-    _TOOLBOX.raise_()
-    _TOOLBOX.activateWindow()
-    return _TOOLBOX
+    from .debounced_main_window import show as show_final_window
+    return show_final_window()
 
 
 __all__ = [

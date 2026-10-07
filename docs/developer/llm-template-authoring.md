@@ -18,7 +18,7 @@ The word **template** is ambiguous. Choose the output format from the user's int
 
 ## Current contract
 
-The current stable 1.0.x line uses configuration schema **21**.
+The current stable 1.1.x line uses configuration schema **21** for ordinary configs and **22** for linked preset reference configs. Emit schema 21 for standalone clipboard/config templates without managed library references.
 
 Source of truth:
 
@@ -126,7 +126,7 @@ Metadata fields:
 | Field | Contract |
 | --- | --- |
 | id | Stable preset identifier. Must be unique in the preset registry. |
-| dcc | One of all, maya, houdini, nuke, blender. Use all only when the entire preset is genuinely host-independent. |
+| dcc | One of all, maya, houdini, nuke, blender, standalone. Use all only when the entire preset is genuinely host-independent. |
 | category | UI grouping label in the Presets tab. Prefer a short uppercase category such as RENDER, SELECTION, CACHE, LOOKDEV, PIPELINE. |
 | label | Human-readable preset name. |
 | description | Short searchable description / tooltip. |

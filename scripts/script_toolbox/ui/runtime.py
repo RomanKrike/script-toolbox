@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from .collapsible_folder import CollapsibleRuntimeMixin
+
 from ..compat import QtCore
 from ..compat import QtGui
 from ..model.item_builtins import register_builtin_items
@@ -201,7 +203,7 @@ class DisplayFieldList(QtGui.QListWidget):
         QtGui.QListWidget.keyPressEvent(self, event)
 
 
-class RuntimeFolder(QtGui.QFrame):
+class LegacyRuntimeFolder(QtGui.QFrame):
     """Runtime renderer for a section container and its nested Items."""
 
     def __init__(
@@ -535,6 +537,11 @@ class RuntimeFolder(QtGui.QFrame):
                 self.header_button.style().polish(self.header_button)
             except Exception:
                 pass
+
+
+class RuntimeFolder(CollapsibleRuntimeMixin, LegacyRuntimeFolder):
+    """Shared collapsible UI with explicit fallback for other folder types."""
+    pass
 
 
 class RuntimeFolderTabs(QtGui.QFrame):

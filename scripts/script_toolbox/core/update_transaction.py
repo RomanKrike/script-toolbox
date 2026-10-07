@@ -10,12 +10,13 @@ import zipfile
 
 from ..hosts import HOST
 from ..pycompat import text_type
-from .updater import UpdateError
-from .updater import _download_file
-from .updater import _find_release_root
-from .updater import _safe_extract
-from .updater import _validate_installable_release
-from .updater import _verify_checksum
+from .file_lock import installation_lock, FileLockError
+from .update_package import UpdateError
+from .update_package import download_file as _download_file
+from .update_package import find_release_root as _find_release_root
+from .update_package import safe_extract as _safe_extract
+from .update_package import validate_installable_release as _validate_installable_release
+from .update_package import verify_checksum as _verify_checksum
 from .updater import package_directory
 from .updater import repository_root
 
@@ -780,12 +781,42 @@ class UpdateTransaction(object):
         return True
 
 
-def install_release(
+def install_release(release, token=None, timeout=30):
+    """One install per shared root, including recovery and portable staging."""
+    # Portable hands ownership to its external helper before returning.
+    if text_type((release or {}).get("package_kind", "plugin")).lower() == "standalone":
+        from .standalone_update import install_release as install_standalone
+        return install_standalone(release, token=token, timeout=timeout)
+    try:
+        with installation_lock(repository_root()):
+            if os.path.exists(os.path.join(repository_root(), ".script_toolbox_portable_update")):
+                raise UpdateError("A portable update is pending. Restart Standalone before updating.")
+            return _install_release_locked(release, token=token, timeout=timeout)
+    except FileLockError as exc:
+        raise UpdateError("An update is already running for this installation: {0}".format(exc))
+
+
+def _install_release_locked(
     release,
     token=None,
     timeout=30
 ):
-    """Install a verified release with the transaction-v2 pipeline."""
+    """Install a verified release with the appropriate package pipeline."""
+    package_kind = text_type(
+        (release or {}).get(
+            "package_kind",
+            "plugin"
+        )
+    ).strip().lower()
+
+    if package_kind == "standalone":
+        from .standalone_update import install_release as install_standalone
+        return install_standalone(
+            release,
+            token=token,
+            timeout=timeout
+        )
+
     install_metadata = _validate_installable_release(
         release
     )

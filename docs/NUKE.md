@@ -14,35 +14,39 @@ The runtime detects the Nuke version and resolves the matching Qt binding. If th
 
 MEL remains available only when the active host is Maya.
 
-## Install
+## Automatic installation
 
-Extract a Script Toolbox release to a stable location, for example:
+Use **Settings → DCC Integrations → Foundry Nuke** from standalone Script Toolbox.
 
-```text
-C:\Tools\script-toolbox-0.3.0
-```
-
-Add the release `scripts` directory to Nuke's Python path from `~/.nuke/menu.py`:
-
-```python
-import os
-import sys
-
-ROOT = r"C:\Tools\script-toolbox-0.3.0"
-SCRIPTS = os.path.join(ROOT, "scripts")
-
-if SCRIPTS not in sys.path:
-    sys.path.insert(0, SCRIPTS)
-
-import script_toolbox
-script_toolbox.register_nuke_menu()
-```
-
-A ready-to-edit example is included in releases as:
+For each detected Nuke version, **Install** manages a marked block inside:
 
 ```text
-nuke/menu.py.example
+~/.nuke/menu.py
 ```
+
+The block adds the Script Toolbox `scripts` directory to Python's search path and applies the settings for the Nuke version that is currently running. Existing `menu.py` content is preserved and receives a one-time `.script_toolbox.bak` backup before Script Toolbox edits it.
+
+Options:
+
+- **Add to Main Menu**
+- **Open on startup**
+
+Nuke versions share the same `~/.nuke/menu.py` bootstrap, while their options are stored independently. Uninstalling one configured version does not remove the shared bootstrap if another Nuke version still uses it.
+
+**Repair** recreates a missing managed startup block. **Update** rewrites a stale Script Toolbox path.
+
+### Custom profile locations
+
+Expand **Profile locations** in the Nuke section to add a studio-specific preferences path. Select the actual Nuke preferences folder, or select a parent that already contains a `.nuke` child; Script Toolbox resolves that child automatically.
+
+For each detected Nuke version, Settings then shows separate targets such as:
+
+```text
+16.0 - Default | Installed
+16.0 - Studio  | Not installed
+```
+
+Each profile gets its own managed `menu.py` block and independent Main Menu / startup options. Uninstalling one profile does not edit another profile's `menu.py`.
 
 ## Usage
 
@@ -53,14 +57,7 @@ import script_toolbox
 script_toolbox.show()
 ```
 
-Register the dockable Nuke pane:
-
-```python
-import script_toolbox
-script_toolbox.register_nuke_panel()
-```
-
-The Nuke application menu also exposes these actions after `register_nuke_menu()`.
+The Nuke application menu exposes **Open** after `register_nuke_menu()`.
 
 ## Script namespace
 

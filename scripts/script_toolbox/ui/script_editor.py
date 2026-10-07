@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from .scroll_surface_frames import configure_script_editor_scroll_frames
+
 import sys
 import traceback
 
@@ -264,6 +266,8 @@ class ScriptEditorWidget(QtGui.QWidget):
         self.editor.cursorPositionChanged.connect(
             self.update_cursor_position
         )
+
+        configure_script_editor_scroll_frames(self)
 
     def _tool_button(
         self,

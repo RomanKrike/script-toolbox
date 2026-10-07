@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..qt_compat import qt_exec
+
 import copy
 import os
 
@@ -13,6 +15,7 @@ from ..core.config import export_config
 from ..core.config import import_config
 from ..model import create_item
 from ..model import normalize_document
+from ..core.preset_references import authored_document
 from ..model import walk_items
 from ..model.item_builtins import register_builtin_items
 from ..model.item_registry import ITEM_TYPES
@@ -20,6 +23,7 @@ from ..model.items import new_id
 from ..model.items import sanitize_name
 from ..pycompat import text_type
 from ..style import STYLE
+from ..style import apply_window_icon
 from ..style import metrics
 from ..style.palette import TEXT_PALETTE_GROUP
 from ..style.palette import WINDOW_BG
@@ -88,9 +92,7 @@ class InterfaceEditor(QtGui.QDialog):
         )
 
         self.toolbox = toolbox
-        self.working = copy.deepcopy(
-            toolbox.config
-        )
+        self.working = authored_document(toolbox.config)
         self.item_cache = {}
 
         self.current_property_editor = None
@@ -99,9 +101,6 @@ class InterfaceEditor(QtGui.QDialog):
         self.clipboard_item = _EDITOR_CLIPBOARD
         self.undo_stack = []
         self.redo_stack = []
-        self._history_current = copy.deepcopy(
-            self.working
-        )
         self._history_restoring = False
         self.history_timer = QtCore.QTimer(
             self
@@ -119,6 +118,9 @@ class InterfaceEditor(QtGui.QDialog):
             "Edit Parameter Interface - {0}".format(
                 HOST.display_name
             )
+        )
+        apply_window_icon(
+            self
         )
         self.resize(
             1240,
@@ -761,102 +763,18 @@ class InterfaceEditor(QtGui.QDialog):
     # History / clipboard
     # ------------------------------------------------------------------
 
-    def schedule_history(self):
-        if self._history_restoring:
-            return
-        self.history_timer.start()
+    def schedule_history(self, *args, **kwargs):
+        raise NotImplementedError("Editor document behavior requires ControllerEditorMixin.")
 
-    def commit_history(
-        self,
-        sync_tree=True
-    ):
-        if self._history_restoring:
-            return
+    def commit_history(self, *args, **kwargs):
+        raise NotImplementedError("Editor document behavior requires ControllerEditorMixin.")
 
-        if self.history_timer.isActive():
-            self.history_timer.stop()
 
-        if sync_tree:
-            self.sync_working_from_tree()
+    def undo(self, *args, **kwargs):
+        raise NotImplementedError("Editor document behavior requires ControllerEditorMixin.")
 
-        if self.working == self._history_current:
-            return
-
-        self.undo_stack.append(
-            copy.deepcopy(self._history_current)
-        )
-        if len(self.undo_stack) > 100:
-            self.undo_stack = self.undo_stack[-100:]
-
-        self._history_current = copy.deepcopy(
-            self.working
-        )
-        self.redo_stack = []
-
-    def _restore_history(
-        self,
-        document,
-        label
-    ):
-        current_id = self.current_item_id
-        self._history_restoring = True
-        try:
-            self.working = copy.deepcopy(document)
-            self.populate_tree()
-
-            if current_id:
-                tree_item = self.tree_item_by_id(
-                    current_id
-                )
-                if tree_item is not None:
-                    self.tree.setCurrentItem(
-                        tree_item
-                    )
-
-            self._history_current = copy.deepcopy(
-                self.working
-            )
-            self.status.setText(
-                "{0} — Apply or Accept to save.".format(
-                    label
-                )
-            )
-        finally:
-            self._history_restoring = False
-
-    def undo(self):
-        if self.history_timer.isActive():
-            self.commit_history()
-
-        if not self.undo_stack:
-            return
-
-        current = copy.deepcopy(
-            self._history_current
-        )
-        previous = self.undo_stack.pop()
-        self.redo_stack.append(current)
-        self._restore_history(
-            previous,
-            "Undo"
-        )
-
-    def redo(self):
-        if self.history_timer.isActive():
-            self.commit_history()
-
-        if not self.redo_stack:
-            return
-
-        current = copy.deepcopy(
-            self._history_current
-        )
-        next_state = self.redo_stack.pop()
-        self.undo_stack.append(current)
-        self._restore_history(
-            next_state,
-            "Redo"
-        )
+    def redo(self, *args, **kwargs):
+        raise NotImplementedError("Editor document behavior requires ControllerEditorMixin.")
 
     def _used_names(self):
         return set(
@@ -1038,6 +956,10 @@ class InterfaceEditor(QtGui.QDialog):
         except Exception:
             pass
 
+    def extend_tree_context_menu(self, menu, item):
+        """Return additional (action, callback) pairs for the selected item."""
+        return []
+
     def show_tree_context_menu(self, point):
         item = self.tree.itemAt(point)
         if item is not None:
@@ -1055,8 +977,9 @@ class InterfaceEditor(QtGui.QDialog):
         paste_action.setEnabled(self.clipboard_item is not None)
         menu.addSeparator()
         delete_action = menu.addAction("Delete")
+        extra_actions = self.extend_tree_context_menu(menu, item)
 
-        action = menu.exec_(
+        action = qt_exec(menu,
             self.tree.viewport().mapToGlobal(point)
         )
 
@@ -1074,6 +997,11 @@ class InterfaceEditor(QtGui.QDialog):
             )
         elif action == delete_action:
             self.delete_selected()
+        else:
+            for extra_action, callback in extra_actions:
+                if action == extra_action:
+                    callback()
+                    break
 
     # ------------------------------------------------------------------
     # Create / move / delete
@@ -1333,6 +1261,17 @@ class InterfaceEditor(QtGui.QDialog):
             return
 
         self.clear_property_editor()
+
+        if data.get("kind") == "reference":
+            from .managed_presets import reference_tooltip, ReferenceInfoLabel
+            message, broken = reference_tooltip(data, self.preset_resolver)
+            label = ReferenceInfoLabel(message, self.property_host)
+            label.setWordWrap(True)
+            label.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+            self.property_layout.addWidget(label)
+            self.current_property_editor = label
+            self.current_item_id = item_id
+            return
 
         editor = create_editor(
             kind,
@@ -1661,33 +1600,8 @@ class InterfaceEditor(QtGui.QDialog):
 
         return True
 
-    def apply_changes(self):
-        self.fix_tree_structure()
-        self.sync_working_from_tree()
-
-        if not self.validate_internal_names():
-            return False
-
-        self.toolbox.config = normalize_document(
-            copy.deepcopy(
-                self.working
-            )
-        )
-        self.toolbox.save()
-        self.toolbox.rebuild()
-
-        self.working = copy.deepcopy(
-            self.toolbox.config
-        )
-        self.populate_tree()
-        self._history_current = copy.deepcopy(
-            self.working
-        )
-
-        self.status.setText(
-            "Applied."
-        )
-        return True
+    def apply_changes(self, *args, **kwargs):
+        raise NotImplementedError("Editor document behavior requires ControllerEditorMixin.")
 
     def accept_changes(self):
         if self.apply_changes():

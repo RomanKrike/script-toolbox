@@ -7,8 +7,6 @@ from ..style import palette
 
 
 _INSTALLED_RUNTIME = False
-_INSTALLED_SCRIPT_EDITOR = False
-_INSTALLED_PROPERTIES = False
 
 # All ScrollSurfaceFrame border geometry is rendered from this one template.
 # Surface colors vary by caller; border width/radius are one explicit Qt4
@@ -476,63 +474,10 @@ def install_runtime_scroll_frames(registry, runtime_module):
     _INSTALLED_RUNTIME = True
 
 
-def install_script_editor_scroll_frames(script_editor_class):
-    """Frame both code and output text areas used by every script editor."""
-    global _INSTALLED_SCRIPT_EDITOR
-    if _INSTALLED_SCRIPT_EDITOR:
-        return
-
-    original_build_ui = script_editor_class.build_ui
-
-    def build_ui(self):
-        original_build_ui(self)
-        self.editor_scroll_frame = wrap_scroll_widget(
-            getattr(self, "editor", None)
-        )
-        self.output_scroll_frame = wrap_scroll_widget(
-            getattr(self, "output", None)
-        )
-
-    script_editor_class.build_ui = build_ui
-    _INSTALLED_SCRIPT_EDITOR = True
+def configure_script_editor_scroll_frames(editor):
+    editor.editor_scroll_frame = wrap_scroll_widget(getattr(editor, "editor", None))
+    editor.output_scroll_frame = wrap_scroll_widget(getattr(editor, "output", None))
 
 
-def install_property_editor_scroll_frames():
-    """Frame multiline property fields that can show scrollbars."""
-    global _INSTALLED_PROPERTIES
-    if _INSTALLED_PROPERTIES:
-        return
-
-    from .properties import basic as basic_module
-    from .properties import field as field_module
-
-    menu_class = basic_module.MenuPropertyEditor
-    original_menu_init = menu_class.__init__
-
-    def menu_init(self, *args, **kwargs):
-        original_menu_init(self, *args, **kwargs)
-        self.items_scroll_frame = wrap_scroll_widget(
-            getattr(self, "items_edit", None)
-        )
-
-    menu_class.__init__ = menu_init
-
-    field_class = field_module.FieldPropertyEditor
-    original_field_init = field_class.__init__
-
-    def field_init(self, *args, **kwargs):
-        original_field_init(self, *args, **kwargs)
-        self.value_scroll_frame = wrap_scroll_widget(
-            getattr(self, "value", None)
-        )
-
-    field_class.__init__ = field_init
-    _INSTALLED_PROPERTIES = True
-
-
-__all__ = [
-    "wrap_scroll_widget",
-    "install_runtime_scroll_frames",
-    "install_script_editor_scroll_frames",
-    "install_property_editor_scroll_frames",
-]
+__all__ = ["wrap_scroll_widget", "install_runtime_scroll_frames",
+           "configure_script_editor_scroll_frames"]

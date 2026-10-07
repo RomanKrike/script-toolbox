@@ -18,8 +18,11 @@ jobs:
     if: github.ref == 'refs/heads/dev'
     uses: ./.github/workflows/python-checks.yml
 
-  publish:
-    name: Publish dev-latest
+  package:
+    name: Build development plugin
+    outputs:
+      version: ${{ steps.version.outputs.dev }}
+      short_sha: ${{ steps.version.outputs.short_sha }}
     if: github.ref == 'refs/heads/dev'
     needs:
       - checks
@@ -172,6 +175,10 @@ jobs:
                   os.environ["BUILD_NUMBER"]
               ),
               "commit": os.environ["BUILD_COMMIT"],
+              "packages": {
+                  "plugin": {"asset_name": "script-toolbox-{0}.zip".format(os.environ["DEV_VERSION"])},
+                  "standalone": {"asset_name": "script-toolbox-{0}-standalone-windows-x64.zip".format(os.environ["DEV_VERSION"])},
+              },
               "published_at": datetime.now(
                   timezone.utc
               ).isoformat(),
@@ -189,49 +196,319 @@ jobs:
           )
           PY
 
-      - name: Move dev-latest tag
+      - uses: actions/upload-artifact@v4
+        with:
+          name: development-plugin
+          path: dist-dev/*
+          if-no-files-found: error
+          retention-days: 14
+
+
+  portable:
+    name: Build standalone portable
+    if: github.ref == 'refs/heads/dev'
+    needs:
+      - checks
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          architecture: "x64"
+
+      - name: Clean standalone build outputs
+        shell: pwsh
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
+          Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force dist-standalone -ErrorAction SilentlyContinue
 
-          git tag -f dev-latest "$GITHUB_SHA"
-          git push origin refs/tags/dev-latest --force
+      - name: Resolve development version
+        id: version
+        shell: pwsh
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          $baseVersion = @'
+          import re
+          from pathlib import Path
 
-      - name: Publish development prerelease
+          text = Path("scripts/script_toolbox/constants.py").read_text(
+              encoding="utf-8"
+          )
+          match = re.search(
+              r'^PLUGIN_VERSION\s*=\s*"([^"]+)"',
+              text,
+              re.M,
+          )
+          if not match:
+              raise SystemExit("PLUGIN_VERSION not found")
+          print(
+              match.group(1).split("-", 1)[0]
+          )
+          '@ | python -
+
+          $baseVersion = "$baseVersion".Trim()
+          if (-not $baseVersion) {
+            throw "PLUGIN_VERSION not found"
+          }
+
+          $devVersion = "$baseVersion-dev.$env:BUILD_NUMBER"
+          "dev=$devVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Stamp development build metadata
+        shell: pwsh
+        env:
+          DEV_VERSION: ${{ steps.version.outputs.dev }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          BUILD_COMMIT: ${{ github.sha }}
+        run: |
+          @'
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path("scripts/script_toolbox/constants.py")
+          text = path.read_text(encoding="utf-8")
+
+          replacements = (
+              (
+                  r'^PLUGIN_VERSION\s*=\s*"[^"]*"',
+                  'PLUGIN_VERSION = "{0}"'.format(os.environ["DEV_VERSION"]),
+              ),
+              (
+                  r'^BUILD_CHANNEL\s*=\s*"[^"]*"',
+                  'BUILD_CHANNEL = "development"',
+              ),
+              (
+                  r'^BUILD_NUMBER\s*=\s*\d+',
+                  'BUILD_NUMBER = {0}'.format(int(os.environ["BUILD_NUMBER"])),
+              ),
+              (
+                  r'^BUILD_COMMIT\s*=\s*"[^"]*"',
+                  'BUILD_COMMIT = "{0}"'.format(os.environ["BUILD_COMMIT"]),
+              ),
+          )
+
+          for pattern, replacement in replacements:
+              text, count = re.subn(
+                  pattern,
+                  replacement,
+                  text,
+                  count=1,
+                  flags=re.M,
+              )
+              if count != 1:
+                  raise SystemExit(
+                      "Could not stamp constants pattern: {0}".format(pattern)
+                  )
+
+          path.write_text(text, encoding="utf-8")
+          '@ | python -
+
+      - name: Prepare official embeddable Python runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = python -c "import platform; print(platform.python_version())"
+          $runtime = Join-Path $PWD "build/runtime"
+          $archive = Join-Path $PWD "build/python-embed.zip"
+          New-Item -ItemType Directory -Force -Path (Split-Path $runtime) | Out-Null
+          Invoke-WebRequest `
+            -Uri "https://www.python.org/ftp/python/$version/python-$version-embed-amd64.zip" `
+            -OutFile $archive
+          Expand-Archive -Path $archive -DestinationPath $runtime
+
+          New-Item -ItemType Directory -Force -Path "$runtime/Lib/site-packages" | Out-Null
+          python -m pip install `
+            --disable-pip-version-check `
+            --no-cache-dir `
+            --only-binary=:all: `
+            --target "$runtime/Lib/site-packages" `
+            "PySide6>=6.8,<7"
+
+          $pth = Get-ChildItem -Path $runtime -Filter "python*._pth" | Select-Object -First 1
+          if (-not $pth) {
+            throw "Embedded Python _pth file was not found."
+          }
+          Add-Content -Path $pth.FullName -Value "Lib\site-packages"
+          Add-Content -Path $pth.FullName -Value "import site"
+
+      - name: Build native launcher
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $install = & $vswhere `
+            -latest `
+            -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          if (-not $install) {
+            throw "MSVC Build Tools were not found."
+          }
+
+          $vcvars = Join-Path $install "VC\Auxiliary\Build\vcvars64.bat"
+          New-Item -ItemType Directory -Force -Path "build/launcher" | Out-Null
+          $source = Join-Path $PWD "standalone\launcher.c"
+          $resourceSource = Join-Path $PWD "build\launcher\ScriptToolbox.rc"
+          $resource = Join-Path $PWD "build\launcher\ScriptToolbox.res"
+          $output = Join-Path $PWD "build\launcher\ScriptToolbox.exe"
+
+          python tools/build_windows_resources.py `
+            --output $resourceSource
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows metadata resource generation failed."
+          }
+
+          cmd /d /s /c "`"$vcvars`" && rc /nologo /fo `"$resource`" `"$resourceSource`" && cl /nologo /O2 /W4 `"$source`" `"$resource`" /link /SUBSYSTEM:WINDOWS /OUT:`"$output`""
+          if ($LASTEXITCODE -ne 0) {
+            throw "Standalone launcher compilation failed."
+          }
+
+          python tools/embed_windows_icon.py `
+            --exe $output `
+            --icon "scripts/script_toolbox/resources/logo_sbt.ico"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Standalone launcher icon embedding failed."
+          }
+
+          $versionInfo = (Get-Item $output).VersionInfo
+          $expected = @{
+            ProductName = "Script Toolbox"
+            FileDescription = "Script Toolbox"
+            InternalName = "ScriptToolbox"
+            OriginalFilename = "ScriptToolbox.exe"
+          }
+          foreach ($name in $expected.Keys) {
+            if ("$($versionInfo.$name)" -ne $expected[$name]) {
+              throw "Unexpected Windows metadata $name=$($versionInfo.$name)"
+            }
+          }
+
+      - name: Build portable standalone package
+        shell: pwsh
+        run: |
+          python tools/build_standalone_portable.py `
+            --runtime build/runtime `
+            --launcher build/launcher/ScriptToolbox.exe `
+            --output dist-standalone
+
+          $zip = Get-ChildItem -Path dist-standalone -Filter "*.zip" | Select-Object -First 1
+          $checksum = Get-ChildItem -Path dist-standalone -Filter "*.zip.sha256" | Select-Object -First 1
+          if (-not $zip -or -not $checksum) {
+            throw "Portable standalone package was not produced."
+          }
+
+          Move-Item -Force $zip.FullName "dist-standalone/script-toolbox-standalone-dev.zip"
+          Move-Item -Force $checksum.FullName "dist-standalone/script-toolbox-standalone-dev.zip.sha256"
+
+      - name: Smoke portable standalone UI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $package = Get-ChildItem -Path "dist-standalone" -Directory | Select-Object -First 1
+          if (-not $package) {
+            throw "Portable package directory was not found."
+          }
+
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $env:SCRIPT_TOOLBOX_PORTABLE_ROOT = $package.FullName
+          $smoke = Join-Path $PWD "tools\\smoke_standalone_portable.py"
+          & (Join-Path $package.FullName "runtime\\python.exe") $smoke
+          if ($LASTEXITCODE -ne 0) {
+            throw "Portable standalone UI lifecycle smoke failed."
+          }
+
+      - name: Smoke ScriptToolbox.exe entrypoint
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $package = Get-ChildItem -Path "dist-standalone" -Directory | Select-Object -First 1
+          $exe = Join-Path $package.FullName "ScriptToolbox.exe"
+          if (-not (Test-Path $exe)) {
+            throw "ScriptToolbox.exe was not produced."
+          }
+
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 5
+          if ($process.HasExited) {
+            throw "ScriptToolbox.exe exited during startup with code $($process.ExitCode)."
+          }
+          Stop-Process -Id $process.Id -Force
+
+      - name: Smoke native update and automatic restart
+        shell: pwsh
+        run: |
+          $package = Get-ChildItem -Path "dist-standalone" -Directory | Select-Object -First 1
+          python tools/smoke_standalone_update.py $package.FullName
+          if ($LASTEXITCODE -ne 0) { throw "Native portable update/restart smoke failed." }
+
+      - name: Upload standalone workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: script-toolbox-standalone-dev
+          path: |
+            dist-standalone/script-toolbox-standalone-dev.zip
+            dist-standalone/script-toolbox-standalone-dev.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+
+  publish:
+    name: Publish complete development build
+    if: github.ref == 'refs/heads/dev'
+    needs: [package, portable]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: development-plugin
+          path: dist-publish
+      - uses: actions/download-artifact@v4
+        with:
+          name: script-toolbox-standalone-dev
+          path: dist-publish
+      - name: Prepare immutable package assets
+        env:
+          DEV_VERSION: ${{ needs.package.outputs.version }}
+        run: |
+          python tools/prepare_dev_publication.py dist-publish "$DEV_VERSION"
+      - name: Publish packages before announcing the version
         env:
           GH_TOKEN: ${{ github.token }}
-          DEV_VERSION: ${{ steps.version.outputs.dev }}
-          SHORT_SHA: ${{ steps.version.outputs.short_sha }}
+          DEV_VERSION: ${{ needs.package.outputs.version }}
+          SHORT_SHA: ${{ needs.package.outputs.short_sha }}
         run: |
           TITLE="Script Toolbox Development $DEV_VERSION"
           NOTES="Automated Development build from dev (${SHORT_SHA})."
-
-          if gh release view dev-latest >/dev/null 2>&1; then
-            gh release upload dev-latest \
-              dist-dev/script-toolbox-dev.zip \
-              dist-dev/script-toolbox-dev.zip.sha256 \
-              dist-dev/dev-manifest.json \
-              --clobber
-
-            gh release edit dev-latest \
-              --prerelease \
-              --title "$TITLE" \
-              --notes "$NOTES"
-          else
-            gh release create dev-latest \
-              dist-dev/script-toolbox-dev.zip \
-              dist-dev/script-toolbox-dev.zip.sha256 \
-              dist-dev/dev-manifest.json \
-              --prerelease \
-              --title "$TITLE" \
-              --notes "$NOTES"
+          if ! gh release view dev-latest >/dev/null 2>&1; then
+            gh release create dev-latest --prerelease --title "$TITLE" --notes "$NOTES"
           fi
-
-      - name: Development build summary
+          # Versioned assets must never be overwritten. A rerun that collides
+          # fails before changing the manifest or legacy aliases.
+          gh release upload dev-latest \
+            "dist-publish/script-toolbox-$DEV_VERSION.zip" \
+            "dist-publish/script-toolbox-$DEV_VERSION.zip.sha256" \
+            "dist-publish/script-toolbox-$DEV_VERSION-standalone-windows-x64.zip" \
+            "dist-publish/script-toolbox-$DEV_VERSION-standalone-windows-x64.zip.sha256"
+          gh release upload dev-latest \
+            dist-publish/script-toolbox-dev.zip \
+            dist-publish/script-toolbox-dev.zip.sha256 \
+            dist-publish/script-toolbox-standalone-dev.zip \
+            dist-publish/script-toolbox-standalone-dev.zip.sha256 --clobber
+          # The manifest is the final publication point for new clients.
+          gh release upload dev-latest dist-publish/dev-manifest.json --clobber
+          gh release edit dev-latest --prerelease --title "$TITLE" --notes "$NOTES"
+      - name: Move dev-latest tag after complete publication
         run: |
-          echo "### Script Toolbox Development" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Version: \`${{ steps.version.outputs.dev }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Commit: \`${{ steps.version.outputs.short_sha }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Release tag: \`dev-latest\`" >> "$GITHUB_STEP_SUMMARY"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f dev-latest "$GITHUB_SHA"
+          git push origin refs/tags/dev-latest --force

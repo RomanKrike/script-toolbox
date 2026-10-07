@@ -26,9 +26,8 @@ def test_toggle_state_pages_share_binding_panel_tab_widget():
         assert "def _detach_state_tabs(" in source
         assert "def _sync_state_tabs(" in source
         assert "page = add_inspector_script_tab(" in source
-        assert "tabs.setTabEnabled(index, True)" in source
-        assert "tabs.tabBar().setTabEnabled(index, True)" in source
-        assert "self.state_get_editor.setEnabled(True)" in source
+        assert "return _state_source_refresh(self)" in source
+        assert "_integrate_editor_state_tabs(self)" in source
 
 
 def test_toggle_bind_detaches_fixed_pages_before_binding_panel_rebuild():

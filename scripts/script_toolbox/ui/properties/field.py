@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..scroll_surface_frames import wrap_scroll_widget
+
 from ...compat import QtGui
 from ...pycompat import text_type
 from .base import ValuePropertyEditorBase
@@ -74,6 +76,8 @@ class FieldPropertyEditor(ValuePropertyEditorBase):
         self.long_names.toggled.connect(
             self._control_changed
         )
+
+        self.value_scroll_frame = wrap_scroll_widget(self.value)
 
     def _source_changed(self, *args):
         self._refresh_enabled_state()

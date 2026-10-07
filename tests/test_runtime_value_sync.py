@@ -248,14 +248,30 @@ class _Owner(object):
         control.color = value
 
 
+_OriginalToolbox = _Toolbox
+_OriginalDebouncedToolbox = _DebouncedToolbox
+
+
 def _install(namespace, registry):
-    namespace["install_runtime_value_sync"](
-        registry,
-        _Toolbox,
-        store_toolbox_classes=(
-            _DebouncedToolbox,
-        )
-    )
+    global _Toolbox, _DebouncedToolbox
+    mixin = namespace["RuntimeValueMixin"]
+
+    class Toolbox(mixin, _OriginalToolbox):
+        def store_value(self, key, value):
+            result = _OriginalToolbox.store_value(self, key, value)
+            if result:
+                self.sync_runtime_value(key)
+            return result
+
+    class DebouncedToolbox(mixin, _OriginalDebouncedToolbox):
+        def store_value(self, key, value):
+            result = _OriginalDebouncedToolbox.store_value(self, key, value)
+            if result:
+                self.sync_runtime_value(key)
+            return result
+
+    _Toolbox, _DebouncedToolbox = Toolbox, DebouncedToolbox
+    namespace["synchronize_runtime_value_renderers"](registry)
 
 
 def test_string_runtime_widget_updates_after_store_value_by_name_and_id():
@@ -490,14 +506,9 @@ def test_base_and_debounced_store_overrides_are_wrapped_independently():
     registry = _Registry()
     _install(namespace, registry)
 
-    marker = namespace["_TOOLBOX_INSTALL_MARKER"]
-
-    assert _Toolbox.__dict__.get(marker) is True
-    assert _DebouncedToolbox.__dict__.get(marker) is True
-    assert (
-        _Toolbox.__dict__["store_value"]
-        is not _DebouncedToolbox.__dict__["store_value"]
-    )
+    assert "register_value_widget" not in _OriginalToolbox.__dict__
+    assert "sync_runtime_value" not in _OriginalDebouncedToolbox.__dict__
+    assert _Toolbox.store_value is not _DebouncedToolbox.store_value
 
 
 def test_ui_installs_sync_for_live_debounced_runtime_after_shared_decoration():
@@ -505,13 +516,10 @@ def test_ui_installs_sync_for_live_debounced_runtime_after_shared_decoration():
         "scripts/script_toolbox/ui/bootstrap.py"
     )
 
-    value_sync = source.index(
-        "install_runtime_value_sync("
-    )
-    generic_decoration = source.index(
-        "_decorate_runtime_renderer_registry(registry)"
-    )
-
+    value_sync = source.index("synchronize_runtime_value_renderers(runtime_registry)")
+    generic_decoration = source.index("_decorate_runtime_renderer_registry(registry)")
     assert generic_decoration < value_sync
-    assert "_debounced_main_window_module._DebouncedScriptToolbox" in source
-    assert "store_toolbox_classes=(" in source
+    assert "install_runtime_value_sync(" not in source
+    for filename in ("main_window.py", "debounced_main_window.py"):
+        window = _read("scripts/script_toolbox/ui/" + filename)
+        assert "self.sync_runtime_value(key)" in window

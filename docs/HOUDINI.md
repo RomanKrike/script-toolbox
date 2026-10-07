@@ -16,47 +16,58 @@ The host adapter remains Python 2.7 syntax-compatible because Houdini 19.0 was t
 
 Script Toolbox resolves the binding from the Houdini version, `HOUDINI_QT_PREFERRED_BINDING`, and any binding already loaded by the host. An already-loaded or host-preferred binding wins so Script Toolbox does not intentionally mix Qt major versions in one Houdini process. This also lets Houdini 21 Qt 5 variant builds select PySide2 while the main Houdini 21 build selects PySide6.
 
-## Installation for development
+## Automatic installation
 
-The repository is not copied into the Houdini preferences folder. Point Houdini at the repository `scripts` directory instead.
+Use **Settings → DCC Integrations → SideFX Houdini** from the standalone Script Toolbox build.
 
-A simple package file can be created at:
+For a detected Houdini version, **Install** creates:
 
 ```text
 $HOUDINI_USER_PREF_DIR/packages/script_toolbox.json
+$HOUDINI_USER_PREF_DIR/script_toolbox_integration/
 ```
 
-Example:
+The package points at the installed Script Toolbox distribution; the repository is not copied into the Houdini preferences directory. The managed plugin directory provides startup hooks and the optional Script Toolbox Shelf.
 
-```json
-{
-    "env": [
-        {
-            "SCRIPT_TOOLBOX_ROOT": "C:/path/to/script-toolbox"
-        },
-        {
-            "var": "PYTHONPATH",
-            "value": "$SCRIPT_TOOLBOX_ROOT/scripts",
-            "method": "prepend"
-        }
-    ]
-}
+Options:
+
+- **Add Houdini Shelf**
+- **Open on startup**
+
+The Shelf definition is loaded through Houdini's normal `toolbar` resource path. Script Toolbox shows/hides the tab with Houdini's `shelfdock add/remove` command and does **not** call `hou.ShelfSet.setShelves()`. This avoids modifying factory/user shelf-set definition files and prevents the “Could not save some of the shelf elements to their definition files” warning.
+
+**Repair** recreates missing managed files. **Update** refreshes stale package paths/version metadata. **Uninstall** removes only Script Toolbox-managed package/plugin files and does not edit `houdini.env`.
+
+Restart Houdini after installing from standalone so Houdini processes the package during startup. When Script Toolbox runs inside the matching Houdini process it also attempts a live UI sync.
+
+### Custom profile locations
+
+Expand **Profile locations** in the Houdini section to add studio or launcher-specific preferences.
+
+You can select either:
+
+```text
+D:\\studio\\houdini-prefs
+    houdini20.5
+    houdini21.0
 ```
 
-Replace `C:/path/to/script-toolbox` with the local checkout path.
+or a concrete preferences directory such as:
 
-After restarting Houdini, open a Python Shell or shelf tool and run:
-
-```python
-import script_toolbox
-script_toolbox.show()
+```text
+D:\\studio\\show\\prefs
 ```
 
-For development reloads:
+If the selected root contains `houdiniX.Y` children, Script Toolbox maps installed Houdini builds to those folders by major/minor version. Otherwise the selected directory is treated as the direct custom `HOUDINI_USER_PREF_DIR`.
 
-```python
-import script_toolbox
-script_toolbox.reload_toolbox()
+Default and custom targets of the same Houdini version keep independent integration settings.
+
+## Manual development setup
+
+The managed installer uses the same Houdini package mechanism as a manual development setup. The example package remains available at:
+
+```text
+houdini/script_toolbox.json.example
 ```
 
 ## Host behavior
@@ -85,4 +96,4 @@ The compatibility layer also supplies the Qt 6 compatibility surface required by
 
 The common Script Toolbox runtime and editor run as a normal Qt window across the supported Houdini generations.
 
-A Houdini-native Python Panel descriptor and packaged release installer remain separate follow-up work. They should be validated independently from the cross-version runtime compatibility layer.
+The managed package installer is available from Settings → DCC Integrations. A Houdini-native Python Panel descriptor remains separate follow-up work; the current integration exposes Script Toolbox through its managed Shelf and normal floating window.

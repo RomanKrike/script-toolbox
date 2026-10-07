@@ -50,7 +50,7 @@ def test_lifecycle_flush_points_are_present():
     assert source.count("self.flush_pending_save()") >= 5
 
 
-def test_bootstrap_and_nuke_panel_use_debounced_window():
+def test_bootstrap_uses_debounced_window_and_nuke_has_no_dock_panel():
     bootstrap = _source(
         "scripts/script_toolbox/bootstrap.py"
     )
@@ -60,9 +60,11 @@ def test_bootstrap_and_nuke_panel_use_debounced_window():
 
     assert ".ui.debounced_main_window import show" in bootstrap
     assert ".ui.debounced_main_window import close_toolbox" in bootstrap
+    assert "def register_panel(" not in nuke
+    assert "Register Dock Panel" not in nuke
     assert (
         "script_toolbox.ui.debounced_main_window.ScriptToolbox"
-        in nuke
+        not in nuke
     )
 
 

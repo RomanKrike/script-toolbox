@@ -488,7 +488,19 @@ def builtin_item_definitions():
     if _BUILTIN_DEFINITIONS is None:
         _BUILTIN_DEFINITIONS = (
             _standard_item_definitions() +
-            builtin_extension_definitions()
+            builtin_extension_definitions() +
+            (ItemTypeDefinition(
+                kind="reference", title="Preset Reference", creatable=False,
+                fields={"source": TextField(default=""),
+                        "preset": TextField(default=""),
+                        "parameter": TextField(default=""),
+                        "target_kind": TextField(default=""),
+                        "scope": AnyField(default={}, validator=lambda value: isinstance(value, dict)
+                                          and all(isinstance(k, text_type) and isinstance(v, text_type)
+                                                  for k, v in value.items())),
+                        "state": AnyField(default={}, validator=lambda value: isinstance(value, dict))},
+                renderer_path=".managed_presets:render_broken_reference",
+            ),)
         )
     return _BUILTIN_DEFINITIONS
 

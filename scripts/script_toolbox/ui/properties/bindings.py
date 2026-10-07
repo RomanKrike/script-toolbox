@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ...qt_compat import qt_exec
+
 import copy
 
 from ...compat import QtCore
@@ -24,6 +26,7 @@ from ...style.metrics import TRIGGER_PAGE_SPACING
 from ...style.metrics import TRIGGER_PANEL_MARGINS
 from ...style.metrics import TRIGGER_PANEL_SPACING
 from ..language_script_editor import LanguageScriptEditor
+from .script_editor_sizing import configure_script_editor, configure_binding_panel
 from ..layout_helpers import configure_inline_layout
 from ..layout_helpers import configure_layout
 from .inspector_tabs import style_binding_panel
@@ -251,6 +254,7 @@ class BindingPage(QtGui.QWidget):
                 pass
             self.script_editor.textChanged.connect(self._script_changed)
             self.script_editor.languageChanged.connect(self._script_changed)
+            configure_script_editor(self.script_editor)
             root.addWidget(self.script_editor, 1)
 
     def _script_changed(self):
@@ -363,6 +367,8 @@ class BindingPanel(QtGui.QWidget):
         self.tabs.tabBar().installEventFilter(self)
         self.setVisible(False)
 
+        configure_binding_panel(self)
+
     def setTitle(self, title):
         # Compatibility with PropertyEditorBase's historical Events title.
         # TRIGGERS is now the only visible heading.
@@ -397,25 +403,33 @@ class BindingPanel(QtGui.QWidget):
 
     def eventFilter(self, watched, event):
         if watched is self.tabs.tabBar():
-            index = watched.tabAt(event.pos())
+            event_type = event.type()
 
-            if (
-                event.type() == QtCore.QEvent.MouseButtonPress and
-                index == self.tabs.add_tab_index()
+            if event_type in (
+                QtCore.QEvent.MouseButtonPress,
+                QtCore.QEvent.MouseButtonDblClick,
             ):
-                try:
-                    if event.button() != QtCore.Qt.LeftButton:
-                        return True
-                except Exception:
-                    pass
-                self.add_binding()
-                return True
+                index = watched.tabAt(
+                    event.pos()
+                )
 
-            if event.type() == QtCore.QEvent.MouseButtonDblClick:
-                page = self._binding_page_at_tab(index)
-                if page is not None:
-                    self.edit_binding(page)
+                if (
+                    event_type == QtCore.QEvent.MouseButtonPress and
+                    index == self.tabs.add_tab_index()
+                ):
+                    try:
+                        if event.button() != QtCore.Qt.LeftButton:
+                            return True
+                    except Exception:
+                        pass
+                    self.add_binding()
                     return True
+
+                if event_type == QtCore.QEvent.MouseButtonDblClick:
+                    page = self._binding_page_at_tab(index)
+                    if page is not None:
+                        self.edit_binding(page)
+                        return True
 
         return QtGui.QWidget.eventFilter(self, watched, event)
 
@@ -508,6 +522,9 @@ class BindingPanel(QtGui.QWidget):
             self.tabs.setMinimumHeight(0)
             self.tabs.setMaximumHeight(16777215)
 
+        if hasattr(self, "script_resize_handle"):
+            self.script_resize_handle.setVisible(bool(self.pages))
+
     def _page_changed(self):
         if self.loading:
             return
@@ -516,16 +533,11 @@ class BindingPanel(QtGui.QWidget):
 
     def _duplicate_signature(self, candidate, ignore_page=None):
         signature = binding_signature(candidate)
-        handler = candidate.get("handler", "script")
 
         for page in self.pages:
             if page is ignore_page:
                 continue
-            current = page.write()
-            if (
-                binding_signature(current) == signature and
-                current.get("handler", "script") == handler
-            ):
+            if binding_signature(page.write()) == signature:
                 return True
         return False
 
@@ -534,7 +546,7 @@ class BindingPanel(QtGui.QWidget):
             return
 
         dialog = AddBindingDialog(self.item, parent=self)
-        if dialog.exec_() != QtGui.QDialog.Accepted:
+        if qt_exec(dialog) != QtGui.QDialog.Accepted:
             return
 
         binding = dialog.value()
@@ -564,7 +576,7 @@ class BindingPanel(QtGui.QWidget):
             binding=current,
             parent=self
         )
-        if dialog.exec_() != QtGui.QDialog.Accepted:
+        if qt_exec(dialog) != QtGui.QDialog.Accepted:
             return
 
         binding = dialog.value()

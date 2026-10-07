@@ -3,6 +3,7 @@ from __future__ import print_function
 
 import re
 import uuid
+import copy
 
 from ..constants import CONFIG_VERSION
 from ..pycompat import text_type
@@ -254,6 +255,10 @@ def create_item(kind, data=None):
     data = data if isinstance(data, dict) else {}
     definition = ITEM_TYPES.get(kind, required=True)
     item = base_item(definition.kind, data)
+    # Runtime provenance survives internal normalization; config serialization
+    # projects it back to the authored link before validating/writing JSON.
+    if "_preset_reference" in data:
+        item["_preset_reference"] = copy.deepcopy(data["_preset_reference"])
 
     raw_bindings = data.get("bindings")
     if raw_bindings is None:

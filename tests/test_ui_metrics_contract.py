@@ -177,7 +177,6 @@ def test_application_layout_geometry_uses_shared_metrics():
         "EDITOR_ACTION_BUTTON_MIN_WIDTH = 78",
         "TOOLBAR_SPACING = 2",
         "TOOLBAR_GROUP_SPACING = 4",
-        "TOOLBOX_TOPBAR_MARGINS = (6, 4, 6, 4)",
         "TOOLBOX_CONTENT_MARGINS = (6, 6, 6, 6)",
         "SCRIPT_EDITOR_ROOT_SPACING = 4",
         "SHARE_ACTION_SPACING = 6",
@@ -187,7 +186,7 @@ def test_application_layout_geometry_uses_shared_metrics():
     assert "metrics.EDITOR_ROOT_MARGINS" in interface
     assert interface.count("metrics.EDITOR_PANE_MARGINS") == 3
     assert "metrics.EDITOR_ACTION_BUTTON_MIN_WIDTH" in interface
-    assert "metrics.TOOLBOX_TOPBAR_MARGINS" in main_window
+    assert "metrics.MARGINS_NONE" in main_window
     assert "metrics.TOOLBOX_CONTENT_MARGINS" in main_window
     assert "metrics.SCRIPT_EDITOR_ROOT_SPACING" in script_editor
     assert script_editor.count("metrics.TOOLBAR_GROUP_SPACING") == 4

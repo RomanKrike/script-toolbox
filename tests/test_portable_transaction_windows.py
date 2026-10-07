@@ -1,0 +1,244 @@
+"""Execute the actual PowerShell transaction with injected failures."""
+import ctypes
+import json
+import os
+import subprocess
+import time
+
+import pytest
+
+from script_toolbox.core import standalone_update
+
+pytestmark = pytest.mark.skipif(os.name != "nt", reason="Windows filesystem/PowerShell test")
+
+
+def prepare(tmp_path):
+    source, destination = tmp_path / "source", tmp_path / "destination"
+    source.mkdir()
+    destination.mkdir()
+    (source / "README.md").write_text("new")
+    (source / "runtime").mkdir()
+    (source / "runtime" / "python311.dll").write_bytes(b"new dll")
+    (destination / "README.md").write_text("old")
+    (destination / "runtime").mkdir()
+    (destination / "runtime" / "python311.dll").write_bytes(b"old dll")
+    (destination / "docs").mkdir()
+    (destination / "docs" / "obsolete.txt").write_text("obsolete")
+    (destination / "user_notes.txt").write_text("keep")
+    (destination / "standalone-manifest.json").write_text(json.dumps(
+        standalone_update.package_manifest(str(destination))))
+    # User notes are explicitly excluded from package ownership.
+    old = json.loads((destination / "standalone-manifest.json").read_text())
+    old.pop("user_notes.txt")
+    (destination / "standalone-manifest.json").write_text(json.dumps(old))
+    (source / "standalone-manifest.json").write_text(json.dumps(standalone_update.package_manifest(str(source))))
+    standalone_update._prepare_apply_plan(str(source), str(destination), "1.0.2")
+    return source, destination
+
+
+def script_path(tmp_path, injection=None):
+    script = standalone_update.render_apply_script()
+    # Suppress only the external relaunch of a native EXE in this test fixture.
+    script = "\n".join(line for line in script.splitlines() if not line.strip().startswith("if (-not (Restart-Portable "))
+    if injection:
+        marker = '        $target = Safe-Path $Destination $entry.path'
+        applying = script.index('    Write-JsonAtomic $journalPath @{phase="applying"}')
+        prefix, tail = script[:applying], script[applying:]
+        assert tail.count(marker) == 1
+        script = prefix + tail.replace(marker, marker + "\n" + injection, 1)
+    path = tmp_path / "apply.ps1"
+    path.write_text(script, encoding="utf-8")
+    return path
+
+
+def command(script, destination, recover=False):
+    result = ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+              "-File", str(script), "-Destination", str(destination),
+              "-CleanupRoot", str(destination.parent / "cleanup")]
+    if recover:
+        result.append("-RecoverOnly")
+    return result
+
+
+def test_apply_removes_only_manifest_files(tmp_path):
+    _, destination = prepare(tmp_path)
+    result = subprocess.run(command(script_path(tmp_path), destination), capture_output=True, timeout=30)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    assert (destination / "README.md").read_text() == "new"
+    assert not (destination / "docs" / "obsolete.txt").exists()
+    assert (destination / "user_notes.txt").read_text() == "keep"
+    assert json.loads((destination / "standalone-update-status.json").read_text())["state"] == "installed"
+
+
+def test_partial_apply_rolls_back(tmp_path):
+    _, destination = prepare(tmp_path)
+    injection = '        if ($entry.path -eq "runtime/python311.dll") { throw "injected disk-full" }'
+    result = subprocess.run(command(script_path(tmp_path, injection), destination), capture_output=True, timeout=30)
+    assert result.returncode == 1
+    assert (destination / "README.md").read_text() == "old"
+    assert (destination / "runtime" / "python311.dll").read_bytes() == b"old dll"
+    assert (destination / "docs" / "obsolete.txt").read_text() == "obsolete"
+    assert json.loads((destination / "standalone-update-status.json").read_text())["rollback"] == "complete"
+
+
+def test_killed_helper_recovers_from_durable_journal(tmp_path):
+    _, destination = prepare(tmp_path)
+    signal = tmp_path / "paused"
+    injection = '        if ($entry.path -eq "runtime/python311.dll") { [IO.File]::WriteAllText(%s, "paused"); Start-Sleep -Seconds 300 }' % ("'" + str(signal).replace("'", "''") + "'")
+    process = subprocess.Popen(command(script_path(tmp_path, injection), destination), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        deadline = time.monotonic() + 15
+        while not signal.exists() and time.monotonic() < deadline and process.poll() is None:
+            time.sleep(0.05)
+        assert signal.exists()
+        process.kill()
+        process.wait()
+        result = subprocess.run(command(script_path(tmp_path), destination, recover=True), capture_output=True, timeout=30)
+        assert result.returncode == 0, result.stderr.decode(errors="replace")
+        assert (destination / "README.md").read_text() == "old"
+        assert (destination / "docs" / "obsolete.txt").exists()
+        assert not (destination / standalone_update.PORTABLE_TRANSACTION_DIRECTORY).exists()
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+
+
+def test_locked_runtime_dll_keeps_previous_installation(tmp_path):
+    _, destination = prepare(tmp_path)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.CreateFileW.restype = ctypes.c_void_p
+    kernel.CreateFileW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint, ctypes.c_uint, ctypes.c_void_p,
+                                  ctypes.c_uint, ctypes.c_uint, ctypes.c_void_p]
+    kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+    handle = kernel.CreateFileW(str(destination / "runtime" / "python311.dll"),
+                                0x80000000, 1, None, 3, 0, None)
+    assert handle != ctypes.c_void_p(-1).value
+    try:
+        result = subprocess.run(command(script_path(tmp_path), destination), capture_output=True, timeout=30)
+        assert result.returncode == 1
+    finally:
+        kernel.CloseHandle(handle)
+    # A failed rollback retains the journal; recovering after unlocking is safe.
+    if (destination / standalone_update.PORTABLE_TRANSACTION_DIRECTORY).exists():
+        result = subprocess.run(command(script_path(tmp_path), destination, recover=True), capture_output=True, timeout=30)
+        assert result.returncode == 0, result.stderr.decode(errors="replace")
+    assert (destination / "README.md").read_text() == "old"
+    assert (destination / "runtime" / "python311.dll").read_bytes() == b"old dll"
+
+
+def compile_restart_fixture(tmp_path, acknowledge):
+    """Real native child executable; transaction tests do not suppress restart."""
+    path = tmp_path / 'restart-fixture.exe'
+    body = '''using System;
+using System.IO;
+using System.Threading;
+public class RestartFixture {
+    public static int Main() {
+        %s
+    }
+}''' % ('''File.WriteAllText(Path.Combine(Environment.CurrentDirectory, ".script_toolbox_restart_ack"),
+                    Environment.GetEnvironmentVariable("SCRIPT_TOOLBOX_RESTART_TOKEN"));
+        Thread.Sleep(3000); return 0;''' if acknowledge else 'return 7;')
+    script = tmp_path / 'compile.ps1'
+    script.write_text("Add-Type -TypeDefinition @'\n" + body + "\n'@ -OutputAssembly '" +
+                      str(path).replace("'", "''") + "' -OutputType ConsoleApplication\n")
+    result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-File', str(script)],
+                            capture_output=True, timeout=30)
+    assert result.returncode == 0, result.stderr.decode(errors='replace')
+    return path.read_bytes()
+
+
+@pytest.mark.parametrize('acknowledge', [True, False])
+def test_actual_restart_is_confirmed_or_reported_without_rollback(tmp_path, acknowledge):
+    executable = compile_restart_fixture(tmp_path, acknowledge)
+    source, destination = prepare(tmp_path)
+    # Rebuild staging with a genuine executable and startup handshake marker.
+    import shutil
+    shutil.rmtree(destination / standalone_update.PORTABLE_TRANSACTION_DIRECTORY)
+    (source / 'ScriptToolbox.exe').write_bytes(executable)
+    (source / 'standalone-build.json').write_text(json.dumps({'restart_handshake_version': 1}))
+    (source / 'standalone-manifest.json').write_text(json.dumps(standalone_update.package_manifest(str(source))))
+    standalone_update._prepare_apply_plan(str(source), str(destination), '1.0.2')
+    script = tmp_path / 'apply-with-restart.ps1'
+    script.write_text(standalone_update.render_apply_script(), encoding='utf-8')
+    result = subprocess.run(command(script, destination), capture_output=True, timeout=40)
+    status = json.loads((destination / 'standalone-update-status.json').read_text())
+    assert status['state'] == 'installed'
+    assert (destination / 'README.md').read_text() == 'new'
+    assert not (destination / standalone_update.PORTABLE_TRANSACTION_DIRECTORY).exists()
+    if acknowledge:
+        assert result.returncode == 0, result.stderr.decode(errors='replace')
+        assert status['restart'] == 'started'
+        assert status['restart_pid'] > 0
+    else:
+        assert result.returncode == 2
+        assert status['restart'] == 'failed'
+        assert 'code 7' in status['message']
+
+
+def test_junction_target_is_rejected_before_any_replacement(tmp_path):
+    _, destination = prepare(tmp_path)
+    outside = tmp_path / 'outside-runtime'
+    (destination / 'runtime').rename(outside)
+    result = subprocess.run(['cmd.exe', '/c', 'mklink', '/J', str(destination / 'runtime'), str(outside)],
+                            capture_output=True, timeout=10)
+    assert result.returncode == 0, result.stderr
+    try:
+        result = subprocess.run(command(script_path(tmp_path), destination), capture_output=True, timeout=30)
+        assert result.returncode == 1
+        assert b'Reparse point' in result.stderr
+        assert (destination / 'README.md').read_text() == 'old'
+        assert (outside / 'python311.dll').read_bytes() == b'old dll'
+    finally:
+        os.rmdir(str(destination / 'runtime'))
+
+
+def test_portable_helper_blocks_public_plugin_installer(tmp_path, monkeypatch):
+    from script_toolbox.core import update_transaction
+
+    _, destination = prepare(tmp_path)
+    paused, resume = tmp_path / "portable-paused", tmp_path / "portable-resume"
+    quoted_paused = "'" + str(paused).replace("'", "''") + "'"
+    quoted_resume = "'" + str(resume).replace("'", "''") + "'"
+    injection = (
+        '        if ($entry.path -eq "runtime/python311.dll") { '
+        '[IO.File]::WriteAllText(%s, "paused"); '
+        'while (-not [IO.File]::Exists(%s)) { [Threading.Thread]::Sleep(20) } }'
+    ) % (quoted_paused, quoted_resume)
+    process = subprocess.Popen(command(script_path(tmp_path, injection), destination),
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    monkeypatch.setattr(update_transaction, "repository_root", lambda: str(destination))
+
+    def unexpected_download(*args, **kwargs):
+        pytest.fail("Competing installer reached download while native helper owns the lock")
+
+    monkeypatch.setattr(update_transaction, "_download_file", unexpected_download)
+    try:
+        deadline = time.monotonic() + 30
+        while not paused.exists() and process.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert paused.exists(), "Native helper did not reach the applying barrier"
+        journal = destination / standalone_update.PORTABLE_TRANSACTION_DIRECTORY / "journal.json"
+        before = journal.read_bytes()
+        with pytest.raises(update_transaction.UpdateError, match="already running"):
+            update_transaction.install_release({
+                "version": "2.0.0",
+                "asset_name": "script-toolbox-2.0.0.zip",
+                "download_url": "http://127.0.0.1/release.zip",
+                "checksum_url": "http://127.0.0.1/release.zip.sha256",
+            })
+        assert journal.read_bytes() == before
+        assert (destination / "runtime" / "python311.dll").read_bytes() == b"old dll"
+        resume.write_text("continue")
+        output, error = process.communicate(timeout=30)
+        assert process.returncode == 0, (output, error)
+        assert (destination / "runtime" / "python311.dll").read_bytes() == b"new dll"
+        assert not journal.parent.exists()
+        # The failed acquisition must also release the process-local guard.
+        with standalone_update.installation_lock(str(destination)):
+            pass
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.communicate(timeout=10)

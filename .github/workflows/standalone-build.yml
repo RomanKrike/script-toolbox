@@ -1,0 +1,211 @@
+name: Standalone portable build
+
+on:
+  workflow_call:
+    inputs:
+      source_sha:
+        required: true
+        type: string
+      artifact_name:
+        default: script-toolbox-standalone-windows-x64
+        type: string
+    secrets:
+      POSTHOG_PROJECT_TOKEN:
+        required: false
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - dev
+      - feature/**
+      - fix/**
+    paths:
+      - "scripts/script_toolbox/**"
+      - "standalone/**"
+      - "tools/build_standalone_portable.py"
+      - "tools/build_windows_resources.py"
+      - "tools/embed_windows_icon.py"
+      - "tests/test_app_icon_contract.py"
+      - "tests/test_standalone_portable_build.py"
+      - "tests/test_windows_application_identity.py"
+      - ".github/workflows/standalone-build.yml"
+
+concurrency:
+  group: standalone-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-portable:
+    name: Windows x64 portable
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          architecture: "x64"
+
+      - name: Stamp telemetry client config
+        env:
+          POSTHOG_PROJECT_TOKEN: ${{ secrets.POSTHOG_PROJECT_TOKEN }}
+          POSTHOG_HOST: https://eu.i.posthog.com
+        run: python tools/stamp_telemetry_config.py
+
+      - name: Run Windows identity contract tests
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check pytest
+          python -m pytest `
+            tests/test_windows_application_identity.py `
+            tests/test_app_icon_contract.py `
+            tests/test_standalone_portable_build.py
+
+      - name: Clean standalone build outputs
+        shell: pwsh
+        run: |
+          Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force dist-standalone -ErrorAction SilentlyContinue
+
+      - name: Prepare official embeddable Python runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = python -c "import platform; print(platform.python_version())"
+          $runtime = Join-Path $PWD "build/runtime"
+          $archive = Join-Path $PWD "build/python-embed.zip"
+          New-Item -ItemType Directory -Force -Path (Split-Path $runtime) | Out-Null
+          Invoke-WebRequest `
+            -Uri "https://www.python.org/ftp/python/$version/python-$version-embed-amd64.zip" `
+            -OutFile $archive
+          Expand-Archive -Path $archive -DestinationPath $runtime
+
+          New-Item -ItemType Directory -Force -Path "$runtime/Lib/site-packages" | Out-Null
+          python -m pip install `
+            --disable-pip-version-check `
+            --no-cache-dir `
+            --only-binary=:all: `
+            --target "$runtime/Lib/site-packages" `
+            "PySide6>=6.8,<7"
+
+          $pth = Get-ChildItem -Path $runtime -Filter "python*._pth" | Select-Object -First 1
+          if (-not $pth) {
+            throw "Embedded Python _pth file was not found."
+          }
+          Add-Content -Path $pth.FullName -Value "Lib\site-packages"
+          Add-Content -Path $pth.FullName -Value "import site"
+
+      - name: Build native launcher
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $install = & $vswhere `
+            -latest `
+            -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          if (-not $install) {
+            throw "MSVC Build Tools were not found."
+          }
+
+          $vcvars = Join-Path $install "VC\Auxiliary\Build\vcvars64.bat"
+          New-Item -ItemType Directory -Force -Path "build/launcher" | Out-Null
+          $source = Join-Path $PWD "standalone\launcher.c"
+          $resourceSource = Join-Path $PWD "build\launcher\ScriptToolbox.rc"
+          $resource = Join-Path $PWD "build\launcher\ScriptToolbox.res"
+          $output = Join-Path $PWD "build\launcher\ScriptToolbox.exe"
+
+          python tools/build_windows_resources.py `
+            --output $resourceSource
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows metadata resource generation failed."
+          }
+
+          cmd /d /s /c "`"$vcvars`" && rc /nologo /fo `"$resource`" `"$resourceSource`" && cl /nologo /O2 /W4 `"$source`" `"$resource`" /link /SUBSYSTEM:WINDOWS /OUT:`"$output`""
+          if ($LASTEXITCODE -ne 0) {
+            throw "Standalone launcher compilation failed."
+          }
+
+          python tools/embed_windows_icon.py `
+            --exe $output `
+            --icon "scripts/script_toolbox/resources/logo_sbt.ico"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Standalone launcher icon embedding failed."
+          }
+
+          $versionInfo = (Get-Item $output).VersionInfo
+          $expected = @{
+            ProductName = "Script Toolbox"
+            FileDescription = "Script Toolbox"
+            InternalName = "ScriptToolbox"
+            OriginalFilename = "ScriptToolbox.exe"
+          }
+          foreach ($name in $expected.Keys) {
+            if ("$($versionInfo.$name)" -ne $expected[$name]) {
+              throw "Unexpected Windows metadata $name=$($versionInfo.$name)"
+            }
+          }
+
+      - name: Build portable ZIP
+        shell: pwsh
+        run: |
+          python tools/build_standalone_portable.py `
+            --runtime build/runtime `
+            --launcher build/launcher/ScriptToolbox.exe `
+            --output dist-standalone
+
+      - name: Smoke portable standalone UI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $package = Get-ChildItem -Path "dist-standalone" -Directory | Select-Object -First 1
+          if (-not $package) {
+            throw "Portable package directory was not found."
+          }
+
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $env:SCRIPT_TOOLBOX_PORTABLE_ROOT = $package.FullName
+          $smoke = Join-Path $PWD "tools\\smoke_standalone_portable.py"
+          & (Join-Path $package.FullName "runtime\\python.exe") $smoke
+          if ($LASTEXITCODE -ne 0) {
+            throw "Portable standalone UI lifecycle smoke failed."
+          }
+
+      - name: Smoke ScriptToolbox.exe entrypoint
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $package = Get-ChildItem -Path "dist-standalone" -Directory | Select-Object -First 1
+          $exe = Join-Path $package.FullName "ScriptToolbox.exe"
+          if (-not (Test-Path $exe)) {
+            throw "ScriptToolbox.exe was not produced."
+          }
+
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 5
+          if ($process.HasExited) {
+            throw "ScriptToolbox.exe exited during startup with code $($process.ExitCode)."
+          }
+          Stop-Process -Id $process.Id -Force
+
+      - name: Smoke native update and automatic restart
+        shell: pwsh
+        run: |
+          $package = Get-ChildItem -Path "dist-standalone" -Directory | Select-Object -First 1
+          python tools/smoke_standalone_update.py $package.FullName
+          if ($LASTEXITCODE -ne 0) { throw "Native portable update/restart smoke failed." }
+
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name || 'script-toolbox-standalone-windows-x64' }}
+          path: |
+            dist-standalone/*.zip
+            dist-standalone/*.sha256
+          if-no-files-found: error
+          retention-days: 14

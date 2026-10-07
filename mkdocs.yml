@@ -44,11 +44,12 @@ plugins:
             Installation: Установка
             Quick start: Быстрый старт
             Guide: Руководство
-            Preset libraries: Библиотеки пресетов
             Interface and workflow: Интерфейс и рабочий процесс
             Items: Элементы
             Scripting: Скрипты
             Sharing and updates: Обмен и обновления
+            DCC integrations: Интеграции DCC
+            Preset libraries: Библиотеки пресетов
             Hosts: Хосты
             Developer: Разработчикам
             Overview: Обзор
@@ -70,6 +71,7 @@ nav:
       - Items: guide/items.md
       - Scripting: guide/scripting.md
       - Sharing and updates: guide/sharing-updates.md
+      - DCC integrations: guide/dcc-integrations.md
       - Preset libraries: guide/preset-libraries.md
   - Hosts:
       - Nuke: NUKE.md

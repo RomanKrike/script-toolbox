@@ -1,35 +1,19 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-from ..core.editor_document import EditorDocumentController
 from ..core.logging_utils import get_logger
 from . import debounced_main_window as _debounced_main_window_module
-from . import editor_document_adapter as _editor_document_adapter_module
-from . import interface_editor as _interface_editor_module
 from . import runtime as _runtime_module
 from . import runtime_renderers as _runtime_renderers_module
-from .collapsible_folder import install_runtime_folder_composition
-from .editor_document_adapter import build_interface_editor_class
+from .composed_editor import InterfaceEditor
 from .editor_polish_hooks import install_icon_only_button_centering
 from .editor_polish_hooks import install_runtime_icon_feedback
-from .editor_selection_state import install_editor_selection_state
 from .item_ui_bootstrap import ensure_builtin_item_ui_bindings
-from .main_window import ScriptToolbox as _BaseScriptToolbox
-from .preset_hooks import build_preset_interface_editor_class
-from .reference_warning_hooks import build_reference_warning_editor_class
 from .runtime_renderers import _decorate_runtime_renderer_registry
 from .runtime_renderers import get_runtime_renderer_registry
 from .runtime_renderers import initialize_runtime_renderer_registry
-from .runtime_value_sync import install_runtime_value_sync
-from .script_editor import ScriptEditorWidget
-from .scroll_surface_frames import install_property_editor_scroll_frames
+from .runtime_value_sync import synchronize_runtime_value_renderers
 from .scroll_surface_frames import install_runtime_scroll_frames
-from .scroll_surface_frames import install_script_editor_scroll_frames
-from .state_toggle_hooks import install_state_toggle_behavior
-from .telemetry_hooks import build_telemetry_interface_editor_class
-from .telemetry_hooks import install_telemetry_share_controller
-from .template_transfer_hooks import build_template_transfer_interface_editor_class
-from .update_channels_ui import build_update_channel_toolbox_class
 
 
 _LOGGER = get_logger()
@@ -53,27 +37,7 @@ class UIComposition(object):
 
 def _compose_interface_editor():
     ensure_builtin_item_ui_bindings()
-    base_editor = _interface_editor_module.InterfaceEditor
-    install_editor_selection_state(base_editor)
-
-    _editor_document_adapter_module.install_share_controller = (
-        install_telemetry_share_controller
-    )
-
-    editor_class = build_interface_editor_class(
-        base_editor,
-        controller_class=EditorDocumentController,
-        layout_support=False
-    )
-    editor_class = build_reference_warning_editor_class(editor_class)
-    editor_class = build_preset_interface_editor_class(editor_class)
-    editor_class = build_template_transfer_interface_editor_class(editor_class)
-    editor_class = build_telemetry_interface_editor_class(editor_class)
-
-    install_property_editor_scroll_frames()
-
-    _interface_editor_module.InterfaceEditor = editor_class
-    return editor_class
+    return InterfaceEditor
 
 
 def _runtime_registry():
@@ -92,7 +56,6 @@ def _runtime_registry():
 
 def _compose_runtime_registry():
     ensure_builtin_item_ui_bindings()
-    install_runtime_folder_composition(_runtime_module)
     registry = _runtime_registry()
 
     # Specialized startup wrappers are installed first. The shared generic
@@ -109,19 +72,9 @@ def _compose_runtime_registry():
 
 
 def _compose_toolbox(runtime_registry):
-    install_state_toggle_behavior(_BaseScriptToolbox)
-    toolbox_class = build_update_channel_toolbox_class(
-        _BaseScriptToolbox
-    )
+    toolbox_class = _debounced_main_window_module.ScriptToolbox
 
-    install_script_editor_scroll_frames(ScriptEditorWidget)
-    install_runtime_value_sync(
-        runtime_registry,
-        _BaseScriptToolbox,
-        store_toolbox_classes=(
-            _debounced_main_window_module._DebouncedScriptToolbox,
-        )
-    )
+    synchronize_runtime_value_renderers(runtime_registry)
     return toolbox_class
 
 

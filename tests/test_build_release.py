@@ -60,6 +60,10 @@ def test_build_release_creates_zip_checksum_and_module(tmp_path):
 
         names = archive.namelist()
 
+    assert "script-toolbox-9.8.7/tools/publish_preset_source.py" in names
+    assert "script-toolbox-9.8.7/examples/preset-source/library.json" in names
+    assert "script-toolbox-9.8.7/examples/preset-source/All/General/pipeline.json" in names
+
     assert (
         "+ MayaScriptToolbox 9.8.7 ." in
         module_text

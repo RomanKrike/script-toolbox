@@ -7,14 +7,7 @@ from ..model.item_builtins import register_builtin_items
 from ..model.item_registry import ITEM_TYPES
 
 
-_HOOK_MARKER = "_script_toolbox_state_toggle_behavior"
-
-
-def install_state_toggle_behavior(toolbox_class):
-    """Install shared state-toggle semantics for capable Item types."""
-    if getattr(toolbox_class, _HOOK_MARKER, False):
-        return False
-
+class StateToggleBehaviorMixin(object):
     def run_state_binding(self, item_or_id, binding=None, event=None):
         item = (
             item_or_id
@@ -66,11 +59,6 @@ def install_state_toggle_behavior(toolbox_class):
             self.refresh_state_buttons()
         return result
 
-    toolbox_class.run_state_binding = run_state_binding
-    setattr(toolbox_class, _HOOK_MARKER, True)
-    return True
 
 
-__all__ = [
-    "install_state_toggle_behavior",
-]
+__all__ = ["StateToggleBehaviorMixin"]

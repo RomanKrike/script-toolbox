@@ -8,7 +8,7 @@ The regression suite protects the current Script Toolbox architecture and config
 
 `tests/fixtures/golden_v21_current.json` is the compact schema-21 golden document used for load/save/idempotency checks.
 
-The current build accepts schema 21 only.
+The current build accepts schema 21 for ordinary documents and schema 22 for linked preset reference documents.
 
 ## Editor/model invariants
 

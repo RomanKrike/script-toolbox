@@ -219,11 +219,13 @@ def test_item_source_has_no_legacy_folder_traversal_or_type_constant():
     assert offenders == []
 
 
-def test_current_schema_is_v21_only_and_documented_as_clean_break():
+def test_current_schema_documents_reference_opt_in_and_no_legacy_migration():
     docs = _source("docs", "ARCHITECTURE.md")
     docs_ru = _source("docs", "ARCHITECTURE.ru.md")
 
-    assert "Schema **21** is the single supported configuration contract" in docs
+    assert "Schema **21** is the ordinary configuration contract" in docs
+    assert "Linked preset reference configs use **22**" in docs
+    assert "Configs со связанными пресетами используют **22**" in docs_ru
     assert "there is intentionally no schema 20 -> 21 migration" in docs
     assert "ItemDataView" not in docs
     assert "ItemDataView" not in docs_ru

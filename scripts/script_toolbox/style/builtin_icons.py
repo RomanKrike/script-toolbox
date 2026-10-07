@@ -21,6 +21,7 @@ _RESOURCE_ROOT = os.path.normpath(
 )
 
 _ICON_ENTRIES = (
+    ("reference", "Preset Reference", "reference.svg"),
     ("undo", "Undo", "undo-left-round.svg"),
     ("redo", "Redo", "undo-right-round.svg"),
     ("cut", "Cut", "scissors.svg"),
@@ -28,6 +29,7 @@ _ICON_ENTRIES = (
     ("paste", "Paste", "clipboard.svg"),
     ("find", "Find", "magnifier.svg"),
     ("run", "Run", "play.svg"),
+    ("console", "Console", "console.svg"),
     ("import", "Import", "download-minimalistic.svg"),
     ("export", "Export", "upload-minimalistic.svg"),
     ("cloud-download", "Cloud Download", "cloud-download.svg"),

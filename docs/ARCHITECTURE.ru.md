@@ -46,11 +46,11 @@ ui/main_window -> ui/runtime -> core/values -> model
 
 ## Текущая схема конфигурации
 
-Schema **21** — единственный поддерживаемый контракт.
+Schema **21** используется для обычных configs. Configs со связанными пресетами используют **22**; см. `core/preset_references.py` и `core/config.py`.
 
 ```text
 JSON read
-  -> validate schema version 21
+  -> validate schema version 21 (ordinary) / 22 (linked references)
   -> normalize + validate current Item envelopes и typed props
   -> runtime document
 ```
@@ -417,8 +417,8 @@ scripts/script_toolbox/
 - Никаких circular imports.
 - Никакого DCC UI/API-кода в `model`.
 - Никакого JSON file I/O в `ui`.
-- Поддерживается только current config schema 21.
-- Persisted/runtime Item использует только schema 21 envelope; flat compatibility view не добавляется.
+- Обычные configs используют schema 21; configs со связанными пресетами — schema 22.
+- Persisted/runtime Item использует универсальный envelope schema 21/22; flat compatibility view не добавляется.
 - Unknown item kind нельзя silently convert в другой kind и нельзя сохранять через placeholder Item.
 - `kind` — единственный type discriminator.
 - `ui.label` нельзя использовать как identity.

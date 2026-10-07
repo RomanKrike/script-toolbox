@@ -79,10 +79,10 @@ def test_inspector_and_runtime_compose_one_collapsible_section_primitive():
     assert 'u"\\u25b8"' not in sections
     assert 'u"\\u25be"' not in sections
 
-    assert "def install_runtime_folder_composition(runtime_module):" in component
+    assert "class CollapsibleRuntimeMixin(object):" in component
     assert "self.collapsible_section = CollapsibleSection(" in component
     assert "self.collapsible_section.collapsedChanged.connect(" in component
-    assert "runtime_class.__init__ = runtime_folder_init" in component
+    assert "runtime_class.__init__ =" not in component
     assert "runtime_module.RuntimeFolder = SharedRuntimeFolder" not in component
     assert "class SharedRuntimeFolder" not in component
 
@@ -90,7 +90,7 @@ def test_inspector_and_runtime_compose_one_collapsible_section_primitive():
         "class CollapsibleSection(QtGui.QFrame):",
         1
     )[1].split(
-        "def install_runtime_folder_composition(runtime_module):",
+        "class CollapsibleRuntimeMixin(object):",
         1
     )[0]
     assert "toolbox.save" not in class_block
@@ -99,11 +99,7 @@ def test_inspector_and_runtime_compose_one_collapsible_section_primitive():
 
     assert '("right", "Expand", "alt-arrow-right.svg")' in builtin_icons
     assert "from .collapsible_folder import CollapsibleSection" in package_source
-    assert (
-        "from .collapsible_folder import install_runtime_folder_composition"
-        in bootstrap_source
-    )
-    assert "install_runtime_folder_composition(_runtime_module)" in bootstrap_source
+    assert "install_runtime_folder_composition(" not in bootstrap_source
     assert "install_runtime_folder_chrome(" not in bootstrap_source
 
 
@@ -259,6 +255,6 @@ def test_trigger_sizing_targets_stable_trigger_section():
         "scripts", "script_toolbox", "ui", "properties", "script_editor_sizing.py"
     )
 
-    assert '"trigger_section"' in source
-    assert "self.root_layout.indexOf(" in source
-    assert "self.binding_panel" in source
+    assert "editor.trigger_section" in source
+    assert "editor.root_layout.indexOf(" in source
+    assert "editor.binding_panel" in source

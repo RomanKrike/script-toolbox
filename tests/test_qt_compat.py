@@ -10,6 +10,7 @@ from script_toolbox.qt_compat import binding_candidates
 from script_toolbox.qt_compat import install_legacy_api
 from script_toolbox.qt_compat import mirror_widgets_onto_qtgui
 from script_toolbox.qt_compat import version_major
+from script_toolbox.qt_compat import qt_exec
 
 
 _BINDING_MODULES = (
@@ -147,7 +148,7 @@ def test_houdini_21_preferred_binding_can_select_qt5_variant(monkeypatch):
     )[0] == PYSIDE2
 
 
-def test_loaded_binding_takes_precedence_over_version_guess(monkeypatch):
+def test_loaded_binding_cannot_override_known_maya_generation(monkeypatch):
     _clear_loaded_bindings(
         monkeypatch
     )
@@ -160,7 +161,7 @@ def test_loaded_binding_takes_precedence_over_version_guess(monkeypatch):
     assert binding_candidates(
         "maya",
         "2025"
-    )[0] == PYSIDE2
+    ) == (PYSIDE6,)
 
 
 def test_mirror_widgets_preserves_existing_qtgui_attributes():
@@ -176,9 +177,10 @@ def test_mirror_widgets_preserves_existing_qtgui_attributes():
         QtWidgetsFake
     )
 
-    assert result is QtGuiFake
+    assert result is not QtGuiFake
     assert QtGuiFake.ExistingWidget == "gui-version"
-    assert QtGuiFake.NewWidget == "new-widget"
+    assert result.NewWidget == "new-widget"
+    assert not hasattr(QtGuiFake, "NewWidget")
 
 
 def test_install_legacy_api_adds_qt6_method_aliases():
@@ -210,8 +212,9 @@ def test_install_legacy_api_adds_qt6_method_aliases():
         None
     )
 
-    assert QMenu().exec_() == "menu"
-    assert QFontMetrics().width("abcd") == 4
+    assert qt_exec(QMenu()) == "menu"
+    assert not hasattr(QMenu, "exec_")
+    assert not hasattr(QFontMetrics, "width")
 
 
 def test_install_legacy_api_adapts_qregular_expression_subset():
@@ -288,13 +291,14 @@ def test_install_legacy_api_adapts_qregular_expression_subset():
 
     QtCoreFake.QRegularExpression = QRegularExpression
 
-    install_legacy_api(
+    core, _ = install_legacy_api(
         QtCoreFake,
         QtGuiFake,
         None
     )
 
-    expression = QtCoreFake.QRegExp(
+    assert not hasattr(QtCoreFake, "QRegExp")
+    expression = core.QRegExp(
         "abc"
     )
     assert expression.indexIn(

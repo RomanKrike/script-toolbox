@@ -28,6 +28,7 @@ def test_required_solar_icons_are_bundled():
         "close-circle.svg",
         "cloud-download.svg",
         "cloud-upload.svg",
+        "console.svg",
         "folder-open.svg",
         "settings.svg",
     ):
@@ -41,6 +42,7 @@ def test_toolbar_icon_mappings_match_ui_contract():
 
     assert '"update": "import"' in source
     assert '("gear", "Settings", "settings.svg")' in source
+    assert '("console", "Console", "console.svg")' in source
     assert '("add", "Add", "add.svg")' in source
     assert '("close", "Close", "close.svg")' in source
     assert '"cloud-download.svg"' in source
@@ -77,19 +79,21 @@ def test_technical_icon_buttons_use_shared_factory_and_presets():
     assert "button.setFixedSize(" in source
 
 
-def test_main_header_uses_shared_icon_button_factory():
+def test_main_window_uses_menu_bar_instead_of_header_icon_controls():
     source = _read(
         "scripts/script_toolbox/ui/main_window.py"
     )
 
-    assert "ICON_BUTTON_HEADER" in source
-    assert "create_icon_button(" in source
-    assert "self.check_updates_button = create_icon_button(" in source
-    assert "self.reload_button = create_icon_button(" in source
-    assert "self.interface_editor_button = create_icon_button(" in source
-    assert "check_updates_button = QtGui.QToolButton()" not in source
-    assert "reload_button = QtGui.QToolButton()" not in source
-    assert "gear = QtGui.QToolButton()" not in source
+    assert "QtGui.QMenuBar(" in source
+    assert '"ToolboxMenuBar"' in source
+    assert '"Open Editor"' in source
+    assert '"Open Settings"' in source
+    assert '"Check for Updates"' in source
+    assert "ICON_BUTTON_HEADER" not in source
+    assert "create_icon_button(" not in source
+    assert "check_updates_button" not in source
+    assert "reload_button" not in source
+    assert "interface_editor_button" not in source
 
 
 def test_interface_editor_uses_shared_icon_button_factory():
@@ -136,7 +140,7 @@ def test_share_actions_use_stable_references_and_final_icons():
     assert "_install_share_buttons" not in share_source
 
     assert "from .share_hooks import install_share_controller" in adapter_source
-    assert "install_share_controller(self)" in adapter_source
+    assert "share_controller_factory(self)" in adapter_source
     assert "self.share_controller.icon_button(" in adapter_source
     assert "self.share_controller.show_tree_context_menu(" in adapter_source
     assert "build_share_interface_editor_class(" not in ui_source

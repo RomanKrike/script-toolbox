@@ -6,6 +6,44 @@ from ..core.update_channels import check_for_update
 from ..core.update_transaction import install_release
 
 
+class UpdateJobs(QtCore.QObject):
+    """Application-owned workers survive window deletion and module reload."""
+    def __init__(self, application):
+        QtCore.QObject.__init__(self, application)
+        self.jobs = set()
+        application.aboutToQuit.connect(self.shutdown)
+
+    def retain(self, job):
+        self.jobs.add(job)
+        job.finished.connect(self.release_finished)
+
+    def release_finished(self):
+        job = self.sender()
+        self.jobs.discard(job)
+        job.setParent(None)
+
+    def shutdown(self):
+        # Network operations have transport timeouts. Never terminate a worker
+        # during a filesystem commit. No UI event processing during shutdown.
+        for job in list(self.jobs):
+            cancel = getattr(job, "cancel", None)
+            if callable(cancel):
+                cancel()
+        for job in list(self.jobs):
+            job.wait()
+
+
+def update_jobs():
+    application = QtCore.QCoreApplication.instance()
+    if application is None:
+        raise RuntimeError("Update jobs require a running Qt application.")
+    owner = getattr(application, "_script_toolbox_update_jobs", None)
+    if owner is None:
+        owner = UpdateJobs(application)
+        application._script_toolbox_update_jobs = owner
+    return owner
+
+
 class UpdateCheckThread(QtCore.QThread):
 
     completed = QtCore.Signal(
@@ -17,19 +55,18 @@ class UpdateCheckThread(QtCore.QThread):
         parent=None,
         channel="stable"
     ):
-        QtCore.QThread.__init__(
-            self,
-            parent
-        )
+        owner = update_jobs()
+        QtCore.QThread.__init__(self, owner)
+        owner.retain(self)
 
         self.channel = channel
 
     def run(self):
-        self.completed.emit(
-            check_for_update(
-                channel=self.channel
-            )
-        )
+        try:
+            result = check_for_update(channel=self.channel)
+        except Exception as exc:
+            result = {"available": False, "error": str(exc), "channel": self.channel}
+        self.completed.emit(result)
 
 
 class UpdateInstallThread(QtCore.QThread):
@@ -43,10 +80,9 @@ class UpdateInstallThread(QtCore.QThread):
         release,
         parent=None
     ):
-        QtCore.QThread.__init__(
-            self,
-            parent
-        )
+        owner = update_jobs()
+        QtCore.QThread.__init__(self, owner)
+        owner.retain(self)
 
         self.release = release
 

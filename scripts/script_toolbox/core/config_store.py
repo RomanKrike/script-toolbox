@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-from .config import save_config
+from .config import save_config, file_revision, config_path
 
 
 class ConfigStore(object):
@@ -21,6 +21,8 @@ class ConfigStore(object):
         self.document = document
         self.path = path
         self.writer = writer or save_config
+        self.revision = (getattr(document, "source_revision", file_revision(path or config_path()))
+                         if writer is None else None)
         self.dirty = False
         self.write_count = 0
 
@@ -30,6 +32,8 @@ class ConfigStore(object):
         dirty=False
     ):
         self.document = document
+        if hasattr(document, "source_revision"):
+            self.revision = document.source_revision
         self.dirty = bool(
             dirty
         )
@@ -62,10 +66,12 @@ class ConfigStore(object):
 
         # Keep dirty=True until the writer succeeds. A disk/config recovery
         # failure therefore never makes unsaved in-memory changes look clean.
-        result = self.writer(
-            self.document,
-            path=self.path
-        )
+        if self.writer is save_config:
+            result, self.revision = self.writer(
+                self.document, path=self.path, expected_revision=self.revision,
+                return_revision=True)
+        else:
+            result = self.writer(self.document, path=self.path)
         self.dirty = False
         self.write_count += 1
         return result

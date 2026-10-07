@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+import json
+import os
+
 from ..constants import BUILD_CHANNEL
 from ..constants import BUILD_NUMBER
 from ..constants import DEV_RELEASE_TAG
 from ..constants import GITHUB_REPOSITORY
 from ..constants import PLUGIN_VERSION
+from ..hosts import HOST
 from ..pycompat import text_type
 from . import updater
 from .preferences import UPDATE_CHANNEL_DEVELOPMENT
@@ -15,7 +19,39 @@ from .preferences import normalize_update_channel
 
 DEV_PACKAGE_ASSET = "script-toolbox-dev.zip"
 DEV_CHECKSUM_ASSET = "script-toolbox-dev.zip.sha256"
+DEV_STANDALONE_PACKAGE_ASSET = "script-toolbox-standalone-dev.zip"
+DEV_STANDALONE_CHECKSUM_ASSET = (
+    "script-toolbox-standalone-dev.zip.sha256"
+)
 DEV_MANIFEST_ASSET = "dev-manifest.json"
+STANDALONE_BUILD_MARKER = "standalone-build.json"
+
+
+def _is_standalone():
+    return HOST.key == "standalone"
+
+
+def standalone_build_info():
+    path = os.path.join(
+        updater.repository_root(),
+        STANDALONE_BUILD_MARKER
+    )
+
+    if not os.path.isfile(path):
+        return {}
+
+    try:
+        with open(path, "rb") as handle:
+            payload = handle.read()
+
+        if not isinstance(payload, text_type):
+            payload = payload.decode("utf-8")
+
+        data = json.loads(payload)
+    except Exception:
+        return {}
+
+    return data if isinstance(data, dict) else {}
 
 
 def _asset_by_name(
@@ -70,13 +106,25 @@ def development_release(
         timeout=timeout
     )
 
+    standalone = _is_standalone()
+    package_asset_name = (
+        DEV_STANDALONE_PACKAGE_ASSET
+        if standalone
+        else DEV_PACKAGE_ASSET
+    )
+    checksum_asset_name = (
+        DEV_STANDALONE_CHECKSUM_ASSET
+        if standalone
+        else DEV_CHECKSUM_ASSET
+    )
+
     package_asset = _asset_by_name(
         data,
-        DEV_PACKAGE_ASSET
+        package_asset_name
     )
     checksum_asset = _asset_by_name(
         data,
-        DEV_CHECKSUM_ASSET
+        checksum_asset_name
     )
     manifest_asset = _asset_by_name(
         data,
@@ -96,14 +144,14 @@ def development_release(
     if not package_url:
         raise updater.UpdateError(
             "Development release has no {0} asset.".format(
-                DEV_PACKAGE_ASSET
+                package_asset_name
             )
         )
 
     if not checksum_url:
         raise updater.UpdateError(
             "Development release has no {0} asset.".format(
-                DEV_CHECKSUM_ASSET
+                checksum_asset_name
             )
         )
 
@@ -152,6 +200,20 @@ def development_release(
             "Development manifest has no version."
         )
 
+    packages = manifest.get("packages")
+    if packages is not None:
+        kind = "standalone" if standalone else "plugin"
+        expected_name = "script-toolbox-{0}{1}.zip".format(
+            version, "-standalone-windows-x64" if standalone else "")
+        record = packages.get(kind, {}) if isinstance(packages, dict) else {}
+        if not isinstance(record, dict) or record.get("asset_name") != expected_name:
+            raise updater.UpdateError("Development manifest has invalid versioned package metadata.")
+        package_asset_name = expected_name
+        package_url = _asset_url(_asset_by_name(data, expected_name))
+        checksum_url = _asset_url(_asset_by_name(data, expected_name + ".sha256"))
+        if not package_url or not checksum_url:
+            raise updater.UpdateError("Development package publication is incomplete. Retry the update check.")
+
     try:
         build_number = int(
             manifest.get(
@@ -191,7 +253,7 @@ def development_release(
         ),
         "download_url": package_url,
         "checksum_url": checksum_url,
-        "asset_name": DEV_PACKAGE_ASSET,
+        "asset_name": package_asset_name,
         "published_at": text_type(
             data.get(
                 "published_at",
@@ -207,6 +269,11 @@ def development_release(
         "channel": UPDATE_CHANNEL_DEVELOPMENT,
         "build_number": build_number,
         "commit": commit,
+        "package_kind": (
+            "standalone"
+            if standalone
+            else "plugin"
+        ),
     }
 
 
@@ -225,11 +292,28 @@ def check_for_update(
     )
 
     if channel == UPDATE_CHANNEL_STABLE:
+        package_kind = (
+            "standalone"
+            if _is_standalone()
+            else "plugin"
+        )
+        effective_version = current_version
+
+        if package_kind == "standalone":
+            marker = standalone_build_info()
+            effective_version = text_type(
+                marker.get(
+                    "version",
+                    ""
+                )
+            ).strip() or current_version
+
         result = updater.check_for_update(
-            current_version=current_version,
+            current_version=effective_version,
             repository=repository,
             token=token,
-            timeout=timeout
+            timeout=timeout,
+            package_kind=package_kind
         )
         result[
             "channel"
@@ -273,7 +357,34 @@ def check_for_update(
         except Exception:
             current_build_number = 0
 
-        if current_build_channel != UPDATE_CHANNEL_DEVELOPMENT:
+        if _is_standalone():
+            marker = standalone_build_info()
+            marker_channel = normalize_update_channel(
+                marker.get(
+                    "channel"
+                ),
+                default=""
+            )
+            try:
+                marker_build_number = int(
+                    marker.get(
+                        "build_number",
+                        0
+                    ) or 0
+                )
+            except Exception:
+                marker_build_number = 0
+
+            result[
+                "available"
+            ] = (
+                marker_channel != UPDATE_CHANNEL_DEVELOPMENT or
+                release[
+                    "build_number"
+                ] >
+                marker_build_number
+            )
+        elif current_build_channel != UPDATE_CHANNEL_DEVELOPMENT:
             result[
                 "available"
             ] = True
@@ -301,6 +412,10 @@ __all__ = [
     "DEV_CHECKSUM_ASSET",
     "DEV_MANIFEST_ASSET",
     "DEV_PACKAGE_ASSET",
+    "DEV_STANDALONE_CHECKSUM_ASSET",
+    "DEV_STANDALONE_PACKAGE_ASSET",
+    "STANDALONE_BUILD_MARKER",
     "check_for_update",
     "development_release",
+    "standalone_build_info",
 ]

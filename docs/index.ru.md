@@ -2,6 +2,10 @@
 
 **Script Toolbox** — настраиваемый лаунчер скриптов и конструктор интерфейсов для **Autodesk Maya, Foundry Nuke, SideFX Houdini и отдельного приложения Windows**. Создавайте многоразовые интерфейсы из кнопок, полей, меню, контейнеров, иконок, изображений, подписей и других элементов, а затем назначайте им Python-скрипты или команды конкретного DCC-хоста.
 
+![Пример интерфейса standalone Toolbox](assets/images/interface/runtime.png){ width="620" }
+
+*Демонстрационная конфигурация BEARS. [Обзор интерфейса и редактора](guide/interface.md).*
+
 <div class="stx-grid" markdown>
 
 <div class="stx-card" markdown>

@@ -29,7 +29,6 @@ from ..style import metrics
 from ..style import toolbar_icon
 from ..style.palette import CONTENT_BG
 from .layout_helpers import configure_layout
-from .runtime import build_folder_widgets
 from .update_ui import UpdateCheckThread
 from .update_ui import UpdateInstallThread
 from .state_toggle_hooks import StateToggleBehaviorMixin
@@ -793,28 +792,14 @@ class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWind
             self.preset_resolver = PresetResolver(SourceRegistry())
         self.preset_resolver.resolve_document(self.config)
         invalidate_document_index(self.config)
-        self.clear_value_widgets()
-        self.field_widgets = {}
-        self.state_button_widgets = {}
-        self.toggle_icon_widgets = {}
-
-        while self.content_layout.count() > 1:
-            layout_item = self.content_layout.takeAt(0)
-            widget = layout_item.widget()
-            if widget is not None:
-                widget.deleteLater()
-
-        widgets = build_folder_widgets(
-            self,
-            self.config["sections"],
-            self.content
-        )
-        for widget in widgets:
-            self.content_layout.insertWidget(
-                self.content_layout.count() - 1,
-                widget
-            )
-
+        from .runtime_surface import RuntimeSurface, capture_view_state
+        state = capture_view_state(self)
+        surface = RuntimeSurface(self, self.config).prepare(self.config)
+        try:
+            surface.activate(self, state)
+        except Exception:
+            surface.dispose()
+            raise
         self.refresh_selection_fields(force=True)
         self.refresh_state_buttons()
 

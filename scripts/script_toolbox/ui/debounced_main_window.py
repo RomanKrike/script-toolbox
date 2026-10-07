@@ -6,7 +6,9 @@ from ..compat import QtCore
 from ..compat import QtGui
 from ..compat import main_window
 from ..core.config_store import ConfigStore
-from ..core.document_commit import prepare_document_commit, DocumentSaveFailure
+from ..core.document_commit import (prepare_document_commit, DocumentSaveFailure,
+                                    DocumentMergeConflict, DocumentRenderFailure,
+                                    DocumentActivationFailure)
 from ..core.state_refresh import StateRefreshQueue
 from ..core.values import store_value as store_document_value
 from ..hosts.callbacks import EVENT_SELECTION_CHANGED
@@ -153,15 +155,69 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
             self.flush_pending_save()
         except Exception as exc:
             raise DocumentSaveFailure(text_type(exc))
+        from ..core.preset_references import authored_document
+        from .runtime_surface import RuntimeSurface, capture_view_state
+        current = authored_document(self.config)
         candidate = prepare_document_commit(base, staged, self.config)
         self.preset_resolver.resolve_document(candidate)
+        state = capture_view_state(self)
         try:
-            self.config_store.commit_candidate(candidate)
+            surface = RuntimeSurface(self, candidate).prepare(candidate)
         except Exception as exc:
-            raise DocumentSaveFailure(text_type(exc))
+            raise DocumentRenderFailure(text_type(exc))
+        try:
+            if authored_document(self.config) != current:
+                raise DocumentMergeConflict("document/changed-during-render")
+            try:
+                self.config_store.commit_candidate(candidate)
+            except Exception as exc:
+                raise DocumentSaveFailure(text_type(exc))
+        except Exception:
+            surface.dispose()
+            raise
         self.config = candidate
-        self.rebuild()
+        try:
+            surface.activate(self, state)
+        except Exception as exc:
+            surface.dispose()
+            self._recover_saved_configuration()
+            raise DocumentActivationFailure(
+                "Configuration was saved, but the interface could not be activated. "
+                "Reload or reopen the window. " + text_type(exc))
+        self.refresh_selection_fields(force=True)
+        self.refresh_state_buttons()
         return candidate
+
+    def _recover_saved_configuration(self):
+        # Never roll back the file: another process may already have changed it.
+        from ..core.config import load_config
+        from ..core.preset_references import PresetResolver
+        document = load_config(path=self.config_store.path)
+        self.preset_resolver = PresetResolver(self.preset_resolver.registry)
+        self.preset_resolver.resolve_document(document)
+        self.config = document
+        self.config_store.replace_document(document, dirty=False)
+        self.cancel_scheduled_state_refresh()
+        self._runtime_unavailable = True
+        if self.selection_timer is not None:
+            self.selection_timer.stop()
+        previous = self.scroll.takeWidget()
+        surface = getattr(self, "runtime_surface", None)
+        self.clear_value_widgets()
+        if surface is not None:
+            surface.dispose()
+        elif previous is not None:
+            previous.deleteLater()
+        self.runtime_surface = None
+        self.field_widgets, self.state_button_widgets, self.toggle_icon_widgets = {}, {}, {}
+        self.content = QtGui.QWidget()
+        self.content_layout = QtGui.QVBoxLayout(self.content)
+        self.content_layout.addWidget(QtGui.QLabel(
+            "Configuration saved. Use Reload to restore the interface."))
+        self.content_layout.addStretch(1)
+        self.content.setEnabled(False)
+        self.scroll.setWidget(self.content)
+        self.statusBar().showMessage("Configuration saved. Interface unavailable; Reload to retry.")
 
     def _flush_scheduled_save(self):
         try:
@@ -262,6 +318,8 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         return self.state_refresh_queue.cancel()
 
     def refresh_state_buttons(self):
+        if getattr(self, "_runtime_unavailable", False):
+            return None
         if self._selection_refresh_in_progress:
             if self._rebuilding_runtime:
                 return None
@@ -278,6 +336,8 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         self,
         force=False
     ):
+        if getattr(self, "_runtime_unavailable", False):
+            return None
         self._selection_refresh_in_progress = True
         try:
             return base_main_window.ScriptToolbox.refresh_selection_fields(
@@ -391,6 +451,9 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         self.clear_host_callbacks()
         self.preset_source_scheduler.stop()
         self.clear_value_widgets()
+        surface = getattr(self, "runtime_surface", None)
+        if surface is not None:
+            surface.context.dispose()
 
         if self.selection_timer is not None:
             self.selection_timer.stop()

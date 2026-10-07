@@ -42,6 +42,11 @@ Value-edit signal connections made by built-in renderers are transferred to
 their binding and disconnected during disposal. Item event dispatch and host
 callbacks have separate owners; a binding must not disconnect those wholesale.
 
+During construction, `owner.toolbox` exposes an isolated runtime context. Read
+values and register controls/bindings through it; write values only from later
+user callbacks. After activation those callbacks forward to the live Toolbox.
+See [runtime surfaces](runtime-surfaces.md) for ownership and failure rules.
+
 ## Minimal custom counter
 
 This example runs in a session with Script Toolbox UI loaded. Register the type
@@ -76,7 +81,7 @@ class CounterBinding(ValueBinding):
 
 
 def render_counter(owner, item, compact=False):
-    root = QtGui.QWidget()
+    root = QtGui.QWidget(owner.content)
     layout = QtGui.QHBoxLayout(root)
     root.label = QtGui.QLabel(str(item['props']['value']))
     root.button = QtGui.QPushButton('+1')

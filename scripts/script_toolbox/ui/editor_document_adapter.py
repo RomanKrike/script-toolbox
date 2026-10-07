@@ -9,7 +9,8 @@ from ..core.editor_commands import ItemStateCommand
 from ..core.editor_commands import ItemsStateCommand
 from ..core.editor_commands import build_document_delta
 from ..core.editor_document import EditorDocumentController
-from ..core.document_commit import DocumentMergeConflict, DocumentSaveFailure
+from ..core.document_commit import (DocumentMergeConflict, DocumentSaveFailure,
+                                    DocumentRenderFailure, DocumentActivationFailure)
 from ..core.preset_references import authored_document
 from ..pycompat import text_type
 from .editor_search import apply_editor_presentation
@@ -749,6 +750,13 @@ class ControllerEditorMixin(object):
             return False
         except DocumentSaveFailure as exc:
             QtGui.QMessageBox.critical(self, "Config Save Failed", text_type(exc))
+            return False
+
+        except DocumentRenderFailure as exc:
+            QtGui.QMessageBox.critical(self, "Interface Preparation Failed", text_type(exc))
+            return False
+        except DocumentActivationFailure as exc:
+            QtGui.QMessageBox.critical(self, "Interface Activation Failed", text_type(exc))
             return False
 
         # Re-seed the staged controller from the applied runtime config

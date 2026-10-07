@@ -244,7 +244,8 @@ class PresetEditorMixin(object):
             self.preset_resolver = old_editor
             raise
         if result is False:
-            self.toolbox.preset_resolver = old
+            if not getattr(self.toolbox, "_runtime_unavailable", False):
+                self.toolbox.preset_resolver = old
             self.preset_resolver = old_editor
         else:
             self._refresh_preset_catalog()

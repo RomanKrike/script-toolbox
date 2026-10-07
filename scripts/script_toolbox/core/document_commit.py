@@ -24,6 +24,16 @@ class DocumentSaveFailure(RuntimeError):
     pass
 
 
+class DocumentRenderFailure(RuntimeError):
+    """The UI candidate could not be prepared; no candidate was persisted."""
+    pass
+
+
+class DocumentActivationFailure(RuntimeError):
+    """Persistence succeeded but the interface could not be activated."""
+    pass
+
+
 def _copy(value):
     return _MISSING if value is _MISSING else copy.deepcopy(value)
 

@@ -74,3 +74,5 @@ Each interactive item exposes only the events supported by that item kind. These
 - editing-related events.
 
 Behavior is stored in per-item `bindings`, keeping presentation properties separate from executable behavior.
+
+Images use a framed card. **Show filename** displays the basename of `source` below the image (hidden for an empty source). Long names are shortened with the full name in a tooltip. `width` and `height` describe the image area; the frame and caption add to the total size. Scripts can use `toolbox.item("preview").set(source="/images/view.png", show_filename=True)`.

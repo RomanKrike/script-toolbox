@@ -36,12 +36,22 @@ for color in ('red', 'blue'):
     change = handle.set(source=path, width=100, height=60, tooltip=color)
     assert change.changed
     root = roots['preview']
-    assert root.pixmap().toImage().pixelColor(0, 0).name() == QtGui.QColor(color).name()
-    assert root.width() == 100 and root.height() == 60
+    assert root.image_label.pixmap().toImage().pixelColor(0, 0).name() == QtGui.QColor(color).name()
+    assert root.image_label.width() == 100 and root.image_label.height() == 60
     assert root.toolTip() == color
+    assert root.filename_label.text() == color + '.png'
+    assert not root.filename_label.isHidden()
     assert w.runtime_surface is surface and tabs.currentIndex() == 1
 handle.set(source='/missing/image.png')
-assert roots['preview'].text() == 'Image' and roots['preview'].pixmap().isNull()
+assert roots['preview'].image_label.text() == 'Image' and roots['preview'].image_label.pixmap().isNull()
+handle.set(show_filename=False)
+assert roots['preview'].filename_label.isHidden()
+assert roots['preview'].height() == 60 + 24
+handle.set(source='', show_filename=True)
+assert roots['preview'].filename_label.isHidden()
+handle.set(source='C:/previews/very_long_name_' + 'x' * 100 + '.png')
+assert roots['preview'].filename_label.filename.startswith('very_long_name_')
+assert len(roots['preview'].filename_label.text()) < len(roots['preview'].filename_label.filename)
 assert not events
 w.item('switch').set(value=True, label='Show preview')
 assert roots['switch'].isChecked()
@@ -118,6 +128,35 @@ def changed(item, old, new):
 w._run_on_change = changed
 handle.set(value='first')
 assert events == ['first', 'second'] and handle.value == 'second'
+w.close()
+w.deleteLater()
+pump()
+''', tmp_path)
+
+
+def test_image_filename_property_editor_and_mouse_binding(tmp_path):
+    run_qt('''
+from script_toolbox.model.items import create_item, normalize_document
+from script_toolbox.ui.image_item import ImagePropertyEditor
+image = create_item('image', {'name': 'preview', 'props': {'source': 'C:\\\\shots\\\\view.png'}})
+editor = ImagePropertyEditor()
+editor.load_specific(image['props'])
+assert editor.show_filename.isChecked()
+editor.show_filename.setChecked(False)
+props = dict(image['props'])
+editor.write_specific(props)
+assert props['show_filename'] is False
+w.config = normalize_document({'sections': [create_item('folder', {'items': [image]})]})
+w.rebuild()
+w.show()
+pump()
+root = w.runtime_surface.context.conditions.widgets[image['id']][0]
+assert root.filename_label.filename == 'view.png'
+assert root.image_label._script_toolbox_binding_item == image['id']
+assert root.filename_label._script_toolbox_binding_item == image['id']
+w.item('preview').set(show_filename=False)
+assert root.filename_label.isHidden()
+editor.deleteLater()
 w.close()
 w.deleteLater()
 pump()

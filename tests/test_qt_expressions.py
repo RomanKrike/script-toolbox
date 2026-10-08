@@ -28,7 +28,8 @@ for mode in ('simple', 'collapsible', 'tabs', 'radio'):
     widgets = [manager.widgets[item['id']][0] for item in children]
     left, center, right = widgets[1:4]
     assert left.x() < center.x() < right.x(), (mode, [widget.geometry() for widget in widgets])
-    assert left.width() == center.width() == right.width() == 80
+    assert left.width() == center.width() == right.width() == 104
+    assert left.image_label.width() == center.image_label.width() == right.image_label.width() == 80
     assert abs(center.geometry().center().x() - center.parentWidget().rect().center().x()) <= 2
     assert widgets[4].width() > 80
     assert widgets[5].width() > widgets[6].width()

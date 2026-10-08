@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..fields import BoolField
 from ..fields import ChoiceField
 from ..fields import IntField
 from ..fields import PathField
@@ -16,6 +17,7 @@ def image_definition():
         order=50,
         fields={
             "source": PathField(default=""),
+            "show_filename": BoolField(default=True),
             "fit": ChoiceField(
                 ("contain", "cover", "stretch"),
                 default="contain"

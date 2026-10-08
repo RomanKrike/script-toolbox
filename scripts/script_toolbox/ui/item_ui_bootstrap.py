@@ -35,6 +35,10 @@ def ensure_builtin_item_ui_bindings():
 
         if renderer is None and definition.renderer_path:
             renderer = _resolve_ui_target(definition.renderer_path)
+            if definition.value_binding_factory is None:
+                from .runtime_value_sync import builtin_value_binding_factory
+                definition.value_binding_factory = builtin_value_binding_factory(
+                    definition.kind, definition.renderer_path)
         if inspector is None and definition.inspector_path:
             inspector = _resolve_ui_target(definition.inspector_path)
 
@@ -45,7 +49,8 @@ def ensure_builtin_item_ui_bindings():
             ITEM_TYPES.bind_ui(
                 definition.kind,
                 renderer=renderer,
-                inspector=inspector
+                inspector=inspector,
+                value_binding_factory=definition.value_binding_factory
             )
 
     return ITEM_TYPES
@@ -54,3 +59,4 @@ def ensure_builtin_item_ui_bindings():
 __all__ = [
     "ensure_builtin_item_ui_bindings",
 ]
+

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from .runtime_value_sync import connect_value_signal
+
 import os
 
 from ..compat import QtCore
@@ -199,7 +201,7 @@ def _render_string(owner, item, compact=False):
     if compact:
         control.setMinimumWidth(80)
 
-    control.editingFinished.connect(
+    connect_value_signal(container, control.editingFinished,
         lambda item_id=item["id"], widget=control:
         owner.toolbox.store_value(
             item_id,
@@ -350,7 +352,7 @@ def _render_numeric(owner, item, compact=False, is_float=False):
                     current_slider.blockSignals(False)
             store_current()
 
-        spin.valueChanged.connect(spin_changed)
+        connect_value_signal(container, spin.valueChanged, spin_changed)
 
         if slider is not None:
             def slider_changed(position, current_spin=spin):
@@ -365,7 +367,7 @@ def _render_numeric(owner, item, compact=False, is_float=False):
                 else:
                     current_spin.setValue(int(position))
 
-            slider.valueChanged.connect(slider_changed)
+            connect_value_signal(container, slider.valueChanged, slider_changed)
 
     if compact:
         control_root.setMinimumWidth(100)
@@ -405,7 +407,7 @@ def _render_menu(owner, item, compact=False):
     if index >= 0:
         control.setCurrentIndex(index)
 
-    control.currentIndexChanged.connect(
+    connect_value_signal(container, control.currentIndexChanged,
         lambda index, item_id=item["id"], widget=control:
         owner.toolbox.store_value(
             item_id,
@@ -426,7 +428,7 @@ def _render_color(owner, item, compact=False):
         "..." if compact else "Choose..."
     )
     owner._color_button_style(control, props["value"])
-    control.clicked.connect(
+    connect_value_signal(container, control.clicked,
         lambda checked=False, item_id=item["id"], widget=control:
         owner._choose_runtime_color(item_id, widget)
     )
@@ -452,12 +454,31 @@ def build_default_runtime_renderer_registry():
     return registry
 
 
-def _decorate_runtime_renderer_registry(registry):
+def _prepare_runtime_renderer(kind, renderer):
+    """The complete pipeline for initial, late and replacement registrations."""
     from .event_binding_hooks import install_event_binding_hooks
     from .runtime_value_sync import synchronize_runtime_value_renderers
 
+    registry = RuntimeRendererRegistry()
+    registry.register(kind, renderer)
+    if kind == "field" and _RUNTIME_MODULE is not None:
+        from .scroll_surface_frames import install_runtime_scroll_frames
+        install_runtime_scroll_frames(registry, _RUNTIME_MODULE)
+    if kind in ("button", "toggle_button"):
+        from .editor_polish_hooks import install_icon_only_button_centering
+        install_icon_only_button_centering(registry)
+    if kind in ("icon", "toggle_icon"):
+        from .editor_polish_hooks import install_runtime_icon_feedback
+        install_runtime_icon_feedback(registry)
     install_event_binding_hooks(registry)
     synchronize_runtime_value_renderers(registry)
+    prepared = registry.renderer_for(kind)
+    prepared._script_toolbox_raw_renderer = renderer
+    return prepared
+
+
+def _decorate_runtime_renderer_registry(registry):
+    registry.set_decorator(_prepare_runtime_renderer)
     return registry
 
 
@@ -505,7 +526,7 @@ def get_runtime_renderer_registry():
     return synchronize_runtime_renderer_registry(_ACTIVE_REGISTRY)
 
 
-def register_runtime_renderer(kind, renderer, replace=False):
+def register_runtime_renderer(kind, renderer, replace=False, value_binding_factory=None):
     register_builtin_items()
     definition = ITEM_TYPES.get(kind, required=True)
     was_disabled = definition.kind in _DISABLED_RENDERERS
@@ -516,8 +537,11 @@ def register_runtime_renderer(kind, renderer, replace=False):
             )
         )
 
+    if value_binding_factory is not None and not callable(value_binding_factory):
+        raise TypeError("value_binding_factory must be callable or None.")
     _DISABLED_RENDERERS.discard(definition.kind)
-    ITEM_TYPES.bind_ui(definition.kind, renderer=renderer)
+    ITEM_TYPES.bind_ui(definition.kind, renderer=renderer,
+                       value_binding_factory=value_binding_factory)
     if _ACTIVE_REGISTRY is not None:
         _ACTIVE_REGISTRY.register(
             definition.kind,

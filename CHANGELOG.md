@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.2.0 — 2026-10-08
+
+### Added
+
+- Explicit value-binding factories for custom Item renderers, with owned signal connections and deterministic disposal.
+- Indexed preset targets and background preparation of verified local snapshots for Toolbox, Reload, the editor and Apply.
+- Architecture contracts and regression coverage for value bindings, runtime surfaces and preset snapshot lifetimes.
+
+### Fixed
+
+- Merge staged editor changes with current runtime values; reject conflicting edits and external file revisions without overwriting them.
+- Prepare replacement UI before persisting Apply, preserve the active interface on preparation/write failures, and recover from activation failures using the current disk document.
+- Preserve selected tabs and valid scroll positions when activating prepared runtime surfaces.
+- Discard obsolete preset snapshot results after source/cache changes or window closure; keep a previous valid cache only for unchanged source settings.
+- Invalidate stale document indexes, use one renderer-decoration pipeline, and report execution failures only through a live GUI on its own thread.
+- Recover interrupted preset publications under a lock and stop background schedulers during shutdown.
+- Wait for background publication completion in Qt tests instead of relying on fixed delays.
+
+### Compatibility
+
+- Document schemas remain 21 (ordinary documents) and 22 (linked preset references).
+- Python 2.7 / Maya 2015, Nuke 12, Houdini and Windows standalone remain supported.
+- Pin CI and Windows standalone packaging to the verified PySide 6.11.2 runtime.
+- Qt widget construction and document merging remain on the GUI thread.
+
 ## 1.1.0 — 2026-10-07
 
 ### Added

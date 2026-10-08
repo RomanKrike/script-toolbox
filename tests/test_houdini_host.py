@@ -246,6 +246,12 @@ def test_houdini_compat_uses_houdini_qt_main_window(
 ):
     import script_toolbox.hosts as hosts_module
 
+    # This fixture represents a fresh Qt5 Houdini process. Other tests may
+    # have imported real Qt6; do not let that binding choose this fixture's Qt.
+    for name in list(sys.modules):
+        if name == "PySide6" or name.startswith("PySide6."):
+            monkeypatch.delitem(sys.modules, name)
+
     marker = object()
     fake_hou = types.ModuleType(
         "hou"

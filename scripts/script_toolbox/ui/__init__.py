@@ -19,6 +19,7 @@ from .runtime import DisplayField
 from .runtime import RuntimeFolder
 from .runtime import RuntimeFolderRadio
 from .runtime import RuntimeFolderTabs
+from .runtime_value_sync import ValueBinding
 from .runtime_renderers import get_runtime_renderer_registry
 from .runtime_renderers import register_runtime_renderer
 from .runtime_renderers import unregister_runtime_renderer
@@ -26,6 +27,7 @@ from .script_editor import ScriptEditorWidget
 
 
 __all__ = [
+    "ValueBinding",
     "CodeEditor",
     "ScriptHighlighter",
     "InterfaceEditor",
@@ -42,3 +44,4 @@ __all__ = [
     "register_runtime_renderer",
     "unregister_runtime_renderer",
 ]
+

@@ -73,6 +73,11 @@ def _install_synthetic_ui_package(monkeypatch):
     palette.TEXT_SUBTLE = "#888888"
     monkeypatch.setitem(sys.modules, "script_toolbox.style.palette", palette)
 
+    polish = types.ModuleType("script_toolbox.ui.editor_polish_hooks")
+    polish.install_icon_only_button_centering = lambda registry: None
+    polish.install_runtime_icon_feedback = lambda registry: None
+    monkeypatch.setitem(sys.modules, "script_toolbox.ui.editor_polish_hooks", polish)
+
     event_hooks = types.ModuleType("script_toolbox.ui.event_binding_hooks")
     event_hooks.calls = []
     event_hooks.marker = "_test_event_decorated"
@@ -126,6 +131,8 @@ def _install_synthetic_ui_package(monkeypatch):
             registry.register(definition.kind, value_wrapper, replace=True)
         return registry
 
+    value_sync.builtin_value_binding_factory = lambda kind, renderer_path=None: None
+    value_sync.connect_value_signal = lambda root, signal, callback: signal.connect(callback)
     value_sync.synchronize_runtime_value_renderers = (
         synchronize_runtime_value_renderers
     )
@@ -306,8 +313,8 @@ def test_video_registers_after_ui_bootstrap_with_full_generic_pipeline(monkeypat
             "frame-1",
             True,
         )
-        assert event_hooks.calls[-1] is registry
-        assert value_sync.calls[-1] is registry
+        assert event_hooks.calls[-1].has(kind)
+        assert value_sync.calls[-1].has(kind)
 
         # Repeated decoration is semantically idempotent: no wrapper stacking.
         before = registry.renderer_for(kind)

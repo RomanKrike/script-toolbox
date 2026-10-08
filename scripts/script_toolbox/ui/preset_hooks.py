@@ -225,16 +225,85 @@ class PresetEditorMixin(object):
         self._preset_save_job = None
         # Catalog updates are visible when the editor is opened. Runtime
         # changes only when the user explicitly applies this staged document.
-        self.preset_resolver = PresetResolver(SourceRegistry())
+        registry = SourceRegistry()
+        sources = dict((source['id'], source) for source in registry.sources())
+        runtime = args[0].preset_resolver if args else kwargs['toolbox'].preset_resolver
+        if runtime.sources == sources:
+            self.preset_resolver = copy.copy(runtime)
+            self.preset_resolver.registry = registry
+        else:
+            self.preset_resolver = PresetResolver(registry, packages={}, sources=sources)
+        self.preset_resolver.loading = bool(sources and not self.preset_resolver.packages)
+        self._apply_pending = False
+        self.last_apply_result = None
+        self._accept_after_apply = False
         super(PresetEditorMixin, self).__init__(*args, **kwargs)
+        from .preset_snapshot_jobs import SnapshotLoader
+        self.preset_snapshot_loader = SnapshotLoader(self, registry)
+        self.finished.connect(self._cancel_snapshot_jobs)
+        if sources:
+            self.preset_palette.setEnabled(False)
+            self.status.setText("Loading local preset libraries...")
+            self.preset_snapshot_loader.request(self._catalog_snapshot_ready, self.preset_resolver)
+
+    def _catalog_snapshot_ready(self, result):
+        self.preset_palette.setEnabled(True)
+        if not result['ok']:
+            self.preset_resolver.loading = False
+            self.status.setText("Preset libraries could not be loaded: " + result['error'])
+            return
+        self.preset_resolver = result['value']
+        self._refresh_preset_catalog()
+        view = self._capture_tree_view_state()
+        self.populate_tree()
+        self._restore_tree_view_state(view)
+        self.status.setText("Preset libraries loaded.")
 
     def apply_changes(self):
-        # Apply is an explicit snapshot activation boundary. Re-read only the
-        # verified local cache; never access the library's network folder here.
-        # A long-lived editor must not restore an old snapshot after Reload.
-        old = self.toolbox.preset_resolver
-        old_editor = self.preset_resolver
-        resolver = PresetResolver(old_editor.registry)
+        if self._apply_pending or getattr(self.toolbox, '_preset_snapshot_closed', False):
+            return None
+        sources = self.preset_resolver.registry.sources()
+        if not sources:
+            resolver = PresetResolver(self.preset_resolver.registry, packages={}, sources={})
+            return self._apply_snapshot(resolver)
+        self.fix_tree_structure()
+        self.sync_working_from_tree()
+        self._apply_token = self.document_controller.snapshot()
+        self._apply_pending = True
+        self.last_apply_result = None
+        self.setEnabled(False)
+        self.status.setText("Preparing preset libraries for Apply...")
+        self.preset_snapshot_loader.request(self._apply_snapshot_ready, self.preset_resolver)
+        return None
+
+    def _apply_snapshot_ready(self, result):
+        self._apply_pending = False
+        self.setEnabled(True)
+        self.preset_palette.setEnabled(True)
+        if not result['ok']:
+            self.last_apply_result = False
+            self._accept_after_apply = False
+            self.status.setText("Apply preparation failed: " + result['error'])
+            return
+        if self.document_controller.snapshot() != self._apply_token:
+            self.last_apply_result = False
+            self._accept_after_apply = False
+            self.status.setText("Editor changed during preparation. Apply again.")
+            return
+        try:
+            self.last_apply_result = self._apply_snapshot(result['value'])
+        except Exception as exc:
+            self.last_apply_result = False
+            self.status.setText('Apply failed: ' + text_type(exc))
+        if not self.last_apply_result:
+            self._accept_after_apply = False
+        self.preset_palette.setEnabled(True)
+        if self.last_apply_result and self._accept_after_apply:
+            self._accept_after_apply = False
+            self.accept()
+
+    def _apply_snapshot(self, resolver):
+        old, old_editor = self.toolbox.preset_resolver, self.preset_resolver
         self.preset_resolver = resolver
         self.toolbox.preset_resolver = resolver
         try:
@@ -244,11 +313,32 @@ class PresetEditorMixin(object):
             self.preset_resolver = old_editor
             raise
         if result is False:
-            self.toolbox.preset_resolver = old
+            if not getattr(self.toolbox, "_runtime_unavailable", False):
+                self.toolbox.preset_resolver = old
             self.preset_resolver = old_editor
         else:
             self._refresh_preset_catalog()
+        self.last_apply_result = result
         return result
+
+    def accept_changes(self):
+        result = self.apply_changes()
+        if result:
+            self.accept()
+        elif result is None and self._apply_pending:
+            self._accept_after_apply = True
+
+    def _cancel_snapshot_jobs(self, *args):
+        self.preset_snapshot_loader.cancel()
+        if self._apply_pending:
+            self.last_apply_result = False
+        self._apply_pending = False
+        self._accept_after_apply = False
+        self.setEnabled(True)
+
+    def closeEvent(self, event):
+        self._cancel_snapshot_jobs()
+        super(PresetEditorMixin, self).closeEvent(event)
 
     def _refresh_preset_catalog(self):
         selected = library_address(self.preset_palette.currentItem())
@@ -525,7 +615,7 @@ class PresetEditorMixin(object):
                 raise ValueError("Preset published, but local sync failed: " + status.get("error", status["state"]))
             package = service.installed(source["id"])
             return next(p for p in package["presets"] if p["id"] == preset["id"])
-        self._preset_save_job = BackgroundJob(publish)
+        self._preset_save_job = BackgroundJob(publish, durable=True)
         self._preset_save_timer = QtCore.QTimer(self)
         def poll():
             result = self._preset_save_job.poll()
@@ -544,12 +634,12 @@ class PresetEditorMixin(object):
     def _reveal_saved_preset(self, source_id, preset):
         # Add only the newly published definition. Existing references retain
         # their snapshots, including when Apply has shared this resolver.
-        resolver = copy.copy(self.preset_resolver)
-        resolver.packages = dict(resolver.packages)
-        package = dict(resolver.packages.get(source_id, {}))
+        packages = dict(self.preset_resolver.packages)
+        package = dict(packages.get(source_id, {}))
         package["presets"] = list(package.get("presets", [])) + [preset]
-        resolver.packages[source_id] = package
-        self.preset_resolver = resolver
+        packages[source_id] = package
+        self.preset_resolver = PresetResolver(self.preset_resolver.registry,
+            packages=packages, sources=self.preset_resolver.sources)
         self._refresh_preset_catalog()
         self.palette_tabs.setCurrentIndex(1)
         self.palette_filter.clear()

@@ -174,3 +174,30 @@ def test_in_place_structure_addition_self_heals_cached_index():
 
     assert find_item(document, "late_item") is new_item
     assert get_value(document, "late_item") == 5
+
+
+def test_removed_item_is_not_returned_from_cached_index():
+    document = sample_document()
+    assert find_item(document, "count") is not None
+    document["sections"][0]["items"].pop(0)
+    assert find_item(document, "count") is None
+    assert get_value(document, "count", "missing") == "missing"
+    assert find_item(document, "amount") is document["sections"][0]["items"][0]
+
+
+def test_replaced_item_with_same_identity_invalidates_old_match():
+    document = sample_document()
+    old = find_item(document, "count")
+    replacement = sample_document()["sections"][0]["items"][0]
+    replacement["id"] = old["id"]
+    replacement["props"]["value"] = 9
+    document["sections"][0]["items"] = [replacement]
+    assert find_item(document, "count") is replacement
+    assert get_value(document, old["id"]) == 9
+
+
+def test_removing_parent_invalidates_cached_descendants():
+    document = sample_document()
+    assert find_item(document, "count") is not None
+    document["sections"] = []
+    assert find_item(document, "count") is None

@@ -2,7 +2,7 @@
 from __future__ import print_function
 
 from ..compat import QtGui
-from ..model.fields import ColorField
+import logging
 from ..model.item_builtins import register_builtin_items
 from ..model.item_registry import ITEM_TYPES
 from ..pycompat import text_type
@@ -82,12 +82,63 @@ def _float_slider_position(value, minimum, maximum):
     return max(0, min(10000, int(round(ratio * 10000.0))))
 
 
-class RuntimeValueBinding(object):
-    """Synchronize one has-value Item with its already-created Qt controls."""
+def connect_value_signal(root, signal, callback):
+    """Connect during built-in construction; transfer ownership to its binding."""
+    signal.connect(callback)
+    connections = getattr(root, "_value_connections", None)
+    if connections is None:
+        connections = root._value_connections = []
+    connections.append((signal, callback))
+
+
+class ValueBinding(object):
+    """GUI-thread binding owning only the signal connections it creates."""
+
+    def __init__(self, root):
+        self.root = root
+        self.active = True
+        self._connections = []
+        destroyed = getattr(root, "destroyed", None)
+        if destroyed is not None:
+            self.connect(destroyed, self._root_destroyed)
+
+    def _root_destroyed(self, *args):
+        self.dispose()
+
+    def connect(self, signal, callback):
+        if not self.active:
+            raise RuntimeError("Cannot connect a disposed value binding.")
+        signal.connect(callback)
+        self._connections.append((signal, callback))
+
+    def sync(self, item):
+        raise NotImplementedError
+
+    def dispose(self):
+        if not self.active:
+            return
+        self.active = False
+        for signal, callback in self._connections:
+            try:
+                signal.disconnect(callback)
+            except (RuntimeError, TypeError):
+                pass
+        self._connections = []
+        self.root = None
+
+
+class RuntimeValueBinding(ValueBinding):
+    """Typed adapter for built-in controls; never used for custom renderers."""
 
     def __init__(self, root, owner):
-        self.root = root
+        ValueBinding.__init__(self, root)
         self.owner = owner
+        self._connections.extend(getattr(root, "_value_connections", []))
+        root._value_connections = []
+
+    def dispose(self):
+        ValueBinding.dispose(self)
+        self.owner = None
 
     def _signal_controls(self):
         classes = (
@@ -142,23 +193,30 @@ class RuntimeValueBinding(object):
         return True
 
     def sync(self, item):
+        if not self.active:
+            return False
+        kind = item.get("kind")
+        if kind in ("field", "toggle_button", "toggle_icon"):
+            method = {"field": "refresh_field_widget",
+                      "toggle_button": "refresh_state_button",
+                      "toggle_icon": "refresh_toggle_icon"}[kind]
+            getattr(self.owner.toolbox, method)(item["id"])
+            return True
         props = item.get("props", {}) or {}
         previous = _block_signals(self._signal_controls())
         try:
-            if self._sync_numeric(props, is_float=True):
-                return True
-            if self._sync_numeric(props, is_float=False):
-                return True
+            if kind in ("integer", "float"):
+                return self._sync_numeric(props, is_float=(kind == "float"))
 
             checkboxes = _controls(self.root, QtGui.QCheckBox)
-            if checkboxes:
+            if kind == "checkbox" and checkboxes:
                 value = bool(props.get("value", False))
                 for control in checkboxes:
                     control.setChecked(value)
                 return True
 
             combos = _controls(self.root, QtGui.QComboBox)
-            if combos:
+            if kind == "menu" and combos:
                 value = text_type(props.get("value", "") or "")
                 for control in combos:
                     index = control.findText(value)
@@ -167,19 +225,13 @@ class RuntimeValueBinding(object):
                 return True
 
             lines = _controls(self.root, QtGui.QLineEdit)
-            if lines:
+            if kind == "string" and lines:
                 value = text_type(props.get("value", "") or "")
                 for control in lines:
                     control.setText(value)
                 return True
 
-            definition = ITEM_TYPES.get(item.get("kind"))
-            value_field = (
-                definition.fields.get("value")
-                if definition is not None
-                else None
-            )
-            if isinstance(value_field, ColorField):
+            if kind == "color":
                 styler = getattr(
                     self.owner,
                     "_color_button_style",
@@ -196,42 +248,89 @@ class RuntimeValueBinding(object):
         return False
 
 
+def builtin_value_binding_factory(kind, renderer_path=None):
+    if renderer_path is not None:
+        expected = {
+            "toggle_button": ".toggle_button_runtime:render_toggle_button",
+            "toggle_icon": ".toggle_icon_runtime:render_toggle_icon",
+        }.get(kind, ".runtime_renderers:_render_" + kind)
+        if renderer_path != expected:
+            return None
+    if kind in ("string", "integer", "float", "checkbox", "menu", "color",
+                "field", "toggle_button", "toggle_icon"):
+        return lambda root, owner, item: RuntimeValueBinding(root, owner)
+    return None
+
+
+def _dispose_binding(binding):
+    try:
+        binding.dispose()
+    except Exception:
+        logging.getLogger("script_toolbox").exception("Value binding disposal failed")
+
+
 def _register_value_widget(self, item_id, binding):
+    if not callable(getattr(binding, "sync", None)) or not callable(getattr(binding, "dispose", None)):
+        raise TypeError("Value binding must provide sync(item) and dispose().")
     if not hasattr(self, "value_widgets"):
         self.value_widgets = {}
-    self.value_widgets[text_type(item_id)] = binding
+    item_id = text_type(item_id)
+    previous = self.value_widgets.get(item_id)
+    if previous is binding:
+        return binding
+    if previous is not None:
+        _dispose_binding(previous)
+    self.value_widgets[item_id] = binding
     return binding
 
 
 def _sync_runtime_value(self, key):
     item = self.find_item(key)
     if item is None:
+        binding = getattr(self, "value_widgets", {}).pop(text_type(key), None)
+        if binding is not None:
+            _dispose_binding(binding)
         return False
-
-    register_builtin_items()
-    definition = ITEM_TYPES.get(item.get("kind"))
-    if definition is not None and definition.has_capability("field_widget"):
-        self.refresh_field_widget(item["id"])
-        return True
 
     item_id = text_type(item.get("id", ""))
     binding = getattr(self, "value_widgets", {}).get(item_id)
     if binding is None:
+        # Field refresh is also used without a rendered value binding.
+        definition = ITEM_TYPES.get(item.get("kind"))
+        if definition is not None and definition.has_capability("field_widget"):
+            self.refresh_field_widget(item_id)
+            return True
         return False
-
+    if getattr(binding, "active", True) is False:
+        del self.value_widgets[item_id]
+        return False
+    guard = getattr(self, "_value_sync_guard", None)
+    if guard is None:
+        guard = self._value_sync_guard = set()
+    if item_id in guard:
+        return False
+    guard.add(item_id)
     try:
         return bool(binding.sync(item))
     except Exception:
-        try:
+        logging.getLogger("script_toolbox").exception("Value binding sync failed for %s", item_id)
+        if self.value_widgets.get(item_id) is binding:
             del self.value_widgets[item_id]
-        except Exception:
-            pass
+        _dispose_binding(binding)
         return False
+    finally:
+        guard.discard(item_id)
 
 
 class RuntimeValueMixin(object):
     def register_value_widget(self, item_id, binding):
         return _register_value_widget(self, item_id, binding)
+
+    def clear_value_widgets(self):
+        bindings = getattr(self, "value_widgets", {})
+        self.value_widgets = {}
+        for binding in bindings.values():
+            _dispose_binding(binding)
 
     def sync_runtime_value(self, key):
         return _sync_runtime_value(self, key)
@@ -244,14 +343,16 @@ def _copy_renderer_markers(target, source):
         pass
 
 
-def _value_renderer_wrapper(renderer):
+def _value_renderer_wrapper(renderer, factory):
     def render_with_value_registration(owner, item, compact=False):
         root = renderer(owner, item, compact=compact)
         if root is not None:
-            owner.toolbox.register_value_widget(
-                item["id"],
-                RuntimeValueBinding(root, owner)
-            )
+            try:
+                binding = factory(root, owner, item)
+                owner.toolbox.register_value_widget(item["id"], binding)
+            except Exception:
+                root.deleteLater()
+                raise
         return root
 
     _copy_renderer_markers(render_with_value_registration, renderer)
@@ -265,6 +366,9 @@ def synchronize_runtime_value_renderers(registry):
     for definition in ITEM_TYPES.all():
         if not definition.has_capability("has_value"):
             continue
+        factory = definition.value_binding_factory
+        if factory is None:
+            continue
         renderer = registry.renderer_for(definition.kind)
         if renderer is None:
             continue
@@ -272,11 +376,13 @@ def synchronize_runtime_value_renderers(registry):
             continue
         registry.register(
             definition.kind,
-            _value_renderer_wrapper(renderer),
+            _value_renderer_wrapper(renderer, factory),
             replace=True
         )
     return registry
 
 
 
-__all__ = ["RuntimeValueBinding", "RuntimeValueMixin", "synchronize_runtime_value_renderers"]
+__all__ = ["ValueBinding", "RuntimeValueBinding", "RuntimeValueMixin",
+           "builtin_value_binding_factory", "synchronize_runtime_value_renderers"]
+

@@ -26,6 +26,7 @@ from script_toolbox import ui
 from script_toolbox.ui import update_ui, debounced_main_window
 assert ui.ScriptToolbox is debounced_main_window.ScriptToolbox
 assert before == (set(dir(NativeGui)), set(dir(QtCore)), set(dir(QtWidgets.QMenu)))
+update_ui.check_for_update = lambda **kw: {"available": False}
 def pump(seconds=0.1):
     until = time.monotonic() + seconds
     while time.monotonic() < until:
@@ -237,3 +238,4 @@ from script_toolbox.ui.debounced_main_window import close_toolbox
 close_toolbox()
 pump()
 ''', tmp_path)
+

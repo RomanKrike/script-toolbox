@@ -109,7 +109,8 @@ class ItemTypeDefinition(object):
         renderer_path=None,
         inspector_path=None,
         layout=None,
-        section=None
+        section=None,
+        value_binding_factory=None
     ):
         self.kind = text_type(kind or "").strip().lower()
         if not self.kind:
@@ -130,6 +131,9 @@ class ItemTypeDefinition(object):
         self.normalize_props_hook = normalize_props
         self.default_bindings_hook = default_bindings
         self.renderer = renderer
+        if value_binding_factory is not None and not callable(value_binding_factory):
+            raise TypeError("value_binding_factory must be callable or None.")
+        self.value_binding_factory = value_binding_factory
         self.inspector = inspector
         self.renderer_path = (
             text_type(renderer_path).strip()
@@ -384,10 +388,17 @@ class ItemTypeRegistry(object):
         self,
         kind,
         renderer=_UNSET,
-        inspector=_UNSET
+        inspector=_UNSET,
+        value_binding_factory=_UNSET
     ):
         definition = self.get(kind, required=True)
+        if value_binding_factory is not _UNSET:
+            if value_binding_factory is not None and not callable(value_binding_factory):
+                raise TypeError("value_binding_factory must be callable or None.")
+            definition.value_binding_factory = value_binding_factory
         if renderer is not _UNSET:
+            if renderer is not definition.renderer and value_binding_factory is _UNSET:
+                definition.value_binding_factory = None
             definition.renderer = renderer
         if inspector is not _UNSET:
             definition.inspector = inspector
@@ -405,11 +416,12 @@ def get_item_type(kind, required=False):
     return ITEM_TYPES.get(kind, required=required)
 
 
-def bind_item_ui(kind, renderer=_UNSET, inspector=_UNSET):
+def bind_item_ui(kind, renderer=_UNSET, inspector=_UNSET, value_binding_factory=_UNSET):
     return ITEM_TYPES.bind_ui(
         kind,
         renderer=renderer,
-        inspector=inspector
+        inspector=inspector,
+        value_binding_factory=value_binding_factory
     )
 
 
@@ -424,3 +436,4 @@ __all__ = [
     "get_item_type",
     "register_item_type",
 ]
+

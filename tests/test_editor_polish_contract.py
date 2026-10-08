@@ -63,11 +63,12 @@ def test_button_without_visible_label_uses_exact_centered_icon_renderer():
     assert "install_icon_only_state_refresh" not in source
     assert "install_icon_only_state_refresh" not in bootstrap_source
 
-    install_center = bootstrap_source.rindex(
+    pipeline_source = _read("scripts/script_toolbox/ui/runtime_renderers.py")
+    install_center = pipeline_source.rindex(
         "install_icon_only_button_centering(registry)"
     )
-    install_bindings = bootstrap_source.rindex(
-        "_decorate_runtime_renderer_registry(registry)"
+    install_bindings = pipeline_source.rindex(
+        "install_event_binding_hooks(registry)"
     )
     assert install_center < install_bindings
 
@@ -90,9 +91,6 @@ def test_runtime_icon_feedback_matches_technical_icon_states():
     source = _read(
         "scripts/script_toolbox/ui/editor_polish_hooks.py"
     )
-    bootstrap_source = _read(
-        "scripts/script_toolbox/ui/bootstrap.py"
-    )
 
     assert "class IconFeedbackFilter" in source
     assert "QtCore.QEvent.Enter" in source
@@ -104,4 +102,4 @@ def test_runtime_icon_feedback_matches_technical_icon_states():
     assert "palette.ICON_BUTTON_PRESSED_BG" in source
     assert "palette.BORDER_INSET" in source
     assert "install_runtime_icon_feedback(" in source
-    assert "install_runtime_icon_feedback(registry)" in bootstrap_source
+    assert "install_runtime_icon_feedback(registry)" in _read("scripts/script_toolbox/ui/runtime_renderers.py")

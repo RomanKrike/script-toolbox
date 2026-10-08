@@ -9,8 +9,9 @@ from ..core.editor_commands import ItemStateCommand
 from ..core.editor_commands import ItemsStateCommand
 from ..core.editor_commands import build_document_delta
 from ..core.editor_document import EditorDocumentController
+from ..core.document_commit import (DocumentMergeConflict, DocumentSaveFailure,
+                                    DocumentRenderFailure, DocumentActivationFailure)
 from ..core.preset_references import authored_document
-from ..model import normalize_document
 from ..pycompat import text_type
 from .editor_search import apply_editor_presentation
 from .editor_search import reapply_existing_filter
@@ -215,6 +216,7 @@ class ControllerEditorMixin(object):
         self.undo_stack = self.command_history.undo_stack
         self.redo_stack = self.command_history.redo_stack
         self._command_ready = True
+        self._applied_base = self.document_controller.snapshot()
         self._sync_property_baseline()
 
 
@@ -741,11 +743,21 @@ class ControllerEditorMixin(object):
         if not self.validate_internal_names():
             return False
 
-        self.toolbox.config = normalize_document(
-            self.document_controller.snapshot()
-        )
-        self.toolbox.save()
-        self.toolbox.rebuild()
+        try:
+            self.toolbox.commit_document(self.document_controller.snapshot(), self._applied_base)
+        except DocumentMergeConflict as exc:
+            QtGui.QMessageBox.warning(self, "Configuration Conflict", text_type(exc))
+            return False
+        except DocumentSaveFailure as exc:
+            QtGui.QMessageBox.critical(self, "Config Save Failed", text_type(exc))
+            return False
+
+        except DocumentRenderFailure as exc:
+            QtGui.QMessageBox.critical(self, "Interface Preparation Failed", text_type(exc))
+            return False
+        except DocumentActivationFailure as exc:
+            QtGui.QMessageBox.critical(self, "Interface Activation Failed", text_type(exc))
+            return False
 
         # Re-seed the staged controller from the applied runtime config
         # without creating a history snapshot. Existing command objects
@@ -753,6 +765,7 @@ class ControllerEditorMixin(object):
         self.document_controller.replace(
             authored_document(self.toolbox.config)
         )
+        self._applied_base = self.document_controller.snapshot()
         self.populate_tree()
         self.status.setText(
             "Applied."

@@ -1,8 +1,37 @@
 """Real Qt integration: reference creation, staged editing and persistence."""
 import pytest
-from test_qt_lifecycle import run_qt, QT_AVAILABLE
+from test_qt_lifecycle import run_qt as _run_qt, QT_AVAILABLE
 
 pytestmark = pytest.mark.skipif(not QT_AVAILABLE, reason="Requires real Qt")
+
+
+WAIT = """
+def wait_job(owner, attribute):
+    until = time.monotonic() + 10
+    while getattr(owner, attribute) is not None and time.monotonic() < until:
+        pump(0.03)
+    assert getattr(owner, attribute) is None
+
+def wait_snapshot(owner):
+    until = time.monotonic() + 5
+    while owner.preset_snapshot_loader.busy and time.monotonic() < until:
+        pump(0.03)
+    assert not owner.preset_snapshot_loader.busy
+
+def apply_and_wait(editor):
+    result = editor.apply_changes()
+    if result is None:
+        wait_snapshot(editor)
+        result = editor.last_apply_result
+    return result
+"""
+
+
+def run_qt(body, tmp_path):
+    body = body.replace('w.open_interface_editor()', 'w.open_interface_editor(); wait_snapshot(w.editor_window)')
+    body = body.replace('assert editor.apply_changes()', 'assert apply_and_wait(editor)')
+    body = body.replace('w.reload_config()', 'w.reload_config(); wait_snapshot(w)')
+    _run_qt(WAIT + body, tmp_path)
 
 
 def test_reference_ui_create_apply_undo_reload_and_convert(tmp_path):
@@ -106,7 +135,7 @@ assert not page.buttons[2].isEnabled()
 QtGui.QFileDialog.getExistingDirectory = lambda *a, **k: remote
 QtGui.QInputDialog.getText = lambda *a, **k: ("0+Media", True)
 page.create_library()
-pump(0.7)
+wait_job(page, 'job')
 assert page.job is None
 registry = SourceRegistry()
 assert len(registry.sources()) == 1
@@ -150,7 +179,7 @@ assert applied_resolver is not original_resolver
 editor.palette_filter.setText("unrelated")
 QtCore.QTimer.singleShot(0, fill_save)
 editor.save_selected_preset()
-pump(0.7)
+wait_job(editor, '_preset_save_job')
 assert editor._preset_save_job is None
 assert w.preset_resolver is applied_resolver
 assert editor.preset_resolver is not original_resolver
@@ -184,7 +213,7 @@ publisher.publish_presets = fail_publish
 QtGui.QMessageBox.warning = lambda *args: warnings.append(args[2])
 QtCore.QTimer.singleShot(0, fill_save)
 editor.save_selected_preset()
-pump(0.7)
+wait_job(editor, '_preset_save_job')
 assert editor._preset_save_job is None
 assert warnings == ["fixture: library is read-only"]
 assert editor.preset_palette.currentItem() is preset_item

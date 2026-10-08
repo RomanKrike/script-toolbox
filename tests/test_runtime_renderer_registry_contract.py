@@ -82,6 +82,7 @@ def test_initial_late_and_manual_registration_share_generic_decoration():
     assert "def _decorate_runtime_renderer_registry(registry):" in runtime_source
     assert "install_event_binding_hooks(registry)" in runtime_source
     assert "synchronize_runtime_value_renderers(registry)" in runtime_source
+    assert "registry.set_decorator(_prepare_runtime_renderer)" in runtime_source
 
     # Initial composition uses the same semantic pipeline.
     assert "_decorate_runtime_renderer_registry(registry)" in bootstrap_source

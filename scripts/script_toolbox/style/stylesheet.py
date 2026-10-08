@@ -2,6 +2,7 @@
 
 from . import metrics
 from . import palette
+from .checkbox_assets import MARK_IMAGES
 
 
 _STYLE_VALUES = dict(vars(palette))
@@ -22,9 +23,7 @@ QDialog {
     background-color: %(WINDOW_BG)s;
 }
 
-/* Runtime Toolbox containers.
-   Keep backgrounds off generic QWidget/QCheckBox so Qt4 checkbox painting
-   remains native and clean. */
+/* Runtime Toolbox containers inherit their owning surface. */
 QWidget#ToolboxCentral {
     background-color: %(CONTENT_BG)s;
 }
@@ -66,6 +65,53 @@ QWidget#RuntimeFolderContent {
 /* Text labels should visually inherit the panel background. */
 QLabel {
     background-color: transparent;
+}
+
+/* Shared checkbox indicators for runtime, editor and settings. */
+QCheckBox {
+    background-color: transparent;
+    spacing: %(CHECKBOX_LABEL_SPACING)spx;
+}
+QCheckBox:disabled {
+    color: %(TEXT_DISABLED)s;
+}
+QCheckBox::indicator {
+    width: %(CHECKBOX_INDICATOR_SIZE)spx;
+    height: %(CHECKBOX_INDICATOR_SIZE)spx;
+    border: 1px solid %(TOOLTIP_BORDER)s;
+    border-radius: %(BORDER_RADIUS_CONTROL)spx;
+    background-color: %(CONTROL_BG)s;
+    image: none;
+}
+QCheckBox::indicator:checked,
+QCheckBox::indicator:indeterminate {
+    background-color: %(ACCENT)s;
+    border-color: %(ACCENT)s;
+}
+QCheckBox::indicator:checked {
+    image: url("@checked@");
+}
+QCheckBox::indicator:indeterminate {
+    image: url("@indeterminate@");
+}
+QCheckBox::indicator:hover {
+    border-color: %(TEXT_MUTED)s;
+}
+QCheckBox::indicator:focus {
+    border-color: %(TEXT_SUBTLE)s;
+}
+QCheckBox::indicator:pressed {
+    background-color: %(SELECTION_BG)s;
+}
+QCheckBox::indicator:disabled {
+    background-color: %(CONTROL_BG)s;
+    border-color: %(BORDER_GROUP)s;
+}
+QCheckBox::indicator:checked:disabled {
+    image: url("@checked_disabled@");
+}
+QCheckBox::indicator:indeterminate:disabled {
+    image: url("@indeterminate_disabled@");
 }
 
 QToolTip {
@@ -570,5 +616,8 @@ QAbstractScrollArea::corner {
     border: 0px;
 }
 """ % _STYLE_VALUES
+
+for _name, _path in MARK_IMAGES.items():
+    STYLE = STYLE.replace("@" + _name + "@", _path)
 
 __all__ = ["STYLE"]

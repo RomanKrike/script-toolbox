@@ -80,6 +80,9 @@ class _SpinBox(_Widget):
         self.value = value
         self._emit()
 
+    def setRange(self, minimum, maximum):
+        self.minimum, self.maximum = minimum, maximum
+
 
 class _DoubleSpinBox(_SpinBox):
     pass
@@ -524,9 +527,10 @@ def test_ui_installs_sync_for_live_debounced_runtime_after_shared_decoration():
     generic_decoration = source.index("_decorate_runtime_renderer_registry(registry)")
     assert generic_decoration < value_sync
     assert "install_runtime_value_sync(" not in source
-    for filename in ("main_window.py", "debounced_main_window.py"):
-        window = _read("scripts/script_toolbox/ui/" + filename)
-        assert "self.sync_runtime_value(key)" in window
+    mutations = _read("scripts/script_toolbox/ui/item_changes.py")
+    assert "surface.context.apply_item_change(item, change)" in mutations
+    updates = _read("scripts/script_toolbox/ui/runtime_item_updates.py")
+    assert "self.context._window.sync_runtime_value(item" in updates
 
 
 

@@ -21,7 +21,7 @@ from .item_registry import ItemValidationError
 DEFAULT_COMPONENT_LABELS = ("X", "Y", "Z", "W")
 
 
-_UI_FIELDS = {
+ITEM_UI_FIELDS = {
     "label": TextField(default=""),
     "show_label": BoolField(default=True),
     "tooltip": TextField(default=""),
@@ -171,7 +171,7 @@ def _normalize_ui(definition, raw_ui=None):
     raw_ui = raw_ui if isinstance(raw_ui, dict) else {}
     defaults = dict(definition.ui_defaults or {})
     normalized = {}
-    for name, field in _UI_FIELDS.items():
+    for name, field in ITEM_UI_FIELDS.items():
         if name == "label":
             fallback = defaults.get(name, definition.default_label)
             value = raw_ui.get(name, fallback)

@@ -174,12 +174,8 @@ def test_selection_runtime_write_normalizes_before_direct_commit():
         "scripts", "script_toolbox", "ui", "main_window.py"
     )
 
-    normalize_line = "new_value = normalize_document_value(item, new_value)"
-    commit_line = 'props["value"] = new_value'
-    normalize_index = source.index(normalize_line)
-    commit_index = source.index(commit_line, normalize_index)
-
-    assert normalize_index < commit_index
+    assert 'self.item(item["id"]).set(value=new_value)' in source
+    assert 'props["value"] = new_value' not in source
     assert "self.set_value(item[\"id\"], new_value)" not in source
 
 

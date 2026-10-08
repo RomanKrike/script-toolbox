@@ -426,6 +426,31 @@ class PropertyEditorBase(QtGui.QWidget):
     def write_to_item(self):
         if self.item is None:
             return
+        from ...core.item_changes import update_item
+        from ...model.items import ITEM_UI_FIELDS
+        original = self.item
+        candidate = copy.deepcopy(original)
+        self.item = candidate
+        try:
+            self._write_item_candidate()
+        finally:
+            self.item = original
+        properties = {}
+        for section in ("props", "ui"):
+            for name, value in candidate.get(section, {}).items():
+                if section == "ui" and name not in ITEM_UI_FIELDS:
+                    continue
+                if original.get(section, {}).get(name) != value:
+                    properties[section + "." + name] = value
+        update_item(original, properties)
+        original["name"] = candidate["name"]
+        original["bindings"] = candidate.get("bindings", [])
+        for prop in ("visible", "enabled"):
+            refs = prop + "_references"
+            if refs in candidate.get("ui", {}):
+                original["ui"][refs] = candidate["ui"][refs]
+
+    def _write_item_candidate(self):
 
         kind = self.item.get("kind", "item")
         ui = self.item.setdefault("ui", {})

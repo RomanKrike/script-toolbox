@@ -20,7 +20,8 @@ def test_runtime_value_persistence_is_debounced_on_main_thread():
     assert "SAVE_DEBOUNCE_MS = 500" in source
     assert "self.save_timer.setSingleShot" in source
     assert "self.save_timer.timeout.connect" in source
-    assert "self.schedule_save()" in source
+    mutations = _source("scripts/script_toolbox/ui/item_changes.py")
+    assert 'getattr(self, "schedule_save", self.save)' in mutations
     assert "self.config_store.mark_dirty" in source
 
 

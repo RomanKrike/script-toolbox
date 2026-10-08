@@ -12,6 +12,7 @@ from ..pycompat import text_type
 
 
 REFERENCE_METHODS = set([
+    "item",
     "find_item",
     "get_value",
     "store_value",

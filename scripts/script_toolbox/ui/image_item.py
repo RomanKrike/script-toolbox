@@ -52,6 +52,13 @@ def _scaled_pixmap(pixmap, width, height, fit):
 
 
 def render_image(owner, item, compact=False):
+    label = QtGui.QLabel()
+    label.setObjectName("RuntimeImage")
+    update_image(label, item)
+    return label
+
+
+def update_image(label, item):
     props = item.get("props", {}) or {}
     ui = item.get("ui", {}) or {}
     width = int(props.get("width", 200))
@@ -60,8 +67,6 @@ def render_image(owner, item, compact=False):
     if fit not in ("contain", "cover", "stretch"):
         fit = "contain"
 
-    label = QtGui.QLabel()
-    label.setObjectName("RuntimeImage")
     label.setFixedSize(width, height)
     label.setAlignment(QtCore.Qt.AlignCenter)
     label.setToolTip(ui.get("tooltip", ""))
@@ -71,12 +76,10 @@ def render_image(owner, item, compact=False):
     pixmap = _scaled_pixmap(pixmap, width, height, fit)
 
     if pixmap.isNull():
+        label.clear()
         label.setText("Image")
     else:
         label.setPixmap(pixmap)
-
-    return label
-
 
 class ImagePropertyEditor(PropertyEditorBase):
     def __init__(self, toolbox=None, parent=None):

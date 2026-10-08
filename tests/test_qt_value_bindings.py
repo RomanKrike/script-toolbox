@@ -109,7 +109,8 @@ def fail(item):
 binding.sync = fail
 w.store_value('counter', 3)
 assert w.get_value('counter') == 3
-assert 'counter' not in w.value_widgets
+assert w.value_widgets['counter'] is not binding
+assert w.value_widgets['counter'].root.label.text() == '3'
 assert not binding.active
 assert any('Value binding sync failed for counter' in m for m in messages)
 logger.removeHandler(handler)

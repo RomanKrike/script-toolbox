@@ -367,6 +367,7 @@ class LegacyRuntimeFolder(QtGui.QFrame):
         label_text = self._label(item)
         if label_text:
             label = QtGui.QLabel(label_text)
+            widget._item_label = label
             if not compact:
                 label.setMinimumWidth(RUNTIME_PARAMETER_LABEL_WIDTH)
             layout.addWidget(label)
@@ -411,6 +412,7 @@ class LegacyRuntimeFolder(QtGui.QFrame):
                 compact=compact
             )
             checkbox = QtGui.QCheckBox()
+            container._item_controls = [checkbox]
             checkbox.setToolTip(self._tooltip(item))
             checkbox.setChecked(bool(props.get("value", False)))
             connect_value_signal(container, checkbox.toggled,
@@ -421,6 +423,7 @@ class LegacyRuntimeFolder(QtGui.QFrame):
             return container
 
         checkbox = QtGui.QCheckBox(self._label(item))
+        checkbox._item_controls = [checkbox]
         checkbox.setToolTip(self._tooltip(item))
         checkbox.setChecked(bool(props.get("value", False)))
         connect_value_signal(checkbox, checkbox.toggled,

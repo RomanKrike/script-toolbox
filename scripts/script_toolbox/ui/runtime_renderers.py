@@ -197,6 +197,7 @@ def _render_string(owner, item, compact=False):
     control = QtGui.QLineEdit(
         text_type(props.get("value", ""))
     )
+    container._item_controls = [control]
 
     if compact:
         control.setMinimumWidth(80)
@@ -342,8 +343,8 @@ def _render_numeric(owner, item, compact=False, is_float=False):
                         current_slider.setValue(
                             _float_slider_position(
                                 value,
-                                minimum,
-                                maximum
+                                props["min"],
+                                props["max"]
                             )
                         )
                     else:
@@ -360,8 +361,8 @@ def _render_numeric(owner, item, compact=False, is_float=False):
                     current_spin.setValue(
                         _float_slider_value(
                             position,
-                            minimum,
-                            maximum
+                            props["min"],
+                            props["max"]
                         )
                     )
                 else:
@@ -373,6 +374,7 @@ def _render_numeric(owner, item, compact=False, is_float=False):
         control_root.setMinimumWidth(100)
 
     layout.addWidget(control_root, 1)
+    container._item_controls = spins + [slider for slider in sliders if slider is not None]
     return container
 
 
@@ -401,6 +403,7 @@ def _render_menu(owner, item, compact=False):
         compact=compact
     )
     control = QtGui.QComboBox()
+    container._item_controls = [control]
     control.addItems(props["items"])
 
     index = control.findText(props["value"])
@@ -427,6 +430,7 @@ def _render_color(owner, item, compact=False):
     control = QtGui.QPushButton(
         "..." if compact else "Choose..."
     )
+    container._item_controls = [control]
     owner._color_button_style(control, props["value"])
     connect_value_signal(container, control.clicked,
         lambda checked=False, item_id=item["id"], widget=control:

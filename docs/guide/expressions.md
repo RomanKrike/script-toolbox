@@ -75,7 +75,8 @@ toolbox.set_value("use_custom_path", True)
 ```
 
 Presentation setters accept item names or IDs, save the checkbox state and
-**turn off fx** for that property, retaining the expression text. Value changes
+preserve fx for that property. Use `toolbox.item("preview_path").set(enabled=False,
+enabled_expression_enabled=False)` to explicitly use the base state. Value changes
 refresh dependent states. Built-in value controls synchronize in place. UI state
 changes do not execute action scripts.
 

@@ -9,6 +9,7 @@ from ..style import metrics
 from .layout_helpers import configure_layout
 from .runtime_value_sync import RuntimeValueMixin
 from .expression_runtime import ConditionManager
+from .runtime_item_updates import RuntimeItemUpdates
 
 
 class RuntimeSurfaceToolbox(RuntimeValueMixin):
@@ -25,6 +26,13 @@ class RuntimeSurfaceToolbox(RuntimeValueMixin):
         self.state_button_widgets = {}
         self.toggle_icon_widgets = {}
         self.conditions = ConditionManager(document)
+        self.item_updates = RuntimeItemUpdates(self)
+
+    def register_item_widget(self, item, widget, owner, compact=False):
+        self.item_updates.register(item, widget, owner, compact)
+
+    def apply_item_change(self, item, change):
+        self.item_updates.apply(item, change)
 
     def register_condition_widget(self, item, widget, apply=None):
         self.conditions.register(item, widget, apply)
@@ -105,6 +113,7 @@ class RuntimeSurfaceToolbox(RuntimeValueMixin):
         raise AttributeError("Runtime construction does not expose " + name)
 
     def dispose(self):
+        self.item_updates.dispose()
         self.active = False
         self.disposed = True
         self.clear_value_widgets()

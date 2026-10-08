@@ -16,6 +16,9 @@ def _controls(root, control_class):
 
     if root is None:
         return result
+    explicit = getattr(root, "_item_controls", None)
+    if explicit is not None:
+        return [control for control in explicit if isinstance(control, control_class)]
 
     try:
         if isinstance(root, control_class):
@@ -170,6 +173,8 @@ class RuntimeValueBinding(ValueBinding):
             len(spins)
         )
         for index, control in enumerate(spins):
+            control.setRange(props.get("min", 0.0 if is_float else 0),
+                             props.get("max", 1.0 if is_float else 100))
             control.setValue(
                 float(values[index]) if is_float else int(values[index])
             )
@@ -189,6 +194,7 @@ class RuntimeValueBinding(ValueBinding):
                     )
                 )
             else:
+                slider.setRange(int(minimum), int(maximum))
                 slider.setValue(int(values[index]))
         return True
 
@@ -219,9 +225,12 @@ class RuntimeValueBinding(ValueBinding):
             if kind == "menu" and combos:
                 value = text_type(props.get("value", "") or "")
                 for control in combos:
+                    options = [text_type(option) for option in props.get("items", [])]
+                    if "items" in props and [text_type(control.itemText(index)) for index in range(control.count())] != options:
+                        control.clear()
+                        control.addItems(options)
                     index = control.findText(value)
-                    if index >= 0:
-                        control.setCurrentIndex(index)
+                    control.setCurrentIndex(index)
                 return True
 
             lines = _controls(self.root, QtGui.QLineEdit)

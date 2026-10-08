@@ -10,7 +10,6 @@ from ..core.document_commit import (prepare_document_commit, DocumentSaveFailure
                                     DocumentMergeConflict, DocumentRenderFailure,
                                     DocumentActivationFailure)
 from ..core.state_refresh import StateRefreshQueue
-from ..core.values import store_value as store_document_value
 from ..hosts.callbacks import EVENT_SELECTION_CHANGED
 from ..hosts.callbacks import HostCallbackGroup
 from ..pycompat import text_type
@@ -251,32 +250,7 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         key,
         value
     ):
-        item = self.find_item(key)
-        old_value = self.get_value(key)
-
-        item = store_document_value(
-            self.config,
-            key,
-            value
-        )
-
-        if item is None:
-            return False
-
-        new_value = self.get_value(key)
-
-        if old_value != new_value:
-            self.schedule_save()
-            self._run_on_change(
-                item,
-                old_value,
-                new_value
-            )
-            self.request_state_refresh()
-
-        self.sync_runtime_value(key)
-        self.refresh_expressions(key)
-        return True
+        return base_main_window.ScriptToolbox.store_value(self, key, value)
 
     # ------------------------------------------------------------------
     # State refresh scheduling

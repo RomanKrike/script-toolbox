@@ -20,6 +20,54 @@ The current configuration contract stores executable behavior in `bindings`. Dir
 
 ## Referencing items
 
+Use `toolbox.item(name_or_id)` to obtain a document-scoped Item handle. Read its
+properties and change them through `set(...)`:
+
+```python
+toolbox.item("amount").set(value=10)
+toolbox.item("preview").set(source="/images/02.png", tooltip="Image 2")
+toolbox.item("next").set(enabled=False, label="Next")
+toolbox.item("shots").set(items=["sh001", "sh002"], value="sh002")
+value = toolbox.item("amount").value
+```
+
+All supplied properties are validated together before the model changes.
+Normalization can also change related properties (for example, lowering `max`
+can clamp `value`). `set()` returns an ItemChange with `changed`, `fields`,
+`before`, and `after`; field paths are `props.value`, `ui.label`, etc. Setting
+the same normalized value is a no-op. Unknown or read-only properties raise an
+error. `id`, `name`, `kind`, bindings and container topology are not editable
+through this method. Menu's `items` property is its option list.
+
+Type-specific properties live in `props`; shared presentation properties live
+in `ui`. When both namespaces contain the same name, the type-specific property
+wins: Image `width` changes its image width. Qualified keys are available for
+explicit access, for example `item.set(**{"ui.width": 150})`.
+
+Image content, built-in values, numeric ranges, menu options and supported label
+changes update existing widgets. Other properties replace the affected widget
+or layout subtree; grouped/root section changes may rebuild the runtime surface
+while retaining selected pages and scroll position. No manual refresh is needed.
+
+Value changes refresh dependent expressions and dispatch `value_changed` once
+after synchronization; presentation changes do not dispatch that event.
+Visible/Enabled setters preserve expressions. To use the base state explicitly:
+
+```python
+toolbox.item("next").set(enabled=False, enabled_expression_enabled=False)
+```
+
+Changes schedule the existing debounced configuration save. `set()` must run on
+the GUI thread. It is not an atomic transaction covering disk writes, rendering
+or side effects of user scripts. Temporary/session-only overrides are not part
+of this API. Referenced preset definitions are read-only; their supported values
+can still be changed locally.
+
+Handles follow stable IDs across widget rebuilds and renames, but become invalid
+when their Item is deleted or the document is replaced. Mutable properties are
+returned as copies; modify them with `set()`, not by editing a returned list.
+Existing value/state convenience calls delegate to this same mutation mechanism.
+
 Script Toolbox distinguishes between internal identity and script-facing naming:
 
 - `id` is the stable internal identity;

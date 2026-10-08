@@ -15,6 +15,20 @@ class ConditionManager(object):
         if widget is None:
             return
         self.widgets[item['id']] = (widget, apply, widget.toolTip())
+        item_id = item['id']
+
+        def destroyed(*args):
+            entry = self.widgets.get(item_id)
+            if entry is not None and entry[0] is widget:
+                self.widgets.pop(item_id, None)
+        widget.destroyed.connect(destroyed)
+
+    def update_tooltip(self, item_id, tooltip):
+        entry = self.widgets.get(item_id)
+        if entry is not None:
+            widget, apply, unused = entry
+            self.widgets[item_id] = (widget, apply, tooltip)
+            widget.setToolTip(tooltip)
 
     def refresh(self, changed_id=None, recompile=False):
         if not self.active:
@@ -22,7 +36,7 @@ class ConditionManager(object):
         if recompile:
             bind_expression_references(self.document)
             self.state = ExpressionState(self.document)
-        targets = self.widgets if changed_id is None else self.state.dependents.get(changed_id, ())
+        targets = self.widgets if changed_id is None else set(self.state.dependents.get(changed_id, ())).union([changed_id])
         for item_id in list(targets):
             entry = self.widgets.get(item_id)
             if entry is None:
@@ -77,9 +91,5 @@ class ExpressionRuntimeMixin(object):
                 item = next((candidate for candidate in items if candidate['name'] == key), None)
         if item is None:
             return False
-        ui = item.setdefault('ui', {})
-        ui[prop] = value
-        ui[prop + '_expression_enabled'] = False
-        self.save()
-        self.refresh_expressions(recompile=True)
+        self.item(item['id']).set(**{prop: value})
         return True

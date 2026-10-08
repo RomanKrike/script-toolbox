@@ -139,10 +139,10 @@ def store_value(document, key, value, index=None):
     if definition is None:
         return None
 
-    props = item.setdefault("props", {})
     if "value" not in definition.fields:
         return None
-    props["value"] = normalize_value(item, value)
+    from .item_changes import update_item
+    update_item(item, {"value": value})
     return item
 
 

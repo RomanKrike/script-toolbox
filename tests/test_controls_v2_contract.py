@@ -35,7 +35,7 @@ def test_runtime_registry_registers_icon_and_numeric_renderers_from_metadata():
 
 def test_debounced_runtime_uses_native_binding_dispatch_only():
     source = _source(
-        "scripts", "script_toolbox", "ui", "debounced_main_window.py"
+        "scripts", "script_toolbox", "ui", "item_changes.py"
     )
 
     assert "self._run_on_change(" in source

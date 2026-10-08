@@ -242,3 +242,44 @@ assert w.content.isEnabled()
 e.close()
 w.close()
 """, tmp_path)
+
+
+def test_scroll_frames_remove_inner_borders_with_existing_styles(tmp_path):
+    run_qt('''
+from script_toolbox.style import STYLE, palette
+from script_toolbox.ui.scroll_surface_frames import wrap_scroll_widget
+w.open_interface_editor()
+e = w.editor_window
+e.show()
+pump()
+for index in range(e.palette_tabs.count()):
+    e.palette_tabs.setCurrentIndex(index)
+    pump()
+    for tree in (e.palette, e.tree, e.preset_palette):
+        tree.ensurePolished()
+        assert tree.frameWidth() == 0, (tree.objectName(), tree.styleSheet())
+        frame = tree._script_toolbox_scroll_surface_frame
+        assert frame.frameWidth() == 1
+        assert wrap_scroll_widget(tree) is frame
+assert "show-decoration-selected: 0" in e.palette.styleSheet()
+assert "show-decoration-selected: 0" in e.tree.styleSheet()
+# Raw local declarations must also survive adding a selector block.
+panel = QtGui.QDialog()
+panel.setStyleSheet(STYLE)
+layout = QtGui.QVBoxLayout(panel)
+control = QtGui.QPlainTextEdit(panel)
+control.setStyleSheet("color: " + palette.TEXT_MUTED + "; border: 3px solid " + palette.ACCENT + ";")
+layout.addWidget(control)
+frame = wrap_scroll_widget(control)
+panel.show()
+pump()
+assert control.frameWidth() == 0
+assert control.palette().color(QtGui.QPalette.Text).name() == palette.TEXT_MUTED
+assert frame.frameWidth() == 1
+panel.close()
+panel.deleteLater()
+e.reject()
+w.close()
+w.deleteLater()
+pump()
+''', tmp_path)

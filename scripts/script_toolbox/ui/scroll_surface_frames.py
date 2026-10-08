@@ -49,9 +49,13 @@ QListWidget#RuntimeFieldList::item:selected {
 }
 """ % _SCROLL_SURFACE_STYLE_VALUES
 
+# Use a complete selector block: bare declarations appended to an existing
+# selector-based stylesheet are invalid QSS and leave the inner border visible.
 _CHILD_STYLE = """
-border: 0px;
-border-radius: 0px;
+QAbstractScrollArea {
+    border: 0px;
+    border-radius: 0px;
+}
 """
 
 
@@ -284,6 +288,8 @@ def _make_frame(
 
     try:
         existing = widget.styleSheet() or ""
+        if existing.strip() and "{" not in existing:
+            existing = "QAbstractScrollArea {\n" + existing + "\n}"
         widget.setStyleSheet(
             existing + "\n" + _CHILD_STYLE
         )

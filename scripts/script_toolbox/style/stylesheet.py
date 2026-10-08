@@ -492,48 +492,82 @@ QScrollArea#ToolboxScroll {
     border: 0px;
 }
 
+/* Style every subcontrol so host themes cannot paint patterned pages. */
 QScrollBar:vertical {
-    background-color: %(LIST_BG)s;
+    background-color: %(SCROLL_TRACK_BG)s;
     width: %(SCROLLBAR_EXTENT)spx;
     margin: 0px;
+    border: 0px;
 }
 
 QScrollBar::handle:vertical {
     background-color: %(SCROLL_HANDLE_BG)s;
     min-height: %(SCROLLBAR_HANDLE_MINIMUM)spx;
-    border-radius: %(BORDER_RADIUS_CARD)spx;
-    margin: %(SCROLLBAR_HANDLE_MARGIN)spx;
+    border-radius: %(SCROLLBAR_HANDLE_RADIUS)spx;
+    margin: 0px %(SCROLLBAR_HANDLE_MARGIN)spx;
+    border: 0px;
 }
 
-QScrollBar::handle:vertical:hover {
+QScrollBar::handle:vertical:hover,
+QScrollBar::handle:horizontal:hover {
     background-color: %(SCROLL_HANDLE_HOVER_BG)s;
 }
 
-QScrollBar:add-line:vertical,
+QScrollBar::handle:vertical:pressed,
+QScrollBar::handle:horizontal:pressed {
+    background-color: %(SCROLL_HANDLE_PRESSED_BG)s;
+}
+
+QScrollBar::add-line:vertical,
 QScrollBar::sub-line:vertical {
     height: 0px;
+    background: transparent;
+    border: 0px;
 }
 
 QScrollBar:horizontal {
-    background-color: %(LIST_BG)s;
+    background-color: %(SCROLL_TRACK_BG)s;
     height: %(SCROLLBAR_EXTENT)spx;
     margin: 0px;
+    border: 0px;
 }
 
 QScrollBar::handle:horizontal {
     background-color: %(SCROLL_HANDLE_BG)s;
     min-width: %(SCROLLBAR_HANDLE_MINIMUM)spx;
-    border-radius: %(BORDER_RADIUS_CARD)spx;
-    margin: %(SCROLLBAR_HANDLE_MARGIN)spx;
+    border-radius: %(SCROLLBAR_HANDLE_RADIUS)spx;
+    margin: %(SCROLLBAR_HANDLE_MARGIN)spx 0px;
+    border: 0px;
 }
 
-QScrollBar::handle:horizontal:hover {
-    background-color: %(SCROLL_HANDLE_HOVER_BG)s;
-}
-
-QScrollBar:add-line:horizontal,
+QScrollBar::add-line:horizontal,
 QScrollBar::sub-line:horizontal {
     width: 0px;
+    background: transparent;
+    border: 0px;
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical,
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal {
+    background: transparent;
+    border: 0px;
+}
+
+QScrollBar::up-arrow,
+QScrollBar::down-arrow,
+QScrollBar::left-arrow,
+QScrollBar::right-arrow {
+    image: none;
+    width: 0px;
+    height: 0px;
+    border: 0px;
+}
+
+QAbstractScrollArea::corner {
+    background-color: %(SCROLL_TRACK_BG)s;
+    border: 0px;
 }
 """ % _STYLE_VALUES
 

@@ -118,7 +118,7 @@ def test_base_stylesheet_uses_shared_control_geometry_metrics():
         "INPUT_MIN_HEIGHT = 22",
         "LIST_ITEM_MIN_HEIGHT = 20",
         "TAB_PADDING_HORIZONTAL = 11",
-        "SCROLLBAR_EXTENT = 11",
+        "SCROLLBAR_EXTENT = 12",
         "SCROLLBAR_HANDLE_MINIMUM = 24",
     ):
         assert definition in metrics

@@ -125,8 +125,10 @@ ACCEPT_HOVER_BORDER = "#d18447"
 # Tabs / scrolling ---------------------------------------------------------
 TAB_HOVER_BG = "#393939"
 TAB_SELECTED_BG = BORDER_GROUP
+SCROLL_TRACK_BG = CONTENT_BG
 SCROLL_HANDLE_BG = "#4a4a4a"
 SCROLL_HANDLE_HOVER_BG = "#5a5a5a"
+SCROLL_HANDLE_PRESSED_BG = TEXT_MUTED
 
 
 __all__ = [
@@ -225,6 +227,8 @@ __all__ = [
     "ACCEPT_HOVER_BORDER",
     "TAB_HOVER_BG",
     "TAB_SELECTED_BG",
+    "SCROLL_TRACK_BG",
     "SCROLL_HANDLE_BG",
     "SCROLL_HANDLE_HOVER_BG",
+    "SCROLL_HANDLE_PRESSED_BG",
 ]

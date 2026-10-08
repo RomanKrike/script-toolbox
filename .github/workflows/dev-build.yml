@@ -327,7 +327,7 @@ jobs:
             --no-cache-dir `
             --only-binary=:all: `
             --target "$runtime/Lib/site-packages" `
-            "PySide6>=6.8,<7"
+            "PySide6==6.11.2"
 
           $pth = Get-ChildItem -Path $runtime -Filter "python*._pth" | Select-Object -First 1
           if (-not $pth) {

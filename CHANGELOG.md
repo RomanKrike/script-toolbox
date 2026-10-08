@@ -22,6 +22,7 @@
 
 - Document schemas remain 21 (ordinary documents) and 22 (linked preset references).
 - Python 2.7 / Maya 2015, Nuke 12, Houdini and Windows standalone remain supported.
+- Pin CI and Windows standalone packaging to the verified PySide 6.11.2 runtime.
 - Qt widget construction and document merging remain on the GUI thread.
 
 ## 1.1.0 — 2026-10-07

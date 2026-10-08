@@ -14,6 +14,7 @@ from ..style.palette import BORDER_PRESSED
 from ..style.palette import LIST_BG
 from ..style.palette import TEXT_PALETTE_GROUP
 from .scroll_surface_frames import wrap_scroll_widget
+from .palette_drag import CreationPaletteTree
 from .managed_presets import (populate_managed_presets, target_address,
                               insert_reference, reference_tooltip, library_address, insert_library_preset,
                               BackgroundJob, SavePresetDialog)
@@ -519,8 +520,8 @@ class PresetEditorMixin(object):
             0
         )
 
-        self.preset_palette = QtGui.QTreeWidget(
-            presets_page
+        self.preset_palette = CreationPaletteTree(
+            self, presets_page, presets=True
         )
         _configure_palette_tree(
             self.preset_palette

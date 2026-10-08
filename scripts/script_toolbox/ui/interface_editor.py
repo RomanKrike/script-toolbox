@@ -32,6 +32,7 @@ from .icon_button import ICON_BUTTON_COMPACT
 from .icon_button import create_icon_button
 from .interface_tree import ExistingInterfaceTree
 from .item_palette import palette_groups
+from .palette_drag import CreationPaletteTree
 from .layout_editor_adapter import create_layout_from_palette
 from .layout_editor_adapter import fix_layout_tree_structure
 from .layout_editor_adapter import insert_layout_cloned_tree_item
@@ -202,7 +203,7 @@ class InterfaceEditor(QtGui.QDialog):
             left_title
         )
 
-        self.palette = QtGui.QTreeWidget()
+        self.palette = CreationPaletteTree(self)
         self.palette.setObjectName(
             "ParameterPalette"
         )

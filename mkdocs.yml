@@ -50,6 +50,7 @@ plugins:
             Sharing and updates: Обмен и обновления
             DCC integrations: Интеграции DCC
             Preset libraries: Библиотеки пресетов
+            Expressions: Выражения
             Hosts: Хосты
             Developer: Разработчикам
             Overview: Обзор
@@ -73,6 +74,7 @@ nav:
       - Sharing and updates: guide/sharing-updates.md
       - DCC integrations: guide/dcc-integrations.md
       - Preset libraries: guide/preset-libraries.md
+      - Expressions: guide/expressions.md
   - Hosts:
       - Standalone: STANDALONE.md
       - Nuke: NUKE.md

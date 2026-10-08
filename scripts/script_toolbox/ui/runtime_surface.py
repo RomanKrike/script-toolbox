@@ -8,6 +8,7 @@ from ..pycompat import text_type
 from ..style import metrics
 from .layout_helpers import configure_layout
 from .runtime_value_sync import RuntimeValueMixin
+from .expression_runtime import ConditionManager
 
 
 class RuntimeSurfaceToolbox(RuntimeValueMixin):
@@ -23,6 +24,10 @@ class RuntimeSurfaceToolbox(RuntimeValueMixin):
         self.field_widgets = {}
         self.state_button_widgets = {}
         self.toggle_icon_widgets = {}
+        self.conditions = ConditionManager(document)
+
+    def register_condition_widget(self, item, widget, apply=None):
+        self.conditions.register(item, widget, apply)
 
     @property
     def config(self):
@@ -103,6 +108,7 @@ class RuntimeSurfaceToolbox(RuntimeValueMixin):
         self.active = False
         self.disposed = True
         self.clear_value_widgets()
+        self.conditions.dispose()
         self.field_widgets.clear()
         self.state_button_widgets.clear()
         self.toggle_icon_widgets.clear()
@@ -164,6 +170,7 @@ class RuntimeSurface(object):
             widgets = build_folder_widgets(self.context, document["sections"], self.content)
             for widget in widgets:
                 self.layout.insertWidget(self.layout.count() - 1, widget)
+            self.context.conditions.refresh()
             return self
         except Exception:
             self.dispose()

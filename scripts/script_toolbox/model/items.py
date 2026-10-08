@@ -7,6 +7,7 @@ import copy
 
 from ..constants import CONFIG_VERSION
 from ..pycompat import text_type
+from ..core.expressions import validate_name, bind_expression_references, PROPERTIES
 from .fields import BoolField
 from .fields import ChoiceField
 from .fields import FieldValidationError
@@ -31,6 +32,12 @@ _UI_FIELDS = {
     "height_mode": ChoiceField(("auto", "stretch", "fixed"), default="auto"),
     "height": IntField(default=28, minimum=8, maximum=2000),
     "vertical_stretch": IntField(default=1, minimum=1, maximum=100),
+    "visible": BoolField(default=True),
+    "enabled": BoolField(default=True),
+    "visible_expression_enabled": BoolField(default=False),
+    "enabled_expression_enabled": BoolField(default=False),
+    "visible_expression": TextField(default=""),
+    "enabled_expression": TextField(default=""),
 }
 
 
@@ -139,7 +146,7 @@ def sanitize_name(value, fallback="item"):
         value = "item"
     if value[0].isdigit():
         value = "_" + value
-    return value
+    return validate_name(value)
 
 
 def default_name(kind, item_id):
@@ -172,6 +179,14 @@ def _normalize_ui(definition, raw_ui=None):
         fallback = defaults.get(name, field.default_value())
         value = raw_ui.get(name, fallback)
         normalized[name] = _normalize_ui_field(field, value, fallback)
+    for prop in PROPERTIES:
+        refs = raw_ui.get(prop + "_references", {})
+        if not isinstance(refs, dict):
+            raise ValueError("Expression references must be a mapping")
+        if refs:
+            normalized[prop + "_references"] = dict(
+                (validate_name(name), text_type(item_id)) for name, item_id in refs.items()
+            )
     return normalized
 
 
@@ -381,7 +396,9 @@ def normalize_document(data):
         sections.append(create_item(kind, raw))
     if not sections:
         sections = default_document()["sections"]
-    return {"version": CONFIG_VERSION, "sections": sections}
+    document = {"version": CONFIG_VERSION, "sections": sections}
+    bind_expression_references(document)
+    return document
 
 
 def walk_items(document, include_sections=False):

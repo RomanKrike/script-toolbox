@@ -104,6 +104,7 @@ SYNTAX_STRING = "#b9c66b"
 SYNTAX_COMMENT = "#757575"
 SYNTAX_NUMBER = "#79a8d7"
 SYNTAX_HOST = "#69b5b5"
+EXPRESSION_ERROR = "#e28b8b"
 TOOLBAR_ICON = TEXT_PRIMARY
 
 # Update / primary action controls ----------------------------------------
@@ -206,6 +207,7 @@ __all__ = [
     "SYNTAX_COMMENT",
     "SYNTAX_NUMBER",
     "SYNTAX_HOST",
+    "EXPRESSION_ERROR",
     "TOOLBAR_ICON",
     "UPDATE_BG",
     "UPDATE_BORDER",

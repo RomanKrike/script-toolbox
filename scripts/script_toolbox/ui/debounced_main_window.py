@@ -275,6 +275,7 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
             self.request_state_refresh()
 
         self.sync_runtime_value(key)
+        self.refresh_expressions(key)
         return True
 
     # ------------------------------------------------------------------

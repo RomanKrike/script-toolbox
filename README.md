@@ -84,6 +84,8 @@ See [docs/HOUDINI.md](docs/HOUDINI.md) and `houdini/script_toolbox.json.example`
 
 ## Current feature set
 
+**Visible / Enabled expressions (dev):** [Русский](docs/guide/expressions.ru.md)
+
 - Folder containers: Collapsible, Simple, Tabs and Radio
 - Row and Column layout containers
 - Button and dedicated Toggle Button actions

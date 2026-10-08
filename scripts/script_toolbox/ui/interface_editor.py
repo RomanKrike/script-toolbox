@@ -1298,6 +1298,7 @@ class InterfaceEditor(QtGui.QDialog):
             )
         except Exception:
             pass
+        editor.expression_document = self.working
         editor.bind(
             data
         )

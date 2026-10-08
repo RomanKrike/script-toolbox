@@ -455,6 +455,23 @@ def rewrite_item_references_result(item, replacements):
     """Rewrite schema-21 Item script references and report unresolved uses."""
     changed = False
     unresolved = []
+    from .expressions import PROPERTIES, rewrite_expression
+    ui = item.get("ui", {})
+    for prop in PROPERTIES:
+        key = prop + "_expression"
+        source = ui.get(key, "")
+        rewritten = rewrite_expression(source, replacements)
+        if rewritten != source:
+            ui[key] = rewritten
+            changed = True
+        key = prop + "_references"
+        refs = ui.get(key, {})
+        if refs:
+            updated = dict((replacements.get(name, name), replacements.get(target, target))
+                           for name, target in refs.items())
+            if updated != refs:
+                ui[key] = updated
+                changed = True
     props = item.get("props", {}) if isinstance(item, dict) else {}
     if not isinstance(props, dict):
         props = {}

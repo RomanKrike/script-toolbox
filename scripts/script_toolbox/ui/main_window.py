@@ -33,6 +33,7 @@ from .update_ui import UpdateCheckThread
 from .update_ui import UpdateInstallThread
 from .state_toggle_hooks import StateToggleBehaviorMixin
 from .runtime_value_sync import RuntimeValueMixin
+from .expression_runtime import ExpressionRuntimeMixin
 
 
 _TOOLBOX = None
@@ -166,7 +167,7 @@ class ToolboxStatusBar(QtGui.QStatusBar):
         return self._message
 
 
-class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWindow):
+class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, ExpressionRuntimeMixin, QtGui.QMainWindow):
 
     def __init__(self, parent=None):
         QtGui.QMainWindow.__init__(self, parent or main_window())
@@ -406,6 +407,7 @@ class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWind
             self._run_on_change(item, old_value, new_value)
             self.refresh_state_buttons()
         self.sync_runtime_value(key)
+        self.refresh_expressions(key)
         return True
 
     def set_value(self, key, value):
@@ -417,7 +419,8 @@ class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWind
             self.refresh_field_widget(item["id"])
             return True
 
-        self.rebuild()
+        if item is not None and item["id"] not in self.value_widgets:
+            self.rebuild()
         return True
 
     def set_result(self, key, value):
@@ -604,6 +607,7 @@ class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWind
                 self.refresh_field_widget(item["id"])
                 if old_value != new_value:
                     self._run_on_change(item, old_value, new_value)
+                    self.refresh_expressions(item["id"])
             except Exception:
                 pass
 

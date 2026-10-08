@@ -10,6 +10,8 @@ from ...core.preferences import load_preferences
 from ...core.preferences import set_inspector_section_collapsed
 from ...model.items import normalize_item_props_candidate
 from ...model.items import sanitize_name
+from ...core.expressions import validate_name, PROPERTIES
+from ...model.items import walk_items
 from ...pycompat import text_type
 from ...style.metrics import PROPERTY_EDITOR_SPACING
 from ...style.palette import WINDOW_BG
@@ -82,6 +84,19 @@ class PropertyEditorBase(QtGui.QWidget):
         self.general_section.addRow("Label", self.label_edit)
         self.general_section.addRow("Show Label", self.show_label_check)
         self.general_section.addRow("Tooltip", self.tooltip_edit)
+        self.name_error = QtGui.QLabel()
+        self.name_error.setObjectName("HintText")
+        self.name_error.setWordWrap(True)
+        self.general_section.addRow("", self.name_error)
+        self.name_error.hide()
+        from .expressions import ExpressionProperty
+        self.expression_controls = {}
+        for prop in PROPERTIES:
+            control = ExpressionProperty(prop, self)
+            self.expression_controls[prop] = control
+            self.general_section.addRow(prop.title(), control)
+            control.changed.connect(self._control_changed)
+        self.name_edit.setToolTip("Expression name: unique A-Z, digits and _. Reserved words are forbidden.")
 
         # LAYOUT ----------------------------------------------------------
         # These controls edit only universal Item ``ui`` presentation data.
@@ -377,6 +392,8 @@ class PropertyEditorBase(QtGui.QWidget):
             self.tooltip_edit.setText(
                 text_type(ui.get("tooltip", ""))
             )
+            for control in self.expression_controls.values():
+                control.load(ui)
 
             self.layout_adapter.load(ui)
             self.binding_panel.load(item)
@@ -437,6 +454,8 @@ class PropertyEditorBase(QtGui.QWidget):
             )
 
         self.layout_adapter.write(ui)
+        for control in self.expression_controls.values():
+            control.write(ui)
         self.write_specific(candidate_props)
         normalized_props = normalize_item_props_candidate(
             self.item,
@@ -449,8 +468,26 @@ class PropertyEditorBase(QtGui.QWidget):
         if self.loading:
             return
 
+        try:
+            name = validate_name(text_type(self.name_edit.text()))
+            document = getattr(self, "expression_document", None) or getattr(self.toolbox, "config", {})
+            if any(item.get("name") == name and item.get("id") != self.item.get("id")
+                   for item in walk_items(document, include_sections=True)):
+                raise ValueError("This parameter name is already used.")
+        except ValueError as exc:
+            self.name_error.setText(text_type(exc))
+            self.name_error.show()
+            return
+        self.name_error.hide()
+
         self.write_to_item()
         self.changed.emit()
+        for control in self.expression_controls.values():
+            source = text_type(self.item['ui'].get(control.prop + '_expression', ''))
+            if text_type(control.editor.toPlainText()) != source:
+                control.load(self.item['ui'])
+            else:
+                control.refresh()
 
 
 class ValuePropertyEditorBase(PropertyEditorBase):

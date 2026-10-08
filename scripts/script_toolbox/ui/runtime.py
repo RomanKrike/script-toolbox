@@ -560,6 +560,7 @@ class RuntimeFolderTabs(QtGui.QFrame):
         layout.setSpacing(RUNTIME_GROUP_SPACING)
         self.tabs = QtGui.QTabWidget()
         layout.addWidget(self.tabs)
+        self.pages = []
 
         for folder in folders:
             page = RuntimeFolder(
@@ -575,6 +576,29 @@ class RuntimeFolderTabs(QtGui.QFrame):
                 else ""
             )
             self.tabs.addTab(page, label)
+            self.pages.append((page, label))
+            register = getattr(toolbox, "register_condition_widget", None)
+            if callable(register):
+                register(folder, page, lambda visible, enabled, p=page:
+                         self._apply_page_state(p, visible, enabled))
+
+    def _apply_page_state(self, page, visible, enabled):
+        index = self.tabs.indexOf(page)
+        if not visible and index >= 0:
+            self.tabs.removeTab(index)
+        elif visible and index < 0:
+            position = 0
+            for candidate, label in self.pages:
+                if candidate is page:
+                    self.tabs.insertTab(position, page, label)
+                    break
+                if self.tabs.indexOf(candidate) >= 0:
+                    position += 1
+        index = self.tabs.indexOf(page)
+        if index >= 0:
+            self.tabs.setTabEnabled(index, enabled)
+        page.setEnabled(enabled)
+        self.setVisible(self.tabs.count() > 0)
 
 
 class RuntimeFolderRadio(QtGui.QFrame):
@@ -595,6 +619,7 @@ class RuntimeFolderRadio(QtGui.QFrame):
         radio_row.setSpacing(8)
         self.group = QtGui.QButtonGroup(self)
         self.stack = QtGui.QStackedWidget()
+        self.page_states = {}
 
         for index, folder in enumerate(folders):
             ui = _ui(folder)
@@ -614,6 +639,11 @@ class RuntimeFolderRadio(QtGui.QFrame):
                 embedded=True
             )
             self.stack.addWidget(page)
+            self.page_states[index] = (True, True)
+            register = getattr(toolbox, "register_condition_widget", None)
+            if callable(register):
+                register(folder, page, lambda visible, enabled, i=index:
+                         self._apply_page_state(i, visible, enabled))
             button.toggled.connect(
                 lambda checked, i=index:
                 self._set_page(checked, i)
@@ -628,6 +658,22 @@ class RuntimeFolderRadio(QtGui.QFrame):
     def _set_page(self, checked, index):
         if checked:
             self.stack.setCurrentIndex(index)
+
+    def _apply_page_state(self, index, visible, enabled):
+        self.page_states[index] = (visible, enabled)
+        button = self.group.button(index)
+        button.setVisible(visible)
+        button.setEnabled(enabled)
+        self.stack.widget(index).setEnabled(enabled)
+        available = [i for i in sorted(self.page_states)
+                     if self.page_states[i] == (True, True)]
+        visible_pages = [i for i in sorted(self.page_states) if self.page_states[i][0]]
+        candidates = available or visible_pages
+        current = self.stack.currentIndex()
+        if current not in candidates and candidates:
+            self.group.button(candidates[0]).setChecked(True)
+        self.stack.setVisible(bool(visible_pages))
+        self.setVisible(bool(visible_pages))
 
 
 class _RuntimeRootOwner(object):

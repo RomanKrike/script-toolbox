@@ -25,7 +25,7 @@ class ColorControl(QtGui.QWidget):
         self.swatch.setAccessibleName("Choose Color")
         self.swatch.setFixedWidth(metrics.COLOR_SWATCH_WIDTH)
         self.swatch.clicked.connect(self.choose_color)
-        layout.addWidget(self.swatch, 1, 0, QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        layout.addWidget(self.swatch, 0, 0, QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
         self.channels = []
         self.channel_labels = []
         for index, name in enumerate(("R", "G", "B")):
@@ -43,9 +43,9 @@ class ColorControl(QtGui.QWidget):
             label.setBuddy(spin)
             spin.valueChanged.connect(
                 lambda value, channel=index: self._channel_changed(channel, value))
-            layout.addWidget(label, 0, index + 1)
-            layout.addWidget(spin, 1, index + 1)
-            layout.setColumnStretch(index + 1, 1)
+            layout.addWidget(label, 0, index * 2 + 1)
+            layout.addWidget(spin, 0, index * 2 + 2)
+            layout.setColumnStretch(index * 2 + 2, 1)
             self.channels.append(spin)
             self.channel_labels.append(label)
         label = self.hex_label = QtGui.QLabel("HEX", self)
@@ -58,9 +58,9 @@ class ColorControl(QtGui.QWidget):
         self.hex_edit.setToolTip("RGB hexadecimal color (#RRGGBB)")
         label.setBuddy(self.hex_edit)
         self.hex_edit.editingFinished.connect(self._hex_finished)
-        layout.addWidget(label, 0, 4)
-        layout.addWidget(self.hex_edit, 1, 4)
-        layout.setColumnStretch(4, 1)
+        layout.addWidget(label, 0, 7)
+        layout.addWidget(self.hex_edit, 0, 8)
+        layout.setColumnStretch(8, 1)
         self.set_value(self._value)
 
     def configure(self, show_rgb=True, rgb_range="0-1", show_hex=True):
@@ -75,10 +75,10 @@ class ColorControl(QtGui.QWidget):
                 spin.blockSignals(blocked)
             spin.setVisible(show_rgb)
             self.channel_labels[index].setVisible(show_rgb)
-            self._layout.setColumnStretch(index + 1, 1 if show_rgb else 0)
+            self._layout.setColumnStretch(index * 2 + 2, 1 if show_rgb else 0)
         self.hex_label.setVisible(show_hex)
         self.hex_edit.setVisible(show_hex)
-        self._layout.setColumnStretch(4, 1 if show_hex else 0)
+        self._layout.setColumnStretch(8, 1 if show_hex else 0)
         self.set_value(self._value)
 
     def value(self):

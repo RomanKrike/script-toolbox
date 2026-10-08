@@ -7,8 +7,9 @@ import pytest
 
 from tools.prepare_stable_publication import prepare
 from script_toolbox.core import updater
+from script_toolbox.constants import PLUGIN_VERSION
 
-VERSION = '1.1.0'
+VERSION = PLUGIN_VERSION
 COMMIT = 'a' * 40
 
 

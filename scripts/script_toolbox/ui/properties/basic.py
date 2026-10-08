@@ -2,10 +2,10 @@
 from __future__ import print_function
 
 from ..scroll_surface_frames import wrap_scroll_widget
+from ..color_control import ColorControl
 
 from ...compat import QtGui
 from ...model.items import clamp
-from ...model.items import safe_color
 from ...model.items import safe_component_labels
 from ...model.items import safe_menu_items
 from ...model.items import safe_numeric_size
@@ -402,46 +402,48 @@ class ColorPropertyEditor(ValuePropertyEditorBase):
     def __init__(self, toolbox=None, parent=None):
         ValuePropertyEditorBase.__init__(self, toolbox, parent)
 
-        self.color = [0.25, 0.25, 0.25]
-        self.button = QtGui.QPushButton("Choose...")
-        self.appearance_section.addRow("Color", self.button)
+        self.color_control = ColorControl()
+        self.appearance_section.addRow("Color", self.color_control)
+        self.show_rgb_check = QtGui.QCheckBox()
+        self.show_rgb_check.setChecked(True)
+        self.appearance_section.addRow("Show RGB", self.show_rgb_check)
+        self.rgb_range_combo = QtGui.QComboBox()
+        self.rgb_range_combo.addItems(["0-1", "0-255"])
+        self.appearance_section.addRow("RGB Range", self.rgb_range_combo)
+        self.show_hex_check = QtGui.QCheckBox()
+        self.show_hex_check.setChecked(True)
+        self.appearance_section.addRow("Show HEX", self.show_hex_check)
+        self.show_rgb_check.toggled.connect(self._appearance_changed)
+        self.rgb_range_combo.currentIndexChanged.connect(self._appearance_changed)
+        self.show_hex_check.toggled.connect(self._appearance_changed)
         self.add_stretch()
-        self.button.clicked.connect(self.choose_color)
+        self.color_control.valueChanged.connect(self._control_changed)
 
     def load_specific(self, item):
-        self.color = safe_color(item.get("value"))
-        self._refresh_button()
+        self.show_rgb_check.setChecked(item.get("show_rgb", True))
+        self.rgb_range_combo.setCurrentIndex(
+            self.rgb_range_combo.findText(item.get("rgb_range", "0-1")))
+        self.show_hex_check.setChecked(item.get("show_hex", True))
+        self._configure_color()
+        self.color_control.set_value(item.get("value"))
 
-    def _refresh_button(self):
-        rgb = [int(value * 255) for value in self.color]
-        self.button.setStyleSheet(
-            "QPushButton { background-color: rgb(%d,%d,%d); }" %
-            (rgb[0], rgb[1], rgb[2])
-        )
+    def _configure_color(self):
+        self.rgb_range_combo.setEnabled(self.show_rgb_check.isChecked())
+        self.color_control.configure(self.show_rgb_check.isChecked(),
+                                     text_type(self.rgb_range_combo.currentText()),
+                                     self.show_hex_check.isChecked())
 
-    def choose_color(self):
-        initial = QtGui.QColor(
-            int(self.color[0] * 255),
-            int(self.color[1] * 255),
-            int(self.color[2] * 255)
-        )
-        chosen = QtGui.QColorDialog.getColor(
-            initial,
-            self,
-            "Choose Color"
-        )
-        if not chosen.isValid():
+    def _appearance_changed(self, *args):
+        if self.loading:
             return
-        self.color = [
-            chosen.red() / 255.0,
-            chosen.green() / 255.0,
-            chosen.blue() / 255.0
-        ]
-        self._refresh_button()
+        self._configure_color()
         self._control_changed()
 
     def write_specific(self, item):
-        item["value"] = safe_color(self.color)
+        item["value"] = self.color_control.value()
+        item["show_rgb"] = self.show_rgb_check.isChecked()
+        item["rgb_range"] = text_type(self.rgb_range_combo.currentText())
+        item["show_hex"] = self.show_hex_check.isChecked()
 
 
 class LabelPropertyEditor(PropertyEditorBase):

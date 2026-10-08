@@ -243,14 +243,6 @@ class _Owner(object):
     def __init__(self, toolbox, roots=None):
         self.toolbox = toolbox
         self.roots = roots or {}
-        self.color_updates = []
-
-    def _color_button_style(self, control, value):
-        self.color_updates.append((
-            control,
-            value
-        ))
-        control.color = value
 
 
 _OriginalToolbox = _Toolbox
@@ -447,7 +439,10 @@ def test_integer_float_checkbox_menu_and_color_sync():
     }) is True
     assert menu.index == 2
 
-    color = _PushButton()
+    color = _Widget()
+    color.color_control = _Widget()
+    color.color_control.configure = lambda *args: None
+    color.color_control.set_value = lambda value: setattr(color, "color", value)
     color_binding = binding_class(
         color,
         owner

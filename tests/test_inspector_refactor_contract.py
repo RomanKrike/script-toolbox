@@ -164,7 +164,7 @@ def test_item_editors_route_controls_to_semantic_sections():
 
     assert 'self.content_section.addRow("Value", self.value)' in basic
     assert '"Component Labels"' in basic
-    assert 'self.appearance_section.addRow("Color", self.button)' in basic
+    assert 'self.appearance_section.addRow("Color", self.color_control)' in basic
     assert '"Label Position"' in basic
 
     assert 'self.content_section.addRow("Source", self.source)' in field

@@ -422,21 +422,21 @@ def _render_menu(owner, item, compact=False):
 
 
 def _render_color(owner, item, compact=False):
+    from .color_control import ColorControl
     props = _props(item)
     container, layout = owner._parameter_container(
         item,
         compact=compact
     )
-    control = QtGui.QPushButton(
-        "..." if compact else "Choose..."
-    )
+    control = ColorControl(props["value"])
+    control.configure(props.get("show_rgb", True), props.get("rgb_range", "0-1"),
+                      props.get("show_hex", True))
+    container.color_control = control
     container._item_controls = [control]
-    owner._color_button_style(control, props["value"])
-    connect_value_signal(container, control.clicked,
-        lambda checked=False, item_id=item["id"], widget=control:
-        owner._choose_runtime_color(item_id, widget)
-    )
-    layout.addWidget(control, 0)
+    connect_value_signal(container, control.valueChanged,
+        lambda value, item_id=item["id"]:
+        owner.toolbox.store_value(item_id, value))
+    layout.addWidget(control, 1)
     return container
 
 

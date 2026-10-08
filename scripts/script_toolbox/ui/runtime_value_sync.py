@@ -241,15 +241,13 @@ class RuntimeValueBinding(ValueBinding):
                 return True
 
             if kind == "color":
-                styler = getattr(
-                    self.owner,
-                    "_color_button_style",
-                    None
-                )
-                if styler is None:
+                control = getattr(self.root, "color_control", None)
+                if control is None:
                     return False
-                for control in _controls(self.root, QtGui.QPushButton):
-                    styler(control, props.get("value"))
+                control.configure(props.get("show_rgb", True),
+                                  props.get("rgb_range", "0-1"),
+                                  props.get("show_hex", True))
+                control.set_value(props.get("value"))
                 return True
         finally:
             _restore_signals(previous)

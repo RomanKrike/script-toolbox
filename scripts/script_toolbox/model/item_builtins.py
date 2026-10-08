@@ -417,7 +417,12 @@ def _standard_item_definitions():
         ),
         _definition(
             "color", "Color", "Controls", 90,
-            fields={"value": ColorField(default=[0.25, 0.25, 0.25])},
+            fields={
+                "value": ColorField(default=[0.25, 0.25, 0.25]),
+                "show_rgb": BoolField(default=True),
+                "rgb_range": ChoiceField(("0-1", "0-255"), default="0-1"),
+                "show_hex": BoolField(default=True),
+            },
             events=("value_changed", "click", "double_click"),
             capabilities=("bindable", "has_value", "supports_compact"),
             default_label="Color",

@@ -51,6 +51,8 @@ class RuntimeItemUpdates(object):
         value_fields = set(["props.value"])
         if item["kind"] in ("integer", "float"):
             value_fields.update(("props.min", "props.max"))
+        if item["kind"] == "color":
+            value_fields.update("props." + name for name in ITEM_TYPES.get("color").fields)
         if item["kind"] == "menu":
             value_fields.add("props.items")
         if remaining and remaining.issubset(value_fields):

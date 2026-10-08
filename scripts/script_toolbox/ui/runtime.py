@@ -432,50 +432,6 @@ class LegacyRuntimeFolder(QtGui.QFrame):
         )
         return checkbox
 
-    def _color_button_style(self, button, color):
-        rgb = [
-            int(value * 255)
-            for value in safe_color(color)
-        ]
-        button.setStyleSheet(
-            "QPushButton {background-color: rgb(%d,%d,%d);}" % (
-                rgb[0],
-                rgb[1],
-                rgb[2]
-            )
-        )
-
-    def _choose_runtime_color(
-        self,
-        item_id,
-        button
-    ):
-        value = self.toolbox.get_value(
-            item_id,
-            [0.5, 0.5, 0.5]
-        )
-        color = safe_color(value)
-        initial = QtGui.QColor(
-            int(color[0] * 255),
-            int(color[1] * 255),
-            int(color[2] * 255)
-        )
-        chosen = QtGui.QColorDialog.getColor(
-            initial,
-            self,
-            "Choose Color"
-        )
-        if not chosen.isValid():
-            return
-
-        value = [
-            chosen.red() / 255.0,
-            chosen.green() / 255.0,
-            chosen.blue() / 255.0
-        ]
-        self.toolbox.store_value(item_id, value)
-        self._color_button_style(button, value)
-
     def _separator_widget(self, compact=False):
         container = QtGui.QWidget()
         container.setObjectName("RuntimeSeparatorContainer")

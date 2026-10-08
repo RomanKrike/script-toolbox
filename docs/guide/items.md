@@ -38,6 +38,22 @@ Interactive actions can expose bindings such as click or double-click depending 
 
 Numeric controls support scalar/vector variants where applicable and can optionally expose sliders.
 
+## Color display
+
+Color shows a clickable swatch followed by editable R, G, B and HEX fields.
+Click the swatch to open the existing color chooser. In Appearance, **Show RGB**
+and **Show HEX** independently hide those fields; **RGB Range** selects `0-1`
+or `0-255`. Values in the configuration and Item API always remain three RGB
+components in `0-1`. Changing the display range preserves their precision.
+HEX represents the same RGB components rounded to eight bits per channel;
+editing HEX replaces the value with those components. No color-space conversion
+is applied. If both fields are hidden, the swatch remains available.
+
+```python
+toolbox.item("tint").set(show_rgb=True, rgb_range="0-255", show_hex=True)
+toolbox.item("tint").set(value=[0.25, 0.5, 1.0])
+```
+
 ## Field list mode
 
 Field can operate as a list-oriented control for workflows such as scene object collections. List mode supports multiple selection, copy behavior, double-click scene selection, and configurable visible rows.

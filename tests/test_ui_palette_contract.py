@@ -96,9 +96,9 @@ def test_primary_ui_modules_use_semantic_palette_tokens():
         "scripts/script_toolbox/style/palette.py"
     )
 
-    assert "from ..style.palette import WINDOW_BG" in interface_source
+    assert "from ..style.palette import PROPERTY_BG" in interface_source
     assert "from ..style.palette import TEXT_PALETTE_GROUP" in interface_source
-    assert _uses_qcolor(interface_source, "WINDOW_BG")
+    assert _uses_qcolor(interface_source, "PROPERTY_BG")
     assert _uses_qcolor(interface_source, "TEXT_PALETTE_GROUP")
 
     assert "from ..style.palette import STRUCTURE_FOLDER_BG" in layout_source
@@ -112,8 +112,8 @@ def test_primary_ui_modules_use_semantic_palette_tokens():
     assert '"background-color: {0};".format(' in main_source
     assert "CONTENT_BG" in main_source
 
-    assert "from ...style.palette import WINDOW_BG" in property_source
-    assert _uses_qcolor(property_source, "WINDOW_BG")
+    assert "from ...style.palette import PROPERTY_BG" in property_source
+    assert _uses_qcolor(property_source, "PROPERTY_BG")
 
     assert 'CONTENT_BG = WINDOW_BG' in palette_source
     assert 'STRUCTURE_FOLDER_BG = "#302d2a"' in palette_source

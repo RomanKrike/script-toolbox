@@ -182,6 +182,10 @@ assert tabs.currentWidget().section['id'] == 'tab2'
 assert w.scroll.verticalScrollBar().value() == position
 e.close()
 w.close()
+# Destroy the large Qt tree while QApplication/event delivery are still alive.
+e.deleteLater()
+w.deleteLater()
+pump()
 '''
     if mode == 'radio':
         body = body.replace("'folder_type':'tabs'", "'folder_type':'radio'").replace('QtGui.QTabWidget', 'QtGui.QStackedWidget').replace('tabs.setCurrentIndex(2)', 'tabs.parentWidget().group.button(2).setChecked(True)')

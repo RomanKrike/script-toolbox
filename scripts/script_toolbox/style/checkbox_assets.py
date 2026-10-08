@@ -5,6 +5,7 @@ QSS images need file URLs. Keep these tiny XPMs for the process lifetime;
 creating them does not require a QApplication or a writable installation.
 """
 import atexit
+import hashlib
 import os
 import shutil
 import tempfile
@@ -28,7 +29,18 @@ _CHECK = (
 )
 _MIXED = tuple("  XXXXXXXX  " if 5 <= y <= 6 else "            "
                for y in range(12))
-_DIRECTORY = tempfile.mkdtemp(prefix="script-toolbox-checkbox-")
+# Hot reload recreates this module. Keep URLs stable while the process and
+# palette are unchanged, and isolate assets from other running applications.
+_theme_key = hashlib.sha1((palette.TEXT_ON_ACCENT + palette.TEXT_DISABLED)
+                          .encode("ascii")).hexdigest()[:12]
+_DIRECTORY = os.path.join(tempfile.gettempdir(),
+                          "script-toolbox-checkbox-{0}-{1}".format(
+                              os.getpid(), _theme_key))
+try:
+    os.makedirs(_DIRECTORY, 0o700)
+except OSError:
+    if not os.path.isdir(_DIRECTORY):
+        raise
 atexit.register(shutil.rmtree, _DIRECTORY, ignore_errors=True)
 
 

@@ -9,6 +9,14 @@ def test_checkbox_palette_states_and_keyboard(tmp_path):
 from script_toolbox.style import STYLE, palette
 from script_toolbox.style.checkbox_assets import MARK_IMAGES
 from PySide6.QtTest import QTest
+import importlib
+from script_toolbox.style import checkbox_assets, stylesheet
+old_style = stylesheet.STYLE
+old_images = dict(MARK_IMAGES)
+importlib.reload(checkbox_assets)
+importlib.reload(stylesheet)
+assert checkbox_assets.MARK_IMAGES == old_images
+assert stylesheet.STYLE == old_style
 for path in MARK_IMAGES.values():
     assert not NativeGui.QPixmap(path).isNull(), path
 for native_style in ("Fusion", "Windows"):

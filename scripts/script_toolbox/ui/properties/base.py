@@ -125,9 +125,9 @@ class PropertyEditorBase(QtGui.QWidget):
         self.layout_horizontal_alignment = QtGui.QComboBox()
         self.layout_horizontal_alignment.addItems([
             "Stretch",
-            "Start",
+            "Left",
             "Center",
-            "End",
+            "Right",
         ])
         self.layout_vertical_alignment = QtGui.QComboBox()
         self.layout_vertical_alignment.addItems([
@@ -183,6 +183,9 @@ class PropertyEditorBase(QtGui.QWidget):
         )
         self.column_height.valueChanged.connect(self._control_changed)
         self.column_stretch.valueChanged.connect(
+            self._control_changed
+        )
+        self.layout_horizontal_alignment.currentIndexChanged.connect(
             self._control_changed
         )
         self.binding_panel.changed.connect(

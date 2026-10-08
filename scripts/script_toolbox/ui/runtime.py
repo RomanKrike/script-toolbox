@@ -310,6 +310,8 @@ class LegacyRuntimeFolder(QtGui.QFrame):
                     candidate = items[index]
                     if _section_group_mode(candidate) != group_mode:
                         break
+                    if _ui(candidate).get("horizontal_alignment", "stretch") != _ui(item).get("horizontal_alignment", "stretch"):
+                        break
                     group.append(candidate)
                     index += 1
 
@@ -333,7 +335,15 @@ class LegacyRuntimeFolder(QtGui.QFrame):
                 index += 1
 
             if widget is not None:
-                self.content_layout.addWidget(widget)
+                alignment = {
+                    "left": QtCore.Qt.AlignLeft,
+                    "center": QtCore.Qt.AlignHCenter,
+                    "right": QtCore.Qt.AlignRight,
+                }.get(_ui(item).get("horizontal_alignment"))
+                if alignment is None:
+                    self.content_layout.addWidget(widget)
+                else:
+                    self.content_layout.addWidget(widget, 0, alignment)
 
     def _label(self, item):
         ui = _ui(item)

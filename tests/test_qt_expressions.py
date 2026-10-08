@@ -3,6 +3,61 @@ from test_qt_lifecycle import run_qt, pytestmark as qt_mark
 pytestmark = qt_mark
 
 
+def test_folder_child_horizontal_alignment(tmp_path):
+    run_qt('''
+import json
+from script_toolbox.model.items import create_item, normalize_document
+from script_toolbox.ui.properties.registry import create_editor
+for mode in ('simple', 'collapsible', 'tabs', 'radio'):
+    children = [create_item('image', {'name': 'image_' + alignment,
+        'ui': {'horizontal_alignment': alignment},
+        'props': {'width': 80, 'height': 40}})
+        for alignment in ('stretch', 'left', 'center', 'right')]
+    children.append(create_item('string', {'name': 'field'}))
+    children.extend(create_item('button', {'name': 'button_' + alignment,
+        'ui': {'horizontal_alignment': alignment}})
+        for alignment in ('stretch', 'left', 'center', 'right'))
+    folder = create_item('folder', {'name': 'folder',
+        'props': {'folder_type': mode}, 'items': children})
+    w.config = normalize_document(json.loads(json.dumps({'sections': [folder]})))
+    w.rebuild()
+    w.resize(640, 500)
+    w.show()
+    pump()
+    manager = w.runtime_surface.context.conditions
+    widgets = [manager.widgets[item['id']][0] for item in children]
+    left, center, right = widgets[1:4]
+    assert left.x() < center.x() < right.x(), (mode, [widget.geometry() for widget in widgets])
+    assert left.width() == center.width() == right.width() == 80
+    assert abs(center.geometry().center().x() - center.parentWidget().rect().center().x()) <= 2
+    assert widgets[4].width() > 80
+    assert widgets[5].width() > widgets[6].width()
+    assert widgets[6].x() < widgets[7].x() < widgets[8].x()
+    item = w.find_item('image_center')
+    panel = create_editor('image', toolbox=w)
+    panel.set_parent_layout_context('folder', folder)
+    panel.bind(item)
+    assert panel.layout_horizontal_alignment.isEnabled()
+    assert panel.layout_horizontal_alignment.currentIndex() == 2
+    panel.layout_horizontal_alignment.setCurrentIndex(3)
+    assert item['ui']['horizontal_alignment'] == 'right'
+    panel.layout_adapter.refresh()
+    assert panel.layout_horizontal_alignment.currentIndex() == 3
+    for parent_kind in ('row', 'column'):
+        panel.set_parent_layout_context(parent_kind, create_item(parent_kind))
+        assert not panel.layout_horizontal_alignment.isEnabled()
+        assert item['ui']['horizontal_alignment'] == 'right'
+    panel.set_parent_layout_context('folder', folder)
+    assert panel.layout_horizontal_alignment.currentIndex() == 3
+    panel.close()
+    panel.deleteLater()
+    pump()
+w.close()
+w.deleteLater()
+pump()
+''', tmp_path)
+
+
 def test_runtime_visibility_enabled_and_api_without_rebuild(tmp_path):
     run_qt('''
 from script_toolbox.model.items import create_item, normalize_document

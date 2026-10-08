@@ -9,7 +9,7 @@ _LEGACY_SELECTION = "_script_toolbox_legacy_layout_selection_changed"
 
 
 def apply_layout_property_context(editor, current):
-    """Expose the selected item's immediate Row/Column parent to its editor."""
+    """Expose the selected item's immediate container parent to its editor."""
     property_editor = getattr(
         editor,
         "current_property_editor",

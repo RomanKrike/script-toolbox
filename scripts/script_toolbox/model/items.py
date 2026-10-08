@@ -29,6 +29,9 @@ _UI_FIELDS = {
     "width": IntField(default=120, minimum=20, maximum=2000),
     "stretch": IntField(default=1, minimum=1, maximum=100),
     "alignment": ChoiceField(("left", "center", "right"), default="left"),
+    "horizontal_alignment": ChoiceField(
+        ("stretch", "left", "center", "right"), default="stretch"
+    ),
     "height_mode": ChoiceField(("auto", "stretch", "fixed"), default="auto"),
     "height": IntField(default=28, minimum=8, maximum=2000),
     "vertical_stretch": IntField(default=1, minimum=1, maximum=100),

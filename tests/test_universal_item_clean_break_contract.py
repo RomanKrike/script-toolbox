@@ -55,12 +55,13 @@ def test_generic_layout_metadata_has_no_magic_row_column_schema_inference():
     assert '"horizontal_distribution" in self.fields' not in registry_source
     assert '"vertical_distribution" in self.fields' not in registry_source
 
-    # Method/control names may still contain words like horizontal_alignment;
-    # the forbidden contract is hard-coded persisted prop lookup in generic UI.
+    # Folder child ui.horizontal_alignment is independent of layout props;
+    # parent layout properties must still be resolved through LayoutSpec.
+    assert '_layout_prop("horizontal_alignment"' not in adapter_source
+    assert '_parent_props().get("horizontal_alignment"' not in adapter_source
     for persisted_name in (
         "horizontal_distribution",
         "vertical_distribution",
-        "horizontal_alignment",
         "vertical_alignment",
         "equal_widths",
     ):

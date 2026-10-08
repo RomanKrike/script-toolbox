@@ -26,7 +26,7 @@ from ..style import STYLE
 from ..style import apply_window_icon
 from ..style import metrics
 from ..style.palette import TEXT_PALETTE_GROUP
-from ..style.palette import WINDOW_BG
+from ..style.palette import PROPERTY_BG
 from .editor_search import filter_existing_parameters as filter_editor_structure
 from .icon_button import ICON_BUTTON_COMPACT
 from .icon_button import create_icon_button
@@ -481,11 +481,11 @@ class InterfaceEditor(QtGui.QDialog):
             viewport_palette = viewport.palette()
             viewport_palette.setColor(
                 QtGui.QPalette.Window,
-                QtGui.QColor(WINDOW_BG)
+                QtGui.QColor(PROPERTY_BG)
             )
             viewport_palette.setColor(
                 QtGui.QPalette.Base,
-                QtGui.QColor(WINDOW_BG)
+                QtGui.QColor(PROPERTY_BG)
             )
             viewport.setPalette(viewport_palette)
             viewport.setAutoFillBackground(True)
@@ -500,11 +500,11 @@ class InterfaceEditor(QtGui.QDialog):
             host_palette = self.property_host.palette()
             host_palette.setColor(
                 QtGui.QPalette.Window,
-                QtGui.QColor(WINDOW_BG)
+                QtGui.QColor(PROPERTY_BG)
             )
             host_palette.setColor(
                 QtGui.QPalette.Base,
-                QtGui.QColor(WINDOW_BG)
+                QtGui.QColor(PROPERTY_BG)
             )
             self.property_host.setPalette(host_palette)
             self.property_host.setAutoFillBackground(True)

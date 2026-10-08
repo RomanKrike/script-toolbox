@@ -12,6 +12,7 @@ widget instead of being added to this palette.
 WINDOW_BG = "#292929"
 CONTENT_BG = WINDOW_BG
 PANEL_BG = "#303030"
+PROPERTY_BG = PANEL_BG
 CONTROL_BG = "#202020"
 LIST_BG = "#242424"
 LIST_ALT_BG = "#282828"
@@ -132,6 +133,7 @@ __all__ = [
     "WINDOW_BG",
     "CONTENT_BG",
     "PANEL_BG",
+    "PROPERTY_BG",
     "CONTROL_BG",
     "LIST_BG",
     "LIST_ALT_BG",

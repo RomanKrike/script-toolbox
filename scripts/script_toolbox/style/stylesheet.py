@@ -120,7 +120,7 @@ QScrollArea#PropertyScroll,
 QWidget#PropertyViewport,
 QWidget#PropertyHost,
 QWidget#PropertyEditor {
-    background-color: %(WINDOW_BG)s;
+    background-color: %(PROPERTY_BG)s;
     border: 0px;
 }
 
@@ -142,7 +142,7 @@ QFormLayout QLabel {
 }
 
 QStackedWidget#PropertyStack {
-    background-color: %(WINDOW_BG)s;
+    background-color: %(PROPERTY_BG)s;
     border: 0px;
 }
 

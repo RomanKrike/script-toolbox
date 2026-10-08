@@ -14,7 +14,7 @@ from ...core.expressions import validate_name, PROPERTIES
 from ...model.items import walk_items
 from ...pycompat import text_type
 from ...style.metrics import PROPERTY_EDITOR_SPACING
-from ...style.palette import WINDOW_BG
+from ...style.palette import PROPERTY_BG
 from .toggle_state_tabs import IntegratedBindingPanel as BindingPanel
 from .script_editor_sizing import configure_property_editor
 from .layout_adapter import LayoutPropertyAdapter
@@ -45,11 +45,11 @@ class PropertyEditorBase(QtGui.QWidget):
             editor_palette = self.palette()
             editor_palette.setColor(
                 QtGui.QPalette.Window,
-                QtGui.QColor(WINDOW_BG)
+                QtGui.QColor(PROPERTY_BG)
             )
             editor_palette.setColor(
                 QtGui.QPalette.Base,
-                QtGui.QColor(WINDOW_BG)
+                QtGui.QColor(PROPERTY_BG)
             )
             self.setPalette(editor_palette)
             self.setAutoFillBackground(True)
@@ -548,11 +548,11 @@ class EmptyPropertyEditor(QtGui.QWidget):
             editor_palette = self.palette()
             editor_palette.setColor(
                 QtGui.QPalette.Window,
-                QtGui.QColor(WINDOW_BG)
+                QtGui.QColor(PROPERTY_BG)
             )
             editor_palette.setColor(
                 QtGui.QPalette.Base,
-                QtGui.QColor(WINDOW_BG)
+                QtGui.QColor(PROPERTY_BG)
             )
             self.setPalette(editor_palette)
             self.setAutoFillBackground(True)

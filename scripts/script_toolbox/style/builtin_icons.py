@@ -7,6 +7,7 @@ from ..compat import QtCore
 from ..compat import QtGui
 from ..pycompat import text_type
 from .palette import TOOLBAR_ICON
+from .metrics import EDITOR_ITEM_ICON_SIZE
 
 
 _RESOURCE_PREFIX = "stsolar"
@@ -124,7 +125,7 @@ def builtin_icon_id_from_path(value):
     return _FILENAME_KEYS.get(filename, "")
 
 
-def _tinted_icon(resource):
+def _tinted_icon(resource, pixmap_sizes=None):
     """Render a monochrome SVG through the shared toolbar color token."""
     source = QtGui.QIcon(resource)
     if source.isNull():
@@ -133,7 +134,7 @@ def _tinted_icon(resource):
     result = QtGui.QIcon()
     tint = QtGui.QColor(TOOLBAR_ICON)
 
-    for size in _ICON_PIXMAP_SIZES:
+    for size in (pixmap_sizes or _ICON_PIXMAP_SIZES):
         pixmap = source.pixmap(
             size,
             size
@@ -179,10 +180,30 @@ def builtin_icon(name):
     return icon
 
 
+def item_type_icon(kind):
+    """Use the same monochrome type symbol in both editor item trees."""
+    kind = text_type(kind or "").strip().lower()
+    if kind == "folder":
+        return builtin_icon("folder-open")
+    if kind not in (
+        "button", "toggle_button", "icon", "toggle_icon", "string",
+        "integer", "float", "checkbox", "menu", "color", "field",
+        "label", "text", "separator", "image", "row", "column",
+    ):
+        kind = "icon"
+    resource = os.path.join(os.path.dirname(_RESOURCE_ROOT), "items", kind + ".svg")
+    cached = _ICON_CACHE.get(resource)
+    if cached is None:
+        cached = _tinted_icon(resource, (EDITOR_ITEM_ICON_SIZE, EDITOR_ITEM_ICON_SIZE * 2))
+        _ICON_CACHE[resource] = cached
+    return cached
+
+
 __all__ = [
     "builtin_icon",
     "builtin_icon_entries",
     "builtin_icon_id_from_path",
     "builtin_icon_resource",
+    "item_type_icon",
     "solar_icon_directory",
 ]

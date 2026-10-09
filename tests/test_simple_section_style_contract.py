@@ -56,6 +56,6 @@ def test_simple_section_reuses_runtime_folder_and_shared_group_box_style():
     assert 'RUNTIME_SIMPLE_HEADER_' not in runtime
     assert 'RUNTIME_SIMPLE_HEADER_' not in metrics
 
-    assert 'BORDER_GROUP = "#414141"' in palette
+    assert 'BORDER_GROUP = "#45484d"' in palette
     assert 'TEXT_SECTION = TEXT_PRIMARY' in palette
     assert 'SIMPLE_SECTION_NESTED_BG = CONTENT_BG' in palette

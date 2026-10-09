@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- Show consistent monochrome item-type icons in the creation palette and existing-parameter tree.
 - Balance the charcoal theme with gently inset inputs, soft gray outlines, lighter buttons and a muted warm focus accent.
 
 - Use the Field list surface for text, numeric, menu and color-channel input backgrounds.

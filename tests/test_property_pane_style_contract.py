@@ -89,8 +89,8 @@ def test_runtime_field_surface_uses_shared_palette_tokens():
         "scripts/script_toolbox/style/runtime_overrides.py"
     )
 
-    assert 'LIST_BG = "#242424"' in palette_source
-    assert 'SEPARATOR = "#414346"' in palette_source
+    assert 'LIST_BG = "#27292c"' in palette_source
+    assert 'SEPARATOR = "#45484d"' in palette_source
     assert 'SELECTION_BG = "#68462c"' in palette_source
     assert "background-color: {list_bg};" in style_source
     assert "border-top: 1px solid {separator};" in style_source

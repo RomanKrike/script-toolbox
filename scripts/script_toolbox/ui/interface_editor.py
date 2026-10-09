@@ -32,6 +32,7 @@ from .icon_button import ICON_BUTTON_COMPACT
 from .icon_button import create_icon_button
 from .interface_tree import ExistingInterfaceTree
 from .item_palette import palette_groups
+from ..style.builtin_icons import item_type_icon
 from .palette_drag import CreationPaletteTree
 from .layout_editor_adapter import create_layout_from_palette
 from .layout_editor_adapter import fix_layout_tree_structure
@@ -204,6 +205,7 @@ class InterfaceEditor(QtGui.QDialog):
         )
 
         self.palette = CreationPaletteTree(self)
+        self.palette.setIconSize(QtCore.QSize(metrics.EDITOR_ITEM_ICON_SIZE, metrics.EDITOR_ITEM_ICON_SIZE))
         self.palette.setObjectName(
             "ParameterPalette"
         )
@@ -266,6 +268,7 @@ class InterfaceEditor(QtGui.QDialog):
                 item = QtGui.QTreeWidgetItem([
                     label
                 ])
+                item.setIcon(0, item_type_icon(kind))
                 item.setData(
                     0,
                     ROLE_KIND,
@@ -373,6 +376,7 @@ class InterfaceEditor(QtGui.QDialog):
         self.tree = ExistingInterfaceTree(
             self
         )
+        self.tree.setIconSize(QtCore.QSize(metrics.EDITOR_ITEM_ICON_SIZE, metrics.EDITOR_ITEM_ICON_SIZE))
         self.tree.setAlternatingRowColors(
             True
         )

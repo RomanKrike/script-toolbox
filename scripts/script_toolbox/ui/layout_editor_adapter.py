@@ -11,6 +11,7 @@ from ..pycompat import text_type
 from ..style.palette import STRUCTURE_FOLDER_BG
 from ..style.palette import TEXT_STRUCTURE_COLUMN
 from ..style.palette import TEXT_STRUCTURE_ROW
+from ..style.builtin_icons import item_type_icon
 
 
 def _definition(kind):
@@ -132,6 +133,7 @@ def make_layout_tree_item(
         type_title,
     ])
     editor.set_item_data(tree_item, kind, data["id"])
+    tree_item.setIcon(0, item_type_icon(kind))
 
     flags = tree_item.flags()
     flags |= QtCore.Qt.ItemIsDragEnabled

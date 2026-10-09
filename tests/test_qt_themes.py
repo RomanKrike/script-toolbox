@@ -28,13 +28,11 @@ d.show()
 pump()
 p = d.appearance_page
 assert p.actions.isVisible()
-assert p.actions.mapTo(p, QtCore.QPoint(0, 0)).y() == p.theme_combo.geometry().y()
+assert p.actions.mapTo(p, QtCore.QPoint(0, 0)).y() == p.theme_combo.mapTo(p, QtCore.QPoint(0, 0)).y()
 assert p.actions.geometry().left() > p.theme_combo.geometry().right()
-assert all(group.collapsed for group in p.groups)
-for group in p.groups:
-    group.header.click()
-pump()
-assert all(not group.collapsed for group in p.groups)
+assert p.theme_section.objectName() == 'SimpleSectionGroupBox'
+assert p.colors_section.objectName() == 'SimpleSectionGroupBox'
+assert all(p.colors_section.isAncestorOf(control) for control in p.controls.values())
 assert len(set(control.width() for control in p.controls.values())) == 1
 assert len(set(control.mapTo(p, QtCore.QPoint(0, 0)).x() for control in p.controls.values())) == 1
 assert p.theme_combo.currentText() == themes.DEFAULT_NAME

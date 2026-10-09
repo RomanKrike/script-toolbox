@@ -7,9 +7,8 @@ from ..core import themes
 from ..pycompat import text_type
 from ..style import metrics
 from ..style.themes import controller
-from .collapsible_folder import CollapsibleSection
 from .color_control import ColorControl
-from .settings_components import build_page_header, configure_settings_scroll_area
+from .settings_components import build_page_header, build_simple_section, configure_settings_scroll_area
 
 
 class AppearancePage(QtGui.QWidget):
@@ -21,8 +20,8 @@ class AppearancePage(QtGui.QWidget):
         unused, self.saved = themes.load_state()
         self._updating = False
         layout = QtGui.QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+        layout.setContentsMargins(*metrics.SETTINGS_PAGE_MARGINS)
+        layout.setSpacing(metrics.SETTINGS_PAGE_SPACING)
         layout.addWidget(build_page_header("Appearance", "Choose a theme or customize the interface colors.", self))
         theme_row = QtGui.QHBoxLayout()
         theme_row.setSpacing(metrics.SETTINGS_ACTION_SPACING)
@@ -54,48 +53,39 @@ class AppearancePage(QtGui.QWidget):
             button.clicked.connect(handler)
             actions.addWidget(button)
         theme_row.addWidget(self.actions)
-        layout.addLayout(theme_row)
+        self.theme_section, theme_layout = build_simple_section("Theme", parent=self)
+        theme_layout.addLayout(theme_row)
+        layout.addWidget(self.theme_section)
         scroll = QtGui.QScrollArea(self)
         content = QtGui.QWidget(scroll)
         content.setObjectName("SettingsScrollContent")
         sections = QtGui.QVBoxLayout(content)
-        sections.setContentsMargins(0, 0, 4, 0)
+        sections.setContentsMargins(*metrics.MARGINS_NONE)
         sections.setSpacing(metrics.SETTINGS_SECTION_SPACING)
-        labels = dict((key, label) for key, label, unused in themes.ROLES)
+        self.colors_section, colors_layout = build_simple_section("Interface colors", parent=content)
+        sections.addWidget(self.colors_section)
         self.controls = {}
-        self.groups = []
-        # Keep the existing semantic colors; panels are shared with the editor.
-        for title, keys in (
-                ("Surfaces", ("window",)),
-                ("Fields and buttons", ("input", "border")),
-                ("Text", ("text", "secondary")),
-                ("Selection and accent", ("accent", "selection")),
-                ("Panels and editor", ("panel",))):
-            section = CollapsibleSection(title, collapsed=True, parent=content)
-            section.header.setAutoDefault(False)
-            form = QtGui.QFormLayout()
-            form.setContentsMargins(0, 0, 0, 0)
-            form.setSpacing(metrics.SETTINGS_SECTION_SPACING)
-            form.setLabelAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-            form.setFieldGrowthPolicy(QtGui.QFormLayout.AllNonFixedFieldsGrow)
-            for key in keys:
-                control = ColorControl(parent=section.content)
-                control.configure(show_rgb=False, show_hex=True)
-                control.setFixedWidth(metrics.APPEARANCE_COLOR_FIELD_WIDTH)
-                control.setObjectName("AppearanceColor_" + key)
-                control.hex_edit.setAccessibleName(labels[key])
-                control.valueChanged.connect(lambda value, role=key: self._color_changed(role, value))
-                label = QtGui.QLabel(labels[key], section.content)
-                label.setBuddy(control.hex_edit)
-                field = QtGui.QHBoxLayout()
-                field.setContentsMargins(0, 0, 0, 0)
-                field.addStretch(1)
-                field.addWidget(control)
-                form.addRow(label, field)
-                self.controls[key] = control
-            section.content_layout.addLayout(form)
-            sections.addWidget(section)
-            self.groups.append(section)
+        form = QtGui.QFormLayout()
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setSpacing(metrics.SETTINGS_SECTION_SPACING)
+        form.setLabelAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        form.setFieldGrowthPolicy(QtGui.QFormLayout.AllNonFixedFieldsGrow)
+        for key, label, unused in themes.ROLES:
+            control = ColorControl(parent=self.colors_section)
+            control.configure(show_rgb=False, show_hex=True)
+            control.setFixedWidth(metrics.APPEARANCE_COLOR_FIELD_WIDTH)
+            control.setObjectName("AppearanceColor_" + key)
+            control.hex_edit.setAccessibleName(label)
+            control.valueChanged.connect(lambda value, role=key: self._color_changed(role, value))
+            label_widget = QtGui.QLabel(label, self.colors_section)
+            label_widget.setBuddy(control.hex_edit)
+            field = QtGui.QHBoxLayout()
+            field.setContentsMargins(0, 0, 0, 0)
+            field.addStretch(1)
+            field.addWidget(control)
+            form.addRow(label_widget, field)
+            self.controls[key] = control
+        colors_layout.addLayout(form)
         sections.addStretch(1)
         scroll.setWidget(content)
         configure_settings_scroll_area(scroll)

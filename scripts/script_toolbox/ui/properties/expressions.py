@@ -7,7 +7,8 @@ from ...core.expressions import (Expression, ExpressionError, ExpressionState,
 from ...model.items import walk_items
 from ...model.item_registry import ITEM_TYPES
 from ...pycompat import text_type
-from ...style import metrics, palette
+from ...style import metrics
+from ...style.themes import themed_color
 
 
 class ExpressionHighlighter(QtGui.QSyntaxHighlighter):
@@ -16,6 +17,9 @@ class ExpressionHighlighter(QtGui.QSyntaxHighlighter):
         self.editor = editor
         self.names = set()
 
+    def toolbox_theme_changed(self):
+        self.rehighlight()
+
     def highlightBlock(self, text):
         text = text_type(text)
         try:
@@ -23,21 +27,21 @@ class ExpressionHighlighter(QtGui.QSyntaxHighlighter):
         except ExpressionError as exc:
             fmt = QtGui.QTextCharFormat()
             fmt.setUnderlineStyle(QtGui.QTextCharFormat.WaveUnderline)
-            fmt.setUnderlineColor(QtGui.QColor(palette.EXPRESSION_ERROR))
+            fmt.setUnderlineColor(QtGui.QColor(themed_color("expression_error", self.editor)))
             self.setFormat(exc.position, max(1, len(text) - exc.position), fmt)
             return
         for value, start, end in tokens:
             fmt = QtGui.QTextCharFormat()
             color = None
-            if value.startswith('"'): color = palette.SYNTAX_STRING
-            elif value in ('true', 'false') or re.match(r'^-?\d', value): color = palette.SYNTAX_KEYWORD
-            elif value in RESERVED_WORDS: color = palette.TEXT_STRUCTURE_COLUMN
+            if value.startswith('"'): color = themed_color("expression_string", self.editor)
+            elif value in ('true', 'false') or re.match(r'^-?\d', value): color = themed_color("expression_keyword", self.editor)
+            elif value in RESERVED_WORDS: color = themed_color("expression_reserved", self.editor)
             elif re.match(r'^[A-Za-z_]', value):
                 if value in self.names:
-                    color = palette.SYNTAX_NUMBER
+                    color = themed_color("expression_name", self.editor)
                 else:
                     fmt.setUnderlineStyle(QtGui.QTextCharFormat.WaveUnderline)
-                    fmt.setUnderlineColor(QtGui.QColor(palette.EXPRESSION_ERROR))
+                    fmt.setUnderlineColor(QtGui.QColor(themed_color("expression_error", self.editor)))
             if color is not None: fmt.setForeground(QtGui.QColor(color))
             self.setFormat(start, end - start, fmt)
 

@@ -5,6 +5,7 @@ import copy
 import uuid
 
 from ..compat import HOST
+from ..style.themes import set_item_color
 from ..compat import QtCore
 from ..compat import QtGui
 from ..core.presets import build_preset_root
@@ -12,7 +13,6 @@ from ..core.presets import iter_presets
 from ..pycompat import text_type
 from ..style.palette import BORDER_PRESSED
 from ..style.palette import LIST_BG
-from ..style.palette import TEXT_PALETTE_GROUP
 from .scroll_surface_frames import wrap_scroll_widget
 from .palette_drag import CreationPaletteTree
 from .managed_presets import (populate_managed_presets, target_address,
@@ -108,14 +108,7 @@ def _populate_preset_tree(tree):
                 0,
                 font
             )
-            group.setForeground(
-                0,
-                QtGui.QBrush(
-                    QtGui.QColor(
-                        TEXT_PALETTE_GROUP
-                    )
-                )
-            )
+            set_item_color(group, 0, "TEXT_PALETTE_GROUP")
 
             groups[category] = group
             group_order.append(category)

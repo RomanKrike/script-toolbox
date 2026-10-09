@@ -8,7 +8,7 @@ from script_toolbox.core.preferences import load_preferences, save_preferences
 
 
 @pytest.mark.parametrize("change", [
-    {"version": 2}, {"version": True}, {"name": " "}, {"name": "x" * 81},
+    {"version": 3}, {"version": True}, {"name": " "}, {"name": "x" * 81},
     {"colors": {}}, {"colors": dict(themes.DEFAULT_COLORS, text="red")},
     {"colors": dict(themes.DEFAULT_COLORS, layout="#ffffff")},
 ])
@@ -33,3 +33,14 @@ def test_theme_round_trip_and_preference_isolation(tmp_path, monkeypatch):
     assert themes.load_state() == (value, [value])
     assert load_preferences(settings)["other_setting"] == {"keep": True}
     assert themes.theme()["colors"]["input"] == "#27292c"
+
+
+def test_upgrade_eight_color_theme():
+    colors = dict((key, color) for key, label, color in themes.ROLES[:8])
+    colors["input"] = "#123456"
+    old = {"version": 1, "name": "Studio", "colors": colors}
+    upgraded = themes.validate(old)
+    assert upgraded["version"] == themes.VERSION
+    assert upgraded["colors"]["input"] == "#123456"
+    assert upgraded["colors"]["expression_error"] == themes.DEFAULT_COLORS["expression_error"]
+    assert old["colors"] == colors and len(colors) == 8

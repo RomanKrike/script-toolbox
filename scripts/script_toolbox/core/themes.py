@@ -10,7 +10,7 @@ from ..pycompat import text_type
 _STRING_TYPES = (str, text_type)
 from .preferences import load_preferences, save_preferences
 
-VERSION = 1
+VERSION = 2
 DEFAULT_NAME = "Default - Charcoal"
 ROLES = (
     ("window", "Window background", "#292b2e"),
@@ -21,6 +21,23 @@ ROLES = (
     ("secondary", "Secondary text", "#aeb3bb"),
     ("accent", "Accent", "#b46d35"),
     ("selection", "Selection", "#68462c"),
+    ("on_accent", "Text on selection / accent", "#ffffff"),
+    ("group", "Item / preset group titles", "#bda88f"),
+    ("row", "Structure: Row", "#b6c4cf"),
+    ("column", "Structure: Column", "#c7b7d7"),
+    ("code_gutter", "Code: gutter background", "#3b3d41"),
+    ("code_line", "Code: current line", "#313337"),
+    ("code_numbers", "Code: line numbers", "#777777"),
+    ("syntax_keyword", "Code: keywords", "#d4a15d"),
+    ("syntax_string", "Code: strings", "#b9c66b"),
+    ("syntax_comment", "Code: comments", "#757575"),
+    ("syntax_number", "Code: numbers", "#79a8d7"),
+    ("syntax_host", "Code: host commands", "#69b5b5"),
+    ("expression_string", "Expressions: strings", "#b9c66b"),
+    ("expression_keyword", "Expressions: values", "#d4a15d"),
+    ("expression_name", "Expressions: parameter names", "#79a8d7"),
+    ("expression_reserved", "Expressions: reserved words", "#c7b7d7"),
+    ("expression_error", "Expressions: errors", "#e28b8b"),
 )
 DEFAULT_COLORS = dict((key, color) for key, label, color in ROLES)
 
@@ -37,15 +54,16 @@ def builtins():
 
 
 def validate(data):
-    if not isinstance(data, dict) or type(data.get("version")) is not int or data["version"] != VERSION:
+    if not isinstance(data, dict) or type(data.get("version")) is not int or data["version"] not in (1, VERSION):
         raise ValueError("Unsupported theme format version.")
     name = data.get("name")
     if not isinstance(name, _STRING_TYPES) or not name.strip() or len(name.strip()) > 80:
         raise ValueError("Theme name must contain 1 to 80 characters.")
     colors = data.get("colors")
-    if not isinstance(colors, dict) or set(colors) != set(DEFAULT_COLORS):
-        raise ValueError("Theme must contain all eight UI colors.")
-    result = {}
+    expected = set(key for key, unused, color in ROLES[:8]) if data["version"] == 1 else set(DEFAULT_COLORS)
+    if not isinstance(colors, dict) or set(colors) != expected:
+        raise ValueError("Theme must contain all colors for its format version.")
+    result = dict(DEFAULT_COLORS)
     for key, value in colors.items():
         if not isinstance(value, _STRING_TYPES) or not re.match(r"^#[0-9a-fA-F]{6}$", value):
             raise ValueError("Invalid RGB color for " + key + ".")

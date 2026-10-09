@@ -3,7 +3,8 @@ from __future__ import print_function
 
 from ..compat import QtCore
 from ..compat import QtGui
-from ..style import palette
+from ..style.themes import themed_color
+from ..style.builtin_icons import themed_icon
 
 
 class PaintedIconButton(QtGui.QWidget):
@@ -39,6 +40,10 @@ class PaintedIconButton(QtGui.QWidget):
             except Exception:
                 pass
 
+    def toolbox_theme_changed(self):
+        self._icon = themed_icon(self._icon, themed_color("TOOLBAR_ICON", self))
+        self.update()
+
     def _icon_rect(self):
         width = max(1, self._icon_size.width())
         height = max(1, self._icon_size.height())
@@ -62,17 +67,17 @@ class PaintedIconButton(QtGui.QWidget):
         if self._interactive and self._hover_feedback:
             if self._pressed:
                 fill = QtGui.QColor(
-                    palette.ICON_BUTTON_PRESSED_BG
+                    themed_color("ICON_BUTTON_PRESSED_BG", self)
                 )
                 border = QtGui.QColor(
-                    palette.BORDER_INSET
+                    themed_color("BORDER_INSET", self)
                 )
             elif self._hovered:
                 fill = QtGui.QColor(
-                    palette.ICON_BUTTON_HOVER_BG
+                    themed_color("ICON_BUTTON_HOVER_BG", self)
                 )
                 border = QtGui.QColor(
-                    palette.ICON_BUTTON_HOVER_BORDER
+                    themed_color("ICON_BUTTON_HOVER_BORDER", self)
                 )
             else:
                 fill = None

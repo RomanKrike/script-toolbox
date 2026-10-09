@@ -56,10 +56,10 @@ def test_painted_search_controls_keep_qt4_clip_workaround_palette_driven():
     assert "self._icon.paint(" in source
     assert "self._icon_rect()" in source
     assert "QtGui.QToolButton" not in source
-    assert "palette.ICON_BUTTON_PRESSED_BG" in source
-    assert "palette.BORDER_INSET" in source
-    assert "palette.ICON_BUTTON_HOVER_BG" in source
-    assert "palette.ICON_BUTTON_HOVER_BORDER" in source
+    assert 'themed_color("ICON_BUTTON_PRESSED_BG", self)' in source
+    assert 'themed_color("BORDER_INSET", self)' in source
+    assert 'themed_color("ICON_BUTTON_HOVER_BG", self)' in source
+    assert 'themed_color("ICON_BUTTON_HOVER_BORDER", self)' in source
     assert re.search(r"#[0-9a-fA-F]{6}\b", source) is None
 
 

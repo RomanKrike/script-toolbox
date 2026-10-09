@@ -7,6 +7,7 @@ import copy
 import os
 
 from ..compat import HOST
+from ..style.themes import set_item_color
 from ..compat import QtCore
 from ..compat import QtGui
 from ..constants import EDITOR_OBJECT_NAME
@@ -25,7 +26,6 @@ from ..pycompat import text_type
 from ..style import STYLE
 from ..style import apply_window_icon
 from ..style import metrics
-from ..style.palette import TEXT_PALETTE_GROUP
 from ..style.palette import PROPERTY_BG
 from .editor_search import filter_existing_parameters as filter_editor_structure
 from .icon_button import ICON_BUTTON_COMPACT
@@ -254,14 +254,7 @@ class InterfaceEditor(QtGui.QDialog):
                 0,
                 group_font
             )
-            group_item.setForeground(
-                0,
-                QtGui.QBrush(
-                    QtGui.QColor(
-                        TEXT_PALETTE_GROUP
-                    )
-                )
-            )
+            set_item_color(group_item, 0, "TEXT_PALETTE_GROUP")
 
             self.palette.addTopLevelItem(
                 group_item

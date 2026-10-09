@@ -180,3 +180,57 @@ w.close()
 w.deleteLater()
 pump()
 ''', tmp_path)
+
+
+def test_named_painting_roles_live_restore_and_rebuild(tmp_path):
+    run_qt('''
+from script_toolbox.core import themes
+from script_toolbox.style.themes import controller, themed_color, set_item_color
+from script_toolbox.style import palette
+from script_toolbox.ui.code_editor import CodeEditor, ScriptHighlighter
+from script_toolbox.ui.properties.expressions import ExpressionEdit
+code = CodeEditor(w)
+code.setPlainText('return "hello"')
+highlighter = ScriptHighlighter(code.document())
+expression = ExpressionEdit(w)
+expression.set_names(['size'])
+expression.setPlainText('size > 2')
+tree = QtGui.QTreeWidget(w)
+tree.setColumnCount(1)
+row = QtGui.QTreeWidgetItem(tree, ['Row'])
+set_item_color(row, 0, 'TEXT_STRUCTURE_ROW')
+custom = QtGui.QTreeWidgetItem(tree, ['User color'])
+custom.setForeground(0, QtGui.QBrush(QtGui.QColor('#112233')))
+external = CodeEditor()
+changed = dict(themes.DEFAULT_COLORS, syntax_keyword='#123456', expression_name='#abcdef',
+               row='#987654', code_line='#213243', code_gutter='#345678', group='#456789')
+controller().apply(themes.theme('Custom', changed))
+pump()
+assert themed_color('CODE_GUTTER_BG', code) == '#345678'
+assert themed_color('CODE_GUTTER_BG', external) == palette.CODE_GUTTER_BG
+selections = code.extraSelections()
+assert selections[0].format.background().color().name() == '#213243'
+formats = code.document().firstBlock().layout().formats()
+assert any(f.format.foreground().color().name() == '#123456' for f in formats)
+formats = expression.document().firstBlock().layout().formats()
+assert any(f.format.foreground().color().name() == '#abcdef' for f in formats)
+assert row.foreground(0).color().name() == '#987654'
+assert custom.foreground(0).color().name() == '#112233'
+new_row = QtGui.QTreeWidgetItem(['New Row'])
+set_item_color(new_row, 0, 'TEXT_STRUCTURE_ROW')
+tree.addTopLevelItem(new_row)
+assert new_row.foreground(0).color().name() == '#987654'
+controller().apply(themes.theme())
+pump()
+assert row.foreground(0).color().name() == palette.TEXT_STRUCTURE_ROW
+selections = code.extraSelections()
+assert selections[0].format.background().color().name() == palette.CODE_CURRENT_LINE_BG
+assert any(f.format.foreground().color().name() == palette.SYNTAX_KEYWORD
+           for f in code.document().firstBlock().layout().formats())
+assert any(f.format.foreground().color().name() == palette.SYNTAX_NUMBER
+           for f in expression.document().firstBlock().layout().formats())
+assert custom.foreground(0).color().name() == '#112233'
+w.close()
+w.deleteLater()
+pump()
+''', tmp_path)

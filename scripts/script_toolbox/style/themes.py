@@ -46,6 +46,8 @@ class ThemeController(QtCore.QObject):
     def __init__(self, app):
         QtCore.QObject.__init__(self, app)
         self.active, unused = themes.load_state()
+        self._custom_colors = self.active["colors"] != themes.DEFAULT_COLORS
+        self._styled = False
         self.roots = []
         self._busy = False
         self._pending = False
@@ -59,6 +61,7 @@ class ThemeController(QtCore.QObject):
 
     def apply(self, value):
         self.active = themes.validate(value)
+        self._custom_colors = self.active["colors"] != themes.DEFAULT_COLORS
         self.mapping = color_map(self.active["colors"])
         self.refresh()
 
@@ -71,7 +74,7 @@ class ThemeController(QtCore.QObject):
         return False
 
     def eventFilter(self, watched, event):
-        if (not self._busy and not self._pending and
+        if ((self._custom_colors or self._styled) and not self._busy and not self._pending and
                 event.type() in (QtCore.QEvent.ChildAdded, QtCore.QEvent.Show, QtCore.QEvent.StyleChange) and
                 isinstance(watched, QtGui.QWidget) and self._owned(watched)):
             self._pending = True
@@ -126,7 +129,7 @@ class ThemeController(QtCore.QObject):
 
     def refresh(self):
         self._pending = False
-        if self._busy:
+        if self._busy or (not self._custom_colors and not self._styled):
             return
         self._busy = True
         live = []
@@ -143,6 +146,7 @@ class ThemeController(QtCore.QObject):
                 for widget in widgets:
                     self._widget(widget)
             self.roots = live
+            self._styled = self._custom_colors
         finally:
             self._busy = False
 

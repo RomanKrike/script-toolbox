@@ -101,3 +101,7 @@ When a script does not behave as expected, verify:
 3. referenced item names still exist;
 4. the script works in the host's own script console;
 5. the toolbox configuration was saved before testing runtime behavior.
+
+## Spreadsheet API
+
+Use `toolbox.item("shots").table()` for typed row/cell operations. See [Table / Spreadsheet](table.md) for `add_row`, `remove_row`, `get_cell`, `set_cell` and row event context.

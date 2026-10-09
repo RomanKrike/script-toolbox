@@ -228,7 +228,7 @@ def item_type_icon(kind):
     if kind not in (
         "button", "toggle_button", "icon", "toggle_icon", "string",
         "integer", "float", "checkbox", "menu", "color", "field",
-        "label", "text", "separator", "image", "row", "column",
+        "label", "text", "separator", "image", "row", "column", "table",
     ):
         kind = "icon"
     resource = os.path.join(os.path.dirname(_RESOURCE_ROOT), "items", kind + ".svg")

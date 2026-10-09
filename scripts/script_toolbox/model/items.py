@@ -203,11 +203,10 @@ def normalize_item_props_candidate(item, candidate_props):
             reason="Expected Item mapping"
         )
     definition = ITEM_TYPES.get(item.get("kind"), required=True)
-    return definition.normalize_props(
-        candidate_props,
-        item_id=item.get("id"),
-        item_name=item.get("name")
-    )
+    candidate = copy.deepcopy(item)
+    candidate["props"] = definition.normalize_props(
+        candidate_props, item_id=item.get("id"), item_name=item.get("name"))
+    return definition.normalize_item(candidate)["props"]
 
 
 def normalize_item_props(item):
@@ -324,10 +323,12 @@ def create_item(kind, data=None):
                 )
             if definition.is_layout and child_definition.is_section:
                 continue
+            if not definition.accepts_child(child_definition):
+                raise _child_validation_error(item, raw, "Unsupported child type for this container")
             children.append(create_item(child_kind, raw))
         item["items"] = children
 
-    return item
+    return definition.normalize_item(item)
 
 
 def default_document():

@@ -30,6 +30,10 @@ class RuntimeItemUpdates(object):
                 self.context._window.rebuild()
             return
         root, owner, compact = entry
+        callback = getattr(root, "apply_item_change", None)
+        if callable(callback) and callback(item, change):
+            self.context.conditions.refresh()
+            return
         remaining = set(change.fields)
         if "ui.tooltip" in remaining:
             self.context.conditions.update_tooltip(item["id"], item["ui"]["tooltip"])

@@ -838,6 +838,8 @@ class InterfaceEditor(QtGui.QDialog):
                 for child in clone.get("items", []) or []
             ]
 
+        from ..model.table import remap_columns
+        remap_columns(data, clone)
         return clone
 
     def _cache_subtree(self, data):

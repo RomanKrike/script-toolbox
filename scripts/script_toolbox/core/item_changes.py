@@ -75,6 +75,9 @@ def update_item(item, properties):
     if "props" in touched:
         candidate["props"] = definition.normalize_props(
             candidate["props"], item_id=item["id"], item_name=item.get("name"))
+    whole_candidate = copy.deepcopy(item)
+    whole_candidate.update(candidate)
+    candidate["props"] = definition.normalize_item(whole_candidate)["props"]
     before, after = {}, {}
     for section in touched:
         old = item.get(section, {})
@@ -125,3 +128,10 @@ class Item(object):
     def set(self, **properties):
         self._resolve()
         return self._owner.change_item(self._id, properties)
+
+    def table(self):
+        """Return the typed row/cell API for a spreadsheet Item."""
+        from .table_api import Table
+        if self._resolve()['kind'] != 'table':
+            raise TypeError('Item is not a Table')
+        return Table(self)

@@ -144,6 +144,8 @@ class EditorDocumentController(object):
                     for child in source.get("items", []) or []
                 ]
 
+            from ..model.table import remap_columns
+            remap_columns(source, clone)
             return clone
 
         clone = clone_item(data)

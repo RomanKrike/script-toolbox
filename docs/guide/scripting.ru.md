@@ -99,3 +99,7 @@ Host callbacks изолированы за host abstraction, поэтому ос
 3. существуют ли ещё используемые `name` элементов;
 4. работает ли скрипт в собственной script console хоста;
 5. сохранена ли конфигурация toolbox перед проверкой Runtime.
+
+## API таблицы
+
+`toolbox.item("shots").table()` предоставляет операции строк и ячеек. Методы `add_row`, `remove_row`, `get_cell`, `set_cell` и контекст событий описаны в [Table / Spreadsheet](table.ru.md).

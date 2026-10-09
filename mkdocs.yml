@@ -46,6 +46,7 @@ plugins:
             Guide: Руководство
             Interface and workflow: Интерфейс и рабочий процесс
             Items: Элементы
+            Spreadsheet: Таблица
             Scripting: Скрипты
             Sharing and updates: Обмен и обновления
             DCC integrations: Интеграции DCC
@@ -70,6 +71,7 @@ nav:
   - Guide:
       - Interface and workflow: guide/interface.md
       - Items: guide/items.md
+      - Spreadsheet: guide/table.md
       - Scripting: guide/scripting.md
       - Sharing and updates: guide/sharing-updates.md
       - DCC integrations: guide/dcc-integrations.md

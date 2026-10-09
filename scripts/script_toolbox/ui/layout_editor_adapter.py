@@ -37,9 +37,7 @@ def _can_contain(parent_kind, child_kind):
     child = _definition(child_kind)
     if parent is None or child is None or not parent.is_container:
         return False
-    if parent.is_layout and child.has_capability("section"):
-        return False
-    return True
+    return parent.accepts_child(child)
 
 
 def _default_section_kind():
@@ -255,6 +253,10 @@ def sync_layout_working_from_tree(editor):
                     continue
                 children.append(data_from_tree(child))
             data["items"] = children
+            if definition.has_capability("table"):
+                column_ids = set(child["id"] for child in children)
+                for row in data.get("props", {}).get("rows", []):
+                    row["cells"] = dict((key, value) for key, value in row["cells"].items() if key in column_ids)
         else:
             data.pop("items", None)
 

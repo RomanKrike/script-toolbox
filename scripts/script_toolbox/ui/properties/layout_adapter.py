@@ -107,7 +107,7 @@ class LayoutPropertyAdapter(object):
                 "stretch", "left", "center", "right"
             )[self.editor.layout_horizontal_alignment.currentIndex()]
         if (
-            self.editor.row_context and
+            (self.editor.row_context or self.table_context()) and
             not self.editor.row_equal_widths
         ):
             ui["width_mode"] = self.width_mode()
@@ -134,6 +134,9 @@ class LayoutPropertyAdapter(object):
         if index == 1:
             return "stretch"
         return "auto"
+
+    def table_context(self):
+        return bool(self.parent_definition is not None and self.parent_definition.has_capability("table"))
 
     def folder_context(self):
         return bool(
@@ -247,7 +250,7 @@ class LayoutPropertyAdapter(object):
                 False,
                 width_reason
             )
-        elif editor.row_context:
+        elif editor.row_context or self.table_context():
             editor.set_property_available(
                 editor.row_width_mode,
                 True
@@ -259,8 +262,8 @@ class LayoutPropertyAdapter(object):
             )
             editor.set_property_available(
                 editor.row_stretch,
-                width_mode == "stretch",
-                "Available when Width Mode is Stretch."
+                width_mode == "stretch" and not self.table_context(),
+                "Table stretch columns share remaining width equally." if self.table_context() else "Available when Width Mode is Stretch."
             )
         else:
             editor.set_property_available(

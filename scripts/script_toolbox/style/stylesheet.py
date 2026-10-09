@@ -404,13 +404,15 @@ QComboBox QAbstractItemView {
    Lists / trees
    --------------------------------------------------------------- */
 QListWidget,
-QTreeWidget {
+QTreeWidget,
+QTableWidget {
     background-color: %(LIST_BG)s;
     color: %(TEXT_LIST)s;
     border: 1px solid %(BORDER_PRESSED)s;
     border-radius: %(BORDER_RADIUS_CONTROL)spx;
     outline: 0px;
     alternate-background-color: %(LIST_ALT_BG)s;
+    gridline-color: %(BORDER_INSET)s;
 }
 
 QTreeWidget#ParameterPalette {
@@ -435,6 +437,15 @@ QListWidget::item:selected,
 QTreeWidget::item:selected {
     background-color: %(SELECTION_BG)s;
     color: %(SELECTION_TEXT)s;
+}
+
+QTableWidget QHeaderView {
+    background-color: %(LIST_BG)s;
+}
+
+QTableCornerButton::section {
+    background-color: %(PANEL_BG)s;
+    border: 1px solid %(BORDER_INSET)s;
 }
 
 QHeaderView::section {

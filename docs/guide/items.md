@@ -12,6 +12,7 @@ Script Toolbox builds interfaces from containers, interactive controls, value co
 | Radio Folder | Switch between mutually exclusive sections |
 | Row | Arrange child items horizontally |
 | Column | Arrange content in columns |
+| [Table](table.md) | Spreadsheet with a typed Item per column |
 
 ## Actions
 

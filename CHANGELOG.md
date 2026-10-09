@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- Use the Field list surface for text, numeric, menu and color-channel input backgrounds.
+- Scope the runtime scroll viewport background so it cannot override nested input fills.
 - Share a 28 px baseline for single-line items, including buttons, numeric controls, colors, checkboxes and labels; align String and Color inside rows.
 - Use shared metrics for script-button padding and icon feedback chrome; retain that chrome when toggle icons refresh.
 - Preserve custom icon artwork, large button icons, multiline content and explicit container sizing.

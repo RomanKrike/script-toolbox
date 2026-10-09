@@ -7,6 +7,7 @@ pytestmark = qt_mark
 def test_inline_items_share_height_and_centerline(tmp_path):
     run_qt('''
 from script_toolbox.model.items import create_item
+from script_toolbox.style.palette import INPUT_BG
 from script_toolbox.style.metrics import SINGLE_LINE_CONTROL_HEIGHT
 from script_toolbox.style.metrics import RUNTIME_ICON_CHROME_SIZE
 from script_toolbox.ui.color_control import ColorControl
@@ -31,11 +32,14 @@ for kind in kinds:
     # Row always contains the reference and subject root, in that order.
     root = row.layout().itemAt(1).widget()
     assert root.height() == reference.height() == SINGLE_LINE_CONTROL_HEIGHT, (kind, root.height(), reference.height())
+    # The viewport background must not cascade onto nested input controls.
+    assert reference.grab().toImage().pixelColor(8, reference.height() - 8).name() == INPUT_BG
     if kind == 'color':
         color = root.findChild(ColorControl)
         for field in (color.swatch, color.hex_edit):
             assert field.height() == reference.height(), (field.objectName(), field.height(), reference.height())
             assert field.mapTo(w, QtCore.QPoint(0, 0)).y() == reference.mapTo(w, QtCore.QPoint(0, 0)).y()
+        assert color.hex_edit.grab().toImage().pixelColor(8, color.hex_edit.height() - 8).name() == INPUT_BG
         color.configure(True, '0-255', True)
         pump()
         for field in color.channels:

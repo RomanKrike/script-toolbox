@@ -25,7 +25,6 @@ from ..style import STYLE
 from ..style import apply_window_icon
 from ..style import metrics
 from ..style import toolbar_icon
-from ..style.palette import CONTENT_BG
 from .layout_helpers import configure_layout
 from .update_ui import UpdateCheckThread
 from .update_ui import UpdateInstallThread
@@ -236,9 +235,7 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
         self.scroll = QtGui.QScrollArea()
         self.scroll.setObjectName("ToolboxScroll")
         self.scroll.setWidgetResizable(True)
-        self.scroll.viewport().setStyleSheet(
-            "background-color: {0};".format(CONTENT_BG)
-        )
+        self.scroll.viewport().setObjectName("ToolboxScrollViewport")
 
         self.content = QtGui.QWidget()
         self.content.setObjectName("ToolboxContent")

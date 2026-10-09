@@ -352,8 +352,9 @@ QLineEdit,
 QComboBox,
 QSpinBox,
 QDoubleSpinBox,
+QTextEdit,
 QPlainTextEdit {
-    background-color: %(CONTROL_BG)s;
+    background-color: %(INPUT_BG)s;
     color: %(TEXT_INPUT)s;
     border: 1px solid %(BORDER_DARK)s;
     border-radius: %(BORDER_RADIUS_CONTROL)spx;
@@ -373,6 +374,7 @@ QLineEdit:focus,
 QComboBox:focus,
 QSpinBox:focus,
 QDoubleSpinBox:focus,
+QTextEdit:focus,
 QPlainTextEdit:focus {
     border: 1px solid %(FOCUS_BORDER)s;
 }
@@ -380,7 +382,9 @@ QPlainTextEdit:focus {
 QLineEdit:disabled,
 QComboBox:disabled,
 QSpinBox:disabled,
-QDoubleSpinBox:disabled {
+QDoubleSpinBox:disabled,
+QTextEdit:disabled,
+QPlainTextEdit:disabled {
     background-color: %(WINDOW_BG)s;
     color: %(TEXT_INPUT_DISABLED)s;
     border-color: %(LIST_BG)s;
@@ -533,7 +537,8 @@ QLabel#SettingsStatusText {
     color: %(TEXT_SUBTLE)s;
 }
 
-QScrollArea#ToolboxScroll {
+QScrollArea#ToolboxScroll,
+QWidget#ToolboxScrollViewport {
     background-color: %(CONTENT_BG)s;
     border: 0px;
 }

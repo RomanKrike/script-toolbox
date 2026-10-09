@@ -108,9 +108,10 @@ def test_primary_ui_modules_use_semantic_palette_tokens():
     assert "QtGui.QColor(color)" in layout_source
     assert "definition.layout_axis" in layout_source
 
-    assert "from ..style.palette import CONTENT_BG" in main_source
-    assert '"background-color: {0};".format(' in main_source
-    assert "CONTENT_BG" in main_source
+    assert 'setObjectName("ToolboxScrollViewport")' in main_source
+    stylesheet_source = _read("scripts/script_toolbox/style/stylesheet.py")
+    assert "QWidget#ToolboxScrollViewport" in stylesheet_source
+    assert "background-color: %(INPUT_BG)s;" in stylesheet_source
 
     assert "from ...style.palette import PROPERTY_BG" in property_source
     assert _uses_qcolor(property_source, "PROPERTY_BG")

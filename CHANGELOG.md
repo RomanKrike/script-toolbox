@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- Balance the charcoal theme with gently inset inputs, soft gray outlines, lighter buttons and a muted warm focus accent.
+
 - Use the Field list surface for text, numeric, menu and color-channel input backgrounds.
 - Scope the runtime scroll viewport background so it cannot override nested input fills.
 - Share a 28 px baseline for single-line items, including buttons, numeric controls, colors, checkboxes and labels; align String and Color inside rows.

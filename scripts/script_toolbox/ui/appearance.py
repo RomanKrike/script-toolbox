@@ -49,7 +49,7 @@ class AppearancePage(QtGui.QWidget):
         scroll.setWidget(content)
         configure_settings_scroll_area(scroll)
         layout.addWidget(scroll, 1)
-        self.actions = QtGui.QWidget(parent)
+        self.actions = QtGui.QWidget(self)
         actions = QtGui.QHBoxLayout(self.actions)
         actions.setContentsMargins(0, 0, 0, 0)
         actions.setSpacing(8)
@@ -60,6 +60,7 @@ class AppearancePage(QtGui.QWidget):
             button.setAutoDefault(False)
             button.clicked.connect(handler)
             actions.addWidget(button)
+        theme_row.addWidget(self.actions)
         self.theme_combo.currentIndexChanged.connect(self._selected)
         self._sync()
 

@@ -253,10 +253,6 @@ class SettingsDialog(QtGui.QDialog):
         self.category_list.setCurrentRow(0)
 
         buttons = QtGui.QHBoxLayout()
-        buttons.addWidget(self.appearance_page.actions)
-        self.appearance_page.actions.setVisible(False)
-        self.category_list.currentRowChanged.connect(
-            lambda index: self.appearance_page.actions.setVisible(self.pages.widget(index) is self.appearance_page))
         buttons.addStretch(1)
 
         cancel_button = QtGui.QPushButton("Cancel")

@@ -28,7 +28,8 @@ d.show()
 pump()
 p = d.appearance_page
 assert p.actions.isVisible()
-assert p.actions.mapTo(d, QtCore.QPoint(0, 0)).y() > d.pages.geometry().bottom()
+assert p.actions.mapTo(p, QtCore.QPoint(0, 0)).y() == p.theme_combo.geometry().y()
+assert p.actions.geometry().left() > p.theme_combo.geometry().right()
 assert p.controls['input'].parentWidget().palette().color(QtGui.QPalette.Window).name() == '#292b2e'
 assert p.theme_combo.currentText() == themes.DEFAULT_NAME
 p.controls['input']._commit([32 / 255.0] * 3)

@@ -95,7 +95,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libegl1 libgl1 libopengl0
       - run: python -m pip install pytest PySide6-Essentials==6.11.2
       - name: Run real Qt and Windows fault injection tests
-        run: python -m pytest -q tests/test_qt_lifecycle.py tests/test_qt_expressions.py tests/test_qt_item_changes.py tests/test_qt_palette_drag.py tests/test_qt_checkboxes.py tests/test_qt_color.py tests/test_qt_managed_presets.py tests/test_qt_document_commit.py tests/test_qt_audit_runtime.py tests/test_qt_value_bindings.py tests/test_qt_runtime_surface.py tests/test_qt_preset_snapshots.py tests/test_publication_recovery.py tests/test_portable_transaction_windows.py tests/test_review_reliability.py tests/test_discovery_process.py tests/test_restart_ack.py tests/test_host_detection.py tests/test_update_concurrency.py
+        run: python -m pytest -q tests/test_qt_lifecycle.py tests/test_qt_expressions.py tests/test_qt_item_changes.py tests/test_qt_palette_drag.py tests/test_qt_checkboxes.py tests/test_qt_color.py tests/test_qt_themes.py tests/test_qt_editor_item_icons.py tests/test_qt_managed_presets.py tests/test_qt_document_commit.py tests/test_qt_audit_runtime.py tests/test_qt_value_bindings.py tests/test_qt_runtime_surface.py tests/test_qt_preset_snapshots.py tests/test_publication_recovery.py tests/test_portable_transaction_windows.py tests/test_review_reliability.py tests/test_discovery_process.py tests/test_restart_ack.py tests/test_host_detection.py tests/test_update_concurrency.py
       - name: Verify actual disk-full recovery on an isolated NTFS virtual disk
         if: runner.os == 'Windows'
         env:

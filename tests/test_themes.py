@@ -5,18 +5,6 @@ import pytest
 
 from script_toolbox.core import themes
 from script_toolbox.core.preferences import load_preferences, save_preferences
-from script_toolbox.style.themes import color_map
-
-
-def test_default_palette_and_tonal_offsets():
-    from script_toolbox.style import palette
-    mapping = color_map(themes.DEFAULT_COLORS)
-    assert all(source == target for source, target in mapping.items())
-    changed = dict(themes.DEFAULT_COLORS, input="#202020")
-    mapping = color_map(changed)
-    assert mapping[palette.INPUT_BG] == "#202020"
-    assert mapping[palette.WINDOW_BG] == palette.WINDOW_BG
-    assert themes.builtins()[0] == themes.theme()
 
 
 @pytest.mark.parametrize("change", [

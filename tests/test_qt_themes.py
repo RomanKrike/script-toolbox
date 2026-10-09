@@ -7,7 +7,15 @@ pytestmark = qt_mark
 def test_theme_preview_cancel_and_scoped_widgets(tmp_path):
     run_qt('''
 from script_toolbox.core import themes
-from script_toolbox.style.themes import controller
+from script_toolbox.style.themes import controller, color_map
+from script_toolbox.style import palette
+mapping = color_map(themes.DEFAULT_COLORS)
+assert all(source == target for source, target in mapping.items())
+changed = dict(themes.DEFAULT_COLORS, input="#202020")
+mapping = color_map(changed)
+assert mapping[palette.INPUT_BG] == "#202020"
+assert mapping[palette.WINDOW_BG] == palette.WINDOW_BG
+assert themes.builtins()[0] == themes.theme()
 from script_toolbox.ui.settings_dialog import SettingsDialog
 from script_toolbox.model import create_item
 external = QtGui.QWidget()

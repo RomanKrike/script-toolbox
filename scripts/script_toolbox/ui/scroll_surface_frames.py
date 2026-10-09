@@ -110,10 +110,12 @@ def _apply_runtime_field_surface(control):
             QtGui.QPalette.HighlightedText,
             QtGui.QColor(palette.SELECTION_TEXT)
         )
+        control.setProperty("toolboxThemeSurface", "input")
         control.setPalette(control_palette)
 
         viewport = control.viewport()
         if viewport is not None:
+            viewport.setProperty("toolboxThemeSurface", "input")
             viewport.setPalette(control_palette)
             viewport.setAutoFillBackground(True)
     except Exception:

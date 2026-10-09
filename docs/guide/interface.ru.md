@@ -32,7 +32,9 @@ Runtime и Interface Editor используют общую модель эле�
 
 ## Настройки
 
-Откройте **Settings → Open Settings**. Слева выбирается категория: General, Network, DCC Integrations, Preset Library, Privacy или About.
+Откройте **Settings → Open Settings**. Слева выбирается категория: General, Appearance, Network, DCC Integrations, Preset Library, Privacy или About.
+
+В **Appearance** находится один список Theme с готовыми и сохранёнными темами, а ниже — восемь цветов интерфейса. Изменение цвета сразу применяется к toolbox и редактору и переключает тему на **Custom**, сохраняя исходную тему. При **Save** можно назвать новую копию; пустое имя оставляет Custom. **Cancel** возвращает палитру, которая была до открытия настроек. **Import / Export** обмениваются JSON-темами с версией формата, именем и цветами; импортированная тема сохраняется в списке после Save. **Reset** возвращает исходную палитру Charcoal.
 
 [![Окно настроек с параметрами сетевого прокси](../assets/images/interface/settings.png)](../assets/images/interface/settings.png)
 

@@ -139,6 +139,9 @@ class InterfaceEditor(QtGui.QDialog):
         self.build_ui()
         self.populate_tree()
 
+        from ..style.themes import controller
+        controller().register(self)
+
     # ------------------------------------------------------------------
     # UI
     # ------------------------------------------------------------------

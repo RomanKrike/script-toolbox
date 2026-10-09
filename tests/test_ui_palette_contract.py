@@ -181,7 +181,8 @@ def test_solar_toolbar_icons_are_tinted_from_shared_palette():
     )
 
     assert "from .palette import TOOLBAR_ICON" in source
-    assert "QtGui.QColor(TOOLBAR_ICON)" in source
+    assert "color=TOOLBAR_ICON" in source
+    assert "QtGui.QColor(color)" in source
     assert "CompositionMode_SourceIn" in source
     assert "painter.fillRect(" in source
     assert "_tinted_icon(resource)" in source

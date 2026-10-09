@@ -54,7 +54,7 @@ d = SettingsDialog(w)
 d.resize(900, 600)
 d.show()
 pump()
-keys = ('general', 'network', 'integrations', 'library', 'privacy', 'about')
+keys = ('general', 'appearance', 'network', 'integrations', 'library', 'privacy', 'about')
 assert d.category_list.count() == len(keys)
 for index, key in enumerate(keys):
     entry = d.category_list.item(index)

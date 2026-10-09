@@ -1,0 +1,94 @@
+# -*- coding: utf-8 -*-
+"""Portable, versioned UI themes. Layout and item data never enter this format."""
+import copy
+import io
+import json
+import re
+
+from ..pycompat import text_type
+
+_STRING_TYPES = (str, text_type)
+from .preferences import load_preferences, save_preferences
+
+VERSION = 1
+DEFAULT_NAME = "Default - Charcoal"
+ROLES = (
+    ("window", "Window background", "#292b2e"),
+    ("panel", "Panels", "#313337"),
+    ("input", "Input background", "#27292c"),
+    ("border", "Borders", "#45484d"),
+    ("text", "Text", "#dadde1"),
+    ("secondary", "Secondary text", "#aeb3bb"),
+    ("accent", "Accent", "#b46d35"),
+    ("selection", "Selection", "#68462c"),
+)
+DEFAULT_COLORS = dict((key, color) for key, label, color in ROLES)
+
+
+def theme(name=DEFAULT_NAME, colors=None):
+    return {"version": VERSION, "name": name,
+            "colors": dict(DEFAULT_COLORS if colors is None else colors)}
+
+
+def builtins():
+    soft = dict(DEFAULT_COLORS)
+    soft.update(window="#34363a", panel="#3c3f44", input="#2f3135", border="#50545b")
+    return [theme(), theme("Soft Dark", soft)]
+
+
+def validate(data):
+    if not isinstance(data, dict) or type(data.get("version")) is not int or data["version"] != VERSION:
+        raise ValueError("Unsupported theme format version.")
+    name = data.get("name")
+    if not isinstance(name, _STRING_TYPES) or not name.strip() or len(name.strip()) > 80:
+        raise ValueError("Theme name must contain 1 to 80 characters.")
+    colors = data.get("colors")
+    if not isinstance(colors, dict) or set(colors) != set(DEFAULT_COLORS):
+        raise ValueError("Theme must contain all eight UI colors.")
+    result = {}
+    for key, value in colors.items():
+        if not isinstance(value, _STRING_TYPES) or not re.match(r"^#[0-9a-fA-F]{6}$", value):
+            raise ValueError("Invalid RGB color for " + key + ".")
+        result[key] = value.lower()
+    return theme(name.strip(), result)
+
+
+def load_state():
+    data = load_preferences().get("appearance", {})
+    saved = []
+    reserved = set(t["name"] for t in builtins()) | set(["Custom"])
+    if not isinstance(data, dict):
+        data = {}
+    for candidate in data.get("themes", []) if isinstance(data.get("themes", []), list) else []:
+        try:
+            candidate = validate(candidate)
+        except ValueError:
+            continue
+        if candidate["name"] not in reserved:
+            saved.append(candidate)
+            reserved.add(candidate["name"])
+    try:
+        active = validate(data.get("active"))
+    except ValueError:
+        active = theme()
+    return active, saved
+
+
+def save_state(active, saved):
+    active = validate(active)
+    saved = [validate(value) for value in saved]
+    prefs = load_preferences()
+    prefs["appearance"] = {"active": active, "themes": saved}
+    save_preferences(prefs)
+
+
+def read_theme(path):
+    with io.open(path, "r", encoding="utf-8") as handle:
+        return validate(json.load(handle))
+
+
+def write_theme(path, value):
+    value = validate(value)
+    with io.open(path, "w", encoding="utf-8") as handle:
+        handle.write(text_type(json.dumps(copy.deepcopy(value), indent=2, sort_keys=True)))
+        handle.write(u"\n")

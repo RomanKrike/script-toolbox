@@ -214,6 +214,9 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
         self.update_check_timer.timeout.connect(self.check_for_updates)
         self.update_check_timer.start(1200)
 
+        from ..style.themes import controller
+        controller().register(self)
+
     # ------------------------------------------------------------------
     # UI
     # ------------------------------------------------------------------

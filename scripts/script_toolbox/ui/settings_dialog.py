@@ -236,6 +236,10 @@ class SettingsDialog(QtGui.QDialog):
         self._create_network_controls()
 
         self._add_category("General", self._build_general_page(), "general")
+        from .appearance import AppearancePage
+        self.appearance_page = AppearancePage(self)
+        self._add_category("Appearance", self.appearance_page, "appearance")
+        self._network_category_index = self.pages.count()
         self._add_category("Network", self._build_network_page(), "network")
         self._add_category("DCC Integrations", DccIntegrationsPage(parent=self), "integrations")
         from .managed_presets import PresetLibraryPage
@@ -249,6 +253,10 @@ class SettingsDialog(QtGui.QDialog):
         self.category_list.setCurrentRow(0)
 
         buttons = QtGui.QHBoxLayout()
+        buttons.addWidget(self.appearance_page.actions)
+        self.appearance_page.actions.setVisible(False)
+        self.category_list.currentRowChanged.connect(
+            lambda index: self.appearance_page.actions.setVisible(self.pages.widget(index) is self.appearance_page))
         buttons.addStretch(1)
 
         cancel_button = QtGui.QPushButton("Cancel")
@@ -263,6 +271,7 @@ class SettingsDialog(QtGui.QDialog):
         root.addLayout(buttons)
 
         self._load_values()
+        self.appearance_page.manager.register(self)
 
     def _create_network_controls(self):
         self.proxy_mode_combo = QtGui.QComboBox()
@@ -646,12 +655,20 @@ class SettingsDialog(QtGui.QDialog):
         self.proxy_test_button.setEnabled(True)
         self.proxy_status_label.setText(text_type(message))
 
+    def reject(self):
+        self.appearance_page.rollback()
+        QtGui.QDialog.reject(self)
+
     def _save(self):
         try:
             proxy_config = self._proxy_config_from_ui()
         except network_proxy.ProxyConfigError as exc:
-            self.category_list.setCurrentRow(1)
+            self.category_list.setCurrentRow(self._network_category_index)
             self.proxy_status_label.setText(text_type(exc))
+            return
+
+        if not self.appearance_page.save():
+            self.category_list.setCurrentRow(1)
             return
 
         password_persisted = network_proxy.save_proxy_config(
@@ -662,7 +679,7 @@ class SettingsDialog(QtGui.QDialog):
             proxy_config.password and
             not password_persisted
         ):
-            self.category_list.setCurrentRow(1)
+            self.category_list.setCurrentRow(self._network_category_index)
             self.proxy_status_label.setText(
                 "Settings saved, but this platform has no built-in secure "
                 "credential backend. Re-enter the proxy password after restart."

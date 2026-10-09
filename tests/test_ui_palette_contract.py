@@ -139,7 +139,7 @@ def test_runtime_surfaces_alias_interface_editor_neutrals():
         "FOLDER_NESTED_HEADER_BG = PANEL_BG",
         "FOLDER_NESTED_HEADER_HOVER_BG = ICON_BUTTON_HOVER_BG",
         "FOLDER_NESTED_HEADER_COLLAPSED_BG = PANEL_BG",
-        "SIMPLE_SECTION_NESTED_BG = CONTENT_BG",
+        "SIMPLE_SECTION_NESTED_BG = FOLDER_NESTED_BG",
     ):
         assert expected in palette_source
 

@@ -30,7 +30,13 @@ p = d.appearance_page
 assert p.actions.isVisible()
 assert p.actions.mapTo(p, QtCore.QPoint(0, 0)).y() == p.theme_combo.geometry().y()
 assert p.actions.geometry().left() > p.theme_combo.geometry().right()
-assert p.controls['input'].parentWidget().palette().color(QtGui.QPalette.Window).name() == '#292b2e'
+assert all(group.collapsed for group in p.groups)
+for group in p.groups:
+    group.header.click()
+pump()
+assert all(not group.collapsed for group in p.groups)
+assert len(set(control.width() for control in p.controls.values())) == 1
+assert len(set(control.mapTo(p, QtCore.QPoint(0, 0)).x() for control in p.controls.values())) == 1
 assert p.theme_combo.currentText() == themes.DEFAULT_NAME
 p.controls['input']._commit([32 / 255.0] * 3)
 pump()
@@ -74,6 +80,7 @@ p.controls['text']._commit([0.6, 0.7, 0.8])
 original = themes.builtins()[0]
 old_get_text = QtGui.QInputDialog.getText
 QtGui.QInputDialog.getText = lambda *args, **kwargs: ('My colors', True)
+p.add_theme_button.click()
 d._save()
 QtGui.QInputDialog.getText = old_get_text
 active, saved = themes.load_state()
@@ -111,6 +118,66 @@ assert controller().active == active
 assert themes.load_state() == (active, [active])
 QtGui.QFileDialog.getSaveFileName = old_export
 QtGui.QFileDialog.getOpenFileName = old_import
+w.close()
+w.deleteLater()
+pump()
+''', tmp_path)
+
+
+def test_theme_copy_delete_and_cancel_are_staged(tmp_path):
+    run_qt('''
+from script_toolbox.core import themes
+from script_toolbox.style.themes import controller
+from script_toolbox.ui.settings_dialog import SettingsDialog
+d = SettingsDialog(w)
+d.show()
+pump()
+p = d.appearance_page
+assert not p.remove_theme_button.isEnabled()
+original = themes.builtins()[0]
+old_get_text = QtGui.QInputDialog.getText
+QtGui.QInputDialog.getText = lambda *args, **kwargs: ('Studio', True)
+p.add_theme_button.click()
+assert p.current['name'] == 'Studio'
+assert p.remove_theme_button.isEnabled()
+assert themes.load_state()[1] == []
+assert themes.builtins()[0] == original
+d._save()
+active, saved = themes.load_state()
+assert active['name'] == 'Studio' and saved == [active]
+d2 = SettingsDialog(w)
+d2.show()
+pump()
+p2 = d2.appearance_page
+assert p2.remove_theme_button.isEnabled()
+p2.remove_theme_button.click()
+assert p2.current == original
+assert not p2.remove_theme_button.isEnabled()
+assert themes.load_state() == (active, saved)
+d2.reject()
+assert controller().active == active
+d3 = SettingsDialog(w)
+d3.show()
+pump()
+p3 = d3.appearance_page
+QtGui.QInputDialog.getText = lambda *args, **kwargs: ('', False)
+p3.add_theme_button.click()
+assert p3.current == active and p3.saved == saved
+p3.remove_theme_button.click()
+d3._save()
+assert themes.load_state() == (original, [])
+d4 = SettingsDialog(w)
+d4.show()
+pump()
+p4 = d4.appearance_page
+p4.controls['input']._commit([32 / 255.0] * 3)
+def unexpected_prompt(*args, **kwargs):
+    raise AssertionError('Save should not ask for a name; + saves a named copy')
+QtGui.QInputDialog.getText = unexpected_prompt
+d4._save()
+assert themes.load_state()[0]['name'] == 'Custom'
+assert themes.load_state()[1] == []
+QtGui.QInputDialog.getText = old_get_text
 w.close()
 w.deleteLater()
 pump()

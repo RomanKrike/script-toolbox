@@ -34,7 +34,7 @@ The editor is where you build the toolbox hierarchy. Typical operations include:
 
 Open **Settings → Open Settings**. Choose a category on the left: General, Appearance, Network, DCC Integrations, Preset Library, Privacy or About.
 
-**Appearance** has one Theme selector for built-in and saved themes, followed by eight editable UI colors. Color changes apply immediately to the toolbox and editor and turn the selected theme into **Custom**, preserving the source theme. **Save** offers a name for a new copy; leave it empty to keep Custom. **Cancel** restores the palette from before the dialog opened. **Import / Export** exchange versioned JSON themes containing a name and colors; imported themes enter your saved list on Save. **Reset** restores the default Charcoal palette.
+**Appearance** has a compact theme selector with **+ / -**, Import, Export and Reset at the top. The existing eight UI colors are organized into five collapsible groups: Surfaces, Fields and buttons, Text, Selection and accent, and Panels and editor. Groups start collapsed; color fields share the same width and right alignment. Color changes apply immediately and turn the selected theme into **Custom**, preserving the source theme. **+** creates a named copy; **-** removes the selected user theme and is disabled for built-in themes. **Save** commits the current colors and theme list, including unnamed Custom changes; **Cancel** discards staged copies/deletions and restores the original palette. Import / Export exchange versioned JSON themes containing a name and colors. Reset restores the default Charcoal palette.
 
 [![Settings window showing Network proxy preferences](../assets/images/interface/settings.png)](../assets/images/interface/settings.png)
 

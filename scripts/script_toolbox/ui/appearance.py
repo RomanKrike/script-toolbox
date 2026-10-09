@@ -2,10 +2,12 @@
 """Settings appearance editor with a single current-theme selector."""
 import copy
 
-from ..compat import QtGui
+from ..compat import QtCore, QtGui
 from ..core import themes
 from ..pycompat import text_type
+from ..style import metrics
 from ..style.themes import controller
+from .collapsible_folder import CollapsibleSection
 from .color_control import ColorControl
 from .settings_components import build_page_header, configure_settings_scroll_area
 
@@ -23,36 +25,27 @@ class AppearancePage(QtGui.QWidget):
         layout.setSpacing(12)
         layout.addWidget(build_page_header("Appearance", "Choose a theme or customize the interface colors.", self))
         theme_row = QtGui.QHBoxLayout()
-        label = QtGui.QLabel("Theme", self)
+        theme_row.setSpacing(metrics.SETTINGS_ACTION_SPACING)
         self.theme_combo = QtGui.QComboBox(self)
         self.theme_combo.setObjectName("AppearanceTheme")
-        label.setBuddy(self.theme_combo)
-        theme_row.addWidget(label)
+        self.theme_combo.setAccessibleName("Theme")
+        self.theme_combo.setMinimumWidth(metrics.COLOR_HEX_MIN_WIDTH)
         theme_row.addWidget(self.theme_combo, 1)
-        layout.addLayout(theme_row)
-        scroll = QtGui.QScrollArea(self)
-        content = QtGui.QWidget(scroll)
-        content.setObjectName("SettingsScrollContent")
-        form = QtGui.QFormLayout(content)
-        form.setContentsMargins(0, 8, 4, 8)
-        form.setSpacing(12)
-        form.setFieldGrowthPolicy(QtGui.QFormLayout.AllNonFixedFieldsGrow)
-        self.controls = {}
-        for key, label, unused in themes.ROLES:
-            control = ColorControl(parent=content)
-            control.configure(show_rgb=False, show_hex=True)
-            control.setObjectName("AppearanceColor_" + key)
-            control.hex_edit.setAccessibleName(label)
-            control.valueChanged.connect(lambda value, role=key: self._color_changed(role, value))
-            form.addRow(label, control)
-            self.controls[key] = control
-        scroll.setWidget(content)
-        configure_settings_scroll_area(scroll)
-        layout.addWidget(scroll, 1)
         self.actions = QtGui.QWidget(self)
         actions = QtGui.QHBoxLayout(self.actions)
         actions.setContentsMargins(0, 0, 0, 0)
-        actions.setSpacing(8)
+        actions.setSpacing(4)
+        self.add_theme_button = QtGui.QPushButton("+", self.actions)
+        self.remove_theme_button = QtGui.QPushButton("-", self.actions)
+        for button, label, handler in (
+                (self.add_theme_button, "Save theme copy", self.save_copy),
+                (self.remove_theme_button, "Delete selected user theme", self.remove_theme)):
+            button.setFixedSize(metrics.ICON_BUTTON_HEADER_SIZE, metrics.ICON_BUTTON_HEADER_SIZE)
+            button.setAutoDefault(False)
+            button.setToolTip(label)
+            button.setAccessibleName(label)
+            button.clicked.connect(handler)
+            actions.addWidget(button)
         for label, handler in (("Import", self.import_theme), ("Export", self.export_theme), ("Reset", self.reset_theme)):
             button = QtGui.QPushButton(label, self.actions)
             if label == "Reset":
@@ -61,6 +54,52 @@ class AppearancePage(QtGui.QWidget):
             button.clicked.connect(handler)
             actions.addWidget(button)
         theme_row.addWidget(self.actions)
+        layout.addLayout(theme_row)
+        scroll = QtGui.QScrollArea(self)
+        content = QtGui.QWidget(scroll)
+        content.setObjectName("SettingsScrollContent")
+        sections = QtGui.QVBoxLayout(content)
+        sections.setContentsMargins(0, 0, 4, 0)
+        sections.setSpacing(metrics.SETTINGS_SECTION_SPACING)
+        labels = dict((key, label) for key, label, unused in themes.ROLES)
+        self.controls = {}
+        self.groups = []
+        # Keep the existing semantic colors; panels are shared with the editor.
+        for title, keys in (
+                ("Surfaces", ("window",)),
+                ("Fields and buttons", ("input", "border")),
+                ("Text", ("text", "secondary")),
+                ("Selection and accent", ("accent", "selection")),
+                ("Panels and editor", ("panel",))):
+            section = CollapsibleSection(title, collapsed=True, parent=content)
+            section.header.setAutoDefault(False)
+            form = QtGui.QFormLayout()
+            form.setContentsMargins(0, 0, 0, 0)
+            form.setSpacing(metrics.SETTINGS_SECTION_SPACING)
+            form.setLabelAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+            form.setFieldGrowthPolicy(QtGui.QFormLayout.AllNonFixedFieldsGrow)
+            for key in keys:
+                control = ColorControl(parent=section.content)
+                control.configure(show_rgb=False, show_hex=True)
+                control.setFixedWidth(metrics.APPEARANCE_COLOR_FIELD_WIDTH)
+                control.setObjectName("AppearanceColor_" + key)
+                control.hex_edit.setAccessibleName(labels[key])
+                control.valueChanged.connect(lambda value, role=key: self._color_changed(role, value))
+                label = QtGui.QLabel(labels[key], section.content)
+                label.setBuddy(control.hex_edit)
+                field = QtGui.QHBoxLayout()
+                field.setContentsMargins(0, 0, 0, 0)
+                field.addStretch(1)
+                field.addWidget(control)
+                form.addRow(label, field)
+                self.controls[key] = control
+            section.content_layout.addLayout(form)
+            sections.addWidget(section)
+            self.groups.append(section)
+        sections.addStretch(1)
+        scroll.setWidget(content)
+        configure_settings_scroll_area(scroll)
+        layout.addWidget(scroll, 1)
         self.theme_combo.currentIndexChanged.connect(self._selected)
         self._sync()
 
@@ -74,6 +113,7 @@ class AppearancePage(QtGui.QWidget):
             for value in self.choices:
                 self.theme_combo.addItem(value["name"])
             self.theme_combo.setCurrentIndex(self.choices.index(self.current))
+            self.remove_theme_button.setEnabled(self.current in self.saved)
             for key, control in self.controls.items():
                 color = QtGui.QColor(self.current["colors"][key])
                 control.set_value([color.redF(), color.greenF(), color.blueF()])
@@ -94,6 +134,31 @@ class AppearancePage(QtGui.QWidget):
             return
         self.current["name"] = "Custom"
         self.current["colors"][role] = color
+        self._sync()
+        self.manager.apply(self.current)
+
+    def save_copy(self):
+        suggestion = "My Theme" if self.current["name"] == "Custom" else self.current["name"] + " Copy"
+        name, accepted = QtGui.QInputDialog.getText(
+            self, "Save theme copy", "Theme name:", QtGui.QLineEdit.Normal, suggestion[:80])
+        if not accepted:
+            return
+        name = text_type(name).strip()
+        if not name or len(name) > 80:
+            self._error("Theme name must contain 1 to 80 characters.")
+            return
+        value = copy.deepcopy(self.current)
+        value["name"] = self._unique_name(name)
+        self.saved.append(copy.deepcopy(value))
+        self.current = value
+        self._sync()
+        self.manager.apply(self.current)
+
+    def remove_theme(self):
+        if self.current not in self.saved:
+            return
+        self.saved.remove(self.current)
+        self.current = themes.theme()
         self._sync()
         self.manager.apply(self.current)
 
@@ -147,17 +212,6 @@ class AppearancePage(QtGui.QWidget):
     def save(self):
         current = copy.deepcopy(self.current)
         saved = copy.deepcopy(self.saved)
-        if current["name"] == "Custom" and current != self.original:
-            name, accepted = QtGui.QInputDialog.getText(self, "Save theme", "Theme name (leave empty to keep Custom):")
-            if not accepted:
-                return False
-            name = text_type(name).strip()
-            if name:
-                if len(name) > 80:
-                    self._error("Theme name must contain 1 to 80 characters.")
-                    return False
-                current["name"] = self._unique_name(name)
-                saved.append(copy.deepcopy(current))
         try:
             themes.save_state(current, saved)
         except (ValueError, IOError, OSError) as error:

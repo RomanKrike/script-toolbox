@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- Add monochrome icons to Settings categories with room for their labels.
 - Match nested simple-folder title fills to their surrounding folder surface.
 - Show consistent monochrome item-type icons in the creation palette and existing-parameter tree.
 - Balance the charcoal theme with gently inset inputs, soft gray outlines, lighter buttons and a muted warm focus accent.

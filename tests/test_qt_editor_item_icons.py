@@ -43,3 +43,30 @@ w.close()
 w.deleteLater()
 pump()
 ''', tmp_path)
+
+
+def test_settings_category_icons_and_navigation(tmp_path):
+    run_qt('''
+from script_toolbox.ui.settings_dialog import SettingsDialog
+from script_toolbox.style.metrics import SETTINGS_CATEGORY_ICON_SIZE
+from script_toolbox.style.builtin_icons import settings_category_icon
+d = SettingsDialog(w)
+d.resize(900, 600)
+d.show()
+pump()
+keys = ('general', 'network', 'integrations', 'library', 'privacy', 'about')
+assert d.category_list.count() == len(keys)
+for index, key in enumerate(keys):
+    entry = d.category_list.item(index)
+    assert not entry.icon().isNull(), key
+    assert not entry.icon().pixmap(16, 16).isNull(), key
+    assert entry.icon().cacheKey() == settings_category_icon(key).cacheKey(), key
+    d.category_list.setCurrentRow(index)
+    assert d.pages.currentIndex() == index
+assert d.category_list.iconSize() == QtCore.QSize(SETTINGS_CATEGORY_ICON_SIZE, SETTINGS_CATEGORY_ICON_SIZE)
+d.reject()
+pump()
+w.close()
+w.deleteLater()
+pump()
+''', tmp_path)

@@ -8,6 +8,7 @@ from ..compat import QtGui
 from ..pycompat import text_type
 from .palette import TOOLBAR_ICON
 from .metrics import EDITOR_ITEM_ICON_SIZE
+from .metrics import SETTINGS_CATEGORY_ICON_SIZE
 
 
 _RESOURCE_PREFIX = "stsolar"
@@ -180,6 +181,20 @@ def builtin_icon(name):
     return icon
 
 
+def settings_category_icon(name):
+    """Settings navigation symbols share the existing monochrome tint."""
+    if name == "general":
+        return builtin_icon("gear")
+    if name not in ("network", "integrations", "library", "privacy", "about"):
+        return QtGui.QIcon()
+    resource = os.path.join(os.path.dirname(_RESOURCE_ROOT), "settings", name + ".svg")
+    cached = _ICON_CACHE.get(resource)
+    if cached is None:
+        cached = _tinted_icon(resource, (SETTINGS_CATEGORY_ICON_SIZE, SETTINGS_CATEGORY_ICON_SIZE * 2))
+        _ICON_CACHE[resource] = cached
+    return cached
+
+
 def item_type_icon(kind):
     """Use the same monochrome type symbol in both editor item trees."""
     kind = text_type(kind or "").strip().lower()
@@ -205,5 +220,6 @@ __all__ = [
     "builtin_icon_id_from_path",
     "builtin_icon_resource",
     "item_type_icon",
+    "settings_category_icon",
     "solar_icon_directory",
 ]

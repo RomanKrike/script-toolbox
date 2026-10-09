@@ -20,6 +20,9 @@ from ..core.preferences import get_telemetry_consent
 from ..core.preferences import get_update_channel
 from ..pycompat import text_type
 from ..style import apply_window_icon
+from ..style.builtin_icons import settings_category_icon
+from ..style.metrics import SETTINGS_CATEGORY_ICON_SIZE
+from ..style.metrics import SETTINGS_CATEGORY_WIDTH
 from ..style.metrics import SETTINGS_PAGE_MARGINS
 from ..style.metrics import SETTINGS_PAGE_SPACING
 from .dcc_integrations import DccIntegrationsPage
@@ -200,7 +203,8 @@ class SettingsDialog(QtGui.QDialog):
 
         self.category_list = QtGui.QListWidget()
         self.category_list.setObjectName("SettingsCategoryList")
-        self.category_list.setFixedWidth(150)
+        self.category_list.setFixedWidth(SETTINGS_CATEGORY_WIDTH)
+        self.category_list.setIconSize(QtCore.QSize(SETTINGS_CATEGORY_ICON_SIZE, SETTINGS_CATEGORY_ICON_SIZE))
         self.category_list.setSpacing(2)
         self.category_list.setFrameShape(QtGui.QFrame.NoFrame)
         self.category_list.setSelectionMode(
@@ -231,13 +235,13 @@ class SettingsDialog(QtGui.QDialog):
 
         self._create_network_controls()
 
-        self._add_category("General", self._build_general_page())
-        self._add_category("Network", self._build_network_page())
-        self._add_category("DCC Integrations", DccIntegrationsPage(parent=self))
+        self._add_category("General", self._build_general_page(), "general")
+        self._add_category("Network", self._build_network_page(), "network")
+        self._add_category("DCC Integrations", DccIntegrationsPage(parent=self), "integrations")
         from .managed_presets import PresetLibraryPage
-        self._add_category("Preset Library", PresetLibraryPage(parent=self))
-        self._add_category("Privacy", self._build_privacy_page())
-        self._add_category("About", self._build_about_page())
+        self._add_category("Preset Library", PresetLibraryPage(parent=self), "library")
+        self._add_category("Privacy", self._build_privacy_page(), "privacy")
+        self._add_category("About", self._build_about_page(), "about")
 
         self.category_list.currentRowChanged.connect(
             self.pages.setCurrentIndex
@@ -303,8 +307,9 @@ class SettingsDialog(QtGui.QDialog):
             self._test_connection
         )
 
-    def _add_category(self, label, page):
-        self.category_list.addItem(label)
+    def _add_category(self, label, page, icon_name=""):
+        entry = QtGui.QListWidgetItem(settings_category_icon(icon_name), label)
+        self.category_list.addItem(entry)
         self.pages.addWidget(page)
 
     def _build_page_header(self, title_text, description_text):

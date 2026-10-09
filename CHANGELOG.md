@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Share a 28 px baseline for single-line items, including buttons, numeric controls, colors, checkboxes and labels; align String and Color inside rows.
+- Use shared metrics for script-button padding and icon feedback chrome; retain that chrome when toggle icons refresh.
+- Preserve custom icon artwork, large button icons, multiline content and explicit container sizing.
+
 ## 1.2.0 — 2026-10-08
 
 ### Added

@@ -11,6 +11,9 @@ from ..style.metrics import PROPERTY_FORM_VERTICAL_SPACING
 from ..style.metrics import PROPERTY_GROUP_HORIZONTAL_SPACING
 from ..style.metrics import PROPERTY_GROUP_MARGINS
 from ..style.metrics import PROPERTY_GROUP_VERTICAL_SPACING
+from ..style.metrics import SINGLE_LINE_CONTROL_HEIGHT
+from ..style.metrics import CONTROL_BORDER_WIDTH
+from ..style.metrics import CONTROL_PADDING_VERTICAL
 
 
 def _set_contents_margins(layout, margins):
@@ -98,8 +101,50 @@ def configure_inline_layout(
     )
 
 
+def configure_runtime_item_geometry(widget, item, reference=None):
+    """Give inline items one row footprint without resizing their content.
+
+    Minimums preserve font-driven growth and explicit Column height settings.
+    Icon artwork, images, multiline fields and text retain their own sizes.
+    """
+    kind = item.get("kind")
+    props = item.get("props", {})
+    single_line = kind in (
+        "button", "toggle_button", "string", "integer", "float", "menu",
+        "color", "checkbox", "label", "icon", "toggle_icon",
+    )
+    if kind == "field":
+        single_line = not (props.get("display_mode") == "list" and
+                           props.get("multiple", True))
+    if widget is not None and single_line:
+        # Native spin/combo size hints differ across Qt styles even with the
+        # same QSS padding. Size actual controls, not only their outer wrapper.
+        if kind not in ("icon", "toggle_icon"):
+            classes = (QtGui.QLineEdit, QtGui.QAbstractSpinBox, QtGui.QComboBox,
+                       QtGui.QPushButton, QtGui.QToolButton, QtGui.QCheckBox, QtGui.QSlider)
+            controls = [widget] + widget.findChildren(QtGui.QWidget)
+            for control in controls:
+                if isinstance(control, classes):
+                    if isinstance(control.parentWidget(), (QtGui.QAbstractSpinBox, QtGui.QComboBox)):
+                        continue
+                    # The renderer has not parented its root yet. Measure the
+                    # owning surface's font, not the platform default font.
+                    source = reference if reference is not None else control
+                    height = max(SINGLE_LINE_CONTROL_HEIGHT,
+                                 source.fontMetrics().height() +
+                                 2 * (CONTROL_PADDING_VERTICAL + CONTROL_BORDER_WIDTH))
+                    if isinstance(control, QtGui.QAbstractButton):
+                        icon_size = getattr(control, "_centered_icon_size", control.iconSize())
+                        height = max(height, icon_size.height() +
+                                     2 * (CONTROL_PADDING_VERTICAL + CONTROL_BORDER_WIDTH))
+                    control.setFixedHeight(height)
+        widget.setMinimumHeight(max(widget.minimumHeight(), SINGLE_LINE_CONTROL_HEIGHT))
+    return widget
+
+
 __all__ = [
     "configure_inline_layout",
+    "configure_runtime_item_geometry",
     "configure_layout",
     "configure_property_form",
     "configure_property_group_form",

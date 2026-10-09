@@ -7,7 +7,7 @@ from ..compat import QtCore
 from ..compat import QtGui
 from ..model.items import safe_color
 from ..pycompat import text_type
-from ..style import palette
+from ..style import palette, metrics
 
 
 _BUTTON_CENTER_MARKER = "_script_toolbox_icon_only_button_centering"
@@ -16,26 +16,28 @@ _ICON_FEEDBACK_MARKER = "_script_toolbox_runtime_icon_feedback"
 _ICON_FEEDBACK_BASE = (
     "background-color: transparent;"
     "border: 1px solid transparent;"
-    "border-radius: 3px;"
-    "padding: 3px;"
-)
+    "border-radius: %spx;"
+    "padding: %spx;"
+) % (metrics.BORDER_RADIUS_PANEL, metrics.RUNTIME_ICON_PADDING)
 _ICON_FEEDBACK_HOVER = (
     "background-color: %s;"
     "border: 1px solid %s;"
-    "border-radius: 3px;"
-    "padding: 3px;"
+    "border-radius: %spx;"
+    "padding: %spx;"
 ) % (
     palette.ICON_BUTTON_HOVER_BG,
-    palette.ICON_BUTTON_HOVER_BORDER
+    palette.ICON_BUTTON_HOVER_BORDER,
+    metrics.BORDER_RADIUS_PANEL, metrics.RUNTIME_ICON_PADDING
 )
 _ICON_FEEDBACK_PRESSED = (
     "background-color: %s;"
     "border: 1px solid %s;"
-    "border-radius: 3px;"
-    "padding: 3px;"
+    "border-radius: %spx;"
+    "padding: %spx;"
 ) % (
     palette.ICON_BUTTON_PRESSED_BG,
-    palette.BORDER_INSET
+    palette.BORDER_INSET,
+    metrics.BORDER_RADIUS_PANEL, metrics.RUNTIME_ICON_PADDING
 )
 
 
@@ -234,8 +236,8 @@ def install_runtime_icon_feedback(registry):
                 current_size = target.size()
                 if current_size.width() > 0 and current_size.height() > 0:
                     target.setFixedSize(
-                        current_size.width() + 6,
-                        current_size.height() + 6
+                        current_size.width() + metrics.RUNTIME_ICON_CHROME_SIZE,
+                        current_size.height() + metrics.RUNTIME_ICON_CHROME_SIZE
                     )
                 target.setStyleSheet(_ICON_FEEDBACK_BASE)
                 feedback_filter = IconFeedbackFilter(target, parent=target)

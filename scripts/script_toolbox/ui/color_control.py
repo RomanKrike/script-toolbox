@@ -6,7 +6,7 @@ from ..compat import QtCore, QtGui
 from ..model.items import safe_color
 from ..pycompat import text_type
 from ..style import metrics, palette
-from .layout_helpers import configure_inline_layout
+from .layout_helpers import configure_inline_layout, configure_runtime_item_geometry
 
 
 class ColorControl(QtGui.QWidget):
@@ -63,6 +63,17 @@ class ColorControl(QtGui.QWidget):
         layout.setColumnStretch(8, 1)
         self.set_value(self._value)
 
+    def showEvent(self, event):
+        QtGui.QWidget.showEvent(self, event)
+        # The inspector and runtime inherit the final styled font only after
+        # parenting. Both use the same actual field geometry at that point.
+        configure_runtime_item_geometry(self, {"kind": "color"}, self)
+
+    def changeEvent(self, event):
+        QtGui.QWidget.changeEvent(self, event)
+        if event.type() == QtCore.QEvent.FontChange and hasattr(self, "hex_edit"):
+            configure_runtime_item_geometry(self, {"kind": "color"}, self)
+
     def configure(self, show_rgb=True, rgb_range="0-1", show_hex=True):
         self._rgb_maximum = 255.0 if rgb_range == "0-255" else 1.0
         for index, spin in enumerate(self.channels):
@@ -112,7 +123,6 @@ QPushButton#ColorSwatch {
     border: 1px solid %s;
     border-radius: %spx;
     min-height: %spx;
-    max-height: %spx;
     padding: 0px;
 }
 QPushButton#ColorSwatch:hover { border-color: %s; }
@@ -122,8 +132,9 @@ QPushButton#ColorSwatch:disabled {
     border-color: %s;
 }
 """ % (",".join(str(v) for v in rgb), palette.TOOLTIP_BORDER,
-       metrics.BORDER_RADIUS_CONTROL, metrics.COLOR_CONTROL_HEIGHT - 2,
-       metrics.COLOR_CONTROL_HEIGHT - 2, palette.HOVER_BORDER,
+       metrics.BORDER_RADIUS_CONTROL,
+       metrics.COLOR_CONTROL_HEIGHT - 2 * metrics.CONTROL_BORDER_WIDTH,
+       palette.HOVER_BORDER,
        palette.FOCUS_BORDER, ",".join(str(v) for v in disabled),
        palette.BORDER_GROUP))
 

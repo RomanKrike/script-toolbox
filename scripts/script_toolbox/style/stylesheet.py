@@ -341,8 +341,8 @@ QPushButton#AcceptButton:hover {
 
 QPushButton#ScriptButton {
     text-align: left;
-    min-height: 26px;
-    padding: 4px 9px;
+    min-height: %(BUTTON_MIN_HEIGHT)spx;
+    padding: %(BUTTON_PADDING_VERTICAL)spx %(BUTTON_PADDING_HORIZONTAL)spx;
 }
 
 /* ---------------------------------------------------------------

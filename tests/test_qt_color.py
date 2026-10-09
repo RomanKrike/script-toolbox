@@ -44,7 +44,8 @@ w.item('tint').set(show_rgb=False, show_hex=False)
 assert all(spin.isHidden() for spin in control.channels)
 assert control.hex_edit.isHidden() and not control.swatch.isHidden()
 pump()
-assert control.swatch.height() == 30
+from script_toolbox.style.metrics import SINGLE_LINE_CONTROL_HEIGHT
+assert control.swatch.height() == SINGLE_LINE_CONTROL_HEIGHT
 assert control.swatch.x() < 10
 assert root is w.value_widgets[item['id']].root and len(events) == 2
 w.item('tint').set(value=original, show_rgb=True, show_hex=True, rgb_range='0-1')

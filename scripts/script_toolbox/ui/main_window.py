@@ -685,7 +685,9 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
         width = int(props.get("width", 24))
         height = int(props.get("height", 24))
         path = self._toggle_icon_path(item, state)
-        widget.setFixedSize(width, height)
+        from ..style.metrics import RUNTIME_ICON_CHROME_SIZE
+        chrome = RUNTIME_ICON_CHROME_SIZE if widget.objectName() == "RuntimeIconFeedback" else 0
+        widget.setFixedSize(width + chrome, height + chrome)
         widget.setProperty("stateOn", bool(state))
 
         icon = QtGui.QIcon(path) if path else QtGui.QIcon()

@@ -4,6 +4,7 @@ from __future__ import print_function
 from .runtime_value_sync import connect_value_signal
 
 import os
+from functools import wraps
 
 from ..compat import QtCore
 from ..compat import QtGui
@@ -477,6 +478,16 @@ def _prepare_runtime_renderer(kind, renderer):
     install_event_binding_hooks(registry)
     synchronize_runtime_value_renderers(registry)
     prepared = registry.renderer_for(kind)
+    if kind in ("button", "toggle_button", "string", "integer", "float", "menu",
+                "color", "checkbox", "label", "icon", "toggle_icon", "field"):
+        decorated = prepared
+
+        @wraps(decorated)
+        def prepared(owner, item, compact=False):
+            from .layout_helpers import configure_runtime_item_geometry
+            return configure_runtime_item_geometry(
+                decorated(owner, item, compact=compact), item, getattr(owner, "content", None))
+
     prepared._script_toolbox_raw_renderer = renderer
     return prepared
 

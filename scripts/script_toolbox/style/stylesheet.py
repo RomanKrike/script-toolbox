@@ -257,7 +257,7 @@ QWidget#RuntimeSeparatorContainer {
    --------------------------------------------------------------- */
 QPushButton,
 QToolButton {
-    background-color: %(BUTTON_BG)s;
+    background-color: %(BUTTON_BG)s; /* toolbox-color:BUTTON_BG */
     color: %(TEXT_BUTTON)s;
     border: 1px solid %(BORDER_PANEL)s;
     border-radius: %(BORDER_RADIUS_PANEL)spx;
@@ -270,13 +270,13 @@ QPushButton {
 
 QPushButton:hover,
 QToolButton:hover {
-    background-color: %(BUTTON_HOVER_BG)s;
+    background-color: %(BUTTON_HOVER_BG)s; /* toolbox-color:BUTTON_HOVER_BG */
     border-color: %(HOVER_BORDER)s;
 }
 
 QPushButton:pressed,
 QToolButton:pressed {
-    background-color: %(BUTTON_PRESSED_BG)s;
+    background-color: %(BUTTON_PRESSED_BG)s; /* toolbox-color:BUTTON_PRESSED_BG */
     border-color: %(BORDER_PRESSED)s;
 }
 

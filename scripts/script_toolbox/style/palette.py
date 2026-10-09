@@ -62,6 +62,7 @@ TEXT_STRUCTURE_ROW = "#b6c4cf"
 TEXT_STRUCTURE_COLUMN = "#c7b7d7"
 
 # Generic controls ---------------------------------------------------------
+SCRIPT_BUTTON_BG = "#3f3f3f"
 BUTTON_BG = "#414449"
 BUTTON_HOVER_BG = "#4b4e54"
 BUTTON_PRESSED_BG = "#34363a"
@@ -178,6 +179,7 @@ __all__ = [
     "TEXT_PALETTE_GROUP",
     "TEXT_STRUCTURE_ROW",
     "TEXT_STRUCTURE_COLUMN",
+    "SCRIPT_BUTTON_BG",
     "BUTTON_BG",
     "BUTTON_HOVER_BG",
     "BUTTON_PRESSED_BG",

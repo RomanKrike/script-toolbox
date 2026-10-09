@@ -10,7 +10,7 @@ from ..pycompat import text_type
 _STRING_TYPES = (str, text_type)
 from .preferences import load_preferences, save_preferences
 
-VERSION = 2
+VERSION = 3
 DEFAULT_NAME = "Default - Charcoal"
 ROLES = (
     ("window", "Window background", "#292b2e"),
@@ -38,6 +38,7 @@ ROLES = (
     ("expression_name", "Expressions: parameter names", "#79a8d7"),
     ("expression_reserved", "Expressions: reserved words", "#c7b7d7"),
     ("expression_error", "Expressions: errors", "#e28b8b"),
+    ("button", "Default button background", "#414449"),
 )
 DEFAULT_COLORS = dict((key, color) for key, label, color in ROLES)
 
@@ -49,18 +50,22 @@ def theme(name=DEFAULT_NAME, colors=None):
 
 def builtins():
     soft = dict(DEFAULT_COLORS)
-    soft.update(window="#34363a", panel="#3c3f44", input="#2f3135", border="#50545b")
+    soft.update(window="#34363a", panel="#3c3f44", input="#2f3135", border="#50545b", button="#4c5057")
     return [theme(), theme("Soft Dark", soft)]
 
 
 def validate(data):
-    if not isinstance(data, dict) or type(data.get("version")) is not int or data["version"] not in (1, VERSION):
+    if not isinstance(data, dict) or type(data.get("version")) is not int or data["version"] not in (1, 2, VERSION):
         raise ValueError("Unsupported theme format version.")
     name = data.get("name")
     if not isinstance(name, _STRING_TYPES) or not name.strip() or len(name.strip()) > 80:
         raise ValueError("Theme name must contain 1 to 80 characters.")
     colors = data.get("colors")
-    expected = set(key for key, unused, color in ROLES[:8]) if data["version"] == 1 else set(DEFAULT_COLORS)
+    expected = set(DEFAULT_COLORS)
+    if data["version"] == 1:
+        expected = set(key for key, unused, color in ROLES[:8])
+    elif data["version"] == 2:
+        expected.remove("button")
     if not isinstance(colors, dict) or set(colors) != expected:
         raise ValueError("Theme must contain all colors for its format version.")
     result = dict(DEFAULT_COLORS)
@@ -68,6 +73,12 @@ def validate(data):
         if not isinstance(value, _STRING_TYPES) or not re.match(r"^#[0-9a-fA-F]{6}$", value):
             raise ValueError("Invalid RGB color for " + key + ".")
         result[key] = value.lower()
+    if data["version"] < 3:
+        # Older themes derived ordinary buttons from the border role.
+        channels = [max(0, min(255, int(DEFAULT_COLORS["button"][i:i + 2], 16) +
+                    int(result["border"][i:i + 2], 16) - int(DEFAULT_COLORS["border"][i:i + 2], 16)))
+                    for i in (1, 3, 5)]
+        result["button"] = "#{0:02x}{1:02x}{2:02x}".format(*channels)
     return theme(name.strip(), result)
 
 

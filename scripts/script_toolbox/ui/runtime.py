@@ -10,6 +10,7 @@ from ..compat import QtGui
 from ..model.item_builtins import register_builtin_items
 from ..model.item_registry import ITEM_TYPES
 from ..model.items import safe_color
+from ..style.palette import SCRIPT_BUTTON_BG
 from ..pycompat import text_type
 from ..style.metrics import RUNTIME_FOLDER_CONTENT_MARGINS
 from ..style.metrics import RUNTIME_FOLDER_CONTENT_SPACING
@@ -392,6 +393,10 @@ class LegacyRuntimeFolder(QtGui.QFrame):
                 rgb[2]
             )
         )
+        if safe_color(props.get("color")) == [0.25, 0.25, 0.25]:
+            button.setStyleSheet(
+                "QPushButton#ScriptButton {background-color: %s; /* toolbox-color:SCRIPT_BUTTON_BG */}" % SCRIPT_BUTTON_BG
+            )
         button.clicked.connect(
             lambda checked=False, item_id=item["id"]:
             self.toolbox.run_item(item_id)

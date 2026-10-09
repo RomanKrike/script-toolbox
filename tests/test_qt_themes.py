@@ -234,3 +234,42 @@ w.close()
 w.deleteLater()
 pump()
 ''', tmp_path)
+
+
+def test_default_button_color_is_independent_and_preserves_custom_items(tmp_path):
+    run_qt('''
+from script_toolbox.core import themes
+from script_toolbox.style.themes import controller, token_colors
+from script_toolbox.model import create_item
+normal = QtGui.QPushButton('Normal', w)
+w.config['sections'][0]['items'] = [create_item('button', {'name': 'default_button'}),
+    create_item('button', {'name': 'custom_button', 'props': {'color': [1.0, 0.0, 0.0]}})]
+w.rebuild()
+w.show()
+pump()
+buttons = w.content.findChildren(QtGui.QPushButton, 'ScriptButton')
+assert len(buttons) == 2
+custom = [b for b in buttons if 'rgb(255,0,0)' in b.styleSheet()][0]
+ordinary = [b for b in buttons if b is not custom][0]
+old_custom = custom.styleSheet()
+changed = dict(themes.DEFAULT_COLORS, button='#516479')
+colors = token_colors(changed)
+assert colors['BUTTON_BG'] == '#516479'
+assert colors['BUTTON_HOVER_BG'] == '#5b6e84'
+assert colors['BUTTON_PRESSED_BG'] == '#44566a'
+controller().apply(themes.theme('Custom', changed))
+pump()
+assert normal.palette().color(QtGui.QPalette.Button).name() == '#516479'
+assert colors['SCRIPT_BUTTON_BG'] in ordinary.styleSheet()
+assert custom.styleSheet() == old_custom
+assert controller().colors['BORDER_PANEL'] == themes.DEFAULT_COLORS['border']
+assert controller().colors['ICON_BUTTON_HOVER_BG'] == '#414449'
+controller().apply(themes.theme())
+pump()
+assert normal.palette().color(QtGui.QPalette.Button).name() == '#414449'
+assert '#3f3f3f' in ordinary.styleSheet()
+assert custom.styleSheet() == old_custom
+w.close()
+w.deleteLater()
+pump()
+''', tmp_path)

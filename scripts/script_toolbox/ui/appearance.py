@@ -70,7 +70,9 @@ class AppearancePage(QtGui.QWidget):
         form.setSpacing(metrics.SETTINGS_SECTION_SPACING)
         form.setLabelAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
         form.setFieldGrowthPolicy(QtGui.QFormLayout.AllNonFixedFieldsGrow)
-        for key, label, unused in themes.ROLES:
+        roles = [role for role in themes.ROLES if role[0] != "button"]
+        roles.insert(3, next(role for role in themes.ROLES if role[0] == "button"))
+        for key, label, unused in roles:
             control = ColorControl(parent=self.colors_section)
             control.configure(show_rgb=False, show_hex=True)
             control.setFixedWidth(metrics.APPEARANCE_COLOR_FIELD_WIDTH)

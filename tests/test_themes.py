@@ -8,7 +8,7 @@ from script_toolbox.core.preferences import load_preferences, save_preferences
 
 
 @pytest.mark.parametrize("change", [
-    {"version": 3}, {"version": True}, {"name": " "}, {"name": "x" * 81},
+    {"version": 4}, {"version": True}, {"name": " "}, {"name": "x" * 81},
     {"colors": {}}, {"colors": dict(themes.DEFAULT_COLORS, text="red")},
     {"colors": dict(themes.DEFAULT_COLORS, layout="#ffffff")},
 ])
@@ -44,3 +44,12 @@ def test_upgrade_eight_color_theme():
     assert upgraded["colors"]["input"] == "#123456"
     assert upgraded["colors"]["expression_error"] == themes.DEFAULT_COLORS["expression_error"]
     assert old["colors"] == colors and len(colors) == 8
+
+
+def test_upgrade_v2_retains_derived_button_color():
+    colors = dict(themes.DEFAULT_COLORS)
+    del colors["button"]
+    colors["border"] = "#55585d"
+    upgraded = themes.validate({"version": 2, "name": "Studio", "colors": colors})
+    assert upgraded["colors"]["button"] == "#515459"
+    assert "button" not in colors

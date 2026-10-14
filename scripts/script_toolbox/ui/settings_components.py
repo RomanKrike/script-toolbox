@@ -76,6 +76,7 @@ def _apply_content_palette(widget):
             QtGui.QPalette.Text,
             QtGui.QColor(palette.TEXT_PRIMARY)
         )
+        widget.setProperty("toolboxThemeSurface", "content")
         widget.setPalette(widget_palette)
         widget.setAutoFillBackground(True)
     except Exception:

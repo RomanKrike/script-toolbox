@@ -17,7 +17,7 @@ from ..style.palette import LIST_HOVER_BG
 from ..style.palette import PANEL_BG
 from ..style.palette import SELECTION_BG
 from ..style.palette import SELECTION_TEXT
-from ..style.palette import TEXT_MUTED
+from ..style.themes import set_item_color
 from ..style.palette import TEXT_PRIMARY
 
 
@@ -101,11 +101,6 @@ class CompletionPopup(QtGui.QTreeWidget):
     ):
         self.clear()
 
-        muted_brush = QtGui.QBrush(
-            QtGui.QColor(
-                TEXT_MUTED
-            )
-        )
 
         for completion in items:
             row = QtGui.QTreeWidgetItem([
@@ -113,14 +108,8 @@ class CompletionPopup(QtGui.QTreeWidget):
                 completion.detail,
                 completion.label,
             ])
-            row.setForeground(
-                1,
-                muted_brush
-            )
-            row.setForeground(
-                2,
-                muted_brush
-            )
+            set_item_color(row, 1, "TEXT_MUTED")
+            set_item_color(row, 2, "TEXT_MUTED")
             self.addTopLevelItem(
                 row
             )

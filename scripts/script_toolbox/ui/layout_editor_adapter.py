@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..style.themes import set_item_color
 from ..compat import QtCore
 from ..compat import QtGui
 from ..constants import CONFIG_VERSION
@@ -8,9 +9,7 @@ from ..model import create_item
 from ..model.item_builtins import register_builtin_items
 from ..model.item_registry import ITEM_TYPES
 from ..pycompat import text_type
-from ..style.palette import STRUCTURE_FOLDER_BG
-from ..style.palette import TEXT_STRUCTURE_COLUMN
-from ..style.palette import TEXT_STRUCTURE_ROW
+from ..style.builtin_icons import item_type_icon
 
 
 def _definition(kind):
@@ -38,9 +37,7 @@ def _can_contain(parent_kind, child_kind):
     child = _definition(child_kind)
     if parent is None or child is None or not parent.is_container:
         return False
-    if parent.is_layout and child.has_capability("section"):
-        return False
-    return True
+    return parent.accepts_child(child)
 
 
 def _default_section_kind():
@@ -97,23 +94,17 @@ def _style_tree_item(tree_item, definition):
             font = tree_item.font(column)
             font.setBold(True)
             tree_item.setFont(column, font)
-            tree_item.setBackground(
-                column,
-                QtGui.QBrush(QtGui.QColor(STRUCTURE_FOLDER_BG))
-            )
+            set_item_color(tree_item, column, "STRUCTURE_FOLDER_BG", background=True)
         return
 
     if definition.is_layout:
         color = (
-            TEXT_STRUCTURE_ROW
+            "TEXT_STRUCTURE_ROW"
             if definition.layout_axis == "horizontal"
-            else TEXT_STRUCTURE_COLUMN
+            else "TEXT_STRUCTURE_COLUMN"
         )
         for column in range(3):
-            tree_item.setForeground(
-                column,
-                QtGui.QBrush(QtGui.QColor(color))
-            )
+            set_item_color(tree_item, column, color)
 
 
 def make_layout_tree_item(
@@ -132,6 +123,7 @@ def make_layout_tree_item(
         type_title,
     ])
     editor.set_item_data(tree_item, kind, data["id"])
+    tree_item.setIcon(0, item_type_icon(kind))
 
     flags = tree_item.flags()
     flags |= QtCore.Qt.ItemIsDragEnabled
@@ -261,6 +253,10 @@ def sync_layout_working_from_tree(editor):
                     continue
                 children.append(data_from_tree(child))
             data["items"] = children
+            if definition.has_capability("table"):
+                column_ids = set(child["id"] for child in children)
+                for row in data.get("props", {}).get("rows", []):
+                    row["cells"] = dict((key, value) for key, value in row["cells"].items() if key in column_ids)
         else:
             data.pop("items", None)
 

@@ -75,11 +75,18 @@ class RuntimeRendererRegistry(object):
         if renderer is None:
             return None
 
-        return renderer(
+        widget = renderer(
             owner,
             item,
             compact=compact
         )
+        register = getattr(getattr(owner, "toolbox", None), "register_condition_widget", None)
+        if callable(register) and widget is not None:
+            register(item, widget)
+        register_item = getattr(getattr(owner, "toolbox", None), "register_item_widget", None)
+        if callable(register_item) and widget is not None:
+            register_item(item, widget, owner, compact)
+        return widget
 
 
 def install_registry_hook_once(registry, marker, installer):

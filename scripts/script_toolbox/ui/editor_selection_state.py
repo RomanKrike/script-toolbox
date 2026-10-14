@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+from ..style.themes import themed_color
 from ..compat import QtCore
 from ..compat import QtGui
 from ..style.palette import SELECTION_BG
@@ -25,12 +26,8 @@ def _apply_selection_palette(widget):
     if widget is None:
         return
 
-    highlight = QtGui.QColor(
-        SELECTION_BG
-    )
-    highlighted_text = QtGui.QColor(
-        SELECTION_TEXT
-    )
+    highlight = QtGui.QColor(themed_color("SELECTION_BG", widget))
+    highlighted_text = QtGui.QColor(themed_color("SELECTION_TEXT", widget))
 
     for target in (
         widget,
@@ -40,6 +37,7 @@ def _apply_selection_palette(widget):
             continue
 
         try:
+            target.setProperty("toolboxThemeSelection", True)
             palette = target.palette()
             palette.setColor(
                 QtGui.QPalette.Highlight,

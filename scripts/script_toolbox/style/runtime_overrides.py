@@ -28,6 +28,7 @@ from .palette import TEXT_FOLDER_HOVER
 from .palette import TEXT_HEADING
 from .palette import TEXT_LIST
 from .palette import WINDOW_BG
+from .palette import PROPERTY_BG
 
 
 # Runtime-only QSS fixes that must override the base theme. Keeping these
@@ -42,16 +43,15 @@ QToolTip {{
     padding: 0px;
 }}
 
-/* Keep Parameter Description on the same surface as the main dialog. The
-   base theme historically used the lighter panel surface here. Explicit
-   palette fallbacks are installed separately for Maya 2015 / Qt4, where
-   viewport QSS is not reliable. */
+/* Inspector cards, viewport and empty space share one panel surface.
+   Explicit palette fallbacks handle Maya 2015 / Qt4 viewports. */
 QWidget#PropertyPane,
 QScrollArea#PropertyScroll,
 QWidget#PropertyViewport,
 QWidget#PropertyHost,
-QWidget#PropertyEditor {{
-    background-color: {window_bg};
+QWidget#PropertyEditor,
+QStackedWidget#PropertyStack {{
+    background-color: {property_bg};
     border: 0px;
 }}
 
@@ -186,6 +186,7 @@ QGroupBox#SimpleSectionGroupBox[nested="true"]::title {{
 
 """.format(
     window_bg=WINDOW_BG,
+    property_bg=PROPERTY_BG,
     content_bg=CONTENT_BG,
     simple_section_nested_bg=SIMPLE_SECTION_NESTED_BG,
     separator=SEPARATOR,

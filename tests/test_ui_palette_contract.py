@@ -96,24 +96,23 @@ def test_primary_ui_modules_use_semantic_palette_tokens():
         "scripts/script_toolbox/style/palette.py"
     )
 
-    assert "from ..style.palette import WINDOW_BG" in interface_source
-    assert "from ..style.palette import TEXT_PALETTE_GROUP" in interface_source
-    assert _uses_qcolor(interface_source, "WINDOW_BG")
-    assert _uses_qcolor(interface_source, "TEXT_PALETTE_GROUP")
+    assert "from ..style.palette import PROPERTY_BG" in interface_source
+    assert "from ..style.themes import set_item_color" in interface_source
+    assert _uses_qcolor(interface_source, "PROPERTY_BG")
+    assert 'set_item_color(group_item, 0, "TEXT_PALETTE_GROUP")' in interface_source
 
-    assert "from ..style.palette import STRUCTURE_FOLDER_BG" in layout_source
-    assert "from ..style.palette import TEXT_STRUCTURE_ROW" in layout_source
-    assert "from ..style.palette import TEXT_STRUCTURE_COLUMN" in layout_source
-    assert _uses_qcolor(layout_source, "STRUCTURE_FOLDER_BG")
-    assert "QtGui.QColor(color)" in layout_source
+    assert "from ..style.themes import set_item_color" in layout_source
+    assert 'set_item_color(tree_item, column, "STRUCTURE_FOLDER_BG", background=True)' in layout_source
+    assert "set_item_color(tree_item, column, color)" in layout_source
     assert "definition.layout_axis" in layout_source
 
-    assert "from ..style.palette import CONTENT_BG" in main_source
-    assert '"background-color: {0};".format(' in main_source
-    assert "CONTENT_BG" in main_source
+    assert 'setObjectName("ToolboxScrollViewport")' in main_source
+    stylesheet_source = _read("scripts/script_toolbox/style/stylesheet.py")
+    assert "QWidget#ToolboxScrollViewport" in stylesheet_source
+    assert "background-color: %(INPUT_BG)s;" in stylesheet_source
 
-    assert "from ...style.palette import WINDOW_BG" in property_source
-    assert _uses_qcolor(property_source, "WINDOW_BG")
+    assert "from ...style.palette import PROPERTY_BG" in property_source
+    assert _uses_qcolor(property_source, "PROPERTY_BG")
 
     assert 'CONTENT_BG = WINDOW_BG' in palette_source
     assert 'STRUCTURE_FOLDER_BG = "#302d2a"' in palette_source
@@ -138,7 +137,7 @@ def test_runtime_surfaces_alias_interface_editor_neutrals():
         "FOLDER_NESTED_HEADER_BG = PANEL_BG",
         "FOLDER_NESTED_HEADER_HOVER_BG = ICON_BUTTON_HOVER_BG",
         "FOLDER_NESTED_HEADER_COLLAPSED_BG = PANEL_BG",
-        "SIMPLE_SECTION_NESTED_BG = CONTENT_BG",
+        "SIMPLE_SECTION_NESTED_BG = FOLDER_NESTED_BG",
     ):
         assert expected in palette_source
 
@@ -168,7 +167,7 @@ def test_code_editor_and_legacy_icons_use_palette_tokens():
     assert "TEXT_STRUCTURE_ROW" in layout_source
     assert "TEXT_STRUCTURE_COLUMN" in layout_source
     assert "definition.layout_axis" in layout_source
-    assert "QtGui.QColor(color)" in layout_source
+    assert "set_item_color(tree_item, column, color)" in layout_source
 
 
 def test_solar_toolbar_icons_are_tinted_from_shared_palette():
@@ -180,7 +179,8 @@ def test_solar_toolbar_icons_are_tinted_from_shared_palette():
     )
 
     assert "from .palette import TOOLBAR_ICON" in source
-    assert "QtGui.QColor(TOOLBAR_ICON)" in source
+    assert "color=TOOLBAR_ICON" in source
+    assert "QtGui.QColor(color)" in source
     assert "CompositionMode_SourceIn" in source
     assert "painter.fillRect(" in source
     assert "_tinted_icon(resource)" in source

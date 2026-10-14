@@ -70,6 +70,13 @@ class EditorDocumentController(object):
     def find_by_id(self, item_id):
         return self._item_cache.get(text_type(item_id))
 
+    def update_item(self, item_id, **properties):
+        from .item_changes import update_item
+        item = self.find_by_id(item_id)
+        if item is None:
+            raise KeyError("Item not found: " + text_type(item_id))
+        return update_item(item, properties)
+
     def cache_subtree(self, data):
         if not isinstance(data, dict):
             return
@@ -137,6 +144,8 @@ class EditorDocumentController(object):
                     for child in source.get("items", []) or []
                 ]
 
+            from ..model.table import remap_columns
+            remap_columns(source, clone)
             return clone
 
         clone = clone_item(data)

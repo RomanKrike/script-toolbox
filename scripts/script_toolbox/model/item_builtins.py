@@ -16,6 +16,7 @@ from .item_registry import ITEM_TYPES
 from .item_registry import ItemTypeDefinition
 from .item_registry import LayoutSpec
 from .item_registry import SectionSpec
+from .table import CELL_KINDS, TableRowsField, normalize_table
 
 
 _COMPONENT_LABELS = ("X", "Y", "Z", "W")
@@ -248,6 +249,20 @@ def _standard_item_definitions():
             renderer_path=".column_layout:render_column",
             inspector_path=".properties.column:ColumnPropertyEditor",
         ),
+        ItemTypeDefinition(
+            "table", "Table", category="Layout", order=40,
+            fields={"rows": TableRowsField(),
+                    "row_height": IntField(default=36, minimum=28, maximum=200),
+                    "height": IntField(default=260, minimum=80, maximum=2000),
+                    "show_row_numbers": BoolField(default=True),
+                    "allow_add_rows": BoolField(default=True),
+                    "allow_remove_rows": BoolField(default=True)},
+            capabilities=("container", "table"), child_kinds=CELL_KINDS + ("reference",),
+            normalize_item=normalize_table, ui_defaults={"width_mode": "stretch"},
+            description="Spreadsheet: each child Item defines one typed column.",
+            renderer_path=".table_runtime:render_table",
+            inspector_path=".properties.table:TablePropertyEditor",
+        ),
         _definition(
             "button", "Button", "Controls", 10,
             fields={
@@ -417,7 +432,12 @@ def _standard_item_definitions():
         ),
         _definition(
             "color", "Color", "Controls", 90,
-            fields={"value": ColorField(default=[0.25, 0.25, 0.25])},
+            fields={
+                "value": ColorField(default=[0.25, 0.25, 0.25]),
+                "show_rgb": BoolField(default=True),
+                "rgb_range": ChoiceField(("0-1", "0-255"), default="0-1"),
+                "show_hex": BoolField(default=True),
+            },
             events=("value_changed", "click", "double_click"),
             capabilities=("bindable", "has_value", "supports_compact"),
             default_label="Color",

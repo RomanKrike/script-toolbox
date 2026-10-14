@@ -2,6 +2,7 @@
 
 from . import metrics
 from . import palette
+from .checkbox_assets import MARK_IMAGES
 
 
 _STYLE_VALUES = dict(vars(palette))
@@ -22,9 +23,7 @@ QDialog {
     background-color: %(WINDOW_BG)s;
 }
 
-/* Runtime Toolbox containers.
-   Keep backgrounds off generic QWidget/QCheckBox so Qt4 checkbox painting
-   remains native and clean. */
+/* Runtime Toolbox containers inherit their owning surface. */
 QWidget#ToolboxCentral {
     background-color: %(CONTENT_BG)s;
 }
@@ -66,6 +65,53 @@ QWidget#RuntimeFolderContent {
 /* Text labels should visually inherit the panel background. */
 QLabel {
     background-color: transparent;
+}
+
+/* Shared checkbox indicators for runtime, editor and settings. */
+QCheckBox {
+    background-color: transparent;
+    spacing: %(CHECKBOX_LABEL_SPACING)spx;
+}
+QCheckBox:disabled {
+    color: %(TEXT_DISABLED)s;
+}
+QCheckBox::indicator {
+    width: %(CHECKBOX_INDICATOR_SIZE)spx;
+    height: %(CHECKBOX_INDICATOR_SIZE)spx;
+    border: 1px solid %(TOOLTIP_BORDER)s;
+    border-radius: %(BORDER_RADIUS_CONTROL)spx;
+    background-color: %(CONTROL_BG)s;
+    image: none;
+}
+QCheckBox::indicator:checked,
+QCheckBox::indicator:indeterminate {
+    background-color: %(ACCENT)s;
+    border-color: %(ACCENT)s;
+}
+QCheckBox::indicator:checked {
+    image: url("@checked@");
+}
+QCheckBox::indicator:indeterminate {
+    image: url("@indeterminate@");
+}
+QCheckBox::indicator:hover {
+    border-color: %(TEXT_MUTED)s;
+}
+QCheckBox::indicator:focus {
+    border-color: %(TEXT_SUBTLE)s;
+}
+QCheckBox::indicator:pressed {
+    background-color: %(SELECTION_BG)s;
+}
+QCheckBox::indicator:disabled {
+    background-color: %(CONTROL_BG)s;
+    border-color: %(BORDER_GROUP)s;
+}
+QCheckBox::indicator:checked:disabled {
+    image: url("@checked_disabled@");
+}
+QCheckBox::indicator:indeterminate:disabled {
+    image: url("@indeterminate_disabled@");
 }
 
 QToolTip {
@@ -120,7 +166,7 @@ QScrollArea#PropertyScroll,
 QWidget#PropertyViewport,
 QWidget#PropertyHost,
 QWidget#PropertyEditor {
-    background-color: %(WINDOW_BG)s;
+    background-color: %(PROPERTY_BG)s;
     border: 0px;
 }
 
@@ -142,7 +188,7 @@ QFormLayout QLabel {
 }
 
 QStackedWidget#PropertyStack {
-    background-color: %(WINDOW_BG)s;
+    background-color: %(PROPERTY_BG)s;
     border: 0px;
 }
 
@@ -211,7 +257,7 @@ QWidget#RuntimeSeparatorContainer {
    --------------------------------------------------------------- */
 QPushButton,
 QToolButton {
-    background-color: %(BUTTON_BG)s;
+    background-color: %(BUTTON_BG)s; /* toolbox-color:BUTTON_BG */
     color: %(TEXT_BUTTON)s;
     border: 1px solid %(BORDER_PANEL)s;
     border-radius: %(BORDER_RADIUS_PANEL)spx;
@@ -224,13 +270,13 @@ QPushButton {
 
 QPushButton:hover,
 QToolButton:hover {
-    background-color: %(BUTTON_HOVER_BG)s;
+    background-color: %(BUTTON_HOVER_BG)s; /* toolbox-color:BUTTON_HOVER_BG */
     border-color: %(HOVER_BORDER)s;
 }
 
 QPushButton:pressed,
 QToolButton:pressed {
-    background-color: %(BUTTON_PRESSED_BG)s;
+    background-color: %(BUTTON_PRESSED_BG)s; /* toolbox-color:BUTTON_PRESSED_BG */
     border-color: %(BORDER_PRESSED)s;
 }
 
@@ -295,8 +341,8 @@ QPushButton#AcceptButton:hover {
 
 QPushButton#ScriptButton {
     text-align: left;
-    min-height: 26px;
-    padding: 4px 9px;
+    min-height: %(BUTTON_MIN_HEIGHT)spx;
+    padding: %(BUTTON_PADDING_VERTICAL)spx %(BUTTON_PADDING_HORIZONTAL)spx;
 }
 
 /* ---------------------------------------------------------------
@@ -306,8 +352,9 @@ QLineEdit,
 QComboBox,
 QSpinBox,
 QDoubleSpinBox,
+QTextEdit,
 QPlainTextEdit {
-    background-color: %(CONTROL_BG)s;
+    background-color: %(INPUT_BG)s;
     color: %(TEXT_INPUT)s;
     border: 1px solid %(BORDER_DARK)s;
     border-radius: %(BORDER_RADIUS_CONTROL)spx;
@@ -327,6 +374,7 @@ QLineEdit:focus,
 QComboBox:focus,
 QSpinBox:focus,
 QDoubleSpinBox:focus,
+QTextEdit:focus,
 QPlainTextEdit:focus {
     border: 1px solid %(FOCUS_BORDER)s;
 }
@@ -334,7 +382,9 @@ QPlainTextEdit:focus {
 QLineEdit:disabled,
 QComboBox:disabled,
 QSpinBox:disabled,
-QDoubleSpinBox:disabled {
+QDoubleSpinBox:disabled,
+QTextEdit:disabled,
+QPlainTextEdit:disabled {
     background-color: %(WINDOW_BG)s;
     color: %(TEXT_INPUT_DISABLED)s;
     border-color: %(LIST_BG)s;
@@ -354,13 +404,15 @@ QComboBox QAbstractItemView {
    Lists / trees
    --------------------------------------------------------------- */
 QListWidget,
-QTreeWidget {
+QTreeWidget,
+QTableWidget {
     background-color: %(LIST_BG)s;
     color: %(TEXT_LIST)s;
     border: 1px solid %(BORDER_PRESSED)s;
     border-radius: %(BORDER_RADIUS_CONTROL)spx;
     outline: 0px;
     alternate-background-color: %(LIST_ALT_BG)s;
+    gridline-color: %(BORDER_INSET)s;
 }
 
 QTreeWidget#ParameterPalette {
@@ -385,6 +437,15 @@ QListWidget::item:selected,
 QTreeWidget::item:selected {
     background-color: %(SELECTION_BG)s;
     color: %(SELECTION_TEXT)s;
+}
+
+QTableWidget QHeaderView {
+    background-color: %(LIST_BG)s;
+}
+
+QTableCornerButton::section {
+    background-color: %(PANEL_BG)s;
+    border: 1px solid %(BORDER_INSET)s;
 }
 
 QHeaderView::section {
@@ -487,54 +548,92 @@ QLabel#SettingsStatusText {
     color: %(TEXT_SUBTLE)s;
 }
 
-QScrollArea#ToolboxScroll {
+QScrollArea#ToolboxScroll,
+QWidget#ToolboxScrollViewport {
     background-color: %(CONTENT_BG)s;
     border: 0px;
 }
 
+/* Style every subcontrol so host themes cannot paint patterned pages. */
 QScrollBar:vertical {
-    background-color: %(LIST_BG)s;
+    background-color: %(SCROLL_TRACK_BG)s;
     width: %(SCROLLBAR_EXTENT)spx;
     margin: 0px;
+    border: 0px;
 }
 
 QScrollBar::handle:vertical {
     background-color: %(SCROLL_HANDLE_BG)s;
     min-height: %(SCROLLBAR_HANDLE_MINIMUM)spx;
-    border-radius: %(BORDER_RADIUS_CARD)spx;
-    margin: %(SCROLLBAR_HANDLE_MARGIN)spx;
+    border-radius: %(SCROLLBAR_HANDLE_RADIUS)spx;
+    margin: 0px %(SCROLLBAR_HANDLE_MARGIN)spx;
+    border: 0px;
 }
 
-QScrollBar::handle:vertical:hover {
+QScrollBar::handle:vertical:hover,
+QScrollBar::handle:horizontal:hover {
     background-color: %(SCROLL_HANDLE_HOVER_BG)s;
 }
 
-QScrollBar:add-line:vertical,
+QScrollBar::handle:vertical:pressed,
+QScrollBar::handle:horizontal:pressed {
+    background-color: %(SCROLL_HANDLE_PRESSED_BG)s;
+}
+
+QScrollBar::add-line:vertical,
 QScrollBar::sub-line:vertical {
     height: 0px;
+    background: transparent;
+    border: 0px;
 }
 
 QScrollBar:horizontal {
-    background-color: %(LIST_BG)s;
+    background-color: %(SCROLL_TRACK_BG)s;
     height: %(SCROLLBAR_EXTENT)spx;
     margin: 0px;
+    border: 0px;
 }
 
 QScrollBar::handle:horizontal {
     background-color: %(SCROLL_HANDLE_BG)s;
     min-width: %(SCROLLBAR_HANDLE_MINIMUM)spx;
-    border-radius: %(BORDER_RADIUS_CARD)spx;
-    margin: %(SCROLLBAR_HANDLE_MARGIN)spx;
+    border-radius: %(SCROLLBAR_HANDLE_RADIUS)spx;
+    margin: %(SCROLLBAR_HANDLE_MARGIN)spx 0px;
+    border: 0px;
 }
 
-QScrollBar::handle:horizontal:hover {
-    background-color: %(SCROLL_HANDLE_HOVER_BG)s;
-}
-
-QScrollBar:add-line:horizontal,
+QScrollBar::add-line:horizontal,
 QScrollBar::sub-line:horizontal {
     width: 0px;
+    background: transparent;
+    border: 0px;
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical,
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal {
+    background: transparent;
+    border: 0px;
+}
+
+QScrollBar::up-arrow,
+QScrollBar::down-arrow,
+QScrollBar::left-arrow,
+QScrollBar::right-arrow {
+    image: none;
+    width: 0px;
+    height: 0px;
+    border: 0px;
+}
+
+QAbstractScrollArea::corner {
+    background-color: %(SCROLL_TRACK_BG)s;
+    border: 0px;
 }
 """ % _STYLE_VALUES
+
+for _name, _path in MARK_IMAGES.items():
+    STYLE = STYLE.replace("@" + _name + "@", _path)
 
 __all__ = ["STYLE"]

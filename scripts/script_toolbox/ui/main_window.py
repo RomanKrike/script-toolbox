@@ -16,8 +16,6 @@ from ..core.executor import evaluate_python_state
 from ..core.executor import execute_script_result
 from ..core.values import find_item
 from ..core.values import get_value as get_document_value
-from ..core.values import normalize_value as normalize_document_value
-from ..core.values import store_value as store_document_value
 from ..model import walk_items
 from ..model.item_builtins import register_builtin_items
 from ..model.item_registry import ITEM_TYPES
@@ -27,12 +25,13 @@ from ..style import STYLE
 from ..style import apply_window_icon
 from ..style import metrics
 from ..style import toolbar_icon
-from ..style.palette import CONTENT_BG
 from .layout_helpers import configure_layout
 from .update_ui import UpdateCheckThread
 from .update_ui import UpdateInstallThread
 from .state_toggle_hooks import StateToggleBehaviorMixin
 from .runtime_value_sync import RuntimeValueMixin
+from .expression_runtime import ExpressionRuntimeMixin
+from .item_changes import ItemChangesMixin
 
 
 _TOOLBOX = None
@@ -166,7 +165,7 @@ class ToolboxStatusBar(QtGui.QStatusBar):
         return self._message
 
 
-class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWindow):
+class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixin, ExpressionRuntimeMixin, QtGui.QMainWindow):
 
     def __init__(self, parent=None):
         QtGui.QMainWindow.__init__(self, parent or main_window())
@@ -215,6 +214,9 @@ class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWind
         self.update_check_timer.timeout.connect(self.check_for_updates)
         self.update_check_timer.start(1200)
 
+        from ..style.themes import controller
+        controller().register(self)
+
     # ------------------------------------------------------------------
     # UI
     # ------------------------------------------------------------------
@@ -236,9 +238,7 @@ class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWind
         self.scroll = QtGui.QScrollArea()
         self.scroll.setObjectName("ToolboxScroll")
         self.scroll.setWidgetResizable(True)
-        self.scroll.viewport().setStyleSheet(
-            "background-color: {0};".format(CONTENT_BG)
-        )
+        self.scroll.viewport().setObjectName("ToolboxScrollViewport")
 
         self.content = QtGui.QWidget()
         self.content.setObjectName("ToolboxContent")
@@ -394,31 +394,15 @@ class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWind
 
     def store_value(self, key, value):
         item = self.find_item(key)
-        old_value = self.get_value(key)
-        item = store_document_value(self.config, key, value)
-
-        if item is None:
+        if item is None or not _has_capability(item, "has_value"):
             return False
-
-        new_value = self.get_value(key)
-        if old_value != new_value:
-            self.save()
-            self._run_on_change(item, old_value, new_value)
-            self.refresh_state_buttons()
-        self.sync_runtime_value(key)
+        if _has_capability(item, "state_toggle") and _props(item).get("state_source", "internal") != "internal":
+            return False
+        self.item(key).set(value=value)
         return True
 
     def set_value(self, key, value):
-        item = self.find_item(key)
-        if not self.store_value(key, value):
-            return False
-
-        if item is not None and _has_capability(item, "field_widget"):
-            self.refresh_field_widget(item["id"])
-            return True
-
-        self.rebuild()
-        return True
+        return self.store_value(key, value)
 
     def set_result(self, key, value):
         return self.set_value(key, value)
@@ -598,12 +582,7 @@ class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWind
                 else:
                     new_value = values
 
-                old_value = props.get("value", "")
-                new_value = normalize_document_value(item, new_value)
-                props["value"] = new_value
-                self.refresh_field_widget(item["id"])
-                if old_value != new_value:
-                    self._run_on_change(item, old_value, new_value)
+                self.item(item["id"]).set(value=new_value)
             except Exception:
                 pass
 
@@ -706,7 +685,9 @@ class ScriptToolbox(StateToggleBehaviorMixin, RuntimeValueMixin, QtGui.QMainWind
         width = int(props.get("width", 24))
         height = int(props.get("height", 24))
         path = self._toggle_icon_path(item, state)
-        widget.setFixedSize(width, height)
+        from ..style.metrics import RUNTIME_ICON_CHROME_SIZE
+        chrome = RUNTIME_ICON_CHROME_SIZE if widget.objectName() == "RuntimeIconFeedback" else 0
+        widget.setFixedSize(width + chrome, height + chrome)
         widget.setProperty("stateOn", bool(state))
 
         icon = QtGui.QIcon(path) if path else QtGui.QIcon()

@@ -7,6 +7,7 @@ import copy
 
 from ..constants import CONFIG_VERSION
 from ..pycompat import text_type
+from ..core.expressions import validate_name, bind_expression_references, PROPERTIES
 from .fields import BoolField
 from .fields import ChoiceField
 from .fields import FieldValidationError
@@ -20,7 +21,7 @@ from .item_registry import ItemValidationError
 DEFAULT_COMPONENT_LABELS = ("X", "Y", "Z", "W")
 
 
-_UI_FIELDS = {
+ITEM_UI_FIELDS = {
     "label": TextField(default=""),
     "show_label": BoolField(default=True),
     "tooltip": TextField(default=""),
@@ -28,9 +29,18 @@ _UI_FIELDS = {
     "width": IntField(default=120, minimum=20, maximum=2000),
     "stretch": IntField(default=1, minimum=1, maximum=100),
     "alignment": ChoiceField(("left", "center", "right"), default="left"),
+    "horizontal_alignment": ChoiceField(
+        ("stretch", "left", "center", "right"), default="stretch"
+    ),
     "height_mode": ChoiceField(("auto", "stretch", "fixed"), default="auto"),
     "height": IntField(default=28, minimum=8, maximum=2000),
     "vertical_stretch": IntField(default=1, minimum=1, maximum=100),
+    "visible": BoolField(default=True),
+    "enabled": BoolField(default=True),
+    "visible_expression_enabled": BoolField(default=False),
+    "enabled_expression_enabled": BoolField(default=False),
+    "visible_expression": TextField(default=""),
+    "enabled_expression": TextField(default=""),
 }
 
 
@@ -139,7 +149,7 @@ def sanitize_name(value, fallback="item"):
         value = "item"
     if value[0].isdigit():
         value = "_" + value
-    return value
+    return validate_name(value)
 
 
 def default_name(kind, item_id):
@@ -161,7 +171,7 @@ def _normalize_ui(definition, raw_ui=None):
     raw_ui = raw_ui if isinstance(raw_ui, dict) else {}
     defaults = dict(definition.ui_defaults or {})
     normalized = {}
-    for name, field in _UI_FIELDS.items():
+    for name, field in ITEM_UI_FIELDS.items():
         if name == "label":
             fallback = defaults.get(name, definition.default_label)
             value = raw_ui.get(name, fallback)
@@ -172,6 +182,14 @@ def _normalize_ui(definition, raw_ui=None):
         fallback = defaults.get(name, field.default_value())
         value = raw_ui.get(name, fallback)
         normalized[name] = _normalize_ui_field(field, value, fallback)
+    for prop in PROPERTIES:
+        refs = raw_ui.get(prop + "_references", {})
+        if not isinstance(refs, dict):
+            raise ValueError("Expression references must be a mapping")
+        if refs:
+            normalized[prop + "_references"] = dict(
+                (validate_name(name), text_type(item_id)) for name, item_id in refs.items()
+            )
     return normalized
 
 
@@ -185,11 +203,10 @@ def normalize_item_props_candidate(item, candidate_props):
             reason="Expected Item mapping"
         )
     definition = ITEM_TYPES.get(item.get("kind"), required=True)
-    return definition.normalize_props(
-        candidate_props,
-        item_id=item.get("id"),
-        item_name=item.get("name")
-    )
+    candidate = copy.deepcopy(item)
+    candidate["props"] = definition.normalize_props(
+        candidate_props, item_id=item.get("id"), item_name=item.get("name"))
+    return definition.normalize_item(candidate)["props"]
 
 
 def normalize_item_props(item):
@@ -306,10 +323,12 @@ def create_item(kind, data=None):
                 )
             if definition.is_layout and child_definition.is_section:
                 continue
+            if not definition.accepts_child(child_definition):
+                raise _child_validation_error(item, raw, "Unsupported child type for this container")
             children.append(create_item(child_kind, raw))
         item["items"] = children
 
-    return item
+    return definition.normalize_item(item)
 
 
 def default_document():
@@ -381,7 +400,9 @@ def normalize_document(data):
         sections.append(create_item(kind, raw))
     if not sections:
         sections = default_document()["sections"]
-    return {"version": CONFIG_VERSION, "sections": sections}
+    document = {"version": CONFIG_VERSION, "sections": sections}
+    bind_expression_references(document)
+    return document
 
 
 def walk_items(document, include_sections=False):

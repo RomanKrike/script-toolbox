@@ -57,7 +57,8 @@ def execute_binding(
     old_value=None,
     mouse_button=None,
     modifiers=None,
-    parent=None
+    parent=None,
+    extra_namespace=None
 ):
     handler = text_type(
         binding.get("handler", "script")
@@ -115,14 +116,14 @@ def execute_binding(
             language=language,
             toolbox=toolbox,
             parent=parent or toolbox,
-            extra_namespace={
+            extra_namespace=dict(extra_namespace or {}, **{
                 "toolbox": toolbox,
                 "item": item,
                 "value": value,
                 "old_value": old_value,
                 "event": payload,
                 "host": HOST,
-            },
+            }),
             context="binding:{0}:{1}".format(
                 item.get("name", item_id),
                 binding_display_name(binding)
@@ -143,7 +144,8 @@ def dispatch_item_event(
     old_value=None,
     mouse_button=None,
     modifiers=None,
-    parent=None
+    parent=None,
+    extra_namespace=None
 ):
     item = (
         item_or_id
@@ -171,7 +173,8 @@ def dispatch_item_event(
             old_value=old_value,
             mouse_button=mouse_button,
             modifiers=modifiers,
-            parent=parent
+            parent=parent,
+            extra_namespace=extra_namespace
         )
         results.append(result)
 

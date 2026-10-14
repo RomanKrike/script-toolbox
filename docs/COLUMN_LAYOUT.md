@@ -18,6 +18,24 @@ Row
 
 Columns default to `Stretch` when placed in a Row so sibling columns share available width.
 
+## Folder children
+
+Inside Simple, Collapsible, Tabs, and Radio Buttons folders, each direct child
+owns its `Horizontal Alignment` in the Inspector: Stretch, Left, Center, or Right.
+The JSON field is `ui.horizontal_alignment`, with values `stretch`, `left`,
+`center`, and `right`. Missing values default to `stretch`, preserving existing
+layouts. Left, Center, and Right use the widget's preferred width; fixed-size
+Images retain their configured width and height. Stretch fills available width
+when the widget permits it.
+
+Consecutive child folders of the same Tabs or Radio Buttons type share a group
+when their horizontal alignment also matches. Different alignments start separate
+groups. Root folder grouping is unchanged.
+
+Inside Row and Column, horizontal placement remains owned by the parent layout;
+the child alignment selection is read-only and its stored Folder setting is
+preserved.
+
 ## Row
 
 Row owns horizontal placement of its children:

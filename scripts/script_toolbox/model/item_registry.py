@@ -110,7 +110,9 @@ class ItemTypeDefinition(object):
         inspector_path=None,
         layout=None,
         section=None,
-        value_binding_factory=None
+        value_binding_factory=None,
+        child_kinds=None,
+        normalize_item=None
     ):
         self.kind = text_type(kind or "").strip().lower()
         if not self.kind:
@@ -133,6 +135,8 @@ class ItemTypeDefinition(object):
         self.renderer = renderer
         if value_binding_factory is not None and not callable(value_binding_factory):
             raise TypeError("value_binding_factory must be callable or None.")
+        self.child_kinds = frozenset(child_kinds) if child_kinds is not None else None
+        self.normalize_item_hook = normalize_item
         self.value_binding_factory = value_binding_factory
         self.inspector = inspector
         self.renderer_path = (
@@ -154,6 +158,13 @@ class ItemTypeDefinition(object):
 
     def has_capability(self, name):
         return text_type(name or "") in self.capabilities
+
+    def accepts_child(self, child):
+        return (self.is_container and (self.child_kinds is None or child.kind in self.child_kinds)
+                and not (self.is_layout and child.is_section))
+
+    def normalize_item(self, item):
+        return self.normalize_item_hook(item) if self.normalize_item_hook is not None else item
 
     @property
     def is_container(self):

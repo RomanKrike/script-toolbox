@@ -9,47 +9,49 @@ widget instead of being added to this palette.
 """
 
 # Core surfaces -------------------------------------------------------------
-WINDOW_BG = "#292929"
+WINDOW_BG = "#292b2e"
 CONTENT_BG = WINDOW_BG
-PANEL_BG = "#303030"
-CONTROL_BG = "#202020"
-LIST_BG = "#242424"
-LIST_ALT_BG = "#282828"
-FILTER_BG = "#262626"
-STATUS_BG = "#232323"
-TOOLTIP_BG = "#1d1d1d"
+PANEL_BG = "#313337"
+PROPERTY_BG = PANEL_BG
+CONTROL_BG = "#27292c"
+LIST_BG = "#27292c"
+INPUT_BG = LIST_BG
+LIST_ALT_BG = "#2b2d30"
+FILTER_BG = "#2d2f33"
+STATUS_BG = "#292b2e"
+TOOLTIP_BG = "#27292c"
 STRUCTURE_FOLDER_BG = "#302d2a"
 
 # Borders / separators -----------------------------------------------------
-BORDER_TOPBAR = "#111111"
-BORDER_DARK = "#151515"
-BORDER_PRESSED = "#161616"
-BORDER_INSET = "#171717"
-BORDER_SOFT = "#191919"
-BORDER_PANEL = "#1b1b1b"
-BORDER_TAB = "#1c1c1c"
-BORDER_DISABLED = "#252525"
-BORDER_GROUP = "#414141"
-SEPARATOR = "#414346"
-TOOLTIP_BORDER = "#555555"
-HOVER_BORDER = "#595959"
-FOCUS_BORDER = "#78604a"
+BORDER_TOPBAR = "#36383c"
+BORDER_DARK = "#45484d"
+BORDER_PRESSED = "#45484d"
+BORDER_INSET = "#36383c"
+BORDER_SOFT = "#45484d"
+BORDER_PANEL = "#45484d"
+BORDER_TAB = "#45484d"
+BORDER_DISABLED = "#3b3d41"
+BORDER_GROUP = "#45484d"
+SEPARATOR = "#45484d"
+TOOLTIP_BORDER = "#555960"
+HOVER_BORDER = "#62676f"
+FOCUS_BORDER = "#a98b68"
 
 # Text ---------------------------------------------------------------------
-TEXT_PRIMARY = "#d6d6d6"
+TEXT_PRIMARY = "#dadde1"
 TEXT_STRONG = "#eeeeee"
 TEXT_HEADING = "#e2e2e2"
 TEXT_PANE_TITLE = "#e0e0e0"
-TEXT_BUTTON = "#dedede"
-TEXT_INPUT = "#dddddd"
-TEXT_LIST = "#d4d4d4"
-TEXT_MUTED = "#858585"
+TEXT_BUTTON = "#dadde1"
+TEXT_INPUT = "#dadde1"
+TEXT_LIST = "#dadde1"
+TEXT_MUTED = "#a0a5ad"
 TEXT_STATUS = "#8f8f8f"
 TEXT_EDITOR_STATUS = "#8c8c8c"
 TEXT_HEADER = "#a8a8a8"
-TEXT_TAB = "#aaaaaa"
+TEXT_TAB = "#aeb3bb"
 TEXT_TAB_SELECTED = "#f0f0f0"
-TEXT_SUBTLE = "#bdbdbd"
+TEXT_SUBTLE = "#aeb3bb"
 TEXT_DISABLED = "#686868"
 TEXT_INPUT_DISABLED = "#6f6f6f"
 TEXT_ON_ACCENT = "#ffffff"
@@ -60,13 +62,14 @@ TEXT_STRUCTURE_ROW = "#b6c4cf"
 TEXT_STRUCTURE_COLUMN = "#c7b7d7"
 
 # Generic controls ---------------------------------------------------------
-BUTTON_BG = "#3a3a3a"
-BUTTON_HOVER_BG = "#464646"
-BUTTON_PRESSED_BG = "#2f2f2f"
-ICON_BUTTON_HOVER_BG = "#404040"
-ICON_BUTTON_HOVER_BORDER = "#545454"
-ICON_BUTTON_PRESSED_BG = "#272727"
-LIST_HOVER_BG = "#333333"
+SCRIPT_BUTTON_BG = "#3f3f3f"
+BUTTON_BG = "#414449"
+BUTTON_HOVER_BG = "#4b4e54"
+BUTTON_PRESSED_BG = "#34363a"
+ICON_BUTTON_HOVER_BG = "#414449"
+ICON_BUTTON_HOVER_BORDER = "#62676f"
+ICON_BUTTON_PRESSED_BG = "#27292c"
+LIST_HOVER_BG = "#36383d"
 
 # Runtime semantics derived from the Interface Editor palette -------------
 # Runtime and editor now share the same neutral surfaces instead of carrying
@@ -80,7 +83,7 @@ FOLDER_HEADER_COLLAPSED_BG = PANEL_BG
 FOLDER_NESTED_HEADER_BG = PANEL_BG
 FOLDER_NESTED_HEADER_HOVER_BG = ICON_BUTTON_HOVER_BG
 FOLDER_NESTED_HEADER_COLLAPSED_BG = PANEL_BG
-SIMPLE_SECTION_NESTED_BG = CONTENT_BG
+SIMPLE_SECTION_NESTED_BG = FOLDER_NESTED_BG
 BORDER_FOLDER_NESTED = BORDER_GROUP
 
 TEXT_SECTION = TEXT_PRIMARY
@@ -104,6 +107,7 @@ SYNTAX_STRING = "#b9c66b"
 SYNTAX_COMMENT = "#757575"
 SYNTAX_NUMBER = "#79a8d7"
 SYNTAX_HOST = "#69b5b5"
+EXPRESSION_ERROR = "#e28b8b"
 TOOLBAR_ICON = TEXT_PRIMARY
 
 # Update / primary action controls ----------------------------------------
@@ -121,17 +125,21 @@ ACCEPT_HOVER_BG = "#ad652d"
 ACCEPT_HOVER_BORDER = "#d18447"
 
 # Tabs / scrolling ---------------------------------------------------------
-TAB_HOVER_BG = "#393939"
+TAB_HOVER_BG = "#3b3e43"
 TAB_SELECTED_BG = BORDER_GROUP
-SCROLL_HANDLE_BG = "#4a4a4a"
-SCROLL_HANDLE_HOVER_BG = "#5a5a5a"
+SCROLL_TRACK_BG = CONTENT_BG
+SCROLL_HANDLE_BG = "#4b4e54"
+SCROLL_HANDLE_HOVER_BG = "#5b6068"
+SCROLL_HANDLE_PRESSED_BG = TEXT_MUTED
 
 
 __all__ = [
     "WINDOW_BG",
     "CONTENT_BG",
     "PANEL_BG",
+    "PROPERTY_BG",
     "CONTROL_BG",
+    "INPUT_BG",
     "LIST_BG",
     "LIST_ALT_BG",
     "FILTER_BG",
@@ -171,6 +179,7 @@ __all__ = [
     "TEXT_PALETTE_GROUP",
     "TEXT_STRUCTURE_ROW",
     "TEXT_STRUCTURE_COLUMN",
+    "SCRIPT_BUTTON_BG",
     "BUTTON_BG",
     "BUTTON_HOVER_BG",
     "BUTTON_PRESSED_BG",
@@ -206,6 +215,7 @@ __all__ = [
     "SYNTAX_COMMENT",
     "SYNTAX_NUMBER",
     "SYNTAX_HOST",
+    "EXPRESSION_ERROR",
     "TOOLBAR_ICON",
     "UPDATE_BG",
     "UPDATE_BORDER",
@@ -221,6 +231,8 @@ __all__ = [
     "ACCEPT_HOVER_BORDER",
     "TAB_HOVER_BG",
     "TAB_SELECTED_BG",
+    "SCROLL_TRACK_BG",
     "SCROLL_HANDLE_BG",
     "SCROLL_HANDLE_HOVER_BG",
+    "SCROLL_HANDLE_PRESSED_BG",
 ]

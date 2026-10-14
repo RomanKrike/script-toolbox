@@ -4,6 +4,7 @@ from __future__ import print_function
 from .runtime_value_sync import connect_value_signal
 
 import os
+from functools import wraps
 
 from ..compat import QtCore
 from ..compat import QtGui
@@ -197,6 +198,7 @@ def _render_string(owner, item, compact=False):
     control = QtGui.QLineEdit(
         text_type(props.get("value", ""))
     )
+    container._item_controls = [control]
 
     if compact:
         control.setMinimumWidth(80)
@@ -342,8 +344,8 @@ def _render_numeric(owner, item, compact=False, is_float=False):
                         current_slider.setValue(
                             _float_slider_position(
                                 value,
-                                minimum,
-                                maximum
+                                props["min"],
+                                props["max"]
                             )
                         )
                     else:
@@ -360,8 +362,8 @@ def _render_numeric(owner, item, compact=False, is_float=False):
                     current_spin.setValue(
                         _float_slider_value(
                             position,
-                            minimum,
-                            maximum
+                            props["min"],
+                            props["max"]
                         )
                     )
                 else:
@@ -373,6 +375,7 @@ def _render_numeric(owner, item, compact=False, is_float=False):
         control_root.setMinimumWidth(100)
 
     layout.addWidget(control_root, 1)
+    container._item_controls = spins + [slider for slider in sliders if slider is not None]
     return container
 
 
@@ -401,6 +404,7 @@ def _render_menu(owner, item, compact=False):
         compact=compact
     )
     control = QtGui.QComboBox()
+    container._item_controls = [control]
     control.addItems(props["items"])
 
     index = control.findText(props["value"])
@@ -419,20 +423,21 @@ def _render_menu(owner, item, compact=False):
 
 
 def _render_color(owner, item, compact=False):
+    from .color_control import ColorControl
     props = _props(item)
     container, layout = owner._parameter_container(
         item,
         compact=compact
     )
-    control = QtGui.QPushButton(
-        "..." if compact else "Choose..."
-    )
-    owner._color_button_style(control, props["value"])
-    connect_value_signal(container, control.clicked,
-        lambda checked=False, item_id=item["id"], widget=control:
-        owner._choose_runtime_color(item_id, widget)
-    )
-    layout.addWidget(control, 0)
+    control = ColorControl(props["value"])
+    control.configure(props.get("show_rgb", True), props.get("rgb_range", "0-1"),
+                      props.get("show_hex", True))
+    container.color_control = control
+    container._item_controls = [control]
+    connect_value_signal(container, control.valueChanged,
+        lambda value, item_id=item["id"]:
+        owner.toolbox.store_value(item_id, value))
+    layout.addWidget(control, 1)
     return container
 
 
@@ -473,6 +478,16 @@ def _prepare_runtime_renderer(kind, renderer):
     install_event_binding_hooks(registry)
     synchronize_runtime_value_renderers(registry)
     prepared = registry.renderer_for(kind)
+    if kind in ("button", "toggle_button", "string", "integer", "float", "menu",
+                "color", "checkbox", "label", "icon", "toggle_icon", "field"):
+        decorated = prepared
+
+        @wraps(decorated)
+        def prepared(owner, item, compact=False):
+            from .layout_helpers import configure_runtime_item_geometry
+            return configure_runtime_item_geometry(
+                decorated(owner, item, compact=compact), item, getattr(owner, "content", None))
+
     prepared._script_toolbox_raw_renderer = renderer
     return prepared
 

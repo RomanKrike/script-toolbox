@@ -10,6 +10,7 @@ from ..compat import QtGui
 from ..model.item_builtins import register_builtin_items
 from ..model.item_registry import ITEM_TYPES
 from ..model.items import safe_color
+from ..style.palette import SCRIPT_BUTTON_BG
 from ..pycompat import text_type
 from ..style.metrics import RUNTIME_FOLDER_CONTENT_MARGINS
 from ..style.metrics import RUNTIME_FOLDER_CONTENT_SPACING
@@ -205,7 +206,144 @@ class DisplayFieldList(QtGui.QListWidget):
         QtGui.QListWidget.keyPressEvent(self, event)
 
 
-class LegacyRuntimeFolder(QtGui.QFrame):
+class RuntimeControlFactory(object):
+    """Shared control construction for folder and spreadsheet owners."""
+
+    def _label(self, item):
+        ui = _ui(item)
+        if not ui.get("show_label", True):
+            return ""
+        return ui.get("label", "")
+
+    def _tooltip(self, item):
+        return _ui(item).get("tooltip", "")
+
+    def _parameter_container(
+        self,
+        item,
+        compact=False
+    ):
+        widget = QtGui.QWidget()
+        layout = QtGui.QHBoxLayout(widget)
+        layout.setContentsMargins(*RUNTIME_PARAMETER_ROW_MARGINS)
+        layout.setSpacing(RUNTIME_PARAMETER_SPACING)
+
+        label_text = self._label(item)
+        if label_text:
+            label = QtGui.QLabel(label_text)
+            widget._item_label = label
+            if not compact:
+                label.setMinimumWidth(RUNTIME_PARAMETER_LABEL_WIDTH)
+            layout.addWidget(label)
+
+        widget.setToolTip(self._tooltip(item))
+        return widget, layout
+
+    def _button_widget(self, item):
+        button = QtGui.QPushButton(self._label(item))
+        button.setObjectName("ScriptButton")
+        button.setToolTip(self._tooltip(item))
+        props = _props(item)
+
+        rgb = [
+            int(value * 255)
+            for value in safe_color(props.get("color"))
+        ]
+        button.setStyleSheet(
+            "QPushButton#ScriptButton {background-color: rgb(%d,%d,%d);}" % (
+                rgb[0],
+                rgb[1],
+                rgb[2]
+            )
+        )
+        if safe_color(props.get("color")) == [0.25, 0.25, 0.25]:
+            button.setStyleSheet(
+                "QPushButton#ScriptButton {background-color: %s; /* toolbox-color:SCRIPT_BUTTON_BG */}" % SCRIPT_BUTTON_BG
+            )
+        button.clicked.connect(
+            lambda checked=False, item_id=item["id"]:
+            self.toolbox.run_item(item_id)
+        )
+        return button
+
+    def _checkbox_widget(
+        self,
+        item,
+        compact=False
+    ):
+        props = _props(item)
+        label_position = props.get("label_position", "right")
+
+        if label_position == "left":
+            container, layout = self._parameter_container(
+                item,
+                compact=compact
+            )
+            checkbox = QtGui.QCheckBox()
+            container._item_controls = [checkbox]
+            checkbox.setToolTip(self._tooltip(item))
+            checkbox.setChecked(bool(props.get("value", False)))
+            connect_value_signal(container, checkbox.toggled,
+                lambda value, item_id=item["id"]:
+                self.toolbox.store_value(item_id, bool(value))
+            )
+            layout.addWidget(checkbox, 0)
+            return container
+
+        checkbox = QtGui.QCheckBox(self._label(item))
+        checkbox._item_controls = [checkbox]
+        checkbox.setToolTip(self._tooltip(item))
+        checkbox.setChecked(bool(props.get("value", False)))
+        connect_value_signal(checkbox, checkbox.toggled,
+            lambda value, item_id=item["id"]:
+            self.toolbox.store_value(item_id, bool(value))
+        )
+        return checkbox
+
+    def _separator_widget(self, compact=False):
+        container = QtGui.QWidget()
+        container.setObjectName("RuntimeSeparatorContainer")
+
+        if compact:
+            layout = QtGui.QHBoxLayout(container)
+            layout.setContentsMargins(4, 0, 4, 0)
+            line = QtGui.QFrame(container)
+            line.setObjectName("RuntimeSeparatorLineVertical")
+            line.setFrameShape(QtGui.QFrame.NoFrame)
+            line.setFixedWidth(1)
+            line.setSizePolicy(
+                QtGui.QSizePolicy.Fixed,
+                QtGui.QSizePolicy.Expanding
+            )
+        else:
+            layout = QtGui.QVBoxLayout(container)
+            layout.setContentsMargins(0, 4, 0, 4)
+            line = QtGui.QFrame(container)
+            line.setObjectName("RuntimeSeparatorLine")
+            line.setFrameShape(QtGui.QFrame.NoFrame)
+            line.setFixedHeight(1)
+            line.setSizePolicy(
+                QtGui.QSizePolicy.Expanding,
+                QtGui.QSizePolicy.Fixed
+            )
+
+        layout.setSpacing(0)
+        layout.addWidget(line)
+        return container
+
+    def build_runtime_widget(
+        self,
+        item,
+        compact=False
+    ):
+        return _runtime_registry().render(
+            self,
+            item,
+            compact=compact
+        )
+
+
+class LegacyRuntimeFolder(RuntimeControlFactory, QtGui.QFrame):
     """Runtime renderer for a section container and its nested Items."""
 
     def __init__(
@@ -310,6 +448,8 @@ class LegacyRuntimeFolder(QtGui.QFrame):
                     candidate = items[index]
                     if _section_group_mode(candidate) != group_mode:
                         break
+                    if _ui(candidate).get("horizontal_alignment", "stretch") != _ui(item).get("horizontal_alignment", "stretch"):
+                        break
                     group.append(candidate)
                     index += 1
 
@@ -333,177 +473,15 @@ class LegacyRuntimeFolder(QtGui.QFrame):
                 index += 1
 
             if widget is not None:
-                self.content_layout.addWidget(widget)
-
-    def _label(self, item):
-        ui = _ui(item)
-        if not ui.get("show_label", True):
-            return ""
-        return ui.get("label", "")
-
-    def _tooltip(self, item):
-        return _ui(item).get("tooltip", "")
-
-    def _parameter_container(
-        self,
-        item,
-        compact=False
-    ):
-        widget = QtGui.QWidget()
-        layout = QtGui.QHBoxLayout(widget)
-        layout.setContentsMargins(*RUNTIME_PARAMETER_ROW_MARGINS)
-        layout.setSpacing(RUNTIME_PARAMETER_SPACING)
-
-        label_text = self._label(item)
-        if label_text:
-            label = QtGui.QLabel(label_text)
-            if not compact:
-                label.setMinimumWidth(RUNTIME_PARAMETER_LABEL_WIDTH)
-            layout.addWidget(label)
-
-        widget.setToolTip(self._tooltip(item))
-        return widget, layout
-
-    def _button_widget(self, item):
-        button = QtGui.QPushButton(self._label(item))
-        button.setObjectName("ScriptButton")
-        button.setToolTip(self._tooltip(item))
-        props = _props(item)
-
-        rgb = [
-            int(value * 255)
-            for value in safe_color(props.get("color"))
-        ]
-        button.setStyleSheet(
-            "QPushButton#ScriptButton {background-color: rgb(%d,%d,%d);}" % (
-                rgb[0],
-                rgb[1],
-                rgb[2]
-            )
-        )
-        button.clicked.connect(
-            lambda checked=False, item_id=item["id"]:
-            self.toolbox.run_item(item_id)
-        )
-        return button
-
-    def _checkbox_widget(
-        self,
-        item,
-        compact=False
-    ):
-        props = _props(item)
-        label_position = props.get("label_position", "right")
-
-        if label_position == "left":
-            container, layout = self._parameter_container(
-                item,
-                compact=compact
-            )
-            checkbox = QtGui.QCheckBox()
-            checkbox.setToolTip(self._tooltip(item))
-            checkbox.setChecked(bool(props.get("value", False)))
-            connect_value_signal(container, checkbox.toggled,
-                lambda value, item_id=item["id"]:
-                self.toolbox.store_value(item_id, bool(value))
-            )
-            layout.addWidget(checkbox, 0)
-            return container
-
-        checkbox = QtGui.QCheckBox(self._label(item))
-        checkbox.setToolTip(self._tooltip(item))
-        checkbox.setChecked(bool(props.get("value", False)))
-        connect_value_signal(checkbox, checkbox.toggled,
-            lambda value, item_id=item["id"]:
-            self.toolbox.store_value(item_id, bool(value))
-        )
-        return checkbox
-
-    def _color_button_style(self, button, color):
-        rgb = [
-            int(value * 255)
-            for value in safe_color(color)
-        ]
-        button.setStyleSheet(
-            "QPushButton {background-color: rgb(%d,%d,%d);}" % (
-                rgb[0],
-                rgb[1],
-                rgb[2]
-            )
-        )
-
-    def _choose_runtime_color(
-        self,
-        item_id,
-        button
-    ):
-        value = self.toolbox.get_value(
-            item_id,
-            [0.5, 0.5, 0.5]
-        )
-        color = safe_color(value)
-        initial = QtGui.QColor(
-            int(color[0] * 255),
-            int(color[1] * 255),
-            int(color[2] * 255)
-        )
-        chosen = QtGui.QColorDialog.getColor(
-            initial,
-            self,
-            "Choose Color"
-        )
-        if not chosen.isValid():
-            return
-
-        value = [
-            chosen.red() / 255.0,
-            chosen.green() / 255.0,
-            chosen.blue() / 255.0
-        ]
-        self.toolbox.store_value(item_id, value)
-        self._color_button_style(button, value)
-
-    def _separator_widget(self, compact=False):
-        container = QtGui.QWidget()
-        container.setObjectName("RuntimeSeparatorContainer")
-
-        if compact:
-            layout = QtGui.QHBoxLayout(container)
-            layout.setContentsMargins(4, 0, 4, 0)
-            line = QtGui.QFrame(container)
-            line.setObjectName("RuntimeSeparatorLineVertical")
-            line.setFrameShape(QtGui.QFrame.NoFrame)
-            line.setFixedWidth(1)
-            line.setSizePolicy(
-                QtGui.QSizePolicy.Fixed,
-                QtGui.QSizePolicy.Expanding
-            )
-        else:
-            layout = QtGui.QVBoxLayout(container)
-            layout.setContentsMargins(0, 4, 0, 4)
-            line = QtGui.QFrame(container)
-            line.setObjectName("RuntimeSeparatorLine")
-            line.setFrameShape(QtGui.QFrame.NoFrame)
-            line.setFixedHeight(1)
-            line.setSizePolicy(
-                QtGui.QSizePolicy.Expanding,
-                QtGui.QSizePolicy.Fixed
-            )
-
-        layout.setSpacing(0)
-        layout.addWidget(line)
-        return container
-
-    def build_runtime_widget(
-        self,
-        item,
-        compact=False
-    ):
-        return _runtime_registry().render(
-            self,
-            item,
-            compact=compact
-        )
+                alignment = {
+                    "left": QtCore.Qt.AlignLeft,
+                    "center": QtCore.Qt.AlignHCenter,
+                    "right": QtCore.Qt.AlignRight,
+                }.get(_ui(item).get("horizontal_alignment"))
+                if alignment is None:
+                    self.content_layout.addWidget(widget)
+                else:
+                    self.content_layout.addWidget(widget, 0, alignment)
 
     def toggle(self):
         if self.folder_type != "collapsible":
@@ -560,6 +538,7 @@ class RuntimeFolderTabs(QtGui.QFrame):
         layout.setSpacing(RUNTIME_GROUP_SPACING)
         self.tabs = QtGui.QTabWidget()
         layout.addWidget(self.tabs)
+        self.pages = []
 
         for folder in folders:
             page = RuntimeFolder(
@@ -575,6 +554,29 @@ class RuntimeFolderTabs(QtGui.QFrame):
                 else ""
             )
             self.tabs.addTab(page, label)
+            self.pages.append((page, label))
+            register = getattr(toolbox, "register_condition_widget", None)
+            if callable(register):
+                register(folder, page, lambda visible, enabled, p=page:
+                         self._apply_page_state(p, visible, enabled))
+
+    def _apply_page_state(self, page, visible, enabled):
+        index = self.tabs.indexOf(page)
+        if not visible and index >= 0:
+            self.tabs.removeTab(index)
+        elif visible and index < 0:
+            position = 0
+            for candidate, label in self.pages:
+                if candidate is page:
+                    self.tabs.insertTab(position, page, label)
+                    break
+                if self.tabs.indexOf(candidate) >= 0:
+                    position += 1
+        index = self.tabs.indexOf(page)
+        if index >= 0:
+            self.tabs.setTabEnabled(index, enabled)
+        page.setEnabled(enabled)
+        self.setVisible(self.tabs.count() > 0)
 
 
 class RuntimeFolderRadio(QtGui.QFrame):
@@ -595,6 +597,7 @@ class RuntimeFolderRadio(QtGui.QFrame):
         radio_row.setSpacing(8)
         self.group = QtGui.QButtonGroup(self)
         self.stack = QtGui.QStackedWidget()
+        self.page_states = {}
 
         for index, folder in enumerate(folders):
             ui = _ui(folder)
@@ -614,6 +617,11 @@ class RuntimeFolderRadio(QtGui.QFrame):
                 embedded=True
             )
             self.stack.addWidget(page)
+            self.page_states[index] = (True, True)
+            register = getattr(toolbox, "register_condition_widget", None)
+            if callable(register):
+                register(folder, page, lambda visible, enabled, i=index:
+                         self._apply_page_state(i, visible, enabled))
             button.toggled.connect(
                 lambda checked, i=index:
                 self._set_page(checked, i)
@@ -628,6 +636,22 @@ class RuntimeFolderRadio(QtGui.QFrame):
     def _set_page(self, checked, index):
         if checked:
             self.stack.setCurrentIndex(index)
+
+    def _apply_page_state(self, index, visible, enabled):
+        self.page_states[index] = (visible, enabled)
+        button = self.group.button(index)
+        button.setVisible(visible)
+        button.setEnabled(enabled)
+        self.stack.widget(index).setEnabled(enabled)
+        available = [i for i in sorted(self.page_states)
+                     if self.page_states[i] == (True, True)]
+        visible_pages = [i for i in sorted(self.page_states) if self.page_states[i][0]]
+        candidates = available or visible_pages
+        current = self.stack.currentIndex()
+        if current not in candidates and candidates:
+            self.group.button(candidates[0]).setChecked(True)
+        self.stack.setVisible(bool(visible_pages))
+        self.setVisible(bool(visible_pages))
 
 
 class _RuntimeRootOwner(object):

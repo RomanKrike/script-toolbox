@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Add monochrome icons to Settings categories with room for their labels.
+- Match nested simple-folder title fills to their surrounding folder surface.
+- Show consistent monochrome item-type icons in the creation palette and existing-parameter tree.
+- Balance the charcoal theme with gently inset inputs, soft gray outlines, lighter buttons and a muted warm focus accent.
+
+- Use the Field list surface for text, numeric, menu and color-channel input backgrounds.
+- Scope the runtime scroll viewport background so it cannot override nested input fills.
+- Share a 28 px baseline for single-line items, including buttons, numeric controls, colors, checkboxes and labels; align String and Color inside rows.
+- Use shared metrics for script-button padding and icon feedback chrome; retain that chrome when toggle icons refresh.
+- Preserve custom icon artwork, large button icons, multiline content and explicit container sizing.
+
 ## 1.2.0 — 2026-10-08
 
 ### Added

@@ -10,9 +10,11 @@ from ...core.preferences import load_preferences
 from ...core.preferences import set_inspector_section_collapsed
 from ...model.items import normalize_item_props_candidate
 from ...model.items import sanitize_name
+from ...core.expressions import validate_name, PROPERTIES
+from ...model.items import walk_items
 from ...pycompat import text_type
 from ...style.metrics import PROPERTY_EDITOR_SPACING
-from ...style.palette import WINDOW_BG
+from ...style.palette import PROPERTY_BG
 from .toggle_state_tabs import IntegratedBindingPanel as BindingPanel
 from .script_editor_sizing import configure_property_editor
 from .layout_adapter import LayoutPropertyAdapter
@@ -43,11 +45,11 @@ class PropertyEditorBase(QtGui.QWidget):
             editor_palette = self.palette()
             editor_palette.setColor(
                 QtGui.QPalette.Window,
-                QtGui.QColor(WINDOW_BG)
+                QtGui.QColor(PROPERTY_BG)
             )
             editor_palette.setColor(
                 QtGui.QPalette.Base,
-                QtGui.QColor(WINDOW_BG)
+                QtGui.QColor(PROPERTY_BG)
             )
             self.setPalette(editor_palette)
             self.setAutoFillBackground(True)
@@ -82,6 +84,19 @@ class PropertyEditorBase(QtGui.QWidget):
         self.general_section.addRow("Label", self.label_edit)
         self.general_section.addRow("Show Label", self.show_label_check)
         self.general_section.addRow("Tooltip", self.tooltip_edit)
+        self.name_error = QtGui.QLabel()
+        self.name_error.setObjectName("HintText")
+        self.name_error.setWordWrap(True)
+        self.general_section.addRow("", self.name_error)
+        self.name_error.hide()
+        from .expressions import ExpressionProperty
+        self.expression_controls = {}
+        for prop in PROPERTIES:
+            control = ExpressionProperty(prop, self)
+            self.expression_controls[prop] = control
+            self.general_section.addRow(prop.title(), control)
+            control.changed.connect(self._control_changed)
+        self.name_edit.setToolTip("Expression name: unique A-Z, digits and _. Reserved words are forbidden.")
 
         # LAYOUT ----------------------------------------------------------
         # These controls edit only universal Item ``ui`` presentation data.
@@ -110,9 +125,9 @@ class PropertyEditorBase(QtGui.QWidget):
         self.layout_horizontal_alignment = QtGui.QComboBox()
         self.layout_horizontal_alignment.addItems([
             "Stretch",
-            "Start",
+            "Left",
             "Center",
-            "End",
+            "Right",
         ])
         self.layout_vertical_alignment = QtGui.QComboBox()
         self.layout_vertical_alignment.addItems([
@@ -168,6 +183,9 @@ class PropertyEditorBase(QtGui.QWidget):
         )
         self.column_height.valueChanged.connect(self._control_changed)
         self.column_stretch.valueChanged.connect(
+            self._control_changed
+        )
+        self.layout_horizontal_alignment.currentIndexChanged.connect(
             self._control_changed
         )
         self.binding_panel.changed.connect(
@@ -377,6 +395,8 @@ class PropertyEditorBase(QtGui.QWidget):
             self.tooltip_edit.setText(
                 text_type(ui.get("tooltip", ""))
             )
+            for control in self.expression_controls.values():
+                control.load(ui)
 
             self.layout_adapter.load(ui)
             self.binding_panel.load(item)
@@ -406,6 +426,31 @@ class PropertyEditorBase(QtGui.QWidget):
     def write_to_item(self):
         if self.item is None:
             return
+        from ...core.item_changes import update_item
+        from ...model.items import ITEM_UI_FIELDS
+        original = self.item
+        candidate = copy.deepcopy(original)
+        self.item = candidate
+        try:
+            self._write_item_candidate()
+        finally:
+            self.item = original
+        properties = {}
+        for section in ("props", "ui"):
+            for name, value in candidate.get(section, {}).items():
+                if section == "ui" and name not in ITEM_UI_FIELDS:
+                    continue
+                if original.get(section, {}).get(name) != value:
+                    properties[section + "." + name] = value
+        update_item(original, properties)
+        original["name"] = candidate["name"]
+        original["bindings"] = candidate.get("bindings", [])
+        for prop in ("visible", "enabled"):
+            refs = prop + "_references"
+            if refs in candidate.get("ui", {}):
+                original["ui"][refs] = candidate["ui"][refs]
+
+    def _write_item_candidate(self):
 
         kind = self.item.get("kind", "item")
         ui = self.item.setdefault("ui", {})
@@ -437,6 +482,8 @@ class PropertyEditorBase(QtGui.QWidget):
             )
 
         self.layout_adapter.write(ui)
+        for control in self.expression_controls.values():
+            control.write(ui)
         self.write_specific(candidate_props)
         normalized_props = normalize_item_props_candidate(
             self.item,
@@ -449,8 +496,26 @@ class PropertyEditorBase(QtGui.QWidget):
         if self.loading:
             return
 
+        try:
+            name = validate_name(text_type(self.name_edit.text()))
+            document = getattr(self, "expression_document", None) or getattr(self.toolbox, "config", {})
+            if any(item.get("name") == name and item.get("id") != self.item.get("id")
+                   for item in walk_items(document, include_sections=True)):
+                raise ValueError("This parameter name is already used.")
+        except ValueError as exc:
+            self.name_error.setText(text_type(exc))
+            self.name_error.show()
+            return
+        self.name_error.hide()
+
         self.write_to_item()
         self.changed.emit()
+        for control in self.expression_controls.values():
+            source = text_type(self.item['ui'].get(control.prop + '_expression', ''))
+            if text_type(control.editor.toPlainText()) != source:
+                control.load(self.item['ui'])
+            else:
+                control.refresh()
 
 
 class ValuePropertyEditorBase(PropertyEditorBase):
@@ -483,11 +548,11 @@ class EmptyPropertyEditor(QtGui.QWidget):
             editor_palette = self.palette()
             editor_palette.setColor(
                 QtGui.QPalette.Window,
-                QtGui.QColor(WINDOW_BG)
+                QtGui.QColor(PROPERTY_BG)
             )
             editor_palette.setColor(
                 QtGui.QPalette.Base,
-                QtGui.QColor(WINDOW_BG)
+                QtGui.QColor(PROPERTY_BG)
             )
             self.setPalette(editor_palette)
             self.setAutoFillBackground(True)

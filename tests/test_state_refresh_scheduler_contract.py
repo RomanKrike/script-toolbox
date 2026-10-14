@@ -33,7 +33,9 @@ def test_runtime_value_changes_request_scheduled_refresh():
     scheduler_start = source.index("    # State refresh scheduling")
     store_block = source[store_start:scheduler_start]
 
-    assert "self.request_state_refresh()" in store_block
+    assert "base_main_window.ScriptToolbox.store_value(self, key, value)" in store_block
+    mutations = _source("scripts/script_toolbox/ui/item_changes.py")
+    assert "self.refresh_state_buttons()" in mutations
     assert "self.refresh_state_buttons()" not in store_block
 
 

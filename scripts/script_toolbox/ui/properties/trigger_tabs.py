@@ -277,6 +277,14 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
         )
         self._add_tab_spacer = spacer
 
+    def _schedule_add_position(self):
+        timer = getattr(self, "_add_position_timer", None)
+        if timer is None:
+            timer = self._add_position_timer = QtCore.QTimer(self)
+            timer.setSingleShot(True)
+            timer.timeout.connect(self._position_add_button)
+        timer.start(0)
+
     def _position_add_button(self):
         if (
             self._add_tab_page is None or
@@ -338,10 +346,7 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
             index
         )
         self._ensure_add_button()
-        QtCore.QTimer.singleShot(
-            0,
-            self._position_add_button
-        )
+        self._schedule_add_position()
 
     def _remove_add_tab(self):
         if self._add_tab_button is not None:
@@ -391,10 +396,7 @@ class TriggerTabBindingPanel(_BaseBindingPanel):
                 QtCore.QEvent.Show,
                 QtCore.QEvent.LayoutRequest,
             ):
-                QtCore.QTimer.singleShot(
-                    0,
-                    self._position_add_button
-                )
+                self._schedule_add_position()
 
             if event_type == QtCore.QEvent.MouseButtonPress:
                 index = watched.tabAt(

@@ -8,6 +8,7 @@ def test_rewrite_python_references_updates_managed_literal_arguments_only():
     source = "\n".join([
         "value = toolbox.get_value('source_mesh')",
         'toolbox.set_value("source_mesh", value)',
+        'toolbox.item("source_mesh").set(value=value)',
         "toolbox.add_to_field('source_mesh', ['pCube1'])",
         "plain = 'source_mesh'",
         "# toolbox.get_value('source_mesh')",
@@ -24,6 +25,7 @@ def test_rewrite_python_references_updates_managed_literal_arguments_only():
 
     assert "toolbox.get_value('source_mesh_2')" in rewritten
     assert 'toolbox.set_value("source_mesh_2", value)' in rewritten
+    assert 'toolbox.item("source_mesh_2").set(value=value)' in rewritten
     assert "toolbox.add_to_field('source_mesh_2', ['pCube1'])" in rewritten
     assert "plain = 'source_mesh'" in rewritten
     assert "# toolbox.get_value('source_mesh')" in rewritten

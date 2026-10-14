@@ -56,10 +56,22 @@ class LayoutPropertyAdapter(object):
             equal_size_field and
             parent_props.get(equal_size_field, False)
         )
+        if self.folder_context() and isinstance(self.editor.item, dict):
+            self._load_horizontal_alignment(self.editor.item.get("ui", {}))
         self.refresh()
+
+    def _load_horizontal_alignment(self, ui):
+        ui = ui if isinstance(ui, dict) else {}
+        control = self.editor.layout_horizontal_alignment
+        blocked = control.blockSignals(True)
+        control.setCurrentIndex({
+            "stretch": 0, "left": 1, "center": 2, "right": 3,
+        }.get(ui.get("horizontal_alignment", "stretch"), 0))
+        control.blockSignals(blocked)
 
     def load(self, ui):
         ui = ui if isinstance(ui, dict) else {}
+        self._load_horizontal_alignment(ui)
         width_mode = ui.get("width_mode", "auto")
         self.editor.row_width_mode.setCurrentIndex({
             "auto": 0,
@@ -90,8 +102,12 @@ class LayoutPropertyAdapter(object):
     def write(self, ui):
         if not isinstance(ui, dict):
             return
+        if self.folder_context():
+            ui["horizontal_alignment"] = (
+                "stretch", "left", "center", "right"
+            )[self.editor.layout_horizontal_alignment.currentIndex()]
         if (
-            self.editor.row_context and
+            (self.editor.row_context or self.table_context()) and
             not self.editor.row_equal_widths
         ):
             ui["width_mode"] = self.width_mode()
@@ -118,6 +134,15 @@ class LayoutPropertyAdapter(object):
         if index == 1:
             return "stretch"
         return "auto"
+
+    def table_context(self):
+        return bool(self.parent_definition is not None and self.parent_definition.has_capability("table"))
+
+    def folder_context(self):
+        return bool(
+            self.parent_definition is not None and
+            self.parent_definition.is_section
+        )
 
     def height_mode(self):
         index = self.editor.column_height_mode.currentIndex()
@@ -225,7 +250,7 @@ class LayoutPropertyAdapter(object):
                 False,
                 width_reason
             )
-        elif editor.row_context:
+        elif editor.row_context or self.table_context():
             editor.set_property_available(
                 editor.row_width_mode,
                 True
@@ -237,8 +262,8 @@ class LayoutPropertyAdapter(object):
             )
             editor.set_property_available(
                 editor.row_stretch,
-                width_mode == "stretch",
-                "Available when Width Mode is Stretch."
+                width_mode == "stretch" and not self.table_context(),
+                "Table stretch columns share remaining width equally." if self.table_context() else "Available when Width Mode is Stretch."
             )
         else:
             editor.set_property_available(
@@ -289,15 +314,17 @@ class LayoutPropertyAdapter(object):
                 _VERTICAL_HEIGHT_REASON
             )
 
-        editor.layout_horizontal_alignment.setCurrentIndex(
-            self._horizontal_parent_value()
-        )
+        if not self.folder_context():
+            control = editor.layout_horizontal_alignment
+            blocked = control.blockSignals(True)
+            control.setCurrentIndex(self._horizontal_parent_value())
+            control.blockSignals(blocked)
         editor.layout_vertical_alignment.setCurrentIndex(
             self._vertical_parent_value()
         )
         editor.set_property_available(
             editor.layout_horizontal_alignment,
-            False,
+            self.folder_context(),
             self._horizontal_alignment_reason()
         )
         editor.set_property_available(

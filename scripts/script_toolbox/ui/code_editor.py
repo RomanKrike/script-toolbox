@@ -3,14 +3,7 @@ from __future__ import print_function
 
 from ..compat import QtCore
 from ..compat import QtGui
-from ..style.palette import CODE_CURRENT_LINE_BG
-from ..style.palette import CODE_GUTTER_BG
-from ..style.palette import CODE_LINE_NUMBER
-from ..style.palette import SYNTAX_COMMENT
-from ..style.palette import SYNTAX_HOST
-from ..style.palette import SYNTAX_KEYWORD
-from ..style.palette import SYNTAX_NUMBER
-from ..style.palette import SYNTAX_STRING
+from ..style.themes import themed_color
 from .autocomplete import CompletionController
 
 
@@ -236,11 +229,11 @@ class CodeEditor(QtGui.QPlainTextEdit):
 
         painter.fillRect(
             event.rect(),
-            QtGui.QColor(CODE_GUTTER_BG)
+            QtGui.QColor(themed_color("CODE_GUTTER_BG", self))
         )
 
         painter.setPen(
-            QtGui.QColor(CODE_LINE_NUMBER)
+            QtGui.QColor(themed_color("CODE_LINE_NUMBER", self))
         )
 
         block = self.firstVisibleBlock()
@@ -286,11 +279,15 @@ class CodeEditor(QtGui.QPlainTextEdit):
             )
             number += 1
 
+    def toolbox_theme_changed(self):
+        self.highlight_line()
+        self.line_numbers.update()
+
     def highlight_line(self):
         selection = QtGui.QTextEdit.ExtraSelection()
 
         selection.format.setBackground(
-            QtGui.QColor(CODE_CURRENT_LINE_BG)
+            QtGui.QColor(themed_color("CODE_CURRENT_LINE_BG", self))
         )
 
         selection.format.setProperty(
@@ -367,25 +364,28 @@ class ScriptHighlighter(QtGui.QSyntaxHighlighter):
         self.language = language
         self.rebuild()
 
+    def toolbox_theme_changed(self):
+        self.rebuild()
+
     def rebuild(self):
         self.rules = []
 
         keyword_fmt = self._fmt(
-            SYNTAX_KEYWORD,
+            themed_color("SYNTAX_KEYWORD", self),
             bold=True
         )
         string_fmt = self._fmt(
-            SYNTAX_STRING
+            themed_color("SYNTAX_STRING", self)
         )
         comment_fmt = self._fmt(
-            SYNTAX_COMMENT,
+            themed_color("SYNTAX_COMMENT", self),
             italic=True
         )
         number_fmt = self._fmt(
-            SYNTAX_NUMBER
+            themed_color("SYNTAX_NUMBER", self)
         )
         host_fmt = self._fmt(
-            SYNTAX_HOST
+            themed_color("SYNTAX_HOST", self)
         )
 
         words = (

@@ -7,6 +7,7 @@ import copy
 import os
 
 from ..compat import HOST
+from ..style.themes import set_item_color
 from ..compat import QtCore
 from ..compat import QtGui
 from ..constants import EDITOR_OBJECT_NAME
@@ -25,13 +26,14 @@ from ..pycompat import text_type
 from ..style import STYLE
 from ..style import apply_window_icon
 from ..style import metrics
-from ..style.palette import TEXT_PALETTE_GROUP
-from ..style.palette import WINDOW_BG
+from ..style.palette import PROPERTY_BG
 from .editor_search import filter_existing_parameters as filter_editor_structure
 from .icon_button import ICON_BUTTON_COMPACT
 from .icon_button import create_icon_button
 from .interface_tree import ExistingInterfaceTree
 from .item_palette import palette_groups
+from ..style.builtin_icons import item_type_icon
+from .palette_drag import CreationPaletteTree
 from .layout_editor_adapter import create_layout_from_palette
 from .layout_editor_adapter import fix_layout_tree_structure
 from .layout_editor_adapter import insert_layout_cloned_tree_item
@@ -137,6 +139,9 @@ class InterfaceEditor(QtGui.QDialog):
         self.build_ui()
         self.populate_tree()
 
+        from ..style.themes import controller
+        controller().register(self)
+
     # ------------------------------------------------------------------
     # UI
     # ------------------------------------------------------------------
@@ -202,7 +207,8 @@ class InterfaceEditor(QtGui.QDialog):
             left_title
         )
 
-        self.palette = QtGui.QTreeWidget()
+        self.palette = CreationPaletteTree(self)
+        self.palette.setIconSize(QtCore.QSize(metrics.EDITOR_ITEM_ICON_SIZE, metrics.EDITOR_ITEM_ICON_SIZE))
         self.palette.setObjectName(
             "ParameterPalette"
         )
@@ -248,14 +254,7 @@ class InterfaceEditor(QtGui.QDialog):
                 0,
                 group_font
             )
-            group_item.setForeground(
-                0,
-                QtGui.QBrush(
-                    QtGui.QColor(
-                        TEXT_PALETTE_GROUP
-                    )
-                )
-            )
+            set_item_color(group_item, 0, "TEXT_PALETTE_GROUP")
 
             self.palette.addTopLevelItem(
                 group_item
@@ -265,6 +264,7 @@ class InterfaceEditor(QtGui.QDialog):
                 item = QtGui.QTreeWidgetItem([
                     label
                 ])
+                item.setIcon(0, item_type_icon(kind))
                 item.setData(
                     0,
                     ROLE_KIND,
@@ -372,6 +372,7 @@ class InterfaceEditor(QtGui.QDialog):
         self.tree = ExistingInterfaceTree(
             self
         )
+        self.tree.setIconSize(QtCore.QSize(metrics.EDITOR_ITEM_ICON_SIZE, metrics.EDITOR_ITEM_ICON_SIZE))
         self.tree.setAlternatingRowColors(
             True
         )
@@ -481,11 +482,11 @@ class InterfaceEditor(QtGui.QDialog):
             viewport_palette = viewport.palette()
             viewport_palette.setColor(
                 QtGui.QPalette.Window,
-                QtGui.QColor(WINDOW_BG)
+                QtGui.QColor(PROPERTY_BG)
             )
             viewport_palette.setColor(
                 QtGui.QPalette.Base,
-                QtGui.QColor(WINDOW_BG)
+                QtGui.QColor(PROPERTY_BG)
             )
             viewport.setPalette(viewport_palette)
             viewport.setAutoFillBackground(True)
@@ -500,11 +501,11 @@ class InterfaceEditor(QtGui.QDialog):
             host_palette = self.property_host.palette()
             host_palette.setColor(
                 QtGui.QPalette.Window,
-                QtGui.QColor(WINDOW_BG)
+                QtGui.QColor(PROPERTY_BG)
             )
             host_palette.setColor(
                 QtGui.QPalette.Base,
-                QtGui.QColor(WINDOW_BG)
+                QtGui.QColor(PROPERTY_BG)
             )
             self.property_host.setPalette(host_palette)
             self.property_host.setAutoFillBackground(True)
@@ -837,6 +838,8 @@ class InterfaceEditor(QtGui.QDialog):
                 for child in clone.get("items", []) or []
             ]
 
+        from ..model.table import remap_columns
+        remap_columns(data, clone)
         return clone
 
     def _cache_subtree(self, data):
@@ -1298,6 +1301,7 @@ class InterfaceEditor(QtGui.QDialog):
             )
         except Exception:
             pass
+        editor.expression_document = self.working
         editor.bind(
             data
         )

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 1.3.0 — 2026-10-14
+
+### Added
+
+- Typed Item-column tables with row API and editor integration.
+- Visibility and enabled expressions, validated Item edits and runtime updates.
+- Appearance themes with palette editing, import/export and custom button colors.
+- Drag-and-drop parameter creation, color controls and image navigation.
+
+### Fixed
+
+- Publish a new stable version containing the Item edit API used by dynamic palette presets.
+
+
 ### Fixed
 
 - Add monochrome icons to Settings categories with room for their labels.

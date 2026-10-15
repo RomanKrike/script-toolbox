@@ -73,8 +73,22 @@ def _contains_managed_block(path):
 
 
 def _shelf_content():
-    return u'''// ScriptToolbox managed shelf\n'''+u'''global proc shelf_ScriptToolbox ()\n'''+u'''{\n'''+u'''    global string $gShelfTopLevel;\n'''+u'''    shelfLayout -cellWidth 34 -cellHeight 34 -parent $gShelfTopLevel "ScriptToolbox";\n'''+u'''    shelfButton\n'''+u'''        -label "ScriptToolbox"\n'''+u'''        -annotation "Open Script Toolbox"\n'''+u'''        -image1 "pythonFamily.png"\n'''+u'''        -command "python(\\\"import script_toolbox; script_toolbox.show()\\\")"\n'''+u'''        -sourceType "mel"\n'''+u'''        "ScriptToolboxOpenButton";\n'''+u'''}\n'''
-
+    """Return a Maya-readable shelf with a direct Python button command."""
+    return u"""// ScriptToolbox managed shelf
+global proc shelf_ScriptToolbox ()
+{
+    global string $gShelfTopLevel;
+    shelfLayout -cellWidth 34 -cellHeight 34 -parent $gShelfTopLevel "ScriptToolbox";
+    shelfButton
+        -parent "ScriptToolbox"
+        -label "ScriptToolbox"
+        -annotation "Open Script Toolbox"
+        -image1 "pythonFamily.png"
+        -sourceType "python"
+        -command "import script_toolbox; script_toolbox.show()"
+        "ScriptToolboxOpenButton";
+}
+"""
 
 def _normalize_options(options):
     options = dict(options or {})

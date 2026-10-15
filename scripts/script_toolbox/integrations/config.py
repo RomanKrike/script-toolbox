@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import tempfile
 
 from ..pycompat import text_type
@@ -452,12 +453,30 @@ def find_profile_id_for_paths(dcc, candidate_paths, path=None):
             )
         )
 
-    for record in get_profile_roots(dcc, path=path):
+    roots = get_profile_roots(dcc, path=path)
+    # Prefer exact matches, including explicitly registered version folders.
+    for record in roots:
         root_path = os.path.normcase(
             os.path.normpath(record["path"])
         )
         if root_path in normalized_candidates:
             return record["id"]
+
+    if text_type(dcc).lower() == "maya":
+        # Maya can report a version-scoped userAppDir, such as
+        # C:/_prefs/maya/2015-x64, while the registered root is
+        # C:/_prefs/maya. Only allow one recognized Maya version level.
+        for candidate in normalized_candidates:
+            folder = os.path.basename(candidate)
+            if not re.match(r"^(?:19|20)\d{2}(?:-x64)?$", folder, re.I):
+                continue
+            parent = os.path.dirname(candidate)
+            for record in roots:
+                root_path = os.path.normcase(
+                    os.path.normpath(record["path"])
+                )
+                if parent == root_path:
+                    return record["id"]
 
     return DEFAULT_PROFILE_ID
 

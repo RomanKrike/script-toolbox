@@ -181,7 +181,7 @@ def test_maya_2015_outdated_shelf_is_detected_and_repaired(tmp_path):
         shelf = stream.read()
     shelf = shelf.replace(
         "    shelfButton",
-        '    shelfLayout -parent $gShelfTopLevel "ScriptToolbox";\\n'
+        '    shelfLayout -parent $gShelfTopLevel "ScriptToolbox";\n'
         "    shelfButton",
         1
     )

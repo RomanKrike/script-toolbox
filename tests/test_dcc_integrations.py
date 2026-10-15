@@ -111,6 +111,56 @@ def test_maya_install_is_idempotent_and_preserves_user_setup(tmp_path):
     assert "ScriptToolboxOpenButton" in shelf_path.read_text(encoding="utf-8")
 
 
+def test_maya_generated_shelf_has_explicit_parent_and_python_command():
+    from script_toolbox.integrations.maya import _shelf_content
+
+    shelf = _shelf_content()
+    assert '        -parent "ScriptToolbox"' in shelf
+    assert '        -sourceType "python"' in shelf
+    assert '        -command "import script_toolbox; script_toolbox.show()"' in shelf
+    assert 'python(\\\\' not in shelf
+
+
+def test_maya_runtime_menu_survives_shelf_failure(monkeypatch):
+    from script_toolbox.integrations import maya_runtime
+
+    calls = []
+    monkeypatch.setattr(maya_runtime, "_current_settings",
+                        lambda: {"main_menu": True, "shelf": True,
+                                 "auto_open": False})
+    monkeypatch.setattr(maya_runtime, "ensure_main_menu",
+                        lambda: calls.append("menu"))
+
+    def broken_shelf():
+        calls.append("shelf")
+        raise RuntimeError("invalid Maya shelf")
+
+    monkeypatch.setattr(maya_runtime, "ensure_shelf_button", broken_shelf)
+
+    assert maya_runtime.apply_current_integration() is False
+    assert calls == ["menu", "shelf"]
+
+
+def test_maya_runtime_shelf_survives_main_menu_failure(monkeypatch):
+    from script_toolbox.integrations import maya_runtime
+
+    calls = []
+    monkeypatch.setattr(maya_runtime, "_current_settings",
+                        lambda: {"main_menu": True, "shelf": True,
+                                 "auto_open": False})
+
+    def broken_menu():
+        calls.append("menu")
+        raise RuntimeError("MayaWindow unavailable")
+
+    monkeypatch.setattr(maya_runtime, "ensure_main_menu", broken_menu)
+    monkeypatch.setattr(maya_runtime, "ensure_shelf_button",
+                        lambda: calls.append("shelf"))
+
+    assert maya_runtime.apply_current_integration() is False
+    assert calls == ["menu", "shelf"]
+
+
 def test_maya_status_and_repair_detect_missing_shelf(tmp_path):
     user_root = tmp_path / "maya"
     (user_root / "2026").mkdir(parents=True)

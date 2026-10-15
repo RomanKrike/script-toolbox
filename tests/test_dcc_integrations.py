@@ -111,6 +111,89 @@ def test_maya_install_is_idempotent_and_preserves_user_setup(tmp_path):
     assert "ScriptToolboxOpenButton" in shelf_path.read_text(encoding="utf-8")
 
 
+def test_maya_generated_shelf_has_explicit_parent_and_python_command():
+    from script_toolbox.integrations.maya import _shelf_content
+
+    shelf = _shelf_content()
+    assert '        -parent "ScriptToolbox"' in shelf
+    assert '        -sourceType "python"' in shelf
+    # Maya's shelf loader creates the shelf before invoking shelf_ScriptToolbox.
+    assert 'shelfLayout -' not in shelf
+    assert '        -command "import script_toolbox; script_toolbox.show()"' in shelf
+    assert 'python(\\\\' not in shelf
+
+
+def test_maya_runtime_menu_survives_shelf_failure(monkeypatch):
+    from script_toolbox.integrations import maya_runtime
+
+    calls = []
+    monkeypatch.setattr(maya_runtime, "_current_settings",
+                        lambda: {"main_menu": True, "shelf": True,
+                                 "auto_open": False})
+    monkeypatch.setattr(maya_runtime, "ensure_main_menu",
+                        lambda: calls.append("menu"))
+
+    def broken_shelf():
+        calls.append("shelf")
+        raise RuntimeError("invalid Maya shelf")
+
+    monkeypatch.setattr(maya_runtime, "ensure_shelf_button", broken_shelf)
+
+    assert maya_runtime.apply_current_integration() is False
+    assert calls == ["menu", "shelf"]
+
+
+def test_maya_runtime_shelf_survives_main_menu_failure(monkeypatch):
+    from script_toolbox.integrations import maya_runtime
+
+    calls = []
+    monkeypatch.setattr(maya_runtime, "_current_settings",
+                        lambda: {"main_menu": True, "shelf": True,
+                                 "auto_open": False})
+
+    def broken_menu():
+        calls.append("menu")
+        raise RuntimeError("MayaWindow unavailable")
+
+    monkeypatch.setattr(maya_runtime, "ensure_main_menu", broken_menu)
+    monkeypatch.setattr(maya_runtime, "ensure_shelf_button",
+                        lambda: calls.append("shelf"))
+
+    assert maya_runtime.apply_current_integration() is False
+    assert calls == ["menu", "shelf"]
+
+
+def test_maya_2015_outdated_shelf_is_detected_and_repaired(tmp_path):
+    user_root = tmp_path / "maya"
+    (user_root / "2015-x64").mkdir(parents=True)
+    adapter = MayaAdapter(
+        distribution_path=str(tmp_path / "ScriptToolbox"),
+        user_root=str(user_root),
+        registry_reader=lambda: [("2015", str(tmp_path / "Maya2015"))],
+        config_path=str(tmp_path / "dcc_integrations.json")
+    )
+    installation = _installation(adapter, "2015")
+    adapter.install(installation)
+    shelf_path = adapter._shelf_path(installation)
+
+    # Simulate the older invalid MEL that creates a second shelf container.
+    with open(shelf_path, "r") as stream:
+        shelf = stream.read()
+    shelf = shelf.replace(
+        "    shelfButton",
+        '    shelfLayout -parent $gShelfTopLevel "ScriptToolbox";\n'
+        "    shelfButton",
+        1
+    )
+    with open(shelf_path, "w") as stream:
+        stream.write(shelf)
+
+    assert adapter.status(installation).state == STATUS_UPDATE_REQUIRED
+    assert adapter.repair(installation).state == STATUS_INSTALLED
+    with open(shelf_path, "r") as stream:
+        assert 'shelfLayout -' not in stream.read()
+
+
 def test_maya_status_and_repair_detect_missing_shelf(tmp_path):
     user_root = tmp_path / "maya"
     (user_root / "2026").mkdir(parents=True)

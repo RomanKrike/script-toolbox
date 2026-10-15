@@ -178,20 +178,31 @@ def apply_current_integration():
         remove_shelf_button()
         return False
 
-    if settings.get("shelf", True):
-        ensure_shelf_button()
-    else:
-        remove_shelf_button()
-
-    if settings.get("main_menu", True):
-        ensure_main_menu()
-    else:
-        remove_main_menu()
+    # A broken shelf must not prevent the independent main menu from loading.
+    success = True
+    components = (
+        ("main menu", settings.get("main_menu", True),
+         ensure_main_menu, remove_main_menu),
+        ("shelf", settings.get("shelf", True),
+         ensure_shelf_button, remove_shelf_button),
+    )
+    for name, enabled, install, remove in components:
+        try:
+            if enabled:
+                install()
+            else:
+                remove()
+        except Exception:
+            _LOGGER.exception("[DCC] Maya %s integration failed.", name)
+            success = False
 
     if settings.get("auto_open", False):
-        _open_toolbox()
-    return True
-
+        try:
+            _open_toolbox()
+        except Exception:
+            _LOGGER.exception("[DCC] Maya startup auto-open failed.")
+            success = False
+    return success
 
 def install_startup_ui():
     """Schedule Maya UI integration after Maya has finished building its UI."""

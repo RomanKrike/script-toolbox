@@ -73,8 +73,22 @@ def _contains_managed_block(path):
 
 
 def _shelf_content():
-    return u'''// ScriptToolbox managed shelf\n'''+u'''global proc shelf_ScriptToolbox ()\n'''+u'''{\n'''+u'''    global string $gShelfTopLevel;\n'''+u'''    shelfLayout -cellWidth 34 -cellHeight 34 -parent $gShelfTopLevel "ScriptToolbox";\n'''+u'''    shelfButton\n'''+u'''        -label "ScriptToolbox"\n'''+u'''        -annotation "Open Script Toolbox"\n'''+u'''        -image1 "pythonFamily.png"\n'''+u'''        -command "python(\\\"import script_toolbox; script_toolbox.show()\\\")"\n'''+u'''        -sourceType "mel"\n'''+u'''        "ScriptToolboxOpenButton";\n'''+u'''}\n'''
-
+    """Return a Maya-readable shelf with a direct Python button command."""
+    return u"""// ScriptToolbox managed shelf
+global proc shelf_ScriptToolbox ()
+{
+    // Maya has already created the ScriptToolbox shelf when it sources this procedure.
+    // Declaring shelfLayout here causes a duplicate-name error (notably in Maya 2015).
+    shelfButton
+        -parent "ScriptToolbox"
+        -label "ScriptToolbox"
+        -annotation "Open Script Toolbox"
+        -image1 "pythonFamily.png"
+        -sourceType "python"
+        -command "import script_toolbox; script_toolbox.show()"
+        "ScriptToolboxOpenButton";
+}
+"""
 
 def _normalize_options(options):
     options = dict(options or {})
@@ -525,6 +539,18 @@ class MayaAdapter(DccAdapter):
             )
 
         desired = _normalize_options(settings or {})
+        if desired["shelf"] and shelf_present:
+            # A managed shelf can exist but still be unreadable by Maya.
+            # Treat the obsolete format as needing an update, not Installed.
+            if _read_text(shelf_path) != _shelf_content():
+                return IntegrationStatus(
+                    STATUS_UPDATE_REQUIRED,
+                    loader=True,
+                    shelf=True,
+                    main_menu=(setup_present and desired["main_menu"]),
+                    auto_open=(setup_present and desired["auto_open"]),
+                    message="The managed Maya Shelf is outdated; run Update or Repair."
+                )
         startup_required = bool(
             desired["shelf"] or
             desired["main_menu"] or

@@ -539,6 +539,18 @@ class MayaAdapter(DccAdapter):
             )
 
         desired = _normalize_options(settings or {})
+        if desired["shelf"] and shelf_present:
+            # A managed shelf can exist but still be unreadable by Maya.
+            # Treat the obsolete format as needing an update, not Installed.
+            if _read_text(shelf_path) != _shelf_content():
+                return IntegrationStatus(
+                    STATUS_UPDATE_REQUIRED,
+                    loader=True,
+                    shelf=True,
+                    main_menu=(setup_present and desired["main_menu"]),
+                    auto_open=(setup_present and desired["auto_open"]),
+                    message="The managed Maya Shelf is outdated; run Update or Repair."
+                )
         startup_required = bool(
             desired["shelf"] or
             desired["main_menu"] or

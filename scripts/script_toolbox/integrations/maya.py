@@ -77,8 +77,8 @@ def _shelf_content():
     return u"""// ScriptToolbox managed shelf
 global proc shelf_ScriptToolbox ()
 {
-    global string $gShelfTopLevel;
-    shelfLayout -cellWidth 34 -cellHeight 34 -parent $gShelfTopLevel "ScriptToolbox";
+    // Maya has already created the ScriptToolbox shelf when it sources this procedure.
+    // Declaring shelfLayout here causes a duplicate-name error (notably in Maya 2015).
     shelfButton
         -parent "ScriptToolbox"
         -label "ScriptToolbox"

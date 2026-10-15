@@ -512,6 +512,92 @@ def test_same_maya_version_profiles_keep_independent_integration_settings(tmp_pa
     assert os.path.isfile(adapter._module_path(parovoz))
 
 
+def test_maya_2015_resolves_custom_root_from_version_folder_only(tmp_path):
+    root = tmp_path / "studio" / "maya"
+    version_path = root / "2015-x64"
+    version_path.mkdir(parents=True)
+    config_path = str(tmp_path / "dcc_integrations.json")
+    root_record = add_profile_root(
+        "maya", str(root), label="Studio", path=config_path
+    )
+
+    assert find_profile_id_for_paths(
+        "maya", [str(version_path)], path=config_path
+    ) == root_record["id"]
+    assert find_profile_id_for_paths(
+        "maya", [str(version_path / "prefs")], path=config_path
+    ) == "default"
+    assert find_profile_id_for_paths(
+        "nuke", [str(version_path)], path=config_path
+    ) == "default"
+
+    # Explicit version roots take priority over their parent root.
+    direct_record = add_profile_root(
+        "maya", str(version_path), label="Maya 2015", path=config_path
+    )
+    assert find_profile_id_for_paths(
+        "maya", [str(version_path)], path=config_path
+    ) == direct_record["id"]
+
+
+def test_maya_2015_runtime_enables_menu_for_version_scoped_profile(
+    tmp_path, monkeypatch
+):
+    from script_toolbox.integrations import maya_runtime
+    from script_toolbox.integrations.config import set_integration_settings
+
+    root = tmp_path / "studio" / "maya"
+    version_path = root / "2015-x64"
+    version_path.mkdir(parents=True)
+    config_path = str(tmp_path / "dcc_integrations.json")
+    record = add_profile_root("maya", str(root), path=config_path)
+    set_integration_settings(
+        "maya", "2015",
+        {"main_menu": True, "shelf": False, "auto_open": False},
+        path=config_path, profile_id=record["id"]
+    )
+
+    class Maya2015Cmds(object):
+        @staticmethod
+        def about(version=False):
+            assert version
+            return "2015"
+
+        @staticmethod
+        def internalVar(userAppDir=False, userPrefDir=False):
+            if userAppDir:
+                return str(version_path)
+            if userPrefDir:
+                return str(version_path / "prefs")
+            raise AssertionError("unexpected internalVar request")
+
+    monkeypatch.setattr(maya_runtime, "_cmds", lambda: Maya2015Cmds)
+    monkeypatch.setattr(
+        maya_runtime, "find_profile_id_for_paths",
+        lambda dcc, paths: find_profile_id_for_paths(
+            dcc, paths, path=config_path
+        )
+    )
+    monkeypatch.setattr(
+        maya_runtime, "get_integration_settings",
+        lambda dcc, version, profile_id=None: get_integration_settings(
+            dcc, version, path=config_path, profile_id=profile_id
+        )
+    )
+    actions = []
+    monkeypatch.setattr(
+        maya_runtime, "ensure_main_menu", lambda: actions.append("menu")
+    )
+    monkeypatch.setattr(
+        maya_runtime, "remove_shelf_button",
+        lambda: actions.append("shelf disabled")
+    )
+
+    assert maya_runtime._current_profile_id() == record["id"]
+    assert maya_runtime.apply_current_integration() is True
+    assert actions == ["menu", "shelf disabled"]
+
+
 def test_runtime_profile_resolution_matches_custom_maya_app_dir(tmp_path):
     config_path = str(tmp_path / "dcc_integrations.json")
     custom_root = tmp_path / "parovoz" / "preferences" / "maya" / "rkrikunov"

@@ -14,6 +14,7 @@ from .managed_files import replace_marked_block
 from .managed_files import marked_block_state
 from .managed_files import write_marked_block
 from .managed_files import remove_marked_block
+from .icons import integration_icon_path
 from .base import DccAdapter
 from .base import DccInstallation
 from .base import IntegrationStatus
@@ -72,7 +73,7 @@ def _contains_managed_block(path):
     return contains_marked_block(path, _USER_SETUP_BEGIN, _USER_SETUP_END)
 
 
-def _shelf_content():
+def _shelf_content(distribution_path=None):
     """Return a Maya-readable shelf with a direct Python button command."""
     return u"""// ScriptToolbox managed shelf
 global proc shelf_ScriptToolbox ()
@@ -83,12 +84,16 @@ global proc shelf_ScriptToolbox ()
         -parent "ScriptToolbox"
         -label "ScriptToolbox"
         -annotation "Open Script Toolbox"
-        -image1 "pythonFamily.png"
+        -image1 "__SCRIPT_TOOLBOX_ICON__"
+        -style "iconOnly"
         -sourceType "python"
         -command "import script_toolbox; script_toolbox.show()"
         "ScriptToolboxOpenButton";
 }
-"""
+""".replace(
+        "__SCRIPT_TOOLBOX_ICON__",
+        integration_icon_path(distribution_path).replace('"', '\\"')
+    )
 
 def _normalize_options(options):
     options = dict(options or {})
@@ -542,7 +547,7 @@ class MayaAdapter(DccAdapter):
         if desired["shelf"] and shelf_present:
             # A managed shelf can exist but still be unreadable by Maya.
             # Treat the obsolete format as needing an update, not Installed.
-            if _read_text(shelf_path) != _shelf_content():
+            if _read_text(shelf_path) != _shelf_content(self.distribution_path):
                 return IntegrationStatus(
                     STATUS_UPDATE_REQUIRED,
                     loader=True,
@@ -616,10 +621,10 @@ class MayaAdapter(DccAdapter):
                             path
                         )
                     )
-                if content == _shelf_content():
+                if content == _shelf_content(self.distribution_path):
                     return path
                 _backup_once(path)
-            _atomic_write(path, _shelf_content())
+            _atomic_write(path, _shelf_content(self.distribution_path))
             return path
 
         if os.path.isfile(path):

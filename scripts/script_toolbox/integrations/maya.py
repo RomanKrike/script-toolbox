@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 import os
+import shutil
 
 from ..constants import PLUGIN_VERSION
 from ..core.logging_utils import get_logger
@@ -15,6 +16,8 @@ from .managed_files import marked_block_state
 from .managed_files import write_marked_block
 from .managed_files import remove_marked_block
 from .icons import integration_icon_path
+from .maya_shelf import resaved_shelf_button
+from .maya_shelf import resaved_shelf_is_current
 from .base import DccAdapter
 from .base import DccInstallation
 from .base import IntegrationStatus
@@ -84,6 +87,7 @@ global proc shelf_ScriptToolbox ()
         -parent "ScriptToolbox"
         -label "ScriptToolbox"
         -annotation "Open Script Toolbox"
+        -docTag "ScriptToolbox/launcher"
         -image1 "__SCRIPT_TOOLBOX_ICON__"
         -style "iconOnly"
         -sourceType "python"
@@ -507,7 +511,9 @@ class MayaAdapter(DccAdapter):
         shelf_present = False
         if os.path.isfile(shelf_path):
             try:
-                shelf_present = _SHELF_MARKER in _read_text(shelf_path)
+                shelf_content = _read_text(shelf_path)
+                shelf_present = (_SHELF_MARKER in shelf_content or
+                                 resaved_shelf_button(shelf_content) is not None)
             except Exception:
                 shelf_present = False
 
@@ -547,7 +553,10 @@ class MayaAdapter(DccAdapter):
         if desired["shelf"] and shelf_present:
             # A managed shelf can exist but still be unreadable by Maya.
             # Treat the obsolete format as needing an update, not Installed.
-            if _read_text(shelf_path) != _shelf_content(self.distribution_path):
+            current_shelf = _read_text(shelf_path)
+            if (current_shelf != _shelf_content(self.distribution_path) and
+                    not resaved_shelf_is_current(
+                        current_shelf, integration_icon_path(self.distribution_path))):
                 return IntegrationStatus(
                     STATUS_UPDATE_REQUIRED,
                     loader=True,
@@ -615,7 +624,8 @@ class MayaAdapter(DccAdapter):
         if enabled:
             if os.path.isfile(path):
                 content = _read_text(path)
-                if _SHELF_MARKER not in content:
+                if (_SHELF_MARKER not in content and
+                        resaved_shelf_button(content) is None):
                     raise MayaIntegrationError(
                         "Cannot install Shelf: {0} already exists and is not managed by Script Toolbox.".format(
                             path
@@ -623,15 +633,30 @@ class MayaAdapter(DccAdapter):
                     )
                 if content == _shelf_content(self.distribution_path):
                     return path
+                if _SHELF_MARKER not in content:
+                    self._backup_resaved_shelf(path)
                 _backup_once(path)
             _atomic_write(path, _shelf_content(self.distribution_path))
             return path
 
         if os.path.isfile(path):
             content = _read_text(path)
-            if _SHELF_MARKER in content:
+            if (_SHELF_MARKER in content or
+                    resaved_shelf_button(content) is not None):
+                if _SHELF_MARKER not in content:
+                    self._backup_resaved_shelf(path)
                 os.remove(path)
         return path
+
+    @staticmethod
+    def _backup_resaved_shelf(path):
+        backup = path + ".script_toolbox.resaved.bak"
+        index = 1
+        while os.path.exists(backup):
+            backup = path + ".script_toolbox.resaved.{0}.bak".format(index)
+            index += 1
+        shutil.copy2(path, backup)
+        return backup
 
     def _sync_live_maya(self, installation):
         try:

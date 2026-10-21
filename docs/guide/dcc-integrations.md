@@ -21,6 +21,13 @@ required**; use **Update** or **Repair** in DCC Integrations, then restart the h
 if its shelf UI is already loaded. Registering the Nuke menu again refreshes its
 icons without duplicating commands.
 
+Maya may rewrite shelf files when saving preferences, dropping the generated
+comment header. A saved single Script Toolbox launcher is also recognized by its
+button metadata and known launch command. New buttons use a persistent `docTag`
+and a serializable Python command. **Repair** backs up an older recognized resave
+as `.script_toolbox.resaved.bak` before rebuilding it. Shelves containing other
+buttons, custom callbacks, or unrelated code remain protected from replacement.
+
 ## Maya integration
 
 Each detected Maya profile target is configured independently. A target is a Maya version plus its user-profile location, so the same Maya version can be integrated into both the default profile and one or more studio-launcher profiles.

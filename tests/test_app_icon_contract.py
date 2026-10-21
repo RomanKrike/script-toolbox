@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import os
+import importlib.util
+import struct
+import sys
+import types
+
+import pytest
 
 
 ROOT = os.path.dirname(
@@ -35,6 +41,72 @@ def test_application_icon_resource_is_valid_ico():
 
     assert header[:4] == b"\x00\x00\x01\x00"
     assert header[4:6] != b"\x00\x00"
+
+
+@pytest.mark.parametrize("filename", [
+    "logo_sbt.ico",
+    "logo_sbt_monochrome.ico",
+])
+def test_brand_icons_contain_complete_windows_size_set(filename):
+    path = os.path.join(
+        ROOT, "scripts", "script_toolbox", "resources", filename
+    )
+    with open(path, "rb") as handle:
+        data = handle.read()
+    reserved, icon_type, count = struct.unpack_from("<HHH", data)
+    assert (reserved, icon_type) == (0, 1)
+    sizes = set()
+    for index in range(count):
+        width, height, colors, unused, planes, bits, length, offset = (
+            struct.unpack_from("<BBBBHHII", data, 6 + index * 16)
+        )
+        size = (width or 256, height or 256)
+        sizes.add(size)
+        assert unused == 0
+        assert planes == 1
+        assert bits == 32
+        assert length > 0
+        assert offset >= 6 + count * 16
+        assert offset + length <= len(data)
+        if size == (256, 256):
+            assert data[offset:offset + 8] == b"\x89PNG\r\n\x1a\n"
+        else:
+            assert struct.unpack_from("<I", data, offset)[0] == 40
+    assert sizes == {
+        (size, size) for size in (16, 20, 24, 32, 40, 48, 64, 96, 128, 256)
+    }
+
+
+def test_color_and_monochrome_window_icons_are_cached_separately(monkeypatch):
+    class FakeIcon(object):
+        def __init__(self, path):
+            self.path = path
+
+        def isNull(self):
+            return False
+
+    compat = types.ModuleType("_branding_test.compat")
+    compat.QtGui = types.SimpleNamespace(QIcon=FakeIcon)
+    monkeypatch.setitem(sys.modules, "_branding_test.compat", compat)
+    spec = importlib.util.spec_from_file_location(
+        "_branding_test.style.app_icon",
+        os.path.join(ROOT, "scripts", "script_toolbox", "style", "app_icon.py")
+    )
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    color = helper.application_icon()
+    monochrome = helper.application_icon(monochrome=True)
+    assert color is helper.application_icon()
+    assert monochrome is helper.application_icon(monochrome=True)
+    assert color is not monochrome
+    assert os.path.basename(color.path) == "logo_sbt.ico"
+    assert os.path.basename(monochrome.path) == "logo_sbt_monochrome.ico"
+    assert os.path.isfile(color.path)
+    assert os.path.isfile(monochrome.path)
+    applied = []
+    widget = types.SimpleNamespace(setWindowIcon=applied.append)
+    helper.apply_window_icon(widget, monochrome=True)
+    assert applied == [monochrome]
 
 
 def test_shared_windows_apply_application_icon():

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Use the Script Toolbox cube icon for Maya Shelf/menu launch buttons, the Houdini Shelf tool and the Nuke menu/Open command. Update or Repair refreshes older managed shelves.
+
 ### Changed
 
 - Replace the shared plugin, standalone window and Windows launcher icon with the approved orange St cube (02).

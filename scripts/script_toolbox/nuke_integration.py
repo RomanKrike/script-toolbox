@@ -5,6 +5,7 @@ from .compat import HOST
 from .compat import nuke
 from .integrations.config import get_integration_settings
 from .integrations.discovery import parse_version
+from .integrations.icons import integration_icon_path
 
 
 
@@ -29,6 +30,7 @@ def register_menu():
     This function is safe to call repeatedly from ~/.nuke/menu.py.
     """
     _require_nuke()
+    icon_path = integration_icon_path()
 
     root = nuke.menu(
         "Nuke"
@@ -40,16 +42,23 @@ def register_menu():
 
     if menu is None:
         menu = root.addMenu(
-            "Script Toolbox"
+            "Script Toolbox",
+            icon=icon_path
         )
+    else:
+        menu.setIcon(icon_path)
 
-    if menu.findItem(
+    open_item = menu.findItem(
         "Open"
-    ) is None:
+    )
+    if open_item is None:
         menu.addCommand(
             "Open",
-            "import script_toolbox; script_toolbox.show()"
+            "import script_toolbox; script_toolbox.show()",
+            icon=icon_path
         )
+    else:
+        open_item.setIcon(icon_path)
 
 
 

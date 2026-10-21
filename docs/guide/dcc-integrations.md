@@ -14,6 +14,13 @@ Script Toolbox can detect installed DCC applications and manage host integration
 
 Maya, Houdini, and Nuke have managed integration backends. Blender and 3ds Max currently expose detection/capability scaffolding only.
 
+Launch buttons use the shared Script Toolbox cube icon: Maya Shelf and its Open
+menu item, the Houdini Shelf tool, and the Nuke menu and Open command. Existing
+managed Maya/Houdini shelves that still use the Python icon are marked **Update
+required**; use **Update** or **Repair** in DCC Integrations, then restart the host
+if its shelf UI is already loaded. Registering the Nuke menu again refreshes its
+icons without duplicating commands.
+
 ## Maya integration
 
 Each detected Maya profile target is configured independently. A target is a Maya version plus its user-profile location, so the same Maya version can be integrated into both the default profile and one or more studio-launcher profiles.

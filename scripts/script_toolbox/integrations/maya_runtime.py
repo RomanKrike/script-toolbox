@@ -7,6 +7,7 @@ from ..core.logging_utils import get_logger
 from .config import find_profile_id_for_paths
 from .config import get_integration_settings
 from .discovery import parse_version
+from .icons import integration_icon_path
 
 
 _LOGGER = get_logger()
@@ -113,6 +114,7 @@ def ensure_main_menu():
     cmds.menuItem(
         label="Open ScriptToolbox",
         parent=menu,
+        image=integration_icon_path(),
         command=_open_toolbox
     )
     cmds.menuItem(
@@ -166,7 +168,8 @@ def ensure_shelf_button():
         parent=_SHELF_NAME,
         label="ScriptToolbox",
         annotation="Open Script Toolbox",
-        image1="pythonFamily.png",
+        image1=integration_icon_path(),
+        style="iconOnly",
         command=_open_toolbox
     )
 

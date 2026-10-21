@@ -106,7 +106,9 @@ def test_maya_live_shelf_and_menu_use_the_shared_icon(monkeypatch):
     opener = next(item for item in menu_items
                   if item.get("label") == "Open ScriptToolbox")
     assert opener["image"] == integration_icon_path()
-    assert callable(buttons[0]["command"])
+    assert buttons[0]["command"] == "import script_toolbox; script_toolbox.show()"
+    assert buttons[0]["sourceType"] == "python"
+    assert buttons[0]["docTag"] == "ScriptToolbox/launcher"
     assert callable(opener["command"])
 
 

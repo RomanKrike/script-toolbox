@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Recognize single Script Toolbox shelves after Maya rewrites their comment headers, back up older resaves before repair, and persist shelf launches as Python command strings with a stable button docTag.
+
 ### Added
 
 - Use the Script Toolbox cube icon for Maya Shelf/menu launch buttons, the Houdini Shelf tool and the Nuke menu/Open command. Update or Repair refreshes older managed shelves.

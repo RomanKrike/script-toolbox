@@ -4,7 +4,7 @@ import pytest
 
 from script_toolbox.integrations.base import STATUS_INSTALLED
 from script_toolbox.integrations.base import STATUS_UPDATE_REQUIRED
-from script_toolbox.integrations.icons import integration_icon_path
+from script_toolbox.integrations.icons import maya_shelf_icon_path
 from script_toolbox.integrations.maya import MayaAdapter
 from script_toolbox.integrations.maya import MayaIntegrationError
 from script_toolbox.integrations.maya import _shelf_content
@@ -35,7 +35,7 @@ def _saved_shelf(adapter, legacy=False):
         content = content.replace('        -docTag "ScriptToolbox/launcher"\n', "")
         content = content.replace("import script_toolbox; script_toolbox.show()",
                                   "<function _open_toolbox at 0xABC123>")
-        content = content.replace(integration_icon_path(adapter.distribution_path),
+        content = content.replace(maya_shelf_icon_path(adapter.distribution_path),
                                   "pythonFamily.png")
     return content
 
@@ -118,4 +118,20 @@ def test_uninstall_recognizes_and_backs_up_a_resaved_single_launcher(tmp_path):
     path.write_text(saved, encoding="utf-8")
     adapter.uninstall(target)
     assert not path.exists()
+    assert path.with_name(path.name + ".script_toolbox.resaved.bak").read_text(encoding="utf-8") == saved
+
+
+@pytest.mark.parametrize("old_size", ["1024", "", "32"])
+def test_repair_updates_resaved_oversized_or_unspecified_button(tmp_path, old_size):
+    adapter, target = _adapter(tmp_path)
+    path = tmp_path / "maya/2025/prefs/shelves/shelf_ScriptToolbox.mel"
+    saved = _saved_shelf(adapter)
+    for flag in ("width", "height"):
+        saved = saved.replace("        -%s 34\n" % flag,
+                              "        -%s %s\n" % (flag, old_size) if old_size else "")
+    path.write_text(saved, encoding="utf-8")
+    assert adapter.status(target).state == STATUS_UPDATE_REQUIRED
+    assert adapter.repair(target).state == STATUS_INSTALLED
+    repaired = path.read_text(encoding="utf-8")
+    assert "-width 34" in repaired and "-height 34" in repaired
     assert path.with_name(path.name + ".script_toolbox.resaved.bak").read_text(encoding="utf-8") == saved

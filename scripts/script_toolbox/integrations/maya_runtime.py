@@ -8,6 +8,7 @@ from .config import find_profile_id_for_paths
 from .config import get_integration_settings
 from .discovery import parse_version
 from .icons import integration_icon_path
+from .icons import maya_shelf_icon_path
 from .maya_shelf import SHELF_COMMAND
 from .maya_shelf import SHELF_DOC_TAG
 
@@ -171,7 +172,9 @@ def ensure_shelf_button():
         label="ScriptToolbox",
         annotation="Open Script Toolbox",
         docTag=SHELF_DOC_TAG,
-        image1=integration_icon_path(),
+        image1=maya_shelf_icon_path(),
+        width=34,
+        height=34,
         style="iconOnly",
         sourceType="python",
         command=SHELF_COMMAND

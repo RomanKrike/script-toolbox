@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Changed
+
+- Replace the shared plugin, standalone window and Windows launcher icon with the approved orange St cube (02).
+- Bundle the monochrome St cube (02.1) as an optional window icon. Both variants include transparent ICO sizes from 16 to 256 px and SVG/PNG sources.
+
 ## 1.3.0 — 2026-10-14
 
 ### Added

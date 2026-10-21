@@ -2,6 +2,7 @@
 
 import importlib.util
 import os
+import struct
 import sys
 import types
 import xml.etree.ElementTree as ET
@@ -11,6 +12,7 @@ from script_toolbox.integrations.base import STATUS_INSTALLED
 from script_toolbox.integrations.base import STATUS_UPDATE_REQUIRED
 from script_toolbox.integrations.houdini import HoudiniAdapter
 from script_toolbox.integrations.icons import integration_icon_path
+from script_toolbox.integrations.icons import maya_shelf_icon_path
 from script_toolbox.integrations.maya import MayaAdapter
 from script_toolbox.integrations.maya import _shelf_content
 
@@ -27,7 +29,9 @@ def test_generated_shelves_escape_icon_paths(tmp_path):
     root = str(tmp_path / 'Toolbox & "Studio" / Скрипты')
     icon = integration_icon_path(root)
     maya_shelf = _shelf_content(root)
-    assert '-image1 "' + icon.replace('"', '\\"') + '"' in maya_shelf
+    assert '-width 34' in maya_shelf
+    assert '-height 34' in maya_shelf
+    assert '-image1 "' + maya_shelf_icon_path(root).replace('"', '\\"') + '"' in maya_shelf
     assert 'pythonFamily.png' not in maya_shelf
     houdini = HoudiniAdapter(distribution_path=root, user_root=str(tmp_path))
     tool = ET.fromstring(houdini._shelf_content()).find("tool")
@@ -51,7 +55,7 @@ def test_maya_repair_upgrades_the_old_python_shelf_icon(tmp_path):
     with open(shelf_path, "r", encoding="utf-8") as handle:
         shelf = handle.read()
     old_shelf = shelf.replace(
-        integration_icon_path(adapter.distribution_path), "pythonFamily.png"
+        maya_shelf_icon_path(adapter.distribution_path), "pythonFamily.png"
     )
     with open(shelf_path, "w", encoding="utf-8") as handle:
         handle.write(old_shelf)
@@ -60,7 +64,7 @@ def test_maya_repair_upgrades_the_old_python_shelf_icon(tmp_path):
     with open(shelf_path, "r", encoding="utf-8") as handle:
         repaired = handle.read()
     assert "pythonFamily.png" not in repaired
-    assert integration_icon_path(adapter.distribution_path) in repaired
+    assert maya_shelf_icon_path(adapter.distribution_path) in repaired
     assert repaired.count("ScriptToolboxOpenButton") == 1
 
 
@@ -101,7 +105,8 @@ def test_maya_live_shelf_and_menu_use_the_shared_icon(monkeypatch):
     monkeypatch.setattr(maya_runtime, "remove_main_menu", lambda: False)
     maya_runtime.ensure_shelf_button()
     maya_runtime.ensure_main_menu()
-    assert buttons[0]["image1"] == integration_icon_path()
+    assert buttons[0]["image1"] == maya_shelf_icon_path()
+    assert buttons[0]["width"] == buttons[0]["height"] == 34
     assert buttons[0]["style"] == "iconOnly"
     opener = next(item for item in menu_items
                   if item.get("label") == "Open ScriptToolbox")
@@ -155,3 +160,10 @@ def test_nuke_registration_refreshes_icons_without_duplicate_commands(monkeypatc
     assert len(root.items) == len(first.items) == 1
     assert first.icon_path == opener.icon_path == integration_icon_path()
     assert opener.script == "import script_toolbox; script_toolbox.show()"
+
+
+def test_maya_shelf_image_has_native_icon_dimensions():
+    with open(maya_shelf_icon_path(), "rb") as handle:
+        header = handle.read(24)
+    assert header[:8] == b"\x89PNG\r\n\x1a\n"
+    assert struct.unpack(">II", header[16:24]) == (32, 32)

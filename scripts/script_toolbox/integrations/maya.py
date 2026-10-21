@@ -15,7 +15,7 @@ from .managed_files import replace_marked_block
 from .managed_files import marked_block_state
 from .managed_files import write_marked_block
 from .managed_files import remove_marked_block
-from .icons import integration_icon_path
+from .icons import maya_shelf_icon_path
 from .maya_shelf import resaved_shelf_button
 from .maya_shelf import resaved_shelf_is_current
 from .base import DccAdapter
@@ -89,6 +89,8 @@ global proc shelf_ScriptToolbox ()
         -annotation "Open Script Toolbox"
         -docTag "ScriptToolbox/launcher"
         -image1 "__SCRIPT_TOOLBOX_ICON__"
+        -width 34
+        -height 34
         -style "iconOnly"
         -sourceType "python"
         -command "import script_toolbox; script_toolbox.show()"
@@ -96,7 +98,7 @@ global proc shelf_ScriptToolbox ()
 }
 """.replace(
         "__SCRIPT_TOOLBOX_ICON__",
-        integration_icon_path(distribution_path).replace('"', '\\"')
+        maya_shelf_icon_path(distribution_path).replace('"', '\\"')
     )
 
 def _normalize_options(options):
@@ -556,7 +558,7 @@ class MayaAdapter(DccAdapter):
             current_shelf = _read_text(shelf_path)
             if (current_shelf != _shelf_content(self.distribution_path) and
                     not resaved_shelf_is_current(
-                        current_shelf, integration_icon_path(self.distribution_path))):
+                        current_shelf, maya_shelf_icon_path(self.distribution_path))):
                 return IntegrationStatus(
                     STATUS_UPDATE_REQUIRED,
                     loader=True,

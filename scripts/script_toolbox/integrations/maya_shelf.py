@@ -42,7 +42,8 @@ def resaved_shelf_button(content):
             return None
     aliases = {"-l": "-label", "-ann": "-annotation", "-c": "-command",
                "-stp": "-sourceType", "-dtg": "-docTag", "-i1": "-image1",
-               "-image": "-image1", "-i": "-image1"}
+               "-image": "-image1", "-i": "-image1",
+               "-w": "-width", "-h": "-height"}
     flags = {}
     body = tokens[begin + 1:end]
     if any(token in ("-q", "-query", "-e", "-edit") for token in body):
@@ -53,7 +54,7 @@ def resaved_shelf_button(content):
                        "-menuItem", "-mi") and _value(body[i + 1]):
             return None
         flag = aliases.get(body[i], body[i])
-        if flag in ("-label", "-annotation", "-command", "-sourceType", "-docTag", "-image1"):
+        if flag in ("-label", "-annotation", "-command", "-sourceType", "-docTag", "-image1", "-width", "-height"):
             flags[flag] = _value(body[i + 1])
     identity = flags.get("-docTag") == SHELF_DOC_TAG or (
         flags.get("-label") in ("ScriptToolbox", "Script Toolbox") and
@@ -74,4 +75,6 @@ def resaved_shelf_is_current(content, icon_path):
                 flags.get("-docTag") == SHELF_DOC_TAG and
                 flags.get("-sourceType") == "python" and
                 flags.get("-command") == SHELF_COMMAND and
+                flags.get("-width") == "34" and
+                flags.get("-height") == "34" and
                 flags.get("-image1", "").replace("\\", "/") == icon_path.replace("\\", "/"))

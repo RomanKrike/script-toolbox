@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import sys
+from xml.sax.saxutils import quoteattr
 
 from ..constants import PLUGIN_VERSION
 from ..core.logging_utils import get_logger
@@ -32,6 +33,7 @@ from .discovery import windows_documents_dir
 from .generic import DetectionOnlyAdapter
 from .managed_files import atomic_write
 from .managed_files import read_text
+from .icons import integration_icon_path
 
 
 _LOGGER = get_logger()
@@ -491,20 +493,22 @@ class HoudiniAdapter(DetectionOnlyAdapter):
             sort_keys=True
         ) + "\n"
 
-    @staticmethod
-    def _shelf_content():
-        return """<?xml version="1.0" encoding="UTF-8"?>
+    def _shelf_content(self):
+        return u"""<?xml version="1.0" encoding="UTF-8"?>
 <shelfDocument>
   <toolshelf name="script_toolbox" label="Script Toolbox">
     <memberTool name="script_toolbox_open"/>
   </toolshelf>
-  <tool name="script_toolbox_open" label="Script Toolbox" icon="PYTHON">
+  <tool name="script_toolbox_open" label="Script Toolbox" icon=__SCRIPT_TOOLBOX_ICON__>
     <helpText><![CDATA[Open Script Toolbox]]></helpText>
     <script scriptType="python"><![CDATA[import script_toolbox
 script_toolbox.show()]]></script>
   </tool>
 </shelfDocument>
-"""
+""".replace(
+            "__SCRIPT_TOOLBOX_ICON__",
+            quoteattr(integration_icon_path(self.distribution_path))
+        )
 
     @staticmethod
     def _file_state(path, expected):

@@ -22,11 +22,16 @@ if its shelf UI is already loaded. Registering the Nuke menu again refreshes its
 icons without duplicating commands.
 
 Maya may rewrite shelf files when saving preferences, dropping the generated
-comment header. A saved single Script Toolbox launcher is also recognized by its
-button metadata and known launch command. New buttons use a persistent `docTag`
+comment header. Saved Script Toolbox launchers, including duplicate buttons, are
+recognized by their metadata and known launch commands. New buttons use a persistent `docTag`
 and a serializable Python command. **Repair** backs up an older recognized resave
 as `.script_toolbox.resaved.bak` before rebuilding it. Shelves containing other
 buttons, custom callbacks, or unrelated code remain protected from replacement.
+
+On Maya startup or live integration repair, renamed legacy launchers are replaced
+with one working button using a serializable Python command, a 32 px icon and a
+34 x 34 button. Other shelf buttons are preserved. Use **Repair** to also rebuild
+an already saved launcher-only shelf file; a backup is kept before replacement.
 
 ## Maya integration
 

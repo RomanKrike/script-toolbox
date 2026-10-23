@@ -11,6 +11,7 @@ from .icons import integration_icon_path
 from .icons import maya_shelf_icon_path
 from .maya_shelf import SHELF_COMMAND
 from .maya_shelf import SHELF_DOC_TAG
+from .maya_shelf import is_launcher_button
 
 
 _LOGGER = get_logger()
@@ -146,14 +147,25 @@ def _shelf_parent():
 
 
 def remove_shelf_button():
+    """Remove our launchers inside our shelf, even after Maya renames them."""
     cmds = _cmds()
+    if not cmds.shelfLayout(_SHELF_NAME, exists=True):
+        return False
+    children = cmds.shelfLayout(_SHELF_NAME, query=True, childArray=True) or []
     removed = False
-    try:
-        if cmds.shelfButton(_SHELF_BUTTON_NAME, exists=True):
-            cmds.deleteUI(_SHELF_BUTTON_NAME)
+    for child in children:
+        # Query/delete full paths: short names may also exist on other shelves.
+        path = child if "|" in child else _SHELF_NAME + "|" + child
+        if not cmds.shelfButton(path, exists=True):
+            continue
+        flags = dict(("-" + flag, cmds.shelfButton(path, query=True, **{flag: True}))
+                     for flag in ("docTag", "label", "annotation", "command"))
+        if is_launcher_button(flags):
+            if any(cmds.shelfButton(path, query=True, **{flag: True})
+                   for flag in ("doubleClickCommand", "dragCallback", "dropCallback")):
+                continue
+            cmds.deleteUI(path)
             removed = True
-    except Exception:
-        pass
     return removed
 
 

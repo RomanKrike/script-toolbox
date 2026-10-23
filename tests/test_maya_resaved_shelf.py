@@ -135,3 +135,61 @@ def test_repair_updates_resaved_oversized_or_unspecified_button(tmp_path, old_si
     repaired = path.read_text(encoding="utf-8")
     assert "-width 34" in repaired and "-height 34" in repaired
     assert path.with_name(path.name + ".script_toolbox.resaved.bak").read_text(encoding="utf-8") == saved
+
+
+def _duplicate_saved_buttons(content):
+    begin = content.index("    shelfButton")
+    end = content.index('"ScriptToolboxOpenButton";', begin) + len('"ScriptToolboxOpenButton";')
+    button = content[begin:end]
+    copies = [button.replace('"ScriptToolboxOpenButton";', '"shelfButton%d";' % index)
+              for index in range(3)]
+    return content[:begin] + "\n".join(copies) + content[end:]
+
+
+def test_repair_collapses_resaved_duplicates_and_repairs_command_and_icon(tmp_path):
+    adapter, target = _adapter(tmp_path)
+    path = tmp_path / "maya/2025/prefs/shelves/shelf_ScriptToolbox.mel"
+    saved = _duplicate_saved_buttons(_saved_shelf(adapter, legacy=True))
+    path.write_text(saved, encoding="utf-8")
+    assert adapter.status(target).state == STATUS_UPDATE_REQUIRED
+    assert adapter.repair(target).state == STATUS_INSTALLED
+    repaired = path.read_text(encoding="utf-8")
+    assert repaired == _shelf_content(adapter.distribution_path)
+    assert path.with_name(path.name + ".script_toolbox.resaved.bak").read_text(encoding="utf-8") == saved
+    assert adapter.repair(target).state == STATUS_INSTALLED
+
+
+def test_current_but_duplicated_saved_buttons_still_require_repair(tmp_path):
+    adapter, target = _adapter(tmp_path)
+    path = tmp_path / "maya/2025/prefs/shelves/shelf_ScriptToolbox.mel"
+    path.write_text(_duplicate_saved_buttons(_saved_shelf(adapter)), encoding="utf-8")
+    assert adapter.status(target).state == STATUS_UPDATE_REQUIRED
+    assert adapter.repair(target).state == STATUS_INSTALLED
+
+
+def test_repair_recognizes_maya_escaped_newlines_around_broken_callable(tmp_path):
+    adapter, target = _adapter(tmp_path)
+    path = tmp_path / "maya/2025/prefs/shelves/shelf_ScriptToolbox.mel"
+    saved = _saved_shelf(adapter, legacy=True).replace(
+        '<function _open_toolbox at 0xABC123>',
+        r'\n<function _open_toolbox at 0xABC123>\n'
+    )
+    path.write_text(saved, encoding="utf-8")
+    assert adapter.repair(target).state == STATUS_INSTALLED
+    assert '<function ' not in path.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("extra", [
+    'shelfButton -label "ScriptToolbox" -annotation "Open Script Toolbox" -command "print(1)";',
+    'shelfButton -docTag "ScriptToolbox/launcher" -command "print(1)";',
+    'print "keep custom startup";',
+])
+def test_duplicate_launchers_do_not_allow_overwriting_custom_shelf_code(tmp_path, extra):
+    adapter, target = _adapter(tmp_path)
+    path = tmp_path / "maya/2025/prefs/shelves/shelf_ScriptToolbox.mel"
+    saved = _duplicate_saved_buttons(_saved_shelf(adapter, legacy=True))
+    saved = saved.replace("\n}", "\n" + extra + "\n}")
+    path.write_text(saved, encoding="utf-8")
+    with pytest.raises(MayaIntegrationError, match="not managed"):
+        adapter.repair(target)
+    assert path.read_text(encoding="utf-8") == saved

@@ -57,7 +57,7 @@ def test_repeated_startup_repairs_resaved_legacy_duplicates(monkeypatch, full_ch
     cmds = ShelfCommands(full_children)
     cmds.buttons = {
         "ScriptToolbox|shelfButton1": _launcher("<function _open_toolbox at 0xABC123>"),
-        "ScriptToolbox|shelfButton2": _launcher(docTag=SHELF_DOC_TAG),
+        "ScriptToolbox|shelfButton2": _launcher("script_toolbox.integrations.maya_runtime._open_toolbox"),
         "ScriptToolbox|shelfButton3": _launcher('python("import script_toolbox; script_toolbox.show()")'),
         "ScriptToolbox|custom": dict(label="ScriptToolbox", command="print('custom')"),
         "Custom|ScriptToolboxOpenButton": _launcher(),

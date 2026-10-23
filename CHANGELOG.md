@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- Recognize Maya 2025's saved dotted callback name when repairing legacy Script Toolbox shelf buttons.
+
 - Recover renamed and duplicated Maya Shelf launchers, including broken saved callable commands and oversized legacy icons, while preserving unrelated shelf buttons.
 
 - Keep Maya Shelf launch buttons at 34 x 34 with a dedicated 32 px icon, and repair oversized saved buttons.

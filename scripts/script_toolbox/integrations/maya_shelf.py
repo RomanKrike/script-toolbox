@@ -89,6 +89,7 @@ def is_launcher_button(flags):
                     "script_toolbox.integrations.maya_runtime")
     command = (command or "").strip()
     known_command = bool(
+        re.match(r"^script_toolbox\.integrations\.maya_runtime\._open_toolbox$", command) or
         re.match(r"^import\s+script_toolbox\s*;\s*script_toolbox\.show\(\)\s*;?$", command) or
         re.match(r'^python\(\s*"import script_toolbox; script_toolbox\.show\(\)"\s*\)\s*;?$', command) or
         re.match(r"^<function _open_toolbox at (?:0x)?[0-9a-fA-F]+>$", command)

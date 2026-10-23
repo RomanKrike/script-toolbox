@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import pytest
+from pathlib import Path
 
 from script_toolbox.integrations.base import STATUS_INSTALLED
 from script_toolbox.integrations.base import STATUS_UPDATE_REQUIRED
@@ -9,6 +10,7 @@ from script_toolbox.integrations.maya import MayaAdapter
 from script_toolbox.integrations.maya import MayaIntegrationError
 from script_toolbox.integrations.maya import _shelf_content
 from script_toolbox.integrations.maya_shelf import resaved_shelf_button
+from script_toolbox.integrations.maya_shelf import resaved_shelf_buttons
 
 
 def _adapter(tmp_path):
@@ -193,3 +195,27 @@ def test_duplicate_launchers_do_not_allow_overwriting_custom_shelf_code(tmp_path
     with pytest.raises(MayaIntegrationError, match="not managed"):
         adapter.repair(target)
     assert path.read_text(encoding="utf-8") == saved
+
+
+def test_repair_actual_maya_2025_saved_callback_paths(tmp_path):
+    adapter, target = _adapter(tmp_path)
+    path = tmp_path / "maya/2025/prefs/shelves/shelf_ScriptToolbox.mel"
+    saved = (Path(__file__).parent / "fixtures" / "maya_2025_legacy_shelf.mel").read_text(encoding="utf-8")
+    path.write_text(saved, encoding="utf-8")
+    assert len(resaved_shelf_buttons(saved)) == 3
+    assert adapter.status(target).state == STATUS_UPDATE_REQUIRED
+    assert adapter.repair(target).state == STATUS_INSTALLED
+    assert path.read_text(encoding="utf-8") == _shelf_content(adapter.distribution_path)
+    backup = path.with_name(path.name + ".script_toolbox.resaved.bak")
+    assert backup.read_text(encoding="utf-8") == saved
+
+
+@pytest.mark.parametrize("command", [
+    "other_module._open_toolbox",
+    "script_toolbox.integrations.maya_runtime._open_toolbox_custom",
+    "script_toolbox.integrations.maya_runtime._open_toolbox; print(1)",
+])
+def test_saved_callback_path_does_not_accept_unrelated_or_extra_commands(tmp_path, command):
+    adapter, unused = _adapter(tmp_path)
+    saved = _saved_shelf(adapter).replace("import script_toolbox; script_toolbox.show()", command)
+    assert resaved_shelf_button(saved) is None

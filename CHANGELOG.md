@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- Recover renamed and duplicated Maya Shelf launchers, including broken saved callable commands and oversized legacy icons, while preserving unrelated shelf buttons.
+
 - Keep Maya Shelf launch buttons at 34 x 34 with a dedicated 32 px icon, and repair oversized saved buttons.
 
 - Recognize single Script Toolbox shelves after Maya rewrites their comment headers, back up older resaves before repair, and persist shelf launches as Python command strings with a stable button docTag.

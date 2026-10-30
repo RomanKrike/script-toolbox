@@ -169,6 +169,11 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
 
     def __init__(self, parent=None, panel_mode=False):
         QtGui.QMainWindow.__init__(self, parent or main_window())
+        if panel_mode:
+            # QMainWindow adds Qt.Window even with a parent. A host Pane needs
+            # a real child widget; otherwise it stays blank while this UI
+            # appears as a separate window.
+            self.setWindowFlags(QtCore.Qt.Widget)
         self._script_toolbox_mode = "panel" if panel_mode else "window"
 
         self.setObjectName(WINDOW_OBJECT_NAME)

@@ -13,10 +13,11 @@ _DOCS_URL = "https://romankrike.github.io/script-toolbox/"
 
 class SettingsToolboxMixin(object):
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, panel_mode=False):
         self.github_action = None
         self.help_docs_action = None
-        super(SettingsToolboxMixin, self).__init__(parent
+        super(SettingsToolboxMixin, self).__init__(
+            parent=parent, panel_mode=panel_mode
         )
 
     def build_ui(self):

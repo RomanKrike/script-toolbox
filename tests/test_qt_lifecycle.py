@@ -65,6 +65,7 @@ w.close()
 w.deleteLater()
 pump()
 first = show()
+assert first.isWindow()
 assert show() is first
 first.config["sections"][0]["items"] = [create_item("string", {
     "id": "pane_value", "name": "pane_value", "props": {"value": "before"}})]
@@ -74,6 +75,8 @@ panel = ScriptToolboxPanel()
 panel.show()
 pump()
 assert panel.toolbox is active_toolbox()
+assert panel.toolbox.parentWidget() is panel
+assert not panel.toolbox.isWindow()
 assert panel.toolbox is not first
 assert panel.toolbox.config["sections"][0]["items"][0]["props"]["value"] == "saved"
 duplicate = ScriptToolboxPanel()
@@ -85,6 +88,8 @@ assert window.config["sections"][0]["items"][0]["props"]["value"] == "saved"
 assert show() is window
 retained = panel.ensure_toolbox()
 assert retained is active_toolbox()
+assert retained.parentWidget() is panel
+assert not retained.isWindow()
 assert retained is not window
 assert retained.config["sections"][0]["items"][0]["props"]["value"] == "saved"
 window = show()

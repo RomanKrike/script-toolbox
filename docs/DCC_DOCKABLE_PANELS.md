@@ -16,7 +16,7 @@ Risks: host restoration order, QObject deletion by each host, editor changes pen
 | B, #153 | `integrations/maya_dock.py`, `integrations/maya_runtime.py` | Maya menu and stable control; Maya 2015/2017/2024/2025 smoke |
 | C, #154 | `integrations/houdini.py`, `houdini_integration.py`, `ui/main_window.py` | XML/package contract; `+` menu, Desktop, collapsible row smoke |
 | D, #155 | `nuke_integration.py`, `ui/panel_container.py` | Pane registration contract; Nuke 12 Workspace and Reload smoke |
-| E, #156 | `bootstrap.py`, docs, CI | Full tests, Python 2.7 syntax, review, install/repair/uninstall and narrow pane smoke |
+| E, #156 | `bootstrap.py`, documentation, CI | Full tests, Python 2.7 syntax, review, install/repair/uninstall and narrow pane smoke |
 
 The lifecycle refactor is necessary because the former `show()` destroyed every existing window before reopening and Nuke's removed panel registered the QMainWindow class directly. The host adapters need one shared ownership boundary so they can restore panes without constructing a second Runtime. No config migration is required. Recovery is to close the pane, reopen the ordinary window, and use the existing config backup/recovery flow if persistence reports an error; the feature branch can be reverted before merge without changing user schema.
 

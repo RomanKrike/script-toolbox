@@ -6,6 +6,6 @@ Current design: `ui/debounced_main_window.py` owns the one active main window. T
 
 Host entry points: Maya `integrations/maya_dock.py`; Houdini Package XML and `.pypanel` from `integrations/houdini.py`, with `houdini_integration.open_pane_tab`; Nuke `nuke_integration.register_panel` with stable Pane ID. `bootstrap.hot_reload_toolbox` reuses a live panel container.
 
-Known limits: real DCC acceptance and real Qt are NOT RUN in this workspace. Need validate Maya 2015/2017/2024/2025, Houdini 19.5/20/21, and Nuke 12 directly. Verify workspace/Desktop restoration, Reload Scripts, and install/repair/uninstall in host before merge. CI on pushed SHA and code review remain required.
+Known limits: real DCC acceptance is NOT RUN in this workspace. Need validate Maya 2015/2017/2024/2025, Houdini 19.5/20/21, and Nuke 12 directly. Verify workspace/Desktop restoration, Reload Scripts, and install/repair/uninstall in host before merge. Qt lifecycle tests passed in CI on Linux and Windows at `50c7307`. Local full suite: 891 passed, 71 skipped, 8 failed on Windows due to host permissions and process policies; the CI suite passed.
 
-Next step: run full local tests, inspect lifecycle and host adapter diff, then push feature branch and inspect CI. Record real DCC results in #153–#156 before proposing merge.
+Next step: run the manual smoke checklist in `docs/DCC_DOCKABLE_PANELS.md` in each available DCC and record results in #153–#156. Keep draft PR #157 open and do not merge until acceptance is complete.

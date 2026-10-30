@@ -29,16 +29,18 @@ def register_nuke_menu():
 
 
 def register_nuke_panel():
-    """Compatibility entry point for existing Nuke startup profiles.
+    from .nuke_integration import register_panel
+    return register_panel()
 
-    Dock support has been removed; old menu.py calls now register the normal
-    application menu so updating never breaks the user's startup script.
-    """
-    import warnings
-    warnings.warn(
-        "Nuke dock panels are no longer supported. Replace "
-        "register_nuke_panel() with register_nuke_menu() in menu.py.",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    return register_nuke_menu()
+
+def open_pane_tab():
+    from .compat import HOST
+    if HOST.key == "nuke":
+        from .nuke_integration import open_pane_tab as open_panel
+    elif HOST.key == "maya":
+        from .integrations.maya_dock import open_pane_tab as open_panel
+    elif HOST.key == "houdini":
+        from .houdini_integration import open_pane_tab as open_panel
+    else:
+        raise RuntimeError("Pane tabs require Maya, Houdini or Nuke.")
+    return open_panel()

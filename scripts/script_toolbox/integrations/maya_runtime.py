@@ -78,6 +78,11 @@ def _open_toolbox(*unused):
     return script_toolbox.show()
 
 
+def _open_pane_tab(*unused):
+    import script_toolbox
+    return script_toolbox.open_pane_tab()
+
+
 def _reload_toolbox(*unused):
     import script_toolbox
     return script_toolbox.reload_toolbox()
@@ -120,6 +125,11 @@ def ensure_main_menu():
         parent=menu,
         image=integration_icon_path(),
         command=_open_toolbox
+    )
+    cmds.menuItem(
+        label="Open Pane Tab",
+        parent=menu,
+        command=_open_pane_tab
     )
     cmds.menuItem(
         divider=True,

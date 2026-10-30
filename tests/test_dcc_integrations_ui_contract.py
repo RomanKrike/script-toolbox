@@ -188,7 +188,7 @@ def test_houdini_and_nuke_custom_profiles_are_profile_aware_at_runtime():
     assert "profile_id=profile_id" in nuke_runtime
 
 
-def test_nuke_dock_panel_is_not_exposed():
+def test_nuke_dock_panel_uses_shared_container_without_settings_toggle():
     adapter = _read("scripts/script_toolbox/integrations/nuke.py")
     runtime = _read("scripts/script_toolbox/nuke_integration.py")
     package = _read("scripts/script_toolbox/__init__.py")
@@ -196,10 +196,10 @@ def test_nuke_dock_panel_is_not_exposed():
     assert '"Register Dock Panel"' not in adapter
     assert '"dock_panel"' not in adapter
     assert '"Register Dock Panel"' not in runtime
-    assert "def register_panel(" not in runtime
-    # The deprecated startup entry point remains safe, without a dock option.
+    assert "def register_panel(" in runtime
+    assert "script_toolbox.ui.panel_container.ScriptToolboxPanel" in runtime
     assert "def register_nuke_panel():" in package
-    assert "return register_nuke_menu()" in package
+    assert "return register_panel()" in package
 
 
 def test_houdini_shelf_runtime_uses_shelfdock_without_mutating_shelf_sets():

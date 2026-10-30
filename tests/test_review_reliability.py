@@ -141,7 +141,8 @@ def test_live_nuke_sync_ignores_other_active_profile(monkeypatch):
     fake_nuke = types.SimpleNamespace(NUKE_VERSION_STRING="12.0v1")
     monkeypatch.setitem(sys.modules, "nuke", fake_nuke)
     monkeypatch.setitem(sys.modules, "script_toolbox.compat",
-                        types.SimpleNamespace(HOST=types.SimpleNamespace(key="nuke"), nuke=fake_nuke))
+                        types.SimpleNamespace(HOST=types.SimpleNamespace(key="nuke"),
+                                              nuke=fake_nuke, nukescripts=None))
     path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts", "script_toolbox", "nuke_integration.py")
     spec = importlib.util.spec_from_file_location("script_toolbox.nuke_integration", path)
     runtime = importlib.util.module_from_spec(spec)
@@ -151,6 +152,7 @@ def test_live_nuke_sync_ignores_other_active_profile(monkeypatch):
     calls = []
     runtime._current_settings = lambda **kw: {"main_menu": True, "auto_open": False}
     runtime.register_menu = lambda: calls.append(True)
+    runtime.register_panel = lambda: True
     runtime.apply_current_integration("profile-a", activate_profile=True)
     calls[:] = []
     adapter = NukeAdapter()

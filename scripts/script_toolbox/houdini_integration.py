@@ -6,6 +6,7 @@ from .integrations.discovery import parse_version
 
 
 _SHELF_NAME = "script_toolbox"
+_PANEL_INTERFACE = "ScriptToolbox"
 
 
 def _hou():
@@ -77,6 +78,24 @@ def remove_shelf():
         return False
 
 
+def open_pane_tab():
+    """Open an embeddable floating Python Panel with this interface."""
+    from .ui.debounced_main_window import active_toolbox
+    toolbox = active_toolbox()
+    if toolbox is not None:
+        if getattr(toolbox, "_script_toolbox_mode", "window") == "panel":
+            toolbox.raise_()
+            toolbox.activateWindow()
+            return toolbox
+    hou = _hou()
+    desktop = hou.ui.curDesktop()
+    return desktop.createFloatingPanel(
+        hou.paneTabType.PythonPanel,
+        python_panel_interface=_PANEL_INTERFACE,
+        immediate=True
+    )
+
+
 def apply_current_integration(profile_id=None):
     settings = _current_settings(
         profile_id=profile_id
@@ -118,5 +137,6 @@ def apply_current_integration(profile_id=None):
 __all__ = [
     "apply_current_integration",
     "ensure_shelf",
+    "open_pane_tab",
     "remove_shelf",
 ]

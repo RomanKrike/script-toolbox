@@ -22,12 +22,22 @@ SAVE_DEBOUNCE_MS = 500
 STATE_REFRESH_INTERVAL_MS = 100
 
 
+def _has_unapplied_editor_changes(toolbox):
+    editor = getattr(toolbox, "editor_window", None)
+    if editor is None or not editor.isVisible():
+        return False
+    controller = getattr(editor, "document_controller", None)
+    applied = getattr(editor, "_applied_base", None)
+    return controller is not None and controller.snapshot() != applied
+
+
 class ScriptToolbox(base_main_window.ScriptToolbox):
     """Runtime window with debounced persistence and host event scheduling."""
 
     def __init__(
         self,
-        parent=None
+        parent=None,
+        panel_mode=False
     ):
         self.config_store = None
         self.save_timer = None
@@ -45,12 +55,23 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
 
         base_main_window.ScriptToolbox.__init__(
             self,
-            parent=parent
+            parent=parent,
+            panel_mode=panel_mode
         )
 
         self.config_store = ConfigStore(
             document=self.config
         )
+        callback_group = self.host_callbacks
+        config_store = self.config_store
+        def cleanup_host_owned_widget(obj=None):
+            try:
+                config_store.flush()
+            except Exception:
+                from ..core.logging_utils import get_logger
+                get_logger().exception("Could not save Script Toolbox during host widget destruction.")
+            callback_group.clear()
+        self.destroyed.connect(cleanup_host_owned_widget)
 
         self.save_timer = QtCore.QTimer(
             self
@@ -392,6 +413,12 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
             self.statusBar().showMessage("Please wait for the update to finish before closing.")
             event.ignore()
             return
+        if _has_unapplied_editor_changes(self):
+            self.statusBar().showMessage(
+                "Apply or discard the open Editor changes before closing Script Toolbox."
+            )
+            event.ignore()
+            return
         try:
             self.flush_pending_save()
         except Exception as exc:
@@ -440,6 +467,9 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
             self,
             event
         )
+        if event.isAccepted() and base_main_window._TOOLBOX is self:
+            base_main_window._TOOLBOX = None
+            self.deleteLater()
 
 
 _DebouncedScriptToolbox = ScriptToolbox
@@ -461,6 +491,11 @@ def close_toolbox():
         base_main_window._TOOLBOX = None
         return True
 
+    if _has_unapplied_editor_changes(toolbox):
+        raise RuntimeError(
+            "Apply or discard the open Editor changes before switching Script Toolbox modes."
+        )
+
     if hasattr(
         toolbox,
         "flush_pending_save"
@@ -479,25 +514,80 @@ def _toolbox_destroyed(identity):
         base_main_window._TOOLBOX = None
 
 
-def show():
-    close_toolbox()
+def active_toolbox():
+    toolbox = base_main_window._TOOLBOX
+    if toolbox is not None:
+        try:
+            toolbox.objectName()
+        except RuntimeError:
+            base_main_window._TOOLBOX = None
+            return None
+    return toolbox
 
-    toolbox = ScriptToolbox(
-        parent=main_window()
-    )
+
+def _create_toolbox(parent, mode):
+    toolbox = ScriptToolbox(parent=parent, panel_mode=(mode == "panel"))
+    toolbox._script_toolbox_mode = mode
     base_main_window._TOOLBOX = toolbox
     toolbox.destroyed.connect(
         lambda obj=None, identity=id(toolbox): _toolbox_destroyed(identity))
-
-    toolbox.show()
-    toolbox.raise_()
-    toolbox.activateWindow()
 
     toolbox.telemetry_prompt_timer = QtCore.QTimer(toolbox)
     toolbox.telemetry_prompt_timer.setSingleShot(True)
     toolbox.telemetry_prompt_timer.timeout.connect(toolbox.prompt_telemetry_consent)
     toolbox.telemetry_prompt_timer.start(100)
+    return toolbox
 
+
+def _restore_view_state(toolbox, state):
+    if state is None:
+        return
+    from .runtime_surface import restore_view_state
+    restore_view_state(toolbox, state)
+    def restore_later():
+        try:
+            toolbox.objectName()
+            restore_view_state(toolbox, state)
+        except RuntimeError:
+            pass
+    QtCore.QTimer.singleShot(0, restore_later)
+
+
+def show_in_panel(parent):
+    """Create one runtime in a host-owned QWidget container."""
+    toolbox = active_toolbox()
+    state = None
+    if toolbox is not None:
+        if getattr(toolbox, "_script_toolbox_mode", "window") == "panel":
+            if toolbox.parent() is parent:
+                return toolbox
+            return None
+        from .runtime_surface import capture_view_state
+        state = capture_view_state(toolbox)
+        close_toolbox()
+    toolbox = _create_toolbox(parent, "panel")
+    toolbox.show()
+    _restore_view_state(toolbox, state)
+    return toolbox
+
+
+def show():
+    toolbox = active_toolbox()
+    state = None
+    if toolbox is not None:
+        if getattr(toolbox, "_script_toolbox_mode", "window") == "window":
+            toolbox.show()
+            toolbox.raise_()
+            toolbox.activateWindow()
+            return toolbox
+        from .runtime_surface import capture_view_state
+        state = capture_view_state(toolbox)
+        close_toolbox()
+    toolbox = _create_toolbox(main_window(), "window")
+    toolbox.show()
+    toolbox.raise_()
+    toolbox.activateWindow()
+    _restore_view_state(toolbox, state)
     return toolbox
 
 
@@ -505,6 +595,8 @@ __all__ = [
     "SAVE_DEBOUNCE_MS",
     "STATE_REFRESH_INTERVAL_MS",
     "ScriptToolbox",
+    "active_toolbox",
     "close_toolbox",
     "show",
+    "show_in_panel",
 ]

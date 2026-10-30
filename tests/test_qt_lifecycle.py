@@ -56,6 +56,39 @@ assert not app._script_toolbox_update_jobs.jobs
 ''', tmp_path)
 
 
+def test_window_and_panel_share_one_runtime_and_preserve_values(tmp_path):
+    run_qt('''
+from script_toolbox.ui.debounced_main_window import show, active_toolbox
+from script_toolbox.ui.panel_container import ScriptToolboxPanel
+from script_toolbox.model import create_item
+w.close()
+w.deleteLater()
+pump()
+first = show()
+assert show() is first
+first.config["sections"][0]["items"] = [create_item("string", {
+    "id": "pane_value", "name": "pane_value", "props": {"value": "before"}})]
+first.rebuild()
+first.store_value("pane_value", "saved")
+panel = ScriptToolboxPanel()
+assert panel.toolbox is active_toolbox()
+assert panel.toolbox is not first
+assert panel.toolbox.config["sections"][0]["items"][0]["props"]["value"] == "saved"
+duplicate = ScriptToolboxPanel()
+assert duplicate.toolbox is None
+assert active_toolbox() is panel.toolbox
+window = show()
+assert window is active_toolbox()
+assert window.config["sections"][0]["items"][0]["props"]["value"] == "saved"
+assert show() is window
+duplicate.close()
+panel.close()
+window.close()
+window.deleteLater()
+pump()
+''', tmp_path)
+
+
 def test_install_blocks_duplicate_launch_and_close(tmp_path):
     run_qt('''
 calls = []

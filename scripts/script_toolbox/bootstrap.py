@@ -253,6 +253,18 @@ def hot_reload_toolbox():
     """
     transition = _begin_standalone_window_transition()
     try:
+        panel_container = None
+        view_state = None
+        try:
+            from .ui.debounced_main_window import active_toolbox
+            live = active_toolbox()
+            if live is not None:
+                from .ui.runtime_surface import capture_view_state
+                view_state = capture_view_state(live)
+                if getattr(live, "_script_toolbox_mode", "window") == "panel":
+                    panel_container = live.parent()
+        except Exception:
+            panel_container = None
         _close_live_ui()
 
         root_module = sys.modules.get(
@@ -270,7 +282,31 @@ def hot_reload_toolbox():
             root_module
         )
 
-        window = root_module.show()
+        if panel_container is not None:
+            try:
+                panel_container.objectName()
+                from .ui.debounced_main_window import show_in_panel
+                window = show_in_panel(panel_container)
+                if window is None:
+                    raise RuntimeError("The existing pane is occupied by another runtime.")
+                panel_container.layout().addWidget(window)
+                panel_container.toolbox = window
+            except RuntimeError:
+                raise
+        else:
+            window = root_module.show()
+
+        if view_state is not None:
+            from .ui.runtime_surface import restore_view_state
+            from .compat import QtCore
+            restore_view_state(window, view_state)
+            def restore_later():
+                try:
+                    window.objectName()
+                    restore_view_state(window, view_state)
+                except RuntimeError:
+                    pass
+            QtCore.QTimer.singleShot(0, restore_later)
 
         try:
             window.statusBar().showMessage(

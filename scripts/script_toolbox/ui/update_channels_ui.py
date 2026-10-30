@@ -19,14 +19,12 @@ _CHANNEL_LABELS = {
 
 class UpdateChannelToolboxMixin(object):
 
-    def __init__(
-        self,
-        parent=None
-    ):
+    def __init__(self, parent=None, panel_mode=False):
         self.update_channel = get_update_channel()
         self._update_channel_actions = {}
         self._update_channel_menu = None
-        super(UpdateChannelToolboxMixin, self).__init__(parent
+        super(UpdateChannelToolboxMixin, self).__init__(
+            parent=parent, panel_mode=panel_mode
         )
 
     def build_ui(self):

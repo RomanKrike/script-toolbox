@@ -423,6 +423,83 @@ class HoudiniAdapter(DetectionOnlyAdapter):
             _SHELF_FILENAME
         )
 
+    def _panel_path(self, installation):
+        return os.path.join(self._plugin_root(installation), "python_panels", "script_toolbox.pypanel")
+
+    def _pane_menu_path(self, installation):
+        return os.path.join(self._plugin_root(installation), "PaneTabTypeMenu.xml")
+
+    def _main_menu_path(self, installation):
+        return os.path.join(self._plugin_root(installation), "MainMenuCommon.xml")
+
+    @staticmethod
+    def _panel_content():
+        return """<?xml version="1.0" encoding="UTF-8"?>
+<pythonPanelDocument>
+  <interface name="ScriptToolbox" label="ScriptToolbox">
+    <script><![CDATA[
+_script_toolbox_widget = None
+
+def onCreateInterface():
+    global _script_toolbox_widget
+    from script_toolbox.ui.panel_container import ScriptToolboxPanel
+    _script_toolbox_widget = ScriptToolboxPanel()
+    return _script_toolbox_widget
+
+def onDestroyInterface():
+    global _script_toolbox_widget
+    widget = _script_toolbox_widget
+    _script_toolbox_widget = None
+    from script_toolbox.ui.debounced_main_window import active_toolbox
+    if widget is not None and widget.toolbox is active_toolbox():
+        widget.toolbox.flush_pending_save()
+        widget.toolbox.clear_host_callbacks()
+]]></script>
+  </interface>
+</pythonPanelDocument>
+"""
+
+    @staticmethod
+    def _pane_menu_content():
+        return """<?xml version="1.0" encoding="UTF-8"?>
+<menuDocument>
+  <menu>
+    <actionItem id="pythonpanel::ScriptToolbox">
+      <label>ScriptToolbox</label>
+      <insertAfter/>
+    </actionItem>
+  </menu>
+</menuDocument>
+"""
+
+    @staticmethod
+    def _main_menu_content():
+        return """<?xml version="1.0" encoding="UTF-8"?>
+<mainMenu>
+  <menuBar>
+    <subMenu id="script_toolbox_menu">
+      <label>ScriptToolbox</label>
+      <scriptItem id="h.script_toolbox_open_window">
+        <label>Open ScriptToolbox</label>
+        <scriptCode>import script_toolbox; script_toolbox.show()</scriptCode>
+      </scriptItem>
+      <scriptItem id="h.script_toolbox_open_pane">
+        <label>Open Pane Tab</label>
+        <scriptCode>import script_toolbox; script_toolbox.open_pane_tab()</scriptCode>
+      </scriptItem>
+      <scriptItem id="h.script_toolbox_reload">
+        <label>Reload Scripts</label>
+        <scriptCode>import script_toolbox; script_toolbox.reload_toolbox()</scriptCode>
+      </scriptItem>
+      <scriptItem id="h.script_toolbox_settings">
+        <label>Settings</label>
+        <scriptCode>import script_toolbox; script_toolbox.show().open_settings_dialog()</scriptCode>
+      </scriptItem>
+    </subMenu>
+  </menuBar>
+</mainMenu>
+"""
+
     def _startup_paths(self, installation):
         root = self._plugin_root(installation)
         return [
@@ -550,6 +627,15 @@ script_toolbox.show()]]></script>
             "manifest": self._file_state(
                 self._manifest_path(installation),
                 self._manifest_content(installation)
+            ),
+            "panel": self._file_state(
+                self._panel_path(installation), self._panel_content()
+            ),
+            "pane_menu": self._file_state(
+                self._pane_menu_path(installation), self._pane_menu_content()
+            ),
+            "main_menu": self._file_state(
+                self._main_menu_path(installation), self._main_menu_content()
             ),
         }
         startup_expected = self._uiready_content(
@@ -698,6 +784,12 @@ script_toolbox.show()]]></script>
                 installation
             )
         )
+        for path, content in (
+            (self._panel_path(installation), self._panel_content()),
+            (self._pane_menu_path(installation), self._pane_menu_content()),
+            (self._main_menu_path(installation), self._main_menu_content()),
+        ):
+            atomic_write(path, content)
         startup = self._uiready_content(
             installation
         )

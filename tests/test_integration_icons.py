@@ -144,7 +144,8 @@ def test_nuke_registration_refreshes_icons_without_duplicate_commands(monkeypatc
     root = Menu()
     fake_nuke = types.SimpleNamespace(menu=lambda name: root)
     compat = types.SimpleNamespace(
-        HOST=types.SimpleNamespace(key="nuke"), nuke=fake_nuke
+        HOST=types.SimpleNamespace(key="nuke"), nuke=fake_nuke,
+        nukescripts=None
     )
     monkeypatch.setitem(sys.modules, "script_toolbox.compat", compat)
     path = os.path.join(os.path.dirname(os.path.dirname(__file__)),
@@ -157,7 +158,8 @@ def test_nuke_registration_refreshes_icons_without_duplicate_commands(monkeypatc
     first.icon_path = opener.icon_path = "old.png"
     assert runtime.register_menu() is first
     assert first.findItem("Open") is opener
-    assert len(root.items) == len(first.items) == 1
+    assert len(root.items) == 1
+    assert set(first.items) == {"Open", "Open Pane Tab"}
     assert first.icon_path == opener.icon_path == integration_icon_path()
     assert opener.script == "import script_toolbox; script_toolbox.show()"
 

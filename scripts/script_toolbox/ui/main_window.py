@@ -167,8 +167,9 @@ class ToolboxStatusBar(QtGui.QStatusBar):
 
 class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixin, ExpressionRuntimeMixin, QtGui.QMainWindow):
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, panel_mode=False):
         QtGui.QMainWindow.__init__(self, parent or main_window())
+        self._script_toolbox_mode = "panel" if panel_mode else "window"
 
         self.setObjectName(WINDOW_OBJECT_NAME)
         self.setWindowTitle(
@@ -296,7 +297,34 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
 
         self.help_menu = self._styled_menu("Help")
 
-        root.addWidget(self.menu_bar)
+        if HOST.key == "houdini" and self._script_toolbox_mode == "panel":
+            header = QtGui.QWidget(self.centralWidget())
+            header_layout = QtGui.QHBoxLayout(header)
+            header_layout.setContentsMargins(0, 0, 0, 0)
+            header_layout.setSpacing(0)
+            self.panel_menu_toggle = QtGui.QToolButton(header)
+            self.panel_menu_toggle.setObjectName("ScriptToolboxPanelMenuToggle")
+            header_layout.addWidget(self.panel_menu_toggle)
+            header_layout.addWidget(self.menu_bar, 1)
+            self._panel_menu_settings = QtCore.QSettings("ScriptToolbox", "ScriptToolbox")
+            stored = self._panel_menu_settings.value("houdini/panel_menu_collapsed", False)
+            self._panel_menu_collapsed = str(stored).lower() in ("true", "1")
+            self._sync_panel_menu()
+            self.panel_menu_toggle.clicked.connect(self._toggle_panel_menu)
+            root.addWidget(header)
+        else:
+            root.addWidget(self.menu_bar)
+
+    def _sync_panel_menu(self):
+        self.menu_bar.setVisible(not self._panel_menu_collapsed)
+        self.panel_menu_toggle.setText("▶" if self._panel_menu_collapsed else "▼")
+
+    def _toggle_panel_menu(self, checked=False):
+        self._panel_menu_collapsed = not self._panel_menu_collapsed
+        self._sync_panel_menu()
+        self._panel_menu_settings.setValue(
+            "houdini/panel_menu_collapsed", self._panel_menu_collapsed
+        )
 
     def _open_editor_from_menu(self, checked=False):
         return self.open_interface_editor()

@@ -27,7 +27,7 @@ $HOUDINI_USER_PREF_DIR/packages/script_toolbox.json
 $HOUDINI_USER_PREF_DIR/script_toolbox_integration/
 ```
 
-The package points at the installed Script Toolbox distribution; the repository is not copied into the Houdini preferences directory. The managed plugin directory provides startup hooks and the optional Script Toolbox Shelf.
+The package points at the installed Script Toolbox distribution; the repository is not copied into the Houdini preferences directory. The managed plugin directory provides startup hooks, the optional Shelf, a `.pypanel` definition, and overlays for the pane-tab and main menus. It does not replace other plug-ins' or users' menu files.
 
 Options:
 
@@ -94,6 +94,4 @@ The compatibility layer also supplies the Qt 6 compatibility surface required by
 
 ## Current scope
 
-The common Script Toolbox runtime and editor run as a normal Qt window across the supported Houdini generations.
-
-The managed package installer is available from Settings → DCC Integrations. A Houdini-native Python Panel descriptor remains separate follow-up work; the current integration exposes Script Toolbox through its managed Shelf and normal floating window.
+The shared Runtime and Editor run as a normal Qt window or in a native Python Panel. After installation and restart, create a tab with **+ → New Pane Tab Type → ScriptToolbox**, or choose **ScriptToolbox → Open Pane Tab** for a movable floating panel. The panel's `▼ Editor Settings Help` row collapses to `▶`; that choice is saved. The ordinary window keeps its existing menu row. See `docs/DCC_DOCKABLE_PANELS.md` for the manual Desktop acceptance checklist.

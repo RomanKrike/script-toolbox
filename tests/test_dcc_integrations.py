@@ -894,6 +894,15 @@ def test_houdini_install_writes_package_startup_and_shelf(tmp_path):
     assert 'name="script_toolbox"' in shelf
     assert "script_toolbox.show()" in shelf
 
+    from xml.etree import ElementTree
+    panel = ElementTree.parse(adapter._panel_path(target)).getroot()
+    assert panel.find("interface").attrib["name"] == "ScriptToolbox"
+    pane_menu = ElementTree.parse(adapter._pane_menu_path(target)).getroot()
+    assert pane_menu.find("menu/actionItem").attrib["id"] == "pythonpanel::ScriptToolbox"
+    main_menu = ElementTree.parse(adapter._main_menu_path(target)).getroot()
+    labels = [node.text for node in main_menu.findall(".//scriptItem/label")]
+    assert "Open Pane Tab" in labels
+
 
 def test_houdini_repair_restores_missing_shelf(tmp_path):
     user_config = tmp_path / "houdini20.5"

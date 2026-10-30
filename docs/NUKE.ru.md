@@ -53,7 +53,7 @@ import script_toolbox
 script_toolbox.show()
 ```
 
-Dockable-панель больше не поддерживается. Старый вызов `register_nuke_panel()` сохраняет совместимость и регистрирует обычное меню приложения. Для новых startup-скриптов используйте `register_nuke_menu()`.
+Нативная панель доступна через меню **Pane → Script Toolbox** и команду **Open Pane Tab** в меню Script Toolbox. Старый вызов `register_nuke_panel()` регистрирует панель со стабильным ID; `register_nuke_menu()` добавляет команды приложения. Вторая панель, созданная хостом, не запускает второй Runtime. Восстановление Workspace и Nuke 12 требуют ручной проверки по `docs/DCC_DOCKABLE_PANELS.md`.
 
 После `register_nuke_menu()` эти действия также доступны из application menu Nuke.
 

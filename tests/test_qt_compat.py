@@ -164,6 +164,16 @@ def test_loaded_binding_cannot_override_known_maya_generation(monkeypatch):
     ) == (PYSIDE6,)
 
 
+def test_loaded_binding_cannot_override_known_houdini_generation(monkeypatch):
+    _clear_loaded_bindings(monkeypatch)
+    monkeypatch.setitem(sys.modules, "PySide6", object())
+
+    assert binding_candidates("houdini", "20.5.550") == (PYSIDE2,)
+    assert binding_candidates(
+        "houdini", "20.5.550", preferred_binding="PySide6"
+    ) == (PYSIDE6,)
+
+
 def test_mirror_widgets_preserves_existing_qtgui_attributes():
     class QtGuiFake(object):
         ExistingWidget = "gui-version"

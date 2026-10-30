@@ -35,6 +35,8 @@ def _add_content(control_name):
     parent = shiboken.wrapInstance(integer_type(pointer), QtGui.QWidget)
     existing = parent.findChild(QtGui.QWidget, "ScriptToolboxPanelContent")
     if existing is not None:
+        if hasattr(existing, "ensure_toolbox"):
+            existing.ensure_toolbox()
         return existing
     container = ScriptToolboxPanel()
     widget_pointer = shiboken.getCppPointer(container)[0]

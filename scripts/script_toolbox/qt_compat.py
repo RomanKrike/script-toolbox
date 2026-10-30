@@ -159,9 +159,10 @@ def binding_candidates(
             if name != preferred
         ]
 
-    # Houdini supports optional Qt generations; standalone can reuse a loaded
-    # binding. Known Maya/Nuke versions must keep their required generation
-    # even when another plugin has imported a different PySide package.
+    # A loaded binding is not proof of the Qt generation used by the host.
+    # Houdini 20.5 can have PySide6 imported by another plugin while its UI
+    # still runs on Qt 5. Use the host version unless an explicit preference
+    # selects an optional Houdini build.
     loaded = []
     for name in (
         PYSIDE6,
@@ -176,7 +177,7 @@ def binding_candidates(
                 name
             )
 
-    if loaded and (host_key not in ("maya", "nuke") or not major):
+    if loaded and (host_key not in ("maya", "nuke", "houdini") or not major):
         ordered = loaded + [
             name
             for name in ordered

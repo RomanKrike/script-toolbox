@@ -85,4 +85,4 @@ Compatibility layer также предоставляет нужную пове�
 
 Общий Runtime и Interface Editor Script Toolbox работают как обычное Qt-окно во всех поддерживаемых поколениях Houdini.
 
-Нативный Houdini Python Panel descriptor и packaged release installer остаются отдельными последующими задачами. Их следует валидировать независимо от cross-version runtime compatibility layer.
+Houdini Package устанавливает `.pypanel` и собственные файлы меню. После перезапуска ScriptToolbox появляется в **+ → New Pane Tab Type → ScriptToolbox**. Команда **Open Pane Tab** в верхнем меню создаёт плавающую нативную панель. Строка `▼ Editor Settings Help` внутри панели сворачивается до `▶` и сохраняет состояние. Реальные версии Houdini и восстановление Desktop требуют ручной проверки по `docs/DCC_DOCKABLE_PANELS.md`.

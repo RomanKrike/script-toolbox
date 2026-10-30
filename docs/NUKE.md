@@ -57,7 +57,7 @@ import script_toolbox
 script_toolbox.show()
 ```
 
-The Nuke application menu exposes **Open** after `register_nuke_menu()`.
+The Nuke application menu exposes **Open** and **Open Pane Tab** after `register_nuke_menu()`. The native **Pane → Script Toolbox** entry is registered through `nukescripts.panels.registerWidgetAsPanel()` with a stable ID. Its widget is a container for the shared Runtime; a second host pane does not construct another Runtime. Existing `register_nuke_panel()` startup calls now register this native entry. Workspace restore, Reload Scripts and Nuke 12 require manual acceptance in Nuke; see `docs/DCC_DOCKABLE_PANELS.md`.
 
 ## Script namespace
 

@@ -102,6 +102,31 @@ pump()
 ''', tmp_path)
 
 
+def test_houdini_compact_menu_only_appears_in_embedded_pane(tmp_path):
+    run_qt('''
+w.close()
+w.deleteLater()
+pump()
+original_key = HOST.key
+HOST.key = "houdini"
+try:
+    floating = ui.ScriptToolbox()
+    assert floating.isWindow()
+    assert not hasattr(floating, "panel_menu_toggle")
+    container = QtGui.QWidget()
+    embedded = ui.ScriptToolbox(parent=container, panel_mode=True)
+    assert not embedded.isWindow()
+    assert embedded.parentWidget() is container
+    assert embedded.panel_menu_toggle.text() in ("▼", "▶")
+    assert embedded.close()
+    assert floating.close()
+    container.close()
+finally:
+    HOST.key = original_key
+pump()
+''', tmp_path)
+
+
 def test_install_blocks_duplicate_launch_and_close(tmp_path):
     run_qt('''
 calls = []

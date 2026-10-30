@@ -71,6 +71,8 @@ first.config["sections"][0]["items"] = [create_item("string", {
 first.rebuild()
 first.store_value("pane_value", "saved")
 panel = ScriptToolboxPanel()
+panel.show()
+pump()
 assert panel.toolbox is active_toolbox()
 assert panel.toolbox is not first
 assert panel.toolbox.config["sections"][0]["items"][0]["props"]["value"] == "saved"
@@ -81,6 +83,12 @@ window = show()
 assert window is active_toolbox()
 assert window.config["sections"][0]["items"][0]["props"]["value"] == "saved"
 assert show() is window
+retained = panel.ensure_toolbox()
+assert retained is active_toolbox()
+assert retained is not window
+assert retained.config["sections"][0]["items"][0]["props"]["value"] == "saved"
+window = show()
+assert window is active_toolbox()
 duplicate.close()
 panel.close()
 window.close()

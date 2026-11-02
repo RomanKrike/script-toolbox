@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 from ..compat import QtGui, omui, shiboken
+from ..core.logging_utils import get_logger
 from ..pycompat import integer_type
 from ..ui.debounced_main_window import active_toolbox
 from ..ui.panel_container import ScriptToolboxPanel
@@ -46,16 +47,41 @@ def _add_content(control_name):
     return container
 
 
+def _defer_content(control_name):
+    """Let Maya finish building/restoring the control before filling it."""
+    from maya import utils as maya_utils
+
+    def add_when_ready():
+        try:
+            _add_content(control_name)
+        except Exception:
+            get_logger().exception(
+                "Could not populate Maya ScriptToolbox control %s.",
+                control_name
+            )
+
+    maya_utils.executeDeferred(add_when_ready)
+
+
+def _add_or_defer(control_name):
+    _defer_content(control_name)
+    try:
+        return _add_content(control_name)
+    except RuntimeError:
+        # findControl may not be ready while Maya creates/restores its layout.
+        return None
+
+
 def restore_workspace_control():
     """Called by Maya's workspace restoration uiScript."""
-    return _add_content(WORKSPACE_CONTROL)
+    return _add_or_defer(WORKSPACE_CONTROL)
 
 
 def _open_workspace_control(cmds):
     if cmds.workspaceControl(WORKSPACE_CONTROL, exists=True):
         cmds.workspaceControl(WORKSPACE_CONTROL, edit=True, restore=True)
         cmds.workspaceControl(WORKSPACE_CONTROL, edit=True, visible=True)
-        return _add_content(WORKSPACE_CONTROL)
+        return _add_or_defer(WORKSPACE_CONTROL)
     cmds.workspaceControl(
         WORKSPACE_CONTROL,
         label="ScriptToolbox",
@@ -64,16 +90,16 @@ def _open_workspace_control(cmds):
         duplicatable=False,
         uiScript=RESTORE_SCRIPT
     )
-    return _add_content(WORKSPACE_CONTROL)
+    return _add_or_defer(WORKSPACE_CONTROL)
 
 
 def _open_legacy_dock(cmds):
     if cmds.dockControl(LEGACY_DOCK, exists=True):
         cmds.dockControl(LEGACY_DOCK, edit=True, visible=True)
-        return _add_content(LEGACY_LAYOUT)
+        return _add_or_defer(LEGACY_LAYOUT)
     window = cmds.window(LEGACY_WINDOW, title="ScriptToolbox")
     cmds.columnLayout(LEGACY_LAYOUT, parent=window, adjustableColumn=True)
-    _add_content(LEGACY_LAYOUT)
+    _add_or_defer(LEGACY_LAYOUT)
     cmds.dockControl(
         LEGACY_DOCK,
         label="ScriptToolbox",

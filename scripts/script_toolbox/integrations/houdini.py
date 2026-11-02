@@ -442,8 +442,17 @@ _script_toolbox_widget = None
 
 def onCreateInterface():
     global _script_toolbox_widget
-    from script_toolbox.ui.panel_container import ScriptToolboxPanel
-    _script_toolbox_widget = ScriptToolboxPanel()
+    try:
+        from script_toolbox.ui.panel_container import ScriptToolboxPanel
+        _script_toolbox_widget = ScriptToolboxPanel()
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        from hutil.Qt import QtWidgets
+        _script_toolbox_widget = QtWidgets.QLabel(
+            "ScriptToolbox Pane could not open: {0}".format(exc)
+        )
+        _script_toolbox_widget.setWordWrap(True)
     return _script_toolbox_widget
 
 def onDestroyInterface():
@@ -451,9 +460,10 @@ def onDestroyInterface():
     widget = _script_toolbox_widget
     _script_toolbox_widget = None
     from script_toolbox.ui.debounced_main_window import active_toolbox
-    if widget is not None and widget.toolbox is active_toolbox():
-        widget.toolbox.flush_pending_save()
-        widget.toolbox.clear_host_callbacks()
+    toolbox = getattr(widget, "toolbox", None)
+    if toolbox is not None and toolbox is active_toolbox():
+        toolbox.flush_pending_save()
+        toolbox.clear_host_callbacks()
 ]]></script>
   </interface>
 </pythonPanelDocument>

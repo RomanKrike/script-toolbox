@@ -221,7 +221,10 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
         self.update_check_timer.start(1200)
 
         from ..style.themes import controller
-        controller().register(self)
+        theme_controller = controller()
+        if HOST.key == "houdini":
+            theme_controller.adopt_houdini_palette()
+        theme_controller.register(self)
 
     # ------------------------------------------------------------------
     # UI
@@ -309,6 +312,9 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
             header_layout.setSpacing(0)
             self.panel_menu_toggle = QtGui.QToolButton(header)
             self.panel_menu_toggle.setObjectName("ScriptToolboxPanelMenuToggle")
+            self.panel_menu_toggle.setAutoRaise(True)
+            self.panel_menu_toggle.setFixedSize(22, 22)
+            self.panel_menu_toggle.setToolTip("Collapse or expand menu")
             header_layout.addWidget(self.panel_menu_toggle)
             header_layout.addWidget(self.menu_bar, 1)
             self._panel_menu_settings = QtCore.QSettings("ScriptToolbox", "ScriptToolbox")
@@ -322,7 +328,10 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
 
     def _sync_panel_menu(self):
         self.menu_bar.setVisible(not self._panel_menu_collapsed)
-        self.panel_menu_toggle.setText("▶" if self._panel_menu_collapsed else "▼")
+        self.panel_menu_toggle.setArrowType(
+            QtCore.Qt.RightArrow if self._panel_menu_collapsed
+            else QtCore.Qt.DownArrow
+        )
 
     def _toggle_panel_menu(self, checked=False):
         self._panel_menu_collapsed = not self._panel_menu_collapsed

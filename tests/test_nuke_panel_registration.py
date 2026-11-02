@@ -46,9 +46,15 @@ def test_register_panel_uses_stable_id_and_single_nuke_pane_entry(monkeypatch):
     nuke_integration.register_menu()
 
     assert calls == [(
-        "script_toolbox.ui.panel_container.ScriptToolboxPanel",
+        nuke_integration._PANEL_WIDGET_CLASS,
         "Script Toolbox",
         nuke_integration.PANEL_ID,
     )]
+    # Nuke evaluates the supplied string as a Python class expression.
+    import script_toolbox.ui as ui
+    monkeypatch.delattr(ui, "panel_container", raising=False)
+    panel_class = eval(calls[0][0])
+    assert panel_class.__module__ == "script_toolbox.ui.panel_container"
+    assert panel_class.__name__ == "ScriptToolboxPanel"
     menu = root.findItem("Script Toolbox")
     assert set(menu.items) == {"Open", "Open Pane Tab"}

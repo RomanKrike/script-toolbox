@@ -197,7 +197,7 @@ def test_nuke_dock_panel_uses_shared_container_without_settings_toggle():
     assert '"dock_panel"' not in adapter
     assert '"Register Dock Panel"' not in runtime
     assert "def register_panel(" in runtime
-    assert "script_toolbox.ui.panel_container.ScriptToolboxPanel" in runtime
+    assert "__import__('script_toolbox.ui.panel_container'" in runtime
     assert "def register_nuke_panel():" in package
     assert "return register_panel()" in package
 

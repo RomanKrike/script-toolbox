@@ -63,7 +63,7 @@ def test_bootstrap_uses_debounced_window_and_nuke_container():
     assert ".ui.debounced_main_window import close_toolbox" in bootstrap
     assert "def register_panel(" in nuke
     assert "Register Dock Panel" not in nuke
-    assert "script_toolbox.ui.panel_container.ScriptToolboxPanel" in nuke
+    assert "__import__('script_toolbox.ui.panel_container'" in nuke
 
 
 def test_runtime_binding_hooks_are_installed_through_shared_pipeline():

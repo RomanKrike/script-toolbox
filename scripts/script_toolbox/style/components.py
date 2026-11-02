@@ -45,6 +45,20 @@ QMenuBar#ToolboxMenuBar::item:pressed {
     color: %(TEXT_STRONG)s;
 }
 
+QToolButton#ScriptToolboxPanelMenuToggle {
+    background-color: transparent;
+    color: %(TEXT_PRIMARY)s;
+    border: 0px;
+    border-radius: 0px;
+    padding: 0px;
+}
+
+QToolButton#ScriptToolboxPanelMenuToggle:hover,
+QToolButton#ScriptToolboxPanelMenuToggle:pressed {
+    background-color: %(ICON_BUTTON_HOVER_BG)s;
+    border: 0px;
+}
+
 QStatusBar#ToolboxStatusBar {
     background-color: %(STATUS_BG)s;
     color: %(TEXT_STATUS)s;

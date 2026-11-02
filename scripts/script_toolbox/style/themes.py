@@ -7,7 +7,7 @@ style triggers a scoped refresh, so theme previews do not rebuild item data.
 import re
 import weakref
 
-from ..compat import QtCore, QtGui
+from ..compat import HOST, QtCore, QtGui
 from ..core import themes
 from . import palette
 from .builtin_icons import themed_icon
@@ -104,7 +104,40 @@ class ThemeController(QtCore.QObject):
         self._pending = False
         self.mapping = color_map(self.active["colors"])
         self.colors = token_colors(self.active["colors"])
+        self._using_houdini_palette = False
         app.installEventFilter(self)
+
+    def adopt_houdini_palette(self):
+        """Use Houdini's active Qt colors for its default Toolbox theme."""
+        if HOST.key != "houdini":
+            return False
+        if not self._using_houdini_palette and self.active != themes.theme():
+            return False
+        palette = self.parent().palette()
+        role = QtGui.QPalette
+
+        def color(value):
+            return palette.color(value).name()
+
+        colors = dict(themes.DEFAULT_COLORS)
+        colors.update(
+            window=color(role.Window),
+            panel=color(role.AlternateBase),
+            input=color(role.Base),
+            border=color(role.Mid),
+            text=color(role.WindowText),
+            secondary=palette.color(role.Disabled, role.WindowText).name(),
+            accent=color(role.Highlight),
+            selection=color(role.Highlight),
+            on_accent=color(role.HighlightedText),
+            button=color(role.Button),
+        )
+        colors["group"] = colors["text"]
+        colors["row"] = colors["secondary"]
+        colors["column"] = colors["secondary"]
+        self.apply(themes.theme("Houdini", colors))
+        self._using_houdini_palette = True
+        return True
 
     def register(self, root):
         if not any(ref() is root for ref in self.roots):
@@ -112,6 +145,7 @@ class ThemeController(QtCore.QObject):
         self.refresh()
 
     def apply(self, value):
+        self._using_houdini_palette = False
         self.active = themes.validate(value)
         self._custom_colors = self.active["colors"] != themes.DEFAULT_COLORS
         self.mapping = color_map(self.active["colors"])

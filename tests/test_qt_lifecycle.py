@@ -110,6 +110,8 @@ pump()
 original_key = HOST.key
 HOST.key = "houdini"
 try:
+    QtCore.QSettings("ScriptToolbox", "ScriptToolbox").setValue(
+        "houdini/panel_menu_collapsed", False)
     floating = ui.ScriptToolbox()
     assert floating.isWindow()
     assert not hasattr(floating, "panel_menu_toggle")
@@ -117,12 +119,51 @@ try:
     embedded = ui.ScriptToolbox(parent=container, panel_mode=True)
     assert not embedded.isWindow()
     assert embedded.parentWidget() is container
-    assert embedded.panel_menu_toggle.text() in ("▼", "▶")
+    assert embedded.panel_menu_toggle.width() == 22
+    assert embedded.panel_menu_toggle.autoRaise()
+    assert embedded.panel_menu_toggle.arrowType() == QtCore.Qt.DownArrow
+    embedded.panel_menu_toggle.click()
+    assert embedded.panel_menu_toggle.arrowType() == QtCore.Qt.RightArrow
+    assert embedded.menu_bar.isHidden()
+    embedded.panel_menu_toggle.click()
+    assert embedded.panel_menu_toggle.arrowType() == QtCore.Qt.DownArrow
     assert embedded.close()
     assert floating.close()
     container.close()
 finally:
     HOST.key = original_key
+pump()
+''', tmp_path)
+
+
+def test_houdini_default_theme_uses_host_palette(tmp_path):
+    run_qt('''
+w.close()
+w.deleteLater()
+pump()
+host_palette = app.palette()
+custom = QtGui.QPalette(host_palette)
+custom.setColor(QtGui.QPalette.Window, QtGui.QColor("#34373a"))
+custom.setColor(QtGui.QPalette.AlternateBase, QtGui.QColor("#3d4043"))
+custom.setColor(QtGui.QPalette.Base, QtGui.QColor("#292c2f"))
+custom.setColor(QtGui.QPalette.Highlight, QtGui.QColor("#ad762f"))
+app.setPalette(custom)
+original_key = HOST.key
+HOST.key = "houdini"
+try:
+    container = QtGui.QWidget()
+    embedded = ui.ScriptToolbox(parent=container, panel_mode=True)
+    from script_toolbox.style.themes import controller
+    colors = controller().active["colors"]
+    assert colors["window"] == "#34373a"
+    assert colors["panel"] == "#3d4043"
+    assert colors["input"] == "#292c2f"
+    assert colors["accent"] == "#ad762f"
+    assert embedded.close()
+    container.close()
+finally:
+    HOST.key = original_key
+    app.setPalette(host_palette)
 pump()
 ''', tmp_path)
 

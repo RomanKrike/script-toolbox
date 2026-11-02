@@ -13,6 +13,10 @@ from .integrations.icons import integration_icon_path
 _ACTIVE_PROFILE_ID = None
 PANEL_ID = "com.romankrike.scripttoolbox"
 _PANEL_MARKER = "_script_toolbox_dock_panel_registered"
+_PANEL_WIDGET_CLASS = (
+    "__import__('script_toolbox.ui.panel_container', "
+    "fromlist=['ScriptToolboxPanel']).ScriptToolboxPanel"
+)
 
 
 def active_profile_id():
@@ -83,7 +87,7 @@ def register_panel():
     if getattr(nuke, _PANEL_MARKER, False):
         return True
     nukescripts.panels.registerWidgetAsPanel(
-        "script_toolbox.ui.panel_container.ScriptToolboxPanel",
+        _PANEL_WIDGET_CLASS,
         "Script Toolbox",
         PANEL_ID
     )

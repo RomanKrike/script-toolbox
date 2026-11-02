@@ -2,7 +2,7 @@
 """Qt content placed inside host-owned dock and pane containers."""
 from __future__ import print_function
 
-from ..compat import QtGui
+from ..compat import QtCore, QtGui
 
 
 class ScriptToolboxPanel(QtGui.QWidget):
@@ -16,7 +16,16 @@ class ScriptToolboxPanel(QtGui.QWidget):
         layout.setSpacing(0)
         self.toolbox = None
         self._message = None
-        self.ensure_toolbox()
+        # Hosts adopt this QWidget after construction. Build the Runtime only
+        # once the host has shown it; Houdini may create the interface while
+        # restoring the desktop, before its Qt pane is ready.
+        self._activation_timer = QtCore.QTimer(self)
+        self._activation_timer.setSingleShot(True)
+        self._activation_timer.timeout.connect(self._activate_toolbox)
+
+    def _activate_toolbox(self):
+        if self.isVisible():
+            self.ensure_toolbox()
 
     def _show_message(self, message):
         if self._message is None:
@@ -52,10 +61,11 @@ class ScriptToolboxPanel(QtGui.QWidget):
         return toolbox
 
     def showEvent(self, event):
-        self.ensure_toolbox()
+        self._activation_timer.start(0)
         QtGui.QWidget.showEvent(self, event)
 
     def closeEvent(self, event):
+        self._activation_timer.stop()
         from script_toolbox.ui.debounced_main_window import active_toolbox
         from script_toolbox.ui.debounced_main_window import close_toolbox
         if self.toolbox is not None and active_toolbox() is self.toolbox:

@@ -79,6 +79,10 @@ def restore_workspace_control():
 
 def _open_workspace_control(cmds):
     if cmds.workspaceControl(WORKSPACE_CONTROL, exists=True):
+        cmds.workspaceControl(
+            WORKSPACE_CONTROL, edit=True,
+            uiScript=RESTORE_SCRIPT, loadImmediately=True
+        )
         cmds.workspaceControl(WORKSPACE_CONTROL, edit=True, restore=True)
         cmds.workspaceControl(WORKSPACE_CONTROL, edit=True, visible=True)
         return _add_or_defer(WORKSPACE_CONTROL)
@@ -88,7 +92,8 @@ def _open_workspace_control(cmds):
         floating=True,
         retain=True,
         duplicatable=False,
-        uiScript=RESTORE_SCRIPT
+        uiScript=RESTORE_SCRIPT,
+        loadImmediately=True
     )
     return _add_or_defer(WORKSPACE_CONTROL)
 

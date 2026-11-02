@@ -307,19 +307,23 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
 
         if HOST.key == "houdini" and self._script_toolbox_mode == "panel":
             header = QtGui.QWidget(self.centralWidget())
+            self.panel_menu_header = header
             header_layout = QtGui.QHBoxLayout(header)
             header_layout.setContentsMargins(0, 0, 0, 0)
             header_layout.setSpacing(0)
             self.panel_menu_toggle = QtGui.QToolButton(header)
             self.panel_menu_toggle.setObjectName("ScriptToolboxPanelMenuToggle")
             self.panel_menu_toggle.setAutoRaise(True)
-            self.panel_menu_toggle.setFixedSize(22, 22)
+            self.panel_menu_toggle.setFixedWidth(22)
             self.panel_menu_toggle.setToolTip("Collapse or expand menu")
             header_layout.addWidget(self.panel_menu_toggle)
             header_layout.addWidget(self.menu_bar, 1)
             self._panel_menu_settings = QtCore.QSettings("ScriptToolbox", "ScriptToolbox")
             stored = self._panel_menu_settings.value("houdini/panel_menu_collapsed", False)
             self._panel_menu_collapsed = str(stored).lower() in ("true", "1")
+            self._panel_menu_expanded_height = max(
+                22, self.menu_bar.sizeHint().height()
+            )
             self._sync_panel_menu()
             self.panel_menu_toggle.clicked.connect(self._toggle_panel_menu)
             root.addWidget(header)
@@ -328,9 +332,12 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
 
     def _sync_panel_menu(self):
         self.menu_bar.setVisible(not self._panel_menu_collapsed)
+        height = 10 if self._panel_menu_collapsed else self._panel_menu_expanded_height
+        self.panel_menu_toggle.setFixedHeight(height)
+        self.panel_menu_header.setFixedHeight(height)
         self.panel_menu_toggle.setArrowType(
-            QtCore.Qt.RightArrow if self._panel_menu_collapsed
-            else QtCore.Qt.DownArrow
+            QtCore.Qt.DownArrow if self._panel_menu_collapsed
+            else QtCore.Qt.UpArrow
         )
 
     def _toggle_panel_menu(self, checked=False):

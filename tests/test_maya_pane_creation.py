@@ -57,3 +57,30 @@ def test_existing_control_is_checked_again_after_restore(monkeypatch):
     assert len(callbacks) == 1
     callbacks.pop()()
     assert calls == [maya_dock.WORKSPACE_CONTROL] * 2
+
+
+def test_workspace_control_loads_ui_script_on_creation_and_restore(monkeypatch):
+    from script_toolbox.integrations import maya_dock
+
+    monkeypatch.setattr(maya_dock, "_add_or_defer", lambda name: None)
+    calls = []
+
+    class Commands(object):
+        exists = False
+
+        def workspaceControl(self, name, **kwargs):
+            calls.append(kwargs)
+            if kwargs.get("exists"):
+                return self.exists
+
+    cmds = Commands()
+    maya_dock._open_workspace_control(cmds)
+    assert calls[-1]["loadImmediately"] is True
+    assert calls[-1]["uiScript"] == maya_dock.RESTORE_SCRIPT
+
+    calls[:] = []
+    cmds.exists = True
+    maya_dock._open_workspace_control(cmds)
+    assert calls[1]["edit"] is True
+    assert calls[1]["loadImmediately"] is True
+    assert calls[1]["uiScript"] == maya_dock.RESTORE_SCRIPT

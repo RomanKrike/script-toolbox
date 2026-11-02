@@ -119,11 +119,25 @@ class ThemeController(QtCore.QObject):
         def color(value):
             return palette.color(value).name()
 
+        window = palette.color(role.Window)
+
+        def surface(value):
+            candidate = palette.color(value)
+            distance = max(
+                abs(getattr(candidate, channel)() - getattr(window, channel)())
+                for channel in ("red", "green", "blue")
+            )
+            # Some Houdini builds keep light Base roles behind their dark QSS.
+            # A white folder/card on a dark pane is not a usable host palette.
+            if distance > 64:
+                return window.name()
+            return candidate.name()
+
         colors = dict(themes.DEFAULT_COLORS)
         colors.update(
-            window=color(role.Window),
-            panel=color(role.AlternateBase),
-            input=color(role.Base),
+            window=window.name(),
+            panel=surface(role.AlternateBase),
+            input=surface(role.Base),
             border=color(role.Mid),
             text=color(role.WindowText),
             secondary=palette.color(role.Disabled, role.WindowText).name(),

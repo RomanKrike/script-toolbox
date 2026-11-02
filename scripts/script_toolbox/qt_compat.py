@@ -389,6 +389,29 @@ def load_qt_binding(
 
 
 def houdini_preferred_binding():
+    # Houdini 20.5 ships both Qt 5 and optional Qt 6 builds. Its own Qt
+    # facade resolves the binding used by this process; a version number or
+    # an unrelated plugin's imported PySide module cannot identify it.
+    try:
+        from hutil.Qt import QtCore as host_qt_core
+        module_name = getattr(host_qt_core, "__name__", "")
+        object_name = getattr(
+            getattr(host_qt_core, "QObject", None), "__module__", ""
+        )
+        for name in (PYSIDE6, PYSIDE2, PYSIDE):
+            if module_name.startswith(name + ".") or object_name.startswith(name + "."):
+                return name
+        version = getattr(host_qt_core, "qVersion", None)
+        if callable(version):
+            major = version_major(version())
+            if major == 6:
+                return PYSIDE6
+            if major == 5:
+                return PYSIDE2
+            if major == 4:
+                return PYSIDE
+    except (ImportError, AttributeError):
+        pass
     return os.environ.get(
         "HOUDINI_QT_PREFERRED_BINDING",
         ""

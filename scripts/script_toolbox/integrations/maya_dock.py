@@ -2,7 +2,7 @@
 """Native Maya workspace and legacy dock containers for Script Toolbox."""
 from __future__ import print_function
 
-from ..compat import QtGui, omui, shiboken
+from ..compat import QtCore, QtGui, omui, shiboken
 from ..core.logging_utils import get_logger
 from ..pycompat import integer_type
 from ..ui.debounced_main_window import active_toolbox
@@ -17,6 +17,9 @@ RESTORE_SCRIPT = (
     "import script_toolbox.integrations.maya_dock as _st_dock; "
     "_st_dock.restore_workspace_control()"
 )
+_ATTACH_RETRY_MS = 100
+_MAX_ATTACH_ATTEMPTS = 30
+_PENDING_ATTACHES = set()
 
 
 def _cmds():
@@ -36,31 +39,54 @@ def _add_content(control_name):
     parent = shiboken.wrapInstance(integer_type(pointer), QtGui.QWidget)
     existing = parent.findChild(QtGui.QWidget, "ScriptToolboxPanelContent")
     if existing is not None:
-        if hasattr(existing, "ensure_toolbox"):
+        if parent.isVisible() and hasattr(existing, "ensure_toolbox"):
             existing.ensure_toolbox()
+        if parent.isVisible():
+            existing.show()
         return existing
     container = ScriptToolboxPanel()
     widget_pointer = shiboken.getCppPointer(container)[0]
     omui.MQtUtil.addWidgetToMayaLayout(
         integer_type(widget_pointer), integer_type(pointer)
     )
+    if container.parentWidget() is not None and parent.isVisible():
+        container.show()
     return container
 
 
 def _defer_content(control_name):
-    """Let Maya finish building/restoring the control before filling it."""
+    """Retry until Maya has attached and exposed the workspace content."""
     from maya import utils as maya_utils
 
-    def add_when_ready():
-        try:
-            _add_content(control_name)
-        except Exception:
-            get_logger().exception(
-                "Could not populate Maya ScriptToolbox control %s.",
-                control_name
-            )
+    if control_name in _PENDING_ATTACHES:
+        return
+    _PENDING_ATTACHES.add(control_name)
 
-    maya_utils.executeDeferred(add_when_ready)
+    def add_when_ready(attempt=0):
+        try:
+            container = _add_content(control_name)
+            if hasattr(container, "isVisible") and not container.isVisible():
+                parent = container.parentWidget()
+                if parent is None or parent.isVisible():
+                    raise RuntimeError("Maya ScriptToolbox container is not visible yet.")
+        except Exception:
+            if attempt + 1 < _MAX_ATTACH_ATTEMPTS:
+                QtCore.QTimer.singleShot(
+                    _ATTACH_RETRY_MS,
+                    lambda: add_when_ready(attempt + 1)
+                )
+                return
+            get_logger().exception(
+                "Could not populate Maya ScriptToolbox control %s after %s attempts.",
+                control_name, _MAX_ATTACH_ATTEMPTS
+            )
+        _PENDING_ATTACHES.discard(control_name)
+
+    try:
+        maya_utils.executeDeferred(add_when_ready)
+    except Exception:
+        _PENDING_ATTACHES.discard(control_name)
+        raise
 
 
 def _add_or_defer(control_name):
@@ -77,11 +103,28 @@ def restore_workspace_control():
     return _add_or_defer(WORKSPACE_CONTROL)
 
 
+def repair_saved_workspace_control():
+    """Attach content when Maya restores a saved tab before our menu loads."""
+    cmds = _cmds()
+    if not hasattr(cmds, "workspaceControl") or not cmds.workspaceControl(
+        WORKSPACE_CONTROL, exists=True
+    ):
+        return False
+    cmds.workspaceControl(
+        WORKSPACE_CONTROL, edit=True,
+        uiScript=RESTORE_SCRIPT,
+        loadImmediately=True
+    )
+    _defer_content(WORKSPACE_CONTROL)
+    return True
+
+
 def _open_workspace_control(cmds):
     if cmds.workspaceControl(WORKSPACE_CONTROL, exists=True):
         cmds.workspaceControl(
             WORKSPACE_CONTROL, edit=True,
-            uiScript=RESTORE_SCRIPT, loadImmediately=True
+            uiScript=RESTORE_SCRIPT,
+            loadImmediately=True
         )
         cmds.workspaceControl(WORKSPACE_CONTROL, edit=True, restore=True)
         cmds.workspaceControl(WORKSPACE_CONTROL, edit=True, visible=True)
@@ -95,6 +138,8 @@ def _open_workspace_control(cmds):
         uiScript=RESTORE_SCRIPT,
         loadImmediately=True
     )
+    cmds.workspaceControl(WORKSPACE_CONTROL, edit=True, restore=True)
+    cmds.workspaceControl(WORKSPACE_CONTROL, edit=True, visible=True)
     return _add_or_defer(WORKSPACE_CONTROL)
 
 
@@ -131,5 +176,5 @@ def open_pane_tab():
 
 __all__ = [
     "WORKSPACE_CONTROL", "LEGACY_DOCK", "open_pane_tab",
-    "restore_workspace_control",
+    "repair_saved_workspace_control", "restore_workspace_control",
 ]

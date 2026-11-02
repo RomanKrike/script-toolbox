@@ -228,6 +228,17 @@ def apply_current_integration():
             _LOGGER.exception("[DCC] Maya %s integration failed.", name)
             success = False
 
+    try:
+        cmds = _cmds()
+        if hasattr(cmds, "workspaceControl") and cmds.workspaceControl(
+            "ScriptToolboxWorkspaceControl", exists=True
+        ):
+            from .maya_dock import repair_saved_workspace_control
+            repair_saved_workspace_control()
+    except Exception:
+        _LOGGER.exception("[DCC] Maya saved ScriptToolbox pane repair failed.")
+        success = False
+
     if settings.get("auto_open", False):
         try:
             _open_toolbox()

@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 import sys
+from types import ModuleType, SimpleNamespace
 
 from script_toolbox.qt_compat import PYSIDE
 from script_toolbox.qt_compat import PYSIDE2
@@ -11,6 +12,7 @@ from script_toolbox.qt_compat import install_legacy_api
 from script_toolbox.qt_compat import mirror_widgets_onto_qtgui
 from script_toolbox.qt_compat import version_major
 from script_toolbox.qt_compat import qt_exec
+from script_toolbox.qt_compat import houdini_preferred_binding
 
 
 _BINDING_MODULES = (
@@ -134,6 +136,41 @@ def test_houdini_preferred_binding_can_select_optional_qt6(monkeypatch):
         "20.5.550",
         preferred_binding="PySide6"
     )[0] == PYSIDE6
+
+
+def test_houdini_binding_uses_host_qt_facade_before_version_or_env(monkeypatch):
+    hutil = ModuleType("hutil")
+    hutil.__path__ = []
+    qt = ModuleType("hutil.Qt")
+    qt.QtCore = SimpleNamespace(
+        __name__="PySide6.QtCore",
+        QObject=type("QObject", (), {})
+    )
+    monkeypatch.setitem(sys.modules, "hutil", hutil)
+    monkeypatch.setitem(sys.modules, "hutil.Qt", qt)
+    monkeypatch.setenv("HOUDINI_QT_PREFERRED_BINDING", "PySide2")
+
+    assert houdini_preferred_binding() == PYSIDE6
+    assert binding_candidates(
+        "houdini", "20.5.550",
+        preferred_binding=houdini_preferred_binding()
+    ) == (PYSIDE6,)
+
+
+def test_houdini_binding_uses_host_qt_version_when_facade_names_are_generic(monkeypatch):
+    hutil = ModuleType("hutil")
+    hutil.__path__ = []
+    qt = ModuleType("hutil.Qt")
+    qt.QtCore = SimpleNamespace(
+        __name__="Qt.QtCore",
+        QObject=type("QObject", (), {}),
+        qVersion=lambda: "5.15.2"
+    )
+    monkeypatch.setitem(sys.modules, "hutil", hutil)
+    monkeypatch.setitem(sys.modules, "hutil.Qt", qt)
+    monkeypatch.setenv("HOUDINI_QT_PREFERRED_BINDING", "PySide6")
+
+    assert houdini_preferred_binding() == PYSIDE2
 
 
 def test_houdini_21_preferred_binding_can_select_qt5_variant(monkeypatch):

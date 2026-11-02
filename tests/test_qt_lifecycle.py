@@ -72,6 +72,7 @@ first.config["sections"][0]["items"] = [create_item("string", {
 first.rebuild()
 first.store_value("pane_value", "saved")
 panel = ScriptToolboxPanel()
+assert panel.toolbox is None
 panel.show()
 pump()
 assert panel.toolbox is active_toolbox()
@@ -80,6 +81,8 @@ assert not panel.toolbox.isWindow()
 assert panel.toolbox is not first
 assert panel.toolbox.config["sections"][0]["items"][0]["props"]["value"] == "saved"
 duplicate = ScriptToolboxPanel()
+duplicate.show()
+pump()
 assert duplicate.toolbox is None
 assert active_toolbox() is panel.toolbox
 window = show()
@@ -98,6 +101,28 @@ duplicate.close()
 panel.close()
 window.close()
 window.deleteLater()
+pump()
+''', tmp_path)
+
+
+def test_host_panel_waits_for_show_and_cancels_closed_activation(tmp_path):
+    run_qt('''
+w.close()
+w.deleteLater()
+pump()
+from script_toolbox.ui.debounced_main_window import active_toolbox
+from script_toolbox.ui.panel_container import ScriptToolboxPanel
+panel = ScriptToolboxPanel()
+assert panel.toolbox is None
+assert active_toolbox() is None
+panel.show()
+panel.close()
+pump()
+assert active_toolbox() is None
+panel.show()
+pump()
+assert panel.toolbox is active_toolbox()
+assert panel.close()
 pump()
 ''', tmp_path)
 
@@ -121,12 +146,17 @@ try:
     assert embedded.parentWidget() is container
     assert embedded.panel_menu_toggle.width() == 22
     assert embedded.panel_menu_toggle.autoRaise()
-    assert embedded.panel_menu_toggle.arrowType() == QtCore.Qt.DownArrow
+    expanded_height = embedded.panel_menu_header.height()
+    assert expanded_height >= 22
+    assert embedded.panel_menu_toggle.arrowType() == QtCore.Qt.UpArrow
     embedded.panel_menu_toggle.click()
-    assert embedded.panel_menu_toggle.arrowType() == QtCore.Qt.RightArrow
+    assert embedded.panel_menu_toggle.arrowType() == QtCore.Qt.DownArrow
+    assert embedded.panel_menu_header.height() == 10
+    assert embedded.panel_menu_header.height() < expanded_height
     assert embedded.menu_bar.isHidden()
     embedded.panel_menu_toggle.click()
-    assert embedded.panel_menu_toggle.arrowType() == QtCore.Qt.DownArrow
+    assert embedded.panel_menu_toggle.arrowType() == QtCore.Qt.UpArrow
+    assert embedded.panel_menu_header.height() == expanded_height
     assert embedded.close()
     assert floating.close()
     container.close()
@@ -159,6 +189,12 @@ try:
     assert colors["panel"] == "#3d4043"
     assert colors["input"] == "#292c2f"
     assert colors["accent"] == "#ad762f"
+    custom.setColor(QtGui.QPalette.AlternateBase, QtGui.QColor("#ffffff"))
+    custom.setColor(QtGui.QPalette.Base, QtGui.QColor("#ffffff"))
+    app.setPalette(custom)
+    assert controller().adopt_houdini_palette()
+    assert controller().active["colors"]["panel"] == "#34373a"
+    assert controller().active["colors"]["input"] == "#34373a"
     assert embedded.close()
     container.close()
 finally:

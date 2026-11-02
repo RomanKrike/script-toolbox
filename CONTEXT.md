@@ -1,6 +1,6 @@
 # Dockable panels context
 
-Branch: `dev` at `ad1f694` after PRs #157–#160. Parent Issue: #151. Stages: #152–#156 remain open for DCC acceptance. Current follow-up branch: `codex/fix-pane-host-creation`.
+Branch: `dev` at `6222be6` after PRs #157–#161. Parent Issue: #151. Stages: #152–#156 remain open for DCC acceptance. Current follow-up branch: `codex/fix-dcc-pane-restore`.
 
 Current design: `ui/debounced_main_window.py` owns the one active main window. The existing Runtime, ConfigStore, Item and Preset code remains shared. `ui/panel_container.py` is the QWidget passed to host APIs. It creates one child Runtime or an inert conflict message. Mode changes close the old Runtime after flushing pending data; no Qt widget is reparented between modes. A host-owned container is never directly deleted by the lifecycle controller.
 
@@ -10,4 +10,6 @@ Observed DCC feedback: Maya, Nuke and Houdini panes are still blank after PR #16
 
 The latest Houdini screenshot shows a populated ScriptToolbox pane with `My Tools`, so creation can succeed there; the path that was previously blank is still not fully characterized. The owner requested that its top menu match Houdini's Network Editor: a small native arrow at the left of the menu row, plus colors from the active Houdini Qt palette. The current branch now uses a compact arrow button and derives its default Houdini theme from that palette. Other hosts retain their existing theme; a user-selected custom theme still takes precedence.
 
-Next step: run CI for the host creation and Houdini styling changes, then retest in real Maya, Nuke and Houdini. Test Workspace/Desktop restore and Reload Scripts. Record host versions and PASS/FAIL in #153–#156; investigate any Houdini crash from host logs.
+After PR #161, Maya 2025 still initially showed a blank Pane; calling `open_pane_tab()` manually yielded a populated `ScriptToolboxPanel`. The Maya workspaceControl and its parent were visible, and the child Runtime became visible after the call. The current branch sets `uiScript` and `loadImmediately=True` on both new and retained workspaceControls. Houdini 20.5 crashes on the first Pane open after a plugin update, then opens successfully on the next application launch; no crash log is available. To avoid constructing the complex Runtime during host desktop creation, the host container now waits until its show event and queues activation for the next Qt event loop pass. The owner also clarified that Houdini's menu must collapse vertically, moving the content upward. The current branch shrinks the entire menu header to 10 px on collapse. The Houdini Qt palette can expose light Base/AlternateBase colors even when the pane is dark; the current branch falls back to the Window color for those surfaces.
+
+Next step: run CI and retest Maya 2025 and Houdini 20.5 after update, then test Nuke, Workspace/Desktop restore and Reload Scripts. Record host versions and PASS/FAIL in #153–#156. The crash fix remains a hypothesis until the user repeats the real-host update scenario.

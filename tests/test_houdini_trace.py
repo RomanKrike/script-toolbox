@@ -32,3 +32,40 @@ def test_generated_panel_traces_creation_before_runtime_import():
     assert "panel.create_enter" in script
     assert "panel.import_container_begin" in script
     assert "panel.create_return" in script
+
+
+def test_watchdog_dumps_stack_when_event_loop_stops(tmp_path):
+    scripts = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts")
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = scripts
+    environment["SCRIPT_TOOLBOX_HOUDINI_TRACE_DIR"] = str(tmp_path)
+    program = """
+import os
+import time
+from script_toolbox import houdini_trace as diagnostics
+diagnostics._HANG_TIMEOUT_SECONDS = 0.2
+class Signal(object):
+    def connect(self, callback):
+        self.callback = callback
+class Timer(object):
+    def __init__(self, parent):
+        self.timeout = Signal()
+    def setInterval(self, value):
+        pass
+    def start(self):
+        pass
+class Core(object):
+    QTimer = Timer
+diagnostics.start_hang_watchdog(Core, None)
+time.sleep(0.8)
+os._exit(0)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", program], env=environment, timeout=10
+    )
+    assert result.returncode == 0
+    logs = list(tmp_path.glob("script-toolbox-houdini-pane-*.log"))
+    assert len(logs) == 1
+    content = logs[0].read_text(encoding="utf-8")
+    assert "watchdog.armed" in content
+    assert "Timeout" in content

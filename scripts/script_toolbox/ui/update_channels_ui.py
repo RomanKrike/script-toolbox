@@ -8,6 +8,7 @@ from ..core.preferences import get_update_channel
 from ..core.preferences import normalize_update_channel
 from ..core.preferences import set_update_channel
 from ..style import STYLE
+from .menu_actions import add_menu_action
 from .update_ui import UpdateCheckThread
 
 
@@ -54,7 +55,7 @@ class UpdateChannelToolboxMixin(object):
             UPDATE_CHANNEL_STABLE,
             UPDATE_CHANNEL_DEVELOPMENT,
         ):
-            action = menu.addAction(
+            action = add_menu_action(menu,
                 _CHANNEL_LABELS[
                     channel
                 ]

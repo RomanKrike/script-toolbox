@@ -33,7 +33,7 @@ def test_common_menu_bar_replaces_legacy_header_controls():
     assert '"Open Settings"' in source
     assert '"Check for Updates"' in source
     assert (
-        'self.check_updates_action = self.settings_menu.addAction('
+        'self.check_updates_action = add_menu_action(self.settings_menu,'
         in source
     )
     assert '"Reload Config"' in source
@@ -71,11 +71,11 @@ def test_update_check_is_not_owned_by_help_menu():
     )
 
     assert (
-        'self.check_updates_action = self.settings_menu.addAction('
+        'self.check_updates_action = add_menu_action(self.settings_menu,'
         in source
     )
     assert (
-        'self.check_updates_action = self.help_menu.addAction('
+        'self.check_updates_action = add_menu_action(self.help_menu,'
         not in source
     )
 

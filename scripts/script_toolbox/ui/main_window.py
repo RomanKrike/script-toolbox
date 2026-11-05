@@ -26,6 +26,7 @@ from ..style import apply_window_icon
 from ..style import metrics
 from ..style import toolbar_icon
 from .layout_helpers import configure_layout
+from .menu_actions import add_menu_action
 from .update_ui import UpdateCheckThread
 from .update_ui import UpdateInstallThread
 from .state_toggle_hooks import StateToggleBehaviorMixin
@@ -277,13 +278,13 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
             set_native(False)
 
         self.editor_menu = self._styled_menu("Editor")
-        self.open_editor_action = self.editor_menu.addAction("Open Editor")
+        self.open_editor_action = add_menu_action(self.editor_menu, "Open Editor")
         self.open_editor_action.triggered.connect(
             self._open_editor_from_menu
         )
 
         self.settings_menu = self._styled_menu("Settings")
-        self.settings_action = self.settings_menu.addAction("Open Settings")
+        self.settings_action = add_menu_action(self.settings_menu, "Open Settings")
         settings_handler = getattr(self, "open_settings_dialog", None)
         self.settings_action.setEnabled(settings_handler is not None)
         self.settings_action.triggered.connect(
@@ -291,12 +292,12 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
         )
 
         self.settings_menu.addSeparator()
-        self.reload_action = self.settings_menu.addAction("Reload Config")
+        self.reload_action = add_menu_action(self.settings_menu, "Reload Config")
         self.reload_action.triggered.connect(
             self._reload_config_from_menu
         )
 
-        self.check_updates_action = self.settings_menu.addAction(
+        self.check_updates_action = add_menu_action(self.settings_menu,
             "Check for Updates"
         )
         self.check_updates_action.triggered.connect(

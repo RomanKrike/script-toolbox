@@ -3,6 +3,7 @@ from __future__ import print_function
 
 from ..compat import QtCore
 from ..compat import QtGui
+from .menu_actions import add_menu_action
 from .settings_dialog import prompt_telemetry_consent
 from .settings_dialog import show_settings_dialog
 
@@ -36,14 +37,14 @@ class SettingsToolboxMixin(object):
         if menu.actions():
             menu.addSeparator()
 
-        self.github_action = menu.addAction(
+        self.github_action = add_menu_action(menu,
             "GitHub"
         )
         self.github_action.triggered.connect(
             self._open_github_from_menu
         )
 
-        self.help_docs_action = menu.addAction(
+        self.help_docs_action = add_menu_action(menu,
             "Help / Docs"
         )
         self.help_docs_action.triggered.connect(

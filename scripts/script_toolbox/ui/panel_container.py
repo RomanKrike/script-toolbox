@@ -3,7 +3,7 @@
 from __future__ import print_function
 
 from ..compat import HOST, QtCore, QtGui
-from ..houdini_trace import trace
+from ..houdini_trace import start_hang_watchdog, trace
 
 
 def _trace(stage, detail=None):
@@ -85,6 +85,8 @@ class ScriptToolboxPanel(QtGui.QWidget):
 
     def showEvent(self, event):
         _trace("container.show_enter")
+        if HOST.key == "houdini":
+            start_hang_watchdog(QtCore, QtGui.QApplication.instance())
         self._activation_timer.start(0)
         QtGui.QWidget.showEvent(self, event)
         _trace("container.show_done")

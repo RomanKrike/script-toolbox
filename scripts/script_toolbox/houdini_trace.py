@@ -8,6 +8,12 @@ import threading
 import time
 
 
+_HANG_TIMEOUT_SECONDS = 10
+_hang_log = None
+_hang_timer = None
+_last_heartbeat = None
+
+
 def log_path():
     directory = os.environ.get("SCRIPT_TOOLBOX_HOUDINI_TRACE_DIR")
     if not directory:
@@ -45,3 +51,49 @@ def trace(stage, detail=None):
     except Exception:
         # Diagnostic logging must never prevent the Python Panel from opening.
         pass
+
+
+def _refresh_hang_watchdog():
+    global _last_heartbeat
+    import faulthandler
+
+    now = time.time()
+    if _last_heartbeat is not None:
+        gap = now - _last_heartbeat
+        if gap >= _HANG_TIMEOUT_SECONDS:
+            trace("watchdog.event_loop_resumed", gap)
+    faulthandler.cancel_dump_traceback_later()
+    faulthandler.dump_traceback_later(
+        _HANG_TIMEOUT_SECONDS, repeat=True, file=_hang_log
+    )
+    _last_heartbeat = now
+
+
+def start_hang_watchdog(qt_core, application):
+    """Dump Python stacks if Houdini's Qt event loop stops for ten seconds."""
+    global _hang_log, _hang_timer
+    if _hang_timer is not None:
+        return True
+    try:
+        handle = open(log_path(), "ab", 0)
+        _hang_log = handle
+        timer = qt_core.QTimer(application)
+        timer.setInterval(1000)
+        timer.timeout.connect(_refresh_hang_watchdog)
+        _refresh_hang_watchdog()
+        timer.start()
+        _hang_timer = timer
+        trace("watchdog.armed")
+        return True
+    except Exception:
+        import traceback
+        trace("watchdog.error", traceback.format_exc())
+        try:
+            import faulthandler
+            faulthandler.cancel_dump_traceback_later()
+        except Exception:
+            pass
+        if _hang_log is not None:
+            _hang_log.close()
+            _hang_log = None
+        return False

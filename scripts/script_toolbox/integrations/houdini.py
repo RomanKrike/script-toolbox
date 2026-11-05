@@ -438,25 +438,35 @@ class HoudiniAdapter(DetectionOnlyAdapter):
 <pythonPanelDocument>
   <interface name="ScriptToolbox" label="ScriptToolbox">
     <script><![CDATA[
+from script_toolbox.houdini_trace import trace as _script_toolbox_trace
+_script_toolbox_trace("panel.script_loaded")
 _script_toolbox_widget = None
 
 def onCreateInterface():
     global _script_toolbox_widget
+    _script_toolbox_trace("panel.create_enter")
     try:
+        _script_toolbox_trace("panel.import_container_begin")
         from script_toolbox.ui.panel_container import ScriptToolboxPanel
+        _script_toolbox_trace("panel.import_container_done")
+        _script_toolbox_trace("panel.construct_container_begin")
         _script_toolbox_widget = ScriptToolboxPanel()
+        _script_toolbox_trace("panel.construct_container_done")
     except Exception as exc:
         import traceback
         traceback.print_exc()
+        _script_toolbox_trace("panel.create_error", traceback.format_exc())
         from hutil.Qt import QtWidgets
         _script_toolbox_widget = QtWidgets.QLabel(
             "ScriptToolbox Pane could not open: {0}".format(exc)
         )
         _script_toolbox_widget.setWordWrap(True)
+    _script_toolbox_trace("panel.create_return")
     return _script_toolbox_widget
 
 def onDestroyInterface():
     global _script_toolbox_widget
+    _script_toolbox_trace("panel.destroy_enter")
     widget = _script_toolbox_widget
     _script_toolbox_widget = None
     from script_toolbox.ui.debounced_main_window import active_toolbox
@@ -464,6 +474,7 @@ def onDestroyInterface():
     if toolbox is not None and toolbox is active_toolbox():
         toolbox.flush_pending_save()
         toolbox.clear_host_callbacks()
+    _script_toolbox_trace("panel.destroy_done")
 ]]></script>
   </interface>
 </pythonPanelDocument>
@@ -613,19 +624,27 @@ script_toolbox.show()]]></script>
         return "".join([
             "# ScriptToolbox managed Houdini integration\n",
             "try:\n",
+            "    from script_toolbox.houdini_trace import trace as _stb_trace\n",
+            "    _stb_trace('uiready.enter')\n",
             (
                 "    import script_toolbox.houdini_integration "
                 "as _stb_houdini_integration\n"
             ),
+            "    _stb_trace('uiready.integration_imported')\n",
             (
                 "    _stb_houdini_integration.apply_current_integration("
                 "profile_id={0!r})\n"
             ).format(
                 installation.profile_id
             ),
+            "    _stb_trace('uiready.integration_done')\n",
             "except Exception:\n",
             "    import traceback\n",
             "    traceback.print_exc()\n",
+            "    try:\n",
+            "        _stb_trace('uiready.error', traceback.format_exc())\n",
+            "    except Exception:\n",
+            "        pass\n",
         ])
 
     def _loader_states(self, installation):

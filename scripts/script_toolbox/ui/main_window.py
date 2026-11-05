@@ -16,6 +16,7 @@ from ..core.executor import evaluate_python_state
 from ..core.executor import execute_script_result
 from ..core.values import find_item
 from ..core.values import get_value as get_document_value
+from ..houdini_trace import trace as _houdini_trace
 from ..model import walk_items
 from ..model.item_builtins import register_builtin_items
 from ..model.item_registry import ITEM_TYPES
@@ -36,6 +37,11 @@ from .item_changes import ItemChangesMixin
 
 
 _TOOLBOX = None
+
+
+def _trace_houdini(stage):
+    if HOST.key == "houdini":
+        _houdini_trace(stage)
 
 
 def _definition(item):
@@ -169,7 +175,9 @@ class ToolboxStatusBar(QtGui.QStatusBar):
 class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixin, ExpressionRuntimeMixin, QtGui.QMainWindow):
 
     def __init__(self, parent=None, panel_mode=False):
+        _trace_houdini("runtime.base_init_enter")
         QtGui.QMainWindow.__init__(self, parent or main_window())
+        _trace_houdini("runtime.qmainwindow_created")
         if panel_mode:
             # QMainWindow adds Qt.Window even with a parent. A host Pane needs
             # a real child widget; otherwise it stays blank while this UI
@@ -192,6 +200,7 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
         self.setStyleSheet(STYLE)
 
         self.config = load_config()
+        _trace_houdini("runtime.config_loaded")
         self.editor_window = None
         self.field_widgets = {}
         self.state_button_widgets = {}
@@ -205,8 +214,12 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
         self.update_install_thread = None
         self._manual_update_check = False
 
+        _trace_houdini("runtime.build_ui_begin")
         self.build_ui()
+        _trace_houdini("runtime.build_ui_done")
+        _trace_houdini("runtime.rebuild_begin")
         self.rebuild()
+        _trace_houdini("runtime.rebuild_done")
 
         from .managed_presets import SourceScheduler
         self.preset_source_scheduler = SourceScheduler(self)
@@ -226,6 +239,7 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
         if HOST.key == "houdini":
             theme_controller.adopt_houdini_palette()
         theme_controller.register(self)
+        _trace_houdini("runtime.base_init_done")
 
     # ------------------------------------------------------------------
     # UI

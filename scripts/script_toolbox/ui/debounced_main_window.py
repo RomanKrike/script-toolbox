@@ -12,6 +12,7 @@ from ..core.document_commit import (prepare_document_commit, DocumentSaveFailure
 from ..core.state_refresh import StateRefreshQueue
 from ..hosts.callbacks import EVENT_SELECTION_CHANGED
 from ..hosts.callbacks import HostCallbackGroup
+from ..houdini_trace import trace as _houdini_trace
 from ..pycompat import text_type
 from . import main_window as base_main_window
 from .settings_ui import SettingsToolboxMixin
@@ -39,6 +40,8 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         parent=None,
         panel_mode=False
     ):
+        if HOST.key == "houdini":
+            _houdini_trace("runtime.debounced_init_enter")
         self.config_store = None
         self.save_timer = None
 
@@ -53,11 +56,15 @@ class ScriptToolbox(base_main_window.ScriptToolbox):
         )
         self._using_selection_callback = False
 
+        if HOST.key == "houdini":
+            _houdini_trace("runtime.base_init_begin")
         base_main_window.ScriptToolbox.__init__(
             self,
             parent=parent,
             panel_mode=panel_mode
         )
+        if HOST.key == "houdini":
+            _houdini_trace("runtime.base_init_returned")
 
         self.config_store = ConfigStore(
             document=self.config
@@ -526,7 +533,11 @@ def active_toolbox():
 
 
 def _create_toolbox(parent, mode):
+    if HOST.key == "houdini":
+        _houdini_trace("runtime.create_begin", mode)
     toolbox = ScriptToolbox(parent=parent, panel_mode=(mode == "panel"))
+    if HOST.key == "houdini":
+        _houdini_trace("runtime.create_done", mode)
     toolbox._script_toolbox_mode = mode
     base_main_window._TOOLBOX = toolbox
     toolbox.destroyed.connect(
@@ -555,6 +566,8 @@ def _restore_view_state(toolbox, state):
 
 def show_in_panel(parent):
     """Create one runtime in a host-owned QWidget container."""
+    if HOST.key == "houdini":
+        _houdini_trace("runtime.show_in_panel_enter")
     toolbox = active_toolbox()
     state = None
     if toolbox is not None:
@@ -566,7 +579,11 @@ def show_in_panel(parent):
         state = capture_view_state(toolbox)
         close_toolbox()
     toolbox = _create_toolbox(parent, "panel")
+    if HOST.key == "houdini":
+        _houdini_trace("runtime.show_begin")
     toolbox.show()
+    if HOST.key == "houdini":
+        _houdini_trace("runtime.show_done")
     _restore_view_state(toolbox, state)
     return toolbox
 

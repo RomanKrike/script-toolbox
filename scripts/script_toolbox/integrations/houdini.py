@@ -439,31 +439,69 @@ class HoudiniAdapter(DetectionOnlyAdapter):
   <interface name="ScriptToolbox" label="ScriptToolbox">
     <script><![CDATA[
 _script_toolbox_widget = None
+_script_toolbox_root = None
+_script_toolbox_timer = None
 
-def onCreateInterface():
+def _populate_interface():
     global _script_toolbox_widget
+    root = _script_toolbox_root
+    if root is None or _script_toolbox_widget is not None:
+        return
+    from hutil.Qt import QtWidgets
+    layout = root.layout()
     try:
+        # Let Houdini embed its own root widget before loading the toolbox.
         from script_toolbox.ui.panel_container import ScriptToolboxPanel
-        _script_toolbox_widget = ScriptToolboxPanel()
+        widget = ScriptToolboxPanel(root)
     except Exception as exc:
         import traceback
         traceback.print_exc()
-        from hutil.Qt import QtWidgets
-        _script_toolbox_widget = QtWidgets.QLabel(
-            "ScriptToolbox Pane could not open: {0}".format(exc)
+        widget = QtWidgets.QLabel(
+            "ScriptToolbox Pane could not open: {0}".format(exc), root
         )
-        _script_toolbox_widget.setWordWrap(True)
-    return _script_toolbox_widget
+        widget.setWordWrap(True)
+    while layout.count():
+        item = layout.takeAt(0)
+        old_widget = item.widget()
+        if old_widget is not None:
+            old_widget.deleteLater()
+    layout.addWidget(widget)
+    _script_toolbox_widget = widget
+    widget.show()
+
+def onCreateInterface():
+    global _script_toolbox_root, _script_toolbox_widget, _script_toolbox_timer
+    from hutil.Qt import QtCore, QtWidgets
+    root = QtWidgets.QWidget()
+    layout = QtWidgets.QVBoxLayout(root)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.addWidget(QtWidgets.QLabel("Loading ScriptToolbox...", root))
+    timer = QtCore.QTimer(root)
+    timer.setSingleShot(True)
+    timer.timeout.connect(_populate_interface)
+    _script_toolbox_root = root
+    _script_toolbox_widget = None
+    _script_toolbox_timer = timer
+    return root
+
+def onActivateInterface():
+    if _script_toolbox_timer is not None and _script_toolbox_widget is None:
+        _script_toolbox_timer.start(0)
 
 def onDestroyInterface():
-    global _script_toolbox_widget
+    global _script_toolbox_root, _script_toolbox_widget, _script_toolbox_timer
+    if _script_toolbox_timer is not None:
+        _script_toolbox_timer.stop()
     widget = _script_toolbox_widget
+    _script_toolbox_root = None
     _script_toolbox_widget = None
-    from script_toolbox.ui.debounced_main_window import active_toolbox
+    _script_toolbox_timer = None
     toolbox = getattr(widget, "toolbox", None)
-    if toolbox is not None and toolbox is active_toolbox():
-        toolbox.flush_pending_save()
-        toolbox.clear_host_callbacks()
+    if toolbox is not None:
+        from script_toolbox.ui.debounced_main_window import active_toolbox
+        if toolbox is active_toolbox():
+            toolbox.flush_pending_save()
+            toolbox.clear_host_callbacks()
 ]]></script>
   </interface>
 </pythonPanelDocument>

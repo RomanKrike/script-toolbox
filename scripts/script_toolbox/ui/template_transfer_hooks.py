@@ -17,6 +17,7 @@ from ..core.logging_utils import get_logger
 from ..model import ItemValidationError
 from ..model import normalize_document
 from ..pycompat import text_type
+from .menu_actions import add_menu_action
 
 
 _LOGGER = get_logger()
@@ -76,7 +77,7 @@ def _configure_menu_button(
             menu.addSeparator()
             continue
 
-        action = menu.addAction(
+        action = add_menu_action(menu,
             label
         )
         _connect_menu_action(

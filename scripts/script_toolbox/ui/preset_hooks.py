@@ -14,6 +14,7 @@ from ..pycompat import text_type
 from ..style.palette import BORDER_PRESSED
 from ..style.palette import LIST_BG
 from .scroll_surface_frames import wrap_scroll_widget
+from .menu_actions import add_menu_action
 from .palette_drag import CreationPaletteTree
 from .managed_presets import (populate_managed_presets, target_address,
                               insert_reference, reference_tooltip, library_address, insert_library_preset,
@@ -367,21 +368,21 @@ class PresetEditorMixin(object):
         item = self.preset_palette.itemAt(point)
         if library_address(item) is not None and target_address(item) is None:
             menu = QtGui.QMenu(self.preset_palette)
-            action = menu.addAction("Create References")
+            action = add_menu_action(menu, "Create References")
             if qt_exec(menu, self.preset_palette.viewport().mapToGlobal(point)) == action:
                 self._call_tree_action("Create References", insert_library_preset, item)
             return
         if target_address(item) is None:
             return
         menu = QtGui.QMenu(self.preset_palette)
-        reference_action = menu.addAction("Create Reference")
+        reference_action = add_menu_action(menu, "Create Reference")
         if qt_exec(menu, self.preset_palette.viewport().mapToGlobal(point)) == reference_action:
             self._call_tree_action("Create Reference", insert_reference, item)
 
     def extend_tree_context_menu(self, menu, item):
         actions = super(PresetEditorMixin, self).extend_tree_context_menu(menu, item)
         menu.addSeparator()
-        save = menu.addAction("Save Selected as Preset...")
+        save = add_menu_action(menu, "Save Selected as Preset...")
         save.setEnabled(item is not None and self._preset_save_job is None)
         actions.append((save, self.save_selected_preset))
         return actions
@@ -393,13 +394,13 @@ class PresetEditorMixin(object):
             return super(PresetEditorMixin, self).show_tree_context_menu(point)
         self.tree.setCurrentItem(tree_item)
         menu = QtGui.QMenu(self.tree)
-        reveal = menu.addAction("Reveal in Presets")
-        resolve = menu.addAction("Resolve")
-        convert = menu.addAction("Convert to Local Copy")
+        reveal = add_menu_action(menu, "Reveal in Presets")
+        resolve = add_menu_action(menu, "Resolve")
+        convert = add_menu_action(menu, "Convert to Local Copy")
         _, broken = reference_tooltip(data, self.preset_resolver)
         convert.setEnabled(not broken)
         menu.addSeparator()
-        remove = menu.addAction("Remove Reference")
+        remove = add_menu_action(menu, "Remove Reference")
         extra_actions = self.extend_tree_context_menu(menu, tree_item)
         action = qt_exec(menu, self.tree.viewport().mapToGlobal(point))
         if action == remove:

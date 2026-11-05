@@ -32,6 +32,7 @@ from .icon_button import ICON_BUTTON_COMPACT
 from .icon_button import create_icon_button
 from .interface_tree import ExistingInterfaceTree
 from .item_palette import palette_groups
+from .menu_actions import add_menu_action
 from ..style.builtin_icons import item_type_icon
 from .palette_drag import CreationPaletteTree
 from .layout_editor_adapter import create_layout_from_palette
@@ -969,17 +970,17 @@ class InterfaceEditor(QtGui.QDialog):
             self.tree.setCurrentItem(item)
 
         menu = QtGui.QMenu(self.tree)
-        undo_action = menu.addAction("Undo")
-        redo_action = menu.addAction("Redo")
+        undo_action = add_menu_action(menu, "Undo")
+        redo_action = add_menu_action(menu, "Redo")
         undo_action.setEnabled(bool(self.undo_stack))
         redo_action.setEnabled(bool(self.redo_stack))
         menu.addSeparator()
-        copy_action = menu.addAction("Copy")
-        paste_action = menu.addAction("Paste")
-        duplicate_action = menu.addAction("Duplicate")
+        copy_action = add_menu_action(menu, "Copy")
+        paste_action = add_menu_action(menu, "Paste")
+        duplicate_action = add_menu_action(menu, "Duplicate")
         paste_action.setEnabled(self.clipboard_item is not None)
         menu.addSeparator()
-        delete_action = menu.addAction("Delete")
+        delete_action = add_menu_action(menu, "Delete")
         extra_actions = self.extend_tree_context_menu(menu, item)
 
         action = qt_exec(menu,

@@ -22,6 +22,7 @@ from ..style import metrics
 from .icon_button import ICON_BUTTON_COMPACT
 from .icon_button import create_icon_button
 from .layout_helpers import configure_layout
+from .menu_actions import add_menu_action
 
 
 class _ShareWorker(QtCore.QThread):
@@ -162,22 +163,22 @@ class ShareController(object):
             editor.tree.setCurrentItem(item)
 
         menu = QtGui.QMenu(editor.tree)
-        undo_action = menu.addAction("Undo")
-        redo_action = menu.addAction("Redo")
+        undo_action = add_menu_action(menu, "Undo")
+        redo_action = add_menu_action(menu, "Redo")
         undo_action.setEnabled(bool(editor.undo_stack))
         redo_action.setEnabled(bool(editor.redo_stack))
         menu.addSeparator()
 
-        copy_action = menu.addAction("Copy")
-        paste_action = menu.addAction("Paste")
-        duplicate_action = menu.addAction("Duplicate")
+        copy_action = add_menu_action(menu, "Copy")
+        paste_action = add_menu_action(menu, "Paste")
+        duplicate_action = add_menu_action(menu, "Duplicate")
         paste_action.setEnabled(
             editor.clipboard_item is not None
         )
 
         menu.addSeparator()
-        share_action = menu.addAction("Share")
-        paste_shared_action = menu.addAction("Paste Shared")
+        share_action = add_menu_action(menu, "Share")
+        paste_shared_action = add_menu_action(menu, "Paste Shared")
         share_action.setEnabled(item is not None)
         paste_shared_action.setEnabled(
             looks_like_share_code(
@@ -186,7 +187,7 @@ class ShareController(object):
         )
 
         menu.addSeparator()
-        delete_action = menu.addAction("Delete")
+        delete_action = add_menu_action(menu, "Delete")
         extra_actions = editor.extend_tree_context_menu(menu, item)
 
         action = qt_exec(menu,

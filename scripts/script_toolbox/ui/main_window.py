@@ -250,13 +250,8 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
         _trace_houdini("runtime.theme_controller_done")
         if HOST.key == "houdini":
             _trace_houdini("runtime.palette_begin")
-            if panel_mode:
-                # Diagnostic A/B build: isolate the palette path implicated
-                # by the first-open native fault, without changing windows.
-                _trace_houdini("runtime.palette_isolation_skipped")
-            else:
-                theme_controller.adopt_houdini_palette()
-                _trace_houdini("runtime.palette_done")
+            theme_controller.adopt_houdini_palette()
+            _trace_houdini("runtime.palette_done")
         _trace_houdini("runtime.theme_register_begin")
         theme_controller.register(self)
         _trace_houdini("runtime.theme_register_done")

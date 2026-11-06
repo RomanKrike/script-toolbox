@@ -185,10 +185,10 @@ try:
     embedded = ui.ScriptToolbox(parent=container, panel_mode=True)
     from script_toolbox.style.themes import controller
     colors = controller().active["colors"]
-    assert colors["window"] != "#34373a"
-    assert colors["panel"] != "#3d4043"
-    assert colors["input"] != "#292c2f"
-    assert colors["accent"] != "#ad762f"
+    assert colors["window"] == "#34373a"
+    assert colors["panel"] == "#3d4043"
+    assert colors["input"] == "#292c2f"
+    assert colors["accent"] == "#ad762f"
     custom.setColor(QtGui.QPalette.AlternateBase, QtGui.QColor("#ffffff"))
     custom.setColor(QtGui.QPalette.Base, QtGui.QColor("#ffffff"))
     app.setPalette(custom)
@@ -229,6 +229,36 @@ try:
 finally:
     HOST.key = original_key
     root.close()
+pump()
+''', tmp_path)
+
+
+def test_houdini_pane_defers_gc_until_runtime_is_embedded(tmp_path):
+    run_qt('''
+import gc
+from script_toolbox.ui.panel_container import ScriptToolboxPanel
+from script_toolbox.ui import debounced_main_window as runtime
+w.close()
+w.deleteLater()
+pump()
+original_key = HOST.key
+original_show = runtime.show_in_panel
+seen = []
+def observed(parent):
+    seen.append(gc.isenabled())
+    return original_show(parent)
+runtime.show_in_panel = observed
+HOST.key = "houdini"
+try:
+    panel = ScriptToolboxPanel()
+    assert gc.isenabled()
+    assert panel.ensure_toolbox() is not None
+    assert seen == [False]
+    assert gc.isenabled()
+    panel.close()
+finally:
+    runtime.show_in_panel = original_show
+    HOST.key = original_key
 pump()
 ''', tmp_path)
 

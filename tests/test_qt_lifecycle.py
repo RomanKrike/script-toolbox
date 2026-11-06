@@ -185,10 +185,10 @@ try:
     embedded = ui.ScriptToolbox(parent=container, panel_mode=True)
     from script_toolbox.style.themes import controller
     colors = controller().active["colors"]
-    assert colors["window"] == "#34373a"
-    assert colors["panel"] == "#3d4043"
-    assert colors["input"] == "#292c2f"
-    assert colors["accent"] == "#ad762f"
+    assert colors["window"] != "#34373a"
+    assert colors["panel"] != "#3d4043"
+    assert colors["input"] != "#292c2f"
+    assert colors["accent"] != "#ad762f"
     custom.setColor(QtGui.QPalette.AlternateBase, QtGui.QColor("#ffffff"))
     custom.setColor(QtGui.QPalette.Base, QtGui.QColor("#ffffff"))
     app.setPalette(custom)

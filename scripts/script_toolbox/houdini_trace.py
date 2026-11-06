@@ -13,36 +13,34 @@ _hang_log = None
 _hang_timer = None
 _last_heartbeat = None
 _crash_log = None
-_gc_quarantined_once = False
+_gc_frozen_once = False
 
 
-def quarantine_gc_cycles():
-    """Keep one batch of unreachable objects for first-pane fault diagnosis."""
-    global _gc_quarantined_once
-    if _gc_quarantined_once:
+def freeze_initial_gc_objects():
+    """Exclude objects present at first pane creation from later GC passes."""
+    global _gc_frozen_once
+    if _gc_frozen_once:
         return True
     import gc
-    previous_flags = gc.get_debug()
-    first = len(gc.garbage)
+    freeze = getattr(gc, "freeze", None)
+    get_count = getattr(gc, "get_freeze_count", None)
+    if freeze is None or get_count is None:
+        trace("gc.freeze_unavailable")
+        return False
+    before = get_count()
+    trace("gc.freeze_begin", "tracked={0} count={1!r}".format(
+        len(gc.get_objects()), gc.get_count()
+    ))
     try:
-        gc.set_debug(previous_flags | gc.DEBUG_SAVEALL)
-        unreachable = gc.collect()
+        freeze()
     except Exception:
         import traceback
-        trace("gc.quarantine_error", traceback.format_exc())
+        trace("gc.freeze_error", traceback.format_exc())
         return False
-    finally:
-        gc.set_debug(previous_flags)
-    counts = {}
-    for obj in gc.garbage[first:]:
-        cls = type(obj)
-        name = "{0}.{1}".format(cls.__module__, cls.__name__)
-        counts[name] = counts.get(name, 0) + 1
-    top = sorted(counts.items(), key=lambda entry: (-entry[1], entry[0]))[:12]
-    trace("gc.quarantined", "unreachable={0} retained={1} types={2!r}".format(
-        unreachable, len(gc.garbage) - first, top
+    trace("gc.freeze_done", "frozen={0} total={1}".format(
+        get_count() - before, get_count()
     ))
-    _gc_quarantined_once = True
+    _gc_frozen_once = True
     return True
 
 

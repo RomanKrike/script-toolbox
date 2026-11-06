@@ -105,7 +105,11 @@ class ThemeController(QtCore.QObject):
         self.mapping = color_map(self.active["colors"])
         self.colors = token_colors(self.active["colors"])
         self._using_houdini_palette = False
-        app.installEventFilter(self)
+        # Houdini delivers pane StyleChange events while adopting the child UI.
+        # A queued whole-tree refresh from those events can re-enter Qt styling
+        # during first-pane creation. Explicit apply/register still refresh.
+        if HOST.key != "houdini":
+            app.installEventFilter(self)
 
     def adopt_houdini_palette(self):
         """Use Houdini's active Qt colors for its default Toolbox theme."""
@@ -175,6 +179,8 @@ class ThemeController(QtCore.QObject):
         return False
 
     def eventFilter(self, watched, event):
+        if HOST.key == "houdini":
+            return False
         if ((self._custom_colors or self._styled) and not self._busy and not self._pending and
                 event.type() in (QtCore.QEvent.ChildAdded, QtCore.QEvent.Show, QtCore.QEvent.StyleChange) and
                 isinstance(watched, QtGui.QWidget) and self._owned(watched)):

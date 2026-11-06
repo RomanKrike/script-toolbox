@@ -144,19 +144,27 @@ try:
     embedded = ui.ScriptToolbox(parent=container, panel_mode=True)
     assert not embedded.isWindow()
     assert embedded.parentWidget() is container
-    assert embedded.panel_menu_toggle.width() == 22
+    container.resize(520, 300)
+    container.show()
+    embedded.show()
+    pump()
+    assert embedded.panel_menu_toggle.width() == 12
     assert embedded.panel_menu_toggle.autoRaise()
     expanded_height = embedded.panel_menu_header.height()
-    assert expanded_height >= 22
+    assert expanded_height >= 24
     assert embedded.panel_menu_toggle.arrowType() == QtCore.Qt.UpArrow
     embedded.panel_menu_toggle.click()
+    pump()
     assert embedded.panel_menu_toggle.arrowType() == QtCore.Qt.DownArrow
     assert embedded.panel_menu_header.height() == 10
     assert embedded.panel_menu_header.height() < expanded_height
     assert embedded.menu_bar.isHidden()
+    assert embedded.panel_menu_toggle.width() == embedded.panel_menu_header.width()
     embedded.panel_menu_toggle.click()
+    pump()
     assert embedded.panel_menu_toggle.arrowType() == QtCore.Qt.UpArrow
     assert embedded.panel_menu_header.height() == expanded_height
+    assert embedded.panel_menu_toggle.width() == 12
     assert embedded.close()
     assert floating.close()
     container.close()

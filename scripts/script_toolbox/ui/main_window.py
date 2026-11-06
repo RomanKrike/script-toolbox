@@ -338,6 +338,7 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
 
         if HOST.key == "houdini" and self._script_toolbox_mode == "panel":
             header = QtGui.QWidget(self.centralWidget())
+            header.setObjectName("ScriptToolboxPanelMenuHeader")
             self.panel_menu_header = header
             header_layout = QtGui.QHBoxLayout(header)
             header_layout.setContentsMargins(0, 0, 0, 0)
@@ -345,7 +346,9 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
             self.panel_menu_toggle = QtGui.QToolButton(header)
             self.panel_menu_toggle.setObjectName("ScriptToolboxPanelMenuToggle")
             self.panel_menu_toggle.setAutoRaise(True)
-            self.panel_menu_toggle.setFixedWidth(22)
+            self.panel_menu_toggle.setSizePolicy(
+                QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Fixed
+            )
             self.panel_menu_toggle.setToolTip("Collapse or expand menu")
             header_layout.addWidget(self.panel_menu_toggle)
             header_layout.addWidget(self.menu_bar, 1)
@@ -353,7 +356,7 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
             stored = self._panel_menu_settings.value("houdini/panel_menu_collapsed", False)
             self._panel_menu_collapsed = str(stored).lower() in ("true", "1")
             self._panel_menu_expanded_height = max(
-                22, self.menu_bar.sizeHint().height()
+                24, self.menu_bar.sizeHint().height()
             )
             self._sync_panel_menu()
             self.panel_menu_toggle.clicked.connect(self._toggle_panel_menu)
@@ -364,6 +367,12 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
     def _sync_panel_menu(self):
         self.menu_bar.setVisible(not self._panel_menu_collapsed)
         height = 10 if self._panel_menu_collapsed else self._panel_menu_expanded_height
+        self.panel_menu_toggle.setMaximumWidth(
+            16777215 if self._panel_menu_collapsed else 12
+        )
+        layout = self.panel_menu_header.layout()
+        layout.setStretch(0, 1 if self._panel_menu_collapsed else 0)
+        layout.setStretch(1, 0 if self._panel_menu_collapsed else 1)
         self.panel_menu_toggle.setFixedHeight(height)
         self.panel_menu_header.setFixedHeight(height)
         self.panel_menu_toggle.setArrowType(

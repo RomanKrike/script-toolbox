@@ -45,10 +45,26 @@ QMenuBar#ToolboxMenuBar::item:pressed {
     color: %(TEXT_STRONG)s;
 }
 
+QWidget#ScriptToolboxPanelMenuHeader {
+    background-color: %(BUTTON_BG)s;
+    border-bottom: 1px solid %(BORDER_TOPBAR)s;
+}
+
+QWidget#ScriptToolboxPanelMenuHeader QMenuBar#ToolboxMenuBar {
+    background-color: transparent;
+    border: 0px;
+    padding: 0px;
+}
+
+QWidget#ScriptToolboxPanelMenuHeader QMenuBar#ToolboxMenuBar::item {
+    padding: 3px 7px;
+}
+
 QToolButton#ScriptToolboxPanelMenuToggle {
     background-color: transparent;
     color: %(TEXT_PRIMARY)s;
     border: 0px;
+    border-right: 1px solid %(BORDER_TOPBAR)s;
     border-radius: 0px;
     padding: 0px;
 }

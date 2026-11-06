@@ -51,6 +51,25 @@ class ScriptToolboxPanel(QtGui.QWidget):
 
     def ensure_toolbox(self):
         """Refill a host container retained after a window/pane transition."""
+        if HOST.key != "houdini":
+            return self._ensure_toolbox()
+
+        # Two first-open Houdini 20.5 faults occurred during automatic Python
+        # garbage collection inside Runtime construction. Keep cyclic Qt
+        # wrappers alive until the host has adopted and shown the child UI.
+        import gc
+        was_enabled = gc.isenabled()
+        if was_enabled:
+            gc.disable()
+            _trace("container.gc_suspended")
+        try:
+            return self._ensure_toolbox()
+        finally:
+            if was_enabled:
+                gc.enable()
+                _trace("container.gc_resumed")
+
+    def _ensure_toolbox(self):
         _trace("container.ensure_enter")
         from .debounced_main_window import active_toolbox
         from .debounced_main_window import show_in_panel

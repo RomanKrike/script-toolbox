@@ -12,6 +12,7 @@ _HANG_TIMEOUT_SECONDS = 10
 _hang_log = None
 _hang_timer = None
 _last_heartbeat = None
+_crash_log = None
 
 
 def log_path():
@@ -69,11 +70,36 @@ def _refresh_hang_watchdog():
     _last_heartbeat = now
 
 
+def enable_crash_trace():
+    """Capture a Python stack if a native fault reaches Python's handler."""
+    global _crash_log
+    if _crash_log is not None:
+        return True
+    handle = None
+    try:
+        import faulthandler
+        if faulthandler.is_enabled():
+            trace("crash_handler.already_enabled")
+            return False
+        handle = open(log_path(), "ab", 0)
+        faulthandler.enable(file=handle, all_threads=True)
+        _crash_log = handle
+        trace("crash_handler.armed")
+        return True
+    except Exception:
+        if handle is not None:
+            handle.close()
+        import traceback
+        trace("crash_handler.error", traceback.format_exc())
+        return False
+
+
 def start_hang_watchdog(qt_core, application):
     """Dump Python stacks if Houdini's Qt event loop stops for ten seconds."""
     global _hang_log, _hang_timer
     if _hang_timer is not None:
         return True
+    enable_crash_trace()
     try:
         handle = open(log_path(), "ab", 0)
         _hang_log = handle

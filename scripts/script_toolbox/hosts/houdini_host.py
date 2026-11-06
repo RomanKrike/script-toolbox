@@ -17,6 +17,14 @@ class HoudiniHost(BaseHost):
     display_name = "Houdini"
     selection_noun = "Houdini nodes"
 
+    def __init__(self):
+        # The adapter is created on Houdini's UI thread. Cache this native
+        # value here so background update checks only read Python data.
+        try:
+            self._user_pref_dir = hou.getenv("HOUDINI_USER_PREF_DIR")
+        except Exception:
+            self._user_pref_dir = None
+
     def app_version(self):
         try:
             return str(
@@ -206,15 +214,8 @@ class HoudiniHost(BaseHost):
         )
 
     def user_config_dir(self):
-        try:
-            path = hou.getenv(
-                "HOUDINI_USER_PREF_DIR"
-            )
-        except Exception:
-            path = None
-
         path = (
-            path or
+            self._user_pref_dir or
             os.environ.get(
                 "HOUDINI_USER_PREF_DIR"
             )

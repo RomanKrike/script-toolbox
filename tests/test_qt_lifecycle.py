@@ -204,6 +204,35 @@ pump()
 ''', tmp_path)
 
 
+def test_houdini_theme_does_not_mutate_actions_during_refresh(tmp_path):
+    run_qt('''
+from script_toolbox.style.themes import controller
+class CountingAction(QtGui.QAction):
+    def __init__(self, parent):
+        QtGui.QAction.__init__(self, parent)
+        self.icon_changes = 0
+    def setIcon(self, icon):
+        self.icon_changes += 1
+        QtGui.QAction.setIcon(self, icon)
+root = QtGui.QWidget()
+action = CountingAction(root)
+root.addAction(action)
+manager = controller()
+original_key = HOST.key
+try:
+    HOST.key = "houdini"
+    manager._widget(root)
+    assert action.icon_changes == 0
+    HOST.key = "standalone"
+    manager._widget(root)
+    assert action.icon_changes == 1
+finally:
+    HOST.key = original_key
+    root.close()
+pump()
+''', tmp_path)
+
+
 def test_install_blocks_duplicate_launch_and_close(tmp_path):
     run_qt('''
 calls = []

@@ -3,6 +3,7 @@ from __future__ import print_function
 
 import importlib
 import sys
+import threading
 import types
 
 from script_toolbox.hosts.callbacks import EVENT_SELECTION_CHANGED
@@ -183,6 +184,28 @@ def test_houdini_host_adapter_with_fake_hou(
         "",
     )
     assert host.user_config_dir() == "/tmp/houdini19.0"
+
+
+def test_houdini_settings_path_is_cached_before_worker_reads(monkeypatch):
+    fake_hou, _node_a, _node_b = _fake_hou(monkeypatch)
+    calls = []
+
+    def getenv(name):
+        calls.append((name, threading.current_thread().ident))
+        return "/tmp/houdini19.0"
+
+    fake_hou.getenv = getenv
+    sys.modules.pop("script_toolbox.hosts.houdini_host", None)
+    module = importlib.import_module("script_toolbox.hosts.houdini_host")
+    host = module.HoudiniHost()
+    results = []
+    worker = threading.Thread(target=lambda: results.append(host.user_config_dir()))
+    worker.start()
+    worker.join(5)
+
+    assert not worker.is_alive()
+    assert results == ["/tmp/houdini19.0"]
+    assert calls == [("HOUDINI_USER_PREF_DIR", threading.current_thread().ident)]
 
 
 def test_houdini_selection_callback_contract(

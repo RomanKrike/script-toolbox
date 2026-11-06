@@ -66,8 +66,18 @@ class ScriptToolboxPanel(QtGui.QWidget):
             return self._ensure_toolbox()
         finally:
             if was_enabled:
-                gc.enable()
-                _trace("container.gc_resumed")
+                # The host still owns the current activation callback. Resume
+                # only after control returns to Houdini's Qt event loop.
+                def resume_gc():
+                    _trace("container.gc_resume_begin")
+                    gc.enable()
+                    _trace("container.gc_resumed")
+                _trace("container.gc_resume_scheduled")
+                try:
+                    QtCore.QTimer.singleShot(0, resume_gc)
+                except Exception:
+                    gc.enable()
+                    raise
 
     def _ensure_toolbox(self):
         _trace("container.ensure_enter")

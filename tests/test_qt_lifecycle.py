@@ -254,6 +254,8 @@ try:
     assert gc.isenabled()
     assert panel.ensure_toolbox() is not None
     assert seen == [False]
+    assert not gc.isenabled()
+    pump()
     assert gc.isenabled()
     panel.close()
 finally:

@@ -13,6 +13,37 @@ _hang_log = None
 _hang_timer = None
 _last_heartbeat = None
 _crash_log = None
+_gc_quarantined_once = False
+
+
+def quarantine_gc_cycles():
+    """Keep one batch of unreachable objects for first-pane fault diagnosis."""
+    global _gc_quarantined_once
+    if _gc_quarantined_once:
+        return True
+    import gc
+    previous_flags = gc.get_debug()
+    first = len(gc.garbage)
+    try:
+        gc.set_debug(previous_flags | gc.DEBUG_SAVEALL)
+        unreachable = gc.collect()
+    except Exception:
+        import traceback
+        trace("gc.quarantine_error", traceback.format_exc())
+        return False
+    finally:
+        gc.set_debug(previous_flags)
+    counts = {}
+    for obj in gc.garbage[first:]:
+        cls = type(obj)
+        name = "{0}.{1}".format(cls.__module__, cls.__name__)
+        counts[name] = counts.get(name, 0) + 1
+    top = sorted(counts.items(), key=lambda entry: (-entry[1], entry[0]))[:12]
+    trace("gc.quarantined", "unreachable={0} retained={1} types={2!r}".format(
+        unreachable, len(gc.garbage) - first, top
+    ))
+    _gc_quarantined_once = True
+    return True
 
 
 def log_path():

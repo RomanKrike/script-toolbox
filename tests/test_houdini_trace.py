@@ -70,3 +70,37 @@ os._exit(0)
     assert "crash_handler." in content
     assert "watchdog.armed" in content
     assert "Timeout" in content
+
+def test_quarantine_retains_one_cycle_and_restores_gc_flags(tmp_path):
+    import os
+    import subprocess
+    import sys
+
+    script = """
+import gc
+import os
+from script_toolbox.houdini_trace import quarantine_gc_cycles
+
+class Cycle(object):
+    pass
+
+obj = Cycle()
+obj.self = obj
+del obj
+old_flags = gc.get_debug()
+gc.disable()
+assert quarantine_gc_cycles()
+assert gc.get_debug() == old_flags
+assert not gc.isenabled()
+assert any(type(item).__name__ == 'Cycle' for item in gc.garbage)
+assert quarantine_gc_cycles()
+"""
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.path.join(os.getcwd(), "scripts")
+    env["SCRIPT_TOOLBOX_HOUDINI_TRACE_DIR"] = str(tmp_path)
+    subprocess.check_call([sys.executable, "-c", script], env=env)
+    logs = list(tmp_path.glob("script-toolbox-houdini-pane-*.log"))
+    assert len(logs) == 1
+    contents = logs[0].read_text()
+    assert "gc.quarantined" in contents
+    assert "__main__.Cycle" in contents

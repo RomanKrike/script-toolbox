@@ -241,6 +241,31 @@ pump()
 ''', tmp_path)
 
 
+def test_houdini_theme_does_not_queue_refresh_from_style_events(tmp_path):
+    run_qt('''
+import weakref
+from script_toolbox.style.themes import ThemeController
+original_key = HOST.key
+HOST.key = "houdini"
+try:
+    root = QtGui.QWidget()
+    manager = ThemeController(app)
+    manager._custom_colors = True
+    manager.roots.append(weakref.ref(root))
+    calls = []
+    manager.refresh = lambda: calls.append(True)
+    root.show()
+    root.setStyleSheet("QWidget { color: #123456; }")
+    pump()
+    assert calls == []
+    root.close()
+    manager.deleteLater()
+finally:
+    HOST.key = original_key
+pump()
+''', tmp_path)
+
+
 def test_houdini_pane_defers_gc_until_runtime_is_embedded(tmp_path):
     run_qt('''
 import gc

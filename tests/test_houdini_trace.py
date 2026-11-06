@@ -67,5 +67,6 @@ os._exit(0)
     logs = list(tmp_path.glob("script-toolbox-houdini-pane-*.log"))
     assert len(logs) == 1
     content = logs[0].read_text(encoding="utf-8")
+    assert "crash_handler." in content
     assert "watchdog.armed" in content
     assert "Timeout" in content

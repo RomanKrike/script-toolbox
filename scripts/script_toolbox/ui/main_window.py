@@ -221,24 +221,40 @@ class ScriptToolbox(ItemChangesMixin, StateToggleBehaviorMixin, RuntimeValueMixi
         self.rebuild()
         _trace_houdini("runtime.rebuild_done")
 
+        _trace_houdini("runtime.source_import_begin")
         from .managed_presets import SourceScheduler
+        _trace_houdini("runtime.source_import_done")
+        _trace_houdini("runtime.source_scheduler_begin")
         self.preset_source_scheduler = SourceScheduler(self)
+        _trace_houdini("runtime.source_scheduler_done")
 
+        _trace_houdini("runtime.selection_timer_begin")
         self.selection_timer = QtCore.QTimer(self)
         self.selection_timer.setInterval(300)
         self.selection_timer.timeout.connect(self.refresh_selection_fields)
         self.selection_timer.start()
+        _trace_houdini("runtime.selection_timer_done")
 
+        _trace_houdini("runtime.update_timer_begin")
         self.update_check_timer = QtCore.QTimer(self)
         self.update_check_timer.setSingleShot(True)
         self.update_check_timer.timeout.connect(self.check_for_updates)
         self.update_check_timer.start(1200)
+        _trace_houdini("runtime.update_timer_done")
 
+        _trace_houdini("runtime.theme_import_begin")
         from ..style.themes import controller
+        _trace_houdini("runtime.theme_import_done")
+        _trace_houdini("runtime.theme_controller_begin")
         theme_controller = controller()
+        _trace_houdini("runtime.theme_controller_done")
         if HOST.key == "houdini":
+            _trace_houdini("runtime.palette_begin")
             theme_controller.adopt_houdini_palette()
+            _trace_houdini("runtime.palette_done")
+        _trace_houdini("runtime.theme_register_begin")
         theme_controller.register(self)
+        _trace_houdini("runtime.theme_register_done")
         _trace_houdini("runtime.base_init_done")
 
     # ------------------------------------------------------------------

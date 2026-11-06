@@ -13,37 +13,6 @@ _hang_log = None
 _hang_timer = None
 _last_heartbeat = None
 _crash_log = None
-_gc_frozen_once = False
-
-
-def freeze_initial_gc_objects():
-    """Exclude objects present at first pane creation from later GC passes."""
-    global _gc_frozen_once
-    if _gc_frozen_once:
-        return True
-    import gc
-    freeze = getattr(gc, "freeze", None)
-    get_count = getattr(gc, "get_freeze_count", None)
-    if freeze is None or get_count is None:
-        trace("gc.freeze_unavailable")
-        return False
-    before = get_count()
-    trace("gc.freeze_begin", "tracked={0} count={1!r}".format(
-        len(gc.get_objects()), gc.get_count()
-    ))
-    try:
-        freeze()
-    except Exception:
-        import traceback
-        trace("gc.freeze_error", traceback.format_exc())
-        return False
-    trace("gc.freeze_done", "frozen={0} total={1}".format(
-        get_count() - before, get_count()
-    ))
-    _gc_frozen_once = True
-    return True
-
-
 def log_path():
     directory = os.environ.get("SCRIPT_TOOLBOX_HOUDINI_TRACE_DIR")
     if not directory:
@@ -102,6 +71,12 @@ def _refresh_hang_watchdog():
 def enable_crash_trace():
     """Capture a Python stack if a native fault reaches Python's handler."""
     global _crash_log
+    if os.name == "nt":
+        # Windows can deliver handled first-chance access violations. Python's
+        # exception hook dumps all threads even when Houdini handles the fault.
+        # Keep the timeout watchdog without installing that exception hook.
+        trace("crash_handler.skipped_windows")
+        return False
     if _crash_log is not None:
         return True
     handle = None

@@ -3,7 +3,7 @@
 from __future__ import print_function
 
 from ..compat import HOST, QtCore, QtGui
-from ..houdini_trace import freeze_initial_gc_objects, start_hang_watchdog, trace
+from ..houdini_trace import start_hang_watchdog, trace
 
 
 def _trace(stage, detail=None):
@@ -70,7 +70,6 @@ class ScriptToolboxPanel(QtGui.QWidget):
                 # only after control returns to Houdini's Qt event loop.
                 def resume_gc():
                     _trace("container.gc_resume_begin")
-                    freeze_initial_gc_objects()
                     gc.enable()
                     _trace("container.gc_resumed")
                 _trace("container.gc_resume_scheduled")

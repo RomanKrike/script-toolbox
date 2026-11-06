@@ -253,8 +253,12 @@ class ThemeController(QtCore.QObject):
                 if callable(callback):
                     callback()
         widget.update()
-        for action in QtGui.QWidget.actions(widget):
-            action.setIcon(self._icon(action.icon()))
+        # Houdini may dispose pane-owned QActions during its own Qt event
+        # processing. Re-entering those actions from a queued theme refresh
+        # has produced a native access violation in Houdini 20.5.
+        if HOST.key != "houdini":
+            for action in QtGui.QWidget.actions(widget):
+                action.setIcon(self._icon(action.icon()))
 
     def refresh(self):
         self._pending = False
